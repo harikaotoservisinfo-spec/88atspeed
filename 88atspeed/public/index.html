@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>88ATSPEED | 7 Sekmeli Analiz Platformu</title>
+    <title>88ATSPEED | 4 Modüllü Analiz Platformu</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -189,13 +189,13 @@
                 <span class="logo-at">AT</span>
                 <span class="logo-speed">SPEED</span>
             </div>
-            <div class="subtitle">7 SEKMELİ PROFESYONEL ANALİZ PLATFORMU</div>
+            <div class="subtitle">4 MODÜLLÜ PROFESYONEL ANALİZ PLATFORMU</div>
         </div>
         
         <div class="global-controls">
             <div class="control-group">
                 <div class="control-label">📅 TARİH</div>
-                <input type="date" id="tarihSelect" class="global-date" onchange="this.blur(); loadHipodromlar();">
+                <input type="date" id="tarihSelect" class="global-date">
             </div>
             <div class="control-group">
                 <div class="control-label">🏟️ HIPODROM</div>
@@ -228,6 +228,7 @@
         <div id="tab-gosterim" class="tab-content"><iframe src="gosterim_full.html" style="width:100%; min-height:600px; border:none; background:transparent;"></iframe></div>
     </div>
 
+    <script src="/js/utils.js"></script>
     <script>
         let veriCache = {};
         let currentRaces = null;
@@ -249,7 +250,12 @@
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('tarihSelect').value = today;
         
-        document.getElementById('tarihSelect').addEventListener('change', function() { loadHipodromlar(); this.blur(); });
+        document.getElementById('tarihSelect').addEventListener('change', function() {
+            loadHipodromlar();
+            broadcastContextToIframes();
+            this.blur();
+        });
+        document.getElementById('hipodromSelect').addEventListener('change', broadcastContextToIframes);
         document.getElementById('getirBtn').onclick = fetchProgram;
         document.getElementById('kaydetBtn').onclick = veriKaydet;
         
@@ -264,33 +270,33 @@
             });
         });
         
+        function broadcastContextToIframes() {
+            const tarih = document.getElementById('tarihSelect').value;
+            const hipodromId = document.getElementById('hipodromSelect').value;
+            const hipodromAdi = document.getElementById('hipodromSelect').options[document.getElementById('hipodromSelect').selectedIndex]?.text || '';
+            AtSpeedUtils.broadcastContext(tarih, hipodromId, hipodromAdi);
+        }
+
         async function loadHipodromlar() {
-            let tarihInput = document.getElementById('tarihSelect').value;
+            const tarihInput = document.getElementById('tarihSelect').value;
             if (!tarihInput) return;
-            let parts = tarihInput.split('-');
-            let tarih = parts[2] + '/' + parts[1] + '/' + parts[0];
-            let hipodromSelect = document.getElementById('hipodromSelect');
+            const tarih = AtSpeedUtils.formatDateTR(tarihInput);
+            const hipodromSelect = document.getElementById('hipodromSelect');
             hipodromSelect.innerHTML = '<option value="">Hipodromlar yükleniyor...</option>';
             statusDiv.innerHTML = '<div class="status status-loading">⏳ ' + tarih + ' tarihi için hipodromlar listeleniyor...</div>';
-            try {
-                let response = await fetch('/api/hipodromlar?tarih=' + tarih);
-                let result = await response.json();
-                if (result.success && result.hipodromlar && result.hipodromlar.length > 0) {
-                    hipodromSelect.innerHTML = '<option value="">Hipodrom seçin</option>';
-                    for (let i = 0; i < result.hipodromlar.length; i++) {
-                        let option = document.createElement('option');
-                        option.value = result.hipodromlar[i].id;
-                        option.textContent = result.hipodromlar[i].name;
-                        hipodromSelect.appendChild(option);
-                    }
-                    statusDiv.innerHTML = '<div class="status status-success">✅ ' + tarih + ' tarihinde ' + result.hipodromlar.length + ' hipodromda yarış var</div>';
-                } else {
-                    hipodromSelect.innerHTML = '<option value="">Hipodrom bulunamadı</option>';
-                    statusDiv.innerHTML = '<div class="status status-error">⚠️ ' + tarih + ' tarihinde yarış bulunamadı</div>';
+            const list = await AtSpeedUtils.loadHipodromlar(tarihInput, null, null);
+            if (list.length > 0) {
+                hipodromSelect.innerHTML = '<option value="">Hipodrom seçin</option>';
+                for (const h of list) {
+                    const option = document.createElement('option');
+                    option.value = h.id;
+                    option.textContent = h.name;
+                    hipodromSelect.appendChild(option);
                 }
-            } catch(e) {
-                hipodromSelect.innerHTML = '<option value="">Bağlantı hatası</option>';
-                statusDiv.innerHTML = '<div class="status status-error">❌ Sunucuya bağlanılamıyor</div>';
+                statusDiv.innerHTML = '<div class="status status-success">✅ ' + tarih + ' tarihinde ' + list.length + ' hipodromda yarış var</div>';
+            } else {
+                hipodromSelect.innerHTML = '<option value="">Hipodrom bulunamadı</option>';
+                statusDiv.innerHTML = '<div class="status status-error">⚠️ ' + tarih + ' tarihinde yarış bulunamadı</div>';
             }
         }
         
@@ -308,12 +314,7 @@
             return [];
         }
         
-        function escapeHtml(s) {
-            if (!s) return '-';
-            return s.replace(/[&<>]/g, function(m) {
-                return m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;';
-            });
-        }
+        function escapeHtml(s) { return AtSpeedUtils.escapeHtml(s); }
         
         async function fetchProgram() {
             let hipodromId = document.getElementById('hipodromSelect').value;
@@ -451,7 +452,7 @@
         async function veriKaydet() {
             if (!currentRaces) {
                 statusDiv.innerHTML = '<div class="status status-error">❌ Önce GETİR butonuna tıklayın!</div>';
-                return;
+                return null;
             }
             
             let hipodromSelect = document.getElementById('hipodromSelect');
@@ -499,12 +500,15 @@
                 });
                 let result = await response.json();
                 if (result.success) {
-                    statusDiv.innerHTML = '<div class="status status-success">✅ Veri başarıyla kaydedildi!</div>';
+                    statusDiv.innerHTML = '<div class="status status-success">✅ Veri kaydedildi! (ID: ' + result.id + ') — yeni sekmede açılıyor...</div>';
+                    window.open('/hesaplama-kayit.html?id=' + result.id, '_blank', 'noopener,noreferrer');
+                    return result.id;
                 } else {
                     throw new Error(result.error);
                 }
             } catch (error) {
                 statusDiv.innerHTML = '<div class="status status-error">❌ Kayıt hatası: ' + error.message + '</div>';
+                return null;
             }
         }
         
