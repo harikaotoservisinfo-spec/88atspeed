@@ -452,7 +452,7 @@
         async function veriKaydet() {
             if (!currentRaces) {
                 statusDiv.innerHTML = '<div class="status status-error">❌ Önce GETİR butonuna tıklayın!</div>';
-                return;
+                return null;
             }
             
             let hipodromSelect = document.getElementById('hipodromSelect');
@@ -500,12 +500,15 @@
                 });
                 let result = await response.json();
                 if (result.success) {
-                    statusDiv.innerHTML = '<div class="status status-success">✅ Veri başarıyla kaydedildi!</div>';
+                    statusDiv.innerHTML = '<div class="status status-success">✅ Veri kaydedildi! (ID: ' + result.id + ') — yeni sekmede açılıyor...</div>';
+                    window.open('/hesaplama-kayit.html?id=' + result.id, '_blank', 'noopener,noreferrer');
+                    return result.id;
                 } else {
                     throw new Error(result.error);
                 }
             } catch (error) {
                 statusDiv.innerHTML = '<div class="status status-error">❌ Kayıt hatası: ' + error.message + '</div>';
+                return null;
             }
         }
         

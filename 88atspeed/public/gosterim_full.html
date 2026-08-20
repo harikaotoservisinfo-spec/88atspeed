@@ -572,6 +572,11 @@ function displayResults(data) {
         });
     });
 }
+
+const kayitFromUrl = new URLSearchParams(window.location.search).get('kayit');
+if (kayitFromUrl) {
+    loadKayit(kayitFromUrl);
+}
 </script>
 </body>
 </html>
