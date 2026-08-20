@@ -3,7 +3,11 @@ const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const sqlite3 = require('sqlite3').verbose();
 const app = express();
-const PORT = 3023;
+const PORT = process.env.PORT || 3023;
+const HOST = process.env.HOST || '0.0.0.0';
+
+// Nginx reverse proxy arkasında doğru IP ve protokol
+app.set('trust proxy', 1);
 
 // Stealth plugin ile bot tespitini engelle
 puppeteer.use(StealthPlugin());
@@ -811,11 +815,11 @@ process.on('SIGINT', async () => {
 
 // ==================== SUNUCU BAŞLAT ====================
 
-app.listen(PORT, async () => {
+app.listen(PORT, HOST, async () => {
     console.log(`\n✅ 88ATSPEED Sunucusu çalışıyor:`);
-    console.log(`📍 http://localhost:${PORT}`);
+    console.log(`📍 http://${HOST}:${PORT}`);
     console.log(`💾 SQLite veritabanı hazır: atlar.db`);
-    console.log(`🐎 API\'ler aktif!\n`);
+    console.log(`🐎 API'ler aktif!\n`);
     console.log(`🔒 Stealth plugin ile 403 engeli aşıldı.\n`);
 });
 
