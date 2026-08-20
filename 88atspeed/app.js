@@ -3,7 +3,11 @@ const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const sqlite3 = require('sqlite3').verbose();
 const app = express();
-const PORT = 3023;
+const PORT = process.env.PORT || 3023;
+const HOST = process.env.HOST || '0.0.0.0';
+
+// Nginx reverse proxy arkasında doğru IP ve protokol
+app.set('trust proxy', 1);
 
 // Stealth plugin ile bot tespitini engelle
 puppeteer.use(StealthPlugin());
@@ -96,11 +100,28 @@ const getBrowserHeaders = () => ({
 
 async function getBrowserInstance() {
     if (browser) return browser;
-    browser = await puppeteer.launch({
+    const launchOptions = {
         headless: true,
-        executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+    };
+    const chromePaths = [
+        process.env.CHROME_PATH,
+        '/usr/bin/google-chrome',
+        '/usr/bin/google-chrome-stable',
+        '/usr/bin/chromium-browser',
+        '/usr/bin/chromium',
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+    ].filter(Boolean);
+    for (const chromePath of chromePaths) {
+        try {
+            const fs = require('fs');
+            if (fs.existsSync(chromePath)) {
+                launchOptions.executablePath = chromePath;
+                break;
+            }
+        } catch (_) {}
+    }
+    browser = await puppeteer.launch(launchOptions);
     return browser;
 }
 
@@ -794,11 +815,11 @@ process.on('SIGINT', async () => {
 
 // ==================== SUNUCU BAŞLAT ====================
 
-app.listen(PORT, async () => {
+app.listen(PORT, HOST, async () => {
     console.log(`\n✅ 88ATSPEED Sunucusu çalışıyor:`);
-    console.log(`📍 http://localhost:${PORT}`);
+    console.log(`📍 http://${HOST}:${PORT}`);
     console.log(`💾 SQLite veritabanı hazır: atlar.db`);
-    console.log(`🐎 API\'ler aktif!\n`);
+    console.log(`🐎 API'ler aktif!\n`);
     console.log(`🔒 Stealth plugin ile 403 engeli aşıldı.\n`);
 });
 
