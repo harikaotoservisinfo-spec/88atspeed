@@ -360,17 +360,19 @@
                 
                 let uniqueIds = [];
                 let idsMap = {};
+                let idToName = {};
                 for (let i = 0; i < currentHorses.length; i++) {
                     let id = currentHorses[i].atId;
                     if (id && !idsMap[id]) {
                         idsMap[id] = true;
                         uniqueIds.push(id);
+                        idToName[id] = currentHorses[i].name || '';
                     }
                 }
                 
                 statusDiv.innerHTML = '<div class="status status-loading">⏳ ' + uniqueIds.length + ' at analiz ediliyor...</div>';
                 for (let i = 0; i < uniqueIds.length; i++) {
-                    await getAtTumVeriler(uniqueIds[i], '');
+                    await getAtTumVeriler(uniqueIds[i], idToName[uniqueIds[i]] || '');
                     statusDiv.innerHTML = '<div class="status status-loading">⏳ Analiz: ' + (i+1) + '/' + uniqueIds.length + ' at tamamlandı...</div>';
                 }
                 
