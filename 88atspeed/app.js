@@ -31,16 +31,10 @@ function requireAuth(req, res, next) {
     return res.status(401).json({ success: false, error: 'Geçersiz kimlik bilgileri' });
 }
 
+const APP_VERSION = '2026.08.20-scraper-v3';
+
 async function setupPage(page) {
-    await page.setRequestInterception(true);
-    page.on('request', (req) => {
-        const type = req.resourceType();
-        if (['image', 'font', 'media'].includes(type)) {
-            req.abort();
-        } else {
-            req.continue();
-        }
-    });
+    await page.setViewport({ width: 1920, height: 1080 });
 }
 
 async function withPage(fn) {
@@ -124,7 +118,7 @@ app.use(express.static('public'));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-app.get('/api/health', (req, res) => res.json({ success: true, status: 'ok' }));
+app.get('/api/health', (req, res) => res.json({ success: true, status: 'ok', version: APP_VERSION }));
 app.use('/api', requireAuth);
 
 // Gerçek tarayıcı headers
@@ -142,7 +136,13 @@ async function getBrowserInstance() {
     if (browser) return browser;
     const launchOptions = {
         headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--window-size=1920,1080'
+        ]
     };
     const chromePaths = [
         process.env.CHROME_PATH,
@@ -234,16 +234,16 @@ async function scrollToHashAnchor(page) {
 
 async function fetchKosuDetay(page, kosu, atIsmi) {
     let lastDetay = { birinciDerece: '-', atDerece: kosu.at_derece_ana_tablo, son800Bir: '-', son800Iki: '-' };
-    const waitSteps = [2000, 4000];
+    const waitSteps = [3500, 5500];
 
     for (let attempt = 0; attempt < waitSteps.length; attempt++) {
         try {
             await gotoWithHeaders(page, kosu.tarihLink, {
                 waitUntil: 'domcontentloaded',
                 waitMs: waitSteps[attempt],
-                waitSelector: 'table tbody tr td:nth-child(10)',
-                selectorTimeout: 12000,
-                timeout: 45000
+                waitSelector: 'table tbody tr',
+                selectorTimeout: 10000,
+                timeout: 30000
             });
             await scrollToHashAnchor(page);
             await waitForRaceResults(page, atIsmi);

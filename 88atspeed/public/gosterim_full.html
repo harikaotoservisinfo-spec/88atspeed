@@ -163,7 +163,24 @@ async function loadKayit(id) {
         currentHesaplamaId = id;
         
         displayResults(currentHesaplamaData);
-        statusDiv.innerHTML = '<div class="status status-success">✅ Kayıt yüklendi! (ID: ' + id + ')</div>';
+        
+        let eksikTotal = 0, eksikCount = 0;
+        for (const race of currentHesaplamaData) {
+            for (const horse of race.horses || []) {
+                for (const k of horse.kosular || []) {
+                    eksikTotal++;
+                    if (!k.birinci_derece || k.birinci_derece === '-' || !k.son800_bir || k.son800_bir === '-') {
+                        eksikCount++;
+                    }
+                }
+            }
+        }
+        
+        let statusHtml = '<div class="status status-success">✅ Kayıt yüklendi! (ID: ' + id + ')</div>';
+        if (eksikCount > 0) {
+            statusHtml += '<div class="status status-error">⚠️ Bu kayıtta <strong>' + eksikCount + '/' + eksikTotal + '</strong> koşuda birinci derece veya Son800 eksik — TEST2–TEST9 ve FARK sütunları boş kalır.<br>➡️ Ana sayfada <strong>GETİR → DETAY YENİLE → KAYDET</strong> yapın (yeni kayıt oluşturun).</div>';
+        }
+        statusDiv.innerHTML = statusHtml;
         
     } catch (error) {
         statusDiv.innerHTML = '<div class="status status-error">❌ Yükleme hatası: ' + error.message + '</div>';

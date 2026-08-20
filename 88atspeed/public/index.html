@@ -211,6 +211,10 @@
                 <div class="control-label">💾 KAYIT</div>
                 <button id="kaydetBtn" class="global-btn save-btn">KAYDET</button>
             </div>
+            <div class="control-group">
+                <div class="control-label">🔄 DETAY</div>
+                <button id="detayYenileBtn" class="global-btn" style="background:linear-gradient(135deg,#9C27B0,#673AB7);">DETAY YENİLE</button>
+            </div>
         </div>
         
         <div id="status"></div>
@@ -258,6 +262,59 @@
         document.getElementById('hipodromSelect').addEventListener('change', broadcastContextToIframes);
         document.getElementById('getirBtn').onclick = fetchProgram;
         document.getElementById('kaydetBtn').onclick = veriKaydet;
+        document.getElementById('detayYenileBtn').onclick = refreshDetayVeriler;
+        
+        function countEksikDetay() {
+            let total = 0, eksik = 0;
+            for (const id of Object.keys(veriCache)) {
+                const kosular = veriCache[id] || [];
+                for (const k of kosular) {
+                    total++;
+                    if (!k.birinci_derece || k.birinci_derece === '-' || !k.son800_bir || k.son800_bir === '-') {
+                        eksik++;
+                    }
+                }
+            }
+            return { total, eksik };
+        }
+        
+        function showFetchStatus(hipodromText, result, extraWarning) {
+            const { total, eksik } = countEksikDetay();
+            let html = '<div class="status status-success">✅ ' + hipodromText + ': ' + result.totalRaces + ' koşu, ' + result.totalHorses + ' at analiz edildi.</div>';
+            if (eksik > 0) {
+                html += '<div class="status status-error">⚠️ ' + eksik + '/' + total + ' koşuda birinci derece veya Son800 eksik — GÖSTERİM hesaplamaları boş kalır. <strong>DETAY YENİLE</strong> butonuna basın, sonra <strong>KAYDET</strong>.</div>';
+            }
+            if (extraWarning) html += extraWarning;
+            statusDiv.innerHTML = html;
+        }
+        
+        async function refreshDetayVeriler() {
+            if (!currentRaces) {
+                statusDiv.innerHTML = '<div class="status status-error">❌ Önce GETİR butonuna tıklayın!</div>';
+                return;
+            }
+            let uniqueIds = [];
+            let idToName = {};
+            let idsMap = {};
+            for (let i = 0; i < currentHorses.length; i++) {
+                let id = currentHorses[i].atId;
+                if (id && !idsMap[id]) {
+                    idsMap[id] = true;
+                    uniqueIds.push(id);
+                    idToName[id] = currentHorses[i].name || '';
+                }
+            }
+            statusDiv.innerHTML = '<div class="status status-loading">⏳ Detay veriler yeniden çekiliyor (' + uniqueIds.length + ' at)...</div>';
+            for (let i = 0; i < uniqueIds.length; i++) {
+                delete veriCache[uniqueIds[i]];
+                await getAtTumVeriler(uniqueIds[i], idToName[uniqueIds[i]] || '', true);
+                statusDiv.innerHTML = '<div class="status status-loading">⏳ Detay yenileme: ' + (i+1) + '/' + uniqueIds.length + ' at...</div>';
+            }
+            hesaplamaGoster(currentRaces);
+            let hipodromSelect = document.getElementById('hipodromSelect');
+            let hipodromText = hipodromSelect.options[hipodromSelect.selectedIndex] ? hipodromSelect.options[hipodromSelect.selectedIndex].text : '';
+            showFetchStatus(hipodromText, { totalRaces: currentRaces.length, totalHorses: currentHorses.length }, '');
+        }
         
         // SEKME GEÇİŞLERİ
         document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -300,8 +357,8 @@
             }
         }
         
-        async function getAtTumVeriler(atId, atAdi) {
-            if (veriCache[atId]) return veriCache[atId];
+        async function getAtTumVeriler(atId, atAdi, forceRefresh) {
+            if (!forceRefresh && veriCache[atId]) return veriCache[atId];
             if (!atId) return { kosular: [] };
             try {
                 let res = await fetch('/api/at-tum-veriler?id=' + atId + '&adi=' + encodeURIComponent(atAdi));
@@ -377,7 +434,7 @@
                 }
                 
                 hesaplamaGoster(currentRaces);
-                statusDiv.innerHTML = '<div class="status status-success">✅ ' + hipodromText + ': ' + result.totalRaces + ' koşu, ' + result.totalHorses + ' at analiz edildi.</div>';
+                showFetchStatus(hipodromText, result, '');
                 
             } catch (error) {
                 statusDiv.innerHTML = '<div class="status status-error">❌ Hata: ' + error.message + '</div>';
