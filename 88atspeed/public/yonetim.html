@@ -81,6 +81,9 @@
 <div class="control-group" style="margin-bottom:15px;"><div class="control-label">AÇIKLAMA</div><textarea id="calismaAciklama" rows="3" style="padding:8px; border-radius:8px; background:#0f3460; color:white; border:none; width:100%;"></textarea></div>
 <div style="display:flex; gap:10px; justify-content:flex-end;"><button id="saveModalClose" style="padding:8px 20px; border-radius:8px; background:#555; color:white; border:none;">İPTAL</button><button id="saveModalConfirm" style="padding:8px 20px; border-radius:8px; background:#4CAF50; color:white; border:none;">KAYDET</button></div>
 </div>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/formula-engine.js"></script>
 <script>
 // Global değişkenler
 window.currentKarsilastirmaData = null;
@@ -152,88 +155,22 @@ function getCellValue(raceIndex, horseIndex, colIndex) {
     return window.cellValues[key] || '';
 }
 
-function dereceToSalise(d){if(!d||d==='-')return null;let s=d.toString().trim();s=s.replace(/:/g,'.');let p=s.split('.');if(p.length===3){let dk=parseInt(p[0])||0,sn=parseInt(p[1])||0,sl=parseInt(p[2])||0;return(dk*60*100)+(sn*100)+sl;}else if(p.length===2){let sn=parseInt(p[0])||0,sl=parseInt(p[1])||0;return(sn*100)+sl;}else if(p.length===1){return parseInt(p[0])||0;}return null;}
-function saliseToDerece(s){if(s===null||s===undefined)return '-';let ts=Math.floor(Math.abs(s));let dk=Math.floor(ts/6000);let ks=ts%6000;let sn=Math.floor(ks/100);let kl=ks%100;return dk+'.'+sn.toString().padStart(2,'0')+'.'+kl.toString().padStart(2,'0');}
-function dereceToSayi(d){if(!d||d==='-')return null;return dereceToSalise(d);}
+function dereceToSalise(d) { return AtSpeedUtils.dereceToSalise(d); }
+function saliseToDerece(s) { return AtSpeedUtils.saliseToDerece(s); }
 
-function metreBasinaSaliseHesapla(mesafe, derece) {
-    if (!mesafe || !derece || derece === '-') return null;
-    const mesafeSayi = parseInt(mesafe);
-    if (isNaN(mesafeSayi) || mesafeSayi === 0) return null;
-    const toplamSalise = dereceToSalise(derece);
-    if (toplamSalise === null) return null;
-    return (toplamSalise / mesafeSayi).toFixed(4);
-}
-
-function son800ToSalise(derece) {
-    if (!derece || derece === '-') return null;
-    return dereceToSalise(derece);
-}
-
-function getAtHesaplamaVerisi(atId,kosuIndex,field){
-    if(!window.currentHesaplamaData)return '';
-    for(let race of window.currentHesaplamaData){
-        for(let horse of race.horses){
-            if(horse.atId==atId&&horse.kosular&&horse.kosular[kosuIndex]){
-                return horse.kosular[kosuIndex][field]||'-';
-            }
-        }
-    }
-    return '-';
+function getFormulaContext() {
+    return {
+        ekSutunlar: window.ekSutunlar,
+        currentKarsilastirmaData: window.currentKarsilastirmaData,
+        otomatikVerileri: window.otomatikVerileri,
+        getAtHesaplamaVerisi,
+        setCellValue,
+        getCellValue
+    };
 }
 
 function applyAdvancedFormula(colName, raceIndex, formula) {
-    let expr = formula.substring(1).toUpperCase();
-    let metreMatch = expr.match(/METRE_BASI_SALISE\(([^;]+);([^)]+)\)/);
-    if(metreMatch) {
-        const mesafeSutun = metreMatch[1].trim();
-        const kosuNo = parseInt(mesafeSutun.match(/K(\d+)/)?.[1] || 0);
-        if(kosuNo > 0) {
-            const kosuIndex = kosuNo - 1;
-            const colIndex = ekSutunlar.indexOf(colName);
-            if(colIndex !== -1) {
-                for(let i=0; i<currentKarsilastirmaData.length; i++) {
-                    const race = currentKarsilastirmaData[i];
-                    for(let j=0; j<race.horses.length; j++) {
-                        const horse = race.horses[j];
-                        const mesafe = getAtHesaplamaVerisi(horse.atId, kosuIndex, 'mesafe');
-                        const derece = getAtHesaplamaVerisi(horse.atId, kosuIndex, 'at_derece');
-                        if(mesafe && derece && derece !== '-') {
-                            const mesafeSayi = parseInt(mesafe);
-                            const toplamSalise = dereceToSalise(derece);
-                            if(mesafeSayi > 0 && toplamSalise !== null) {
-                                setCellValue(i, j, colIndex, (toplamSalise / mesafeSayi).toFixed(4));
-                            }
-                        }
-                    }
-                }
-            }
-            return;
-        }
-    }
-    let son800SaliseMatch = expr.match(/SON800_SALISE\(([^)]+)\)/);
-    if(son800SaliseMatch) {
-        const son800Sutun = son800SaliseMatch[1].trim();
-        const kosuNo = parseInt(son800Sutun.match(/K(\d+)/)?.[1] || 0);
-        const alan = son800Sutun.includes('SON800-1') ? 'son800_bir' : 'son800_iki';
-        if(kosuNo > 0) {
-            const kosuIndex = kosuNo - 1;
-            const colIndex = ekSutunlar.indexOf(colName);
-            if(colIndex !== -1) {
-                for(let i=0; i<currentKarsilastirmaData.length; i++) {
-                    const race = currentKarsilastirmaData[i];
-                    for(let j=0; j<race.horses.length; j++) {
-                        const horse = race.horses[j];
-                        const derece = getAtHesaplamaVerisi(horse.atId, kosuIndex, alan);
-                        const sonuc = son800ToSalise(derece);
-                        if(sonuc !== null) setCellValue(i, j, colIndex, sonuc);
-                    }
-                }
-            }
-            return;
-        }
-    }
-    console.log('Tanınmayan formül:', formula);
+    FormulaEngine.applyAdvancedFormula(colName, raceIndex, formula, getFormulaContext());
 }
 
 function applyColumnFormatting(colName, raceIndex){
@@ -249,6 +186,33 @@ function applyAllFormatting(){
             applyColumnFormatting(s,i);
         }
     }
+    FormulaEngine.runOtomatikHesaplamalar('veriDegisti', getFormulaContext());
+}
+
+function getAtHesaplamaVerisi(atId,kosuIndex,field){
+    if(!window.currentHesaplamaData)return '';
+    for(let race of window.currentHesaplamaData){
+        for(let horse of race.horses){
+            if(horse.atId==atId&&horse.kosular&&horse.kosular[kosuIndex]){
+                return horse.kosular[kosuIndex][field]||'-';
+            }
+        }
+    }
+    return '-';
+}
+
+function metreBasinaSaliseHesapla(mesafe, derece) {
+    if (!mesafe || !derece || derece === '-') return null;
+    const mesafeSayi = parseInt(String(mesafe).replace(/\D/g, ''));
+    if (isNaN(mesafeSayi) || mesafeSayi === 0) return null;
+    const toplamSalise = dereceToSalise(derece);
+    if (toplamSalise === null) return null;
+    return (toplamSalise / mesafeSayi).toFixed(4);
+}
+
+function son800ToSalise(derece) {
+    if (!derece || derece === '-') return null;
+    return dereceToSalise(derece);
 }
 
 function collectTableData(){
@@ -705,9 +669,12 @@ async function loadCalisma(id){
             window.ekSutunlar=res.calisma.sutun_yapisi||[];
         }
         if(typeof res.calisma.hesaplamalar==='string'){
-            window.sutunFormulleri=JSON.parse(res.calisma.hesaplamalar||'{}');
+            const parsed = JSON.parse(res.calisma.hesaplamalar||'{}');
+            window.sutunFormulleri = parsed.formulas || parsed || {};
+            window.cellValues = parsed.cellValues || res.calisma.cellValues || {};
         }else{
             window.sutunFormulleri=res.calisma.hesaplamalar||{};
+            window.cellValues=res.calisma.cellValues||{};
         }
         console.log('📥 Yüklenen formüller:', window.sutunFormulleri);
         if(window.currentKarsilastirmaId){
@@ -795,7 +762,8 @@ document.getElementById('saveModalConfirm').onclick=async()=>{
         hesaplama_kayit_id:window.currentHesaplamaId,
         tablo_veri:window.currentKarsilastirmaData,
         sutun_yapisi:JSON.stringify(window.ekSutunlar),
-        hesaplamalar:JSON.stringify(window.sutunFormulleri)
+        hesaplamalar:JSON.stringify(window.sutunFormulleri),
+        cellValues:window.cellValues
     };
     try{
         let resp=await fetch('/api/yonetim-calisma-kaydet-v2',{
@@ -815,7 +783,11 @@ document.getElementById('saveModalConfirm').onclick=async()=>{
     }
 };
 
-function escapeHtml(s){if(!s)return '-';return s.replace(/[&<>]/g,function(m){return m==='&'?'&amp;':m==='<'?'&lt;':'&gt;';});}
+function escapeHtml(s){return AtSpeedUtils.escapeHtml(s);}
+
+AtSpeedUtils.listenParentContext((ctx) => {
+    if (ctx.tarih) console.log('📡 Yönetim: ana sayfadan tarih alındı', ctx.tarih);
+});
 
 window.addColumn=addColumn;
 window.deleteColumn=deleteColumn;

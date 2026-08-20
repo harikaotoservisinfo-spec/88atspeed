@@ -1,0 +1,18 @@
+# 88ATSPEED
+node_modules/
+.DS_Store
+*.log
+.env
+*.yedek*
+*.yedek
+*.bozuk
+*.backup
+*.save
+*.son
+app.js.bozuk
+app.js.yedek
+app.js.sqlite.backup
+db-config.js.save
+sayfa_html.txt
+ankara_sayfa.html
+tjk_*.xlsx
