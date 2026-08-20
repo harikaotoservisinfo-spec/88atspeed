@@ -1,0 +1,19 @@
+{
+  "name": "88atspeed",
+  "version": "1.0.0",
+  "description": "TJK At Yarışı Analiz Programı",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "cheerio": "^1.2.0",
+    "express": "^4.22.1",
+    "mysql2": "^3.22.1",
+    "puppeteer": "^24.43.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "sqlite3": "^6.0.1",
+    "xlsx": "^0.18.5"
+  }
+}

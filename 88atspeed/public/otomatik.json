@@ -1,0 +1,46 @@
+{
+  "aciklama": "Otomatik hesaplamalar - Sayfa yuklendiginde veya veri degistiginde otomatik calisir",
+  "versiyon": "1.0",
+  "hesaplamalar": [
+    {
+      "id": "min3_renklendirme",
+      "adi": "EN KUCUK 3 RENKLENDIR",
+      "aktif": true,
+      "tetikleyici": ["sayfaYuklendi", "veriDegisti", "kayitYuklendi", "sutunEklendi"],
+      "islem": "renklendirEnKucuk3",
+      "aciklama": "Her sutundaki en kucuk 3 degeri yesil yapar"
+    },
+    {
+      "id": "kosu_farklari",
+      "adi": "KOSU FARKLARI",
+      "aktif": false,
+      "tetikleyici": ["veriDegisti", "kayitYuklendi"],
+      "islem": "hesaplaKosuFarklari",
+      "aciklama": "K7-K6, K6-K5, K5-K4, K4-K3, K3-K2, K2-K1 farklarini hesaplar"
+    },
+    {
+      "id": "son800_ortalama",
+      "adi": "SON800 ORTALAMA",
+      "aktif": false,
+      "tetikleyici": ["veriDegisti"],
+      "islem": "hesaplaSon800Ortalama",
+      "aciklama": "Her kosu icin SON800-1 ve SON800-2 ortalamasini alir"
+    },
+    {
+      "id": "metre_basi_salise_tum",
+      "adi": "METRE BASI SALISE (TUM KOSULAR)",
+      "aktif": false,
+      "tetikleyici": ["veriDegisti"],
+      "islem": "hesaplaMetreBasiSaliseTumKosular",
+      "aciklama": "Tum kosular icin metre basi salise hesaplar"
+    }
+  ],
+  "renklendirme": {
+    "en_kucuk_3": {
+      "1": "#00ff00",
+      "2": "#66ff66",
+      "3": "#aaffaa"
+    },
+    "varsayilan": "#FF9800"
+  }
+}

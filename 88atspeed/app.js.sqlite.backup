@@ -1,0 +1,710 @@
+const express = require('express');
+const puppeteer = require('puppeteer');
+const sqlite3 = require('sqlite3').verbose();
+const app = express();
+const PORT = 3023;
+
+let browser = null;
+
+// SQLite Veritabanı Bağlantısı
+const db = new sqlite3.Database('atlar.db');
+
+// Tabloyu oluştur (yoksa)
+db.run(`CREATE TABLE IF NOT EXISTS at_verileri (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    hipodrom TEXT,
+    hipodrom_id TEXT,
+    tarih TEXT,
+    race_count INTEGER,
+    total_horses INTEGER,
+    veri TEXT,
+    kayit_tarihi DATETIME DEFAULT CURRENT_TIMESTAMP
+)`);
+
+app.use(express.static('public'));
+app.use(express.json());
+
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+    next();
+});
+
+// API 1: Hipodromları getir
+app.get('/api/hipodromlar', async (req, res) => {
+    const tarih = req.query.tarih;
+    console.log('📡 Hipodrom isteği - Tarih:', tarih);
+    
+    try {
+        if (!browser) {
+            browser = await puppeteer.launch({
+                headless: true,
+                executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+                args: ['--no-sandbox']
+            });
+        }
+        
+        const page = await browser.newPage();
+        const url = `https://www.tjk.org/TR/YarisSever/Info/Page/GunlukYarisProgrami?QueryParameter_Tarih=${tarih}&Era=today`;
+        await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+        await new Promise(r => setTimeout(r, 5000));
+        
+        const hipodromlar = await page.evaluate(() => {
+            const tabs = document.querySelectorAll('ul.gunluk-tabs > li > a');
+            const result = [];
+            for (let i = 0; i < tabs.length; i++) {
+                const tab = tabs[i];
+                const id = tab.getAttribute('data-sehir-id');
+                let name = tab.innerText.trim();
+                name = name.replace(/\(\d+\.\s*Y\.G\.\)/, '').trim();
+                if (id && name) {
+                    result.push({ id: id, name: name });
+                }
+            }
+            return result;
+        });
+        
+        await page.close();
+        res.json({ success: true, hipodromlar: hipodromlar });
+        
+    } catch (error) {
+        console.error('Hipodrom hatası:', error.message);
+        res.json({ success: false, error: error.message, hipodromlar: [] });
+    }
+});
+
+// API 2: Yarış programını getir (at listesi)
+app.get('/api/yaris-programi', async (req, res) => {
+    const sehirId = req.query.sehir;
+    const sehirAdi = req.query.sehirAdi;
+    const tarih = req.query.tarih;
+    
+    console.log('📡 Yarış programı isteği - Şehir:', sehirId, sehirAdi, 'Tarih:', tarih);
+    
+    try {
+        if (!browser) {
+            browser = await puppeteer.launch({
+                headless: true,
+                executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+                args: ['--no-sandbox']
+            });
+        }
+        
+        const page = await browser.newPage();
+        const url = `https://www.tjk.org/TR/YarisSever/Info/Sehir/GunlukYarisProgrami?SehirId=${sehirId}&QueryParameter_Tarih=${tarih}&SehirAdi=${encodeURIComponent(sehirAdi)}&Era=today`;
+        await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+        await new Promise(r => setTimeout(r, 5000));
+        
+        const yarisProgrami = await page.evaluate(() => {
+            const races = [];
+            const tables = document.querySelectorAll('table.tablesorter');
+            
+            for (let idx = 0; idx < tables.length; idx++) {
+                const table = tables[idx];
+                const horses = [];
+                const rows = table.querySelectorAll('tbody tr');
+                
+                for (let j = 0; j < rows.length; j++) {
+                    const row = rows[j];
+                    const cells = row.querySelectorAll('td');
+                    if (cells.length < 5) continue;
+                    
+                    const horseNo = cells[1]?.innerText?.trim();
+                    if (!horseNo || !/^\d+$/.test(horseNo)) continue;
+                    
+                    const link = cells[2]?.querySelector('a');
+                    let atId = '';
+                    let horseName = '';
+                    
+                    if (link) {
+                        horseName = link.innerText?.trim() || '';
+                        const href = link.getAttribute('href');
+                        if (href) {
+                            const match = href.match(/AtId=(\d+)/);
+                            if (match) atId = match[1];
+                        }
+                    } else {
+                        horseName = cells[2]?.innerText?.trim() || '';
+                    }
+                    
+                    if (horseName && horseName !== 'At İsmi') {
+                        horses.push({
+                            no: horseNo,
+                            name: horseName,
+                            atId: atId
+                        });
+                    }
+                }
+                
+                if (horses.length > 0) {
+                    races.push({
+                        raceNo: (races.length + 1).toString(),
+                        horseCount: horses.length,
+                        horses: horses
+                    });
+                }
+            }
+            return races;
+        });
+        
+        await page.close();
+        
+        const totalHorses = yarisProgrami.reduce((s, r) => s + r.horses.length, 0);
+        
+        res.json({
+            success: true,
+            data: yarisProgrami,
+            totalRaces: yarisProgrami.length,
+            totalHorses: totalHorses,
+            hipodrom: sehirAdi,
+            tarih: tarih
+        });
+        
+    } catch (error) {
+        console.error('Yarış programı hatası:', error.message);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// API 3: Atın TÜM VERİLERİNİ getir
+app.get('/api/at-tum-veriler', async (req, res) => {
+    const atId = req.query.id;
+    let atIsmiGelen = req.query.adi || '';
+    
+    console.log('📡 At tüm veriler isteği - ID:', atId, 'İsim:', atIsmiGelen);
+    
+    if (!atId) {
+        return res.json({ success: false, error: 'At ID gerekli' });
+    }
+    
+    try {
+        if (!browser) {
+            browser = await puppeteer.launch({
+                headless: true,
+                executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+                args: ['--no-sandbox']
+            });
+        }
+        
+        const page = await browser.newPage();
+        const atUrl = `https://www.tjk.org/TR/YarisSever/Query/ConnectedPage/AtKosuBilgileri?QueryParameter_AtId=${atId}`;
+        await page.goto(atUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+        await new Promise(r => setTimeout(r, 3000));
+        
+        let atIsmi = await page.evaluate(() => {
+            const isimElement = document.querySelector("h2.tableTitle");
+            return isimElement ? isimElement.innerText.trim() : "Bilinmeyen At";
+        });
+        
+        const kosular = await page.evaluate(() => {
+            const rows = document.querySelectorAll("table.tablesorter tbody tr");
+            const data = [];
+            
+            for (let row of rows) {
+                const tarihCell = row.querySelector("td:first-child");
+                if (tarihCell) {
+                    const tarihLink = tarihCell.querySelector("a");
+                    if (tarihLink && tarihLink.href) {
+                        const sehirCell = row.querySelector("td:nth-child(2)");
+                        const mesafeCell = row.querySelector("td:nth-child(3)");
+                        const siraCell = row.querySelector("td:nth-child(5)");
+                        const dereceCell = row.querySelector("td:nth-child(6)");
+                        
+                        data.push({
+                            tarih: tarihCell.innerText.trim(),
+                            tarihLink: tarihLink.href,
+                            sehir: sehirCell ? sehirCell.innerText.trim() : "",
+                            mesafe: mesafeCell ? mesafeCell.innerText.trim() : "",
+                            sira: siraCell ? siraCell.innerText.trim() : "",
+                            at_derece_ana_tablo: dereceCell ? dereceCell.innerText.trim() : "-"
+                        });
+                    }
+                }
+            }
+            return data;
+        });
+        
+        const son7Kosu = kosular.slice(0, 7);
+        const sonuclar = [];
+        
+        for (let i = 0; i < son7Kosu.length; i++) {
+            const kosu = son7Kosu[i];
+            let birinciDerece = "-";
+            let atDerece = kosu.at_derece_ana_tablo;
+            let son800Bir = "-";
+            let son800Iki = "-";
+            
+            try {
+                await page.goto(kosu.tarihLink, { waitUntil: "networkidle2", timeout: 30000 });
+                await new Promise(r => setTimeout(r, 5000));
+                
+                const detay = await page.evaluate((atIsmi) => {
+                    const tables = document.querySelectorAll("table");
+                    let atTabloIndex = -1;
+                    
+                    for (let t = 0; t < tables.length; t++) {
+                        const rows = tables[t].querySelectorAll("tbody tr");
+                        for (let row of rows) {
+                            const atIsimCell = row.querySelector("td:nth-child(3)");
+                            if (atIsimCell && atIsimCell.innerText.trim().toUpperCase().includes(atIsmi.toUpperCase())) {
+                                atTabloIndex = t;
+                                break;
+                            }
+                        }
+                        if (atTabloIndex !== -1) break;
+                    }
+                    
+                    let birinciDerece = null;
+                    let atDereceDetay = null;
+                    let son800 = null;
+                    
+                    if (atTabloIndex !== -1) {
+                        const tablo = tables[atTabloIndex];
+                        const rows = tablo.querySelectorAll("tbody tr");
+                        
+                        for (let row of rows) {
+                            const siraCell = row.querySelector("td:nth-child(2)");
+                            const dereceCell = row.querySelector("td:nth-child(10)");
+                            
+                            if (siraCell && siraCell.innerText.trim() === "1") {
+                                if (dereceCell) {
+                                    birinciDerece = dereceCell.innerText.trim();
+                                }
+                            }
+                            
+                            const atIsimCell = row.querySelector("td:nth-child(3)");
+                            if (atIsimCell && atIsimCell.innerText.trim().toUpperCase().includes(atIsmi.toUpperCase())) {
+                                if (dereceCell) {
+                                    atDereceDetay = dereceCell.innerText.trim();
+                                }
+                            }
+                        }
+                    }
+                    
+                    const bodyText = document.body.innerText;
+                    const son800Index = bodyText.indexOf("Son 800");
+                    if (son800Index !== -1) {
+                        const son800Text = bodyText.substring(son800Index, son800Index + 100);
+                        let match = son800Text.match(/(\d+[\.\:]\d+[\.\:]\d+)\s*[\-\–]\s*(\d+[\.\:]\d+[\.\:]\d+)/);
+                        if (match) {
+                            son800 = match[1] + "|" + match[2];
+                        } else {
+                            const matchTek = son800Text.match(/(\d+[\.\:]\d+[\.\:]\d+)/);
+                            if (matchTek) {
+                                son800 = matchTek[1] + "|";
+                            }
+                        }
+                    }
+                    
+                    return { birinciDerece, atDereceDetay, son800 };
+                }, atIsmi);
+                
+                birinciDerece = detay.birinciDerece || "-";
+                if (detay.atDereceDetay && detay.atDereceDetay !== "-") {
+                    atDerece = detay.atDereceDetay;
+                }
+                
+                if (detay.son800 && detay.son800 !== "-") {
+                    const parts = detay.son800.split("|");
+                    son800Bir = parts[0] || "-";
+                    son800Iki = parts[1] || "-";
+                }
+                
+            } catch (err) {
+                console.error(err.message);
+            }
+            
+            sonuclar.push({
+                tarih: kosu.tarih,
+                sehir: kosu.sehir,
+                mesafe: kosu.mesafe,
+                sira: kosu.sira,
+                at_derece: atDerece,
+                birinci_derece: birinciDerece,
+                son800_bir: son800Bir,
+                son800_iki: son800Iki
+            });
+            
+            await new Promise(r => setTimeout(r, 500));
+        }
+        
+        await page.close();
+        res.json({ success: true, atAdi: atIsmi, atId: atId, kosular: sonuclar });
+        
+    } catch (error) {
+        console.error('At tüm veriler hatası:', error.message);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// API 4: Karşılaştırma için koşu sonuçlarını getir (SADECE SIRA, AT İSMİ, AT ID)
+app.get('/api/karsilastirma-sonuclari', async (req, res) => {
+    const sehirId = req.query.sehirId || '5';
+    const sehirAdi = req.query.sehirAdi || 'Ankara';
+    const tarih = req.query.tarih;
+    
+    console.log('📡 Karşılaştırma isteği - Şehir:', sehirId, sehirAdi, 'Tarih:', tarih);
+    
+    if (!tarih) {
+        return res.json({ success: false, error: 'Tarih gerekli' });
+    }
+    
+    try {
+        if (!browser) {
+            browser = await puppeteer.launch({
+                headless: true,
+                executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+                args: ['--no-sandbox']
+            });
+        }
+        
+        const page = await browser.newPage();
+        const url = `https://www.tjk.org/TR/YarisSever/Info/Sehir/GunlukYarisSonuclari?SehirId=${sehirId}&QueryParameter_Tarih=${tarih}&SehirAdi=${encodeURIComponent(sehirAdi)}&Era=lastWeek`;
+        
+        await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+        await new Promise(r => setTimeout(r, 5000));
+        
+        const sonuclar = await page.evaluate(() => {
+            const tables = document.querySelectorAll("table.tablesorter");
+            const raceResults = [];
+            
+            for (let t = 0; t < tables.length; t++) {
+                const table = tables[t];
+                const rows = table.querySelectorAll("tbody tr");
+                const horses = [];
+                
+                for (let row of rows) {
+                    const siraCell = row.querySelector("td:nth-child(2)");
+                    const sira = siraCell ? siraCell.innerText.trim() : null;
+                    
+                    if (!sira || isNaN(parseInt(sira))) continue;
+                    
+                    const atIsimCell = row.querySelector("td:nth-child(3)");
+                    let atIsmi = atIsimCell ? atIsimCell.innerText.trim() : null;
+                    let atId = "-";
+                    
+                    const atLink = atIsimCell ? atIsimCell.querySelector("a") : null;
+                    if (atLink && atLink.href) {
+                        const match = atLink.href.match(/QueryParameter_AtId=(\d+)/);
+                        if (match) atId = match[1];
+                        if (atLink.innerText.trim()) atIsmi = atLink.innerText.trim();
+                    }
+                    
+                    if (sira && atIsmi) {
+                        horses.push({ sira: sira, atIsmi: atIsmi, atId: atId });
+                    }
+                }
+                
+                if (horses.length > 0) {
+                    raceResults.push({
+                        raceNo: (raceResults.length + 1).toString(),
+                        horseCount: horses.length,
+                        horses: horses
+                    });
+                }
+            }
+            
+            return raceResults;
+        });
+        
+        await page.close();
+        
+        res.json({ 
+            success: true, 
+            data: sonuclar,
+            totalRaces: sonuclar.length,
+            hipodrom: sehirAdi,
+            tarih: tarih
+        });
+        
+    } catch (error) {
+        console.error('Karşılaştırma hatası:', error.message);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// API 5: Verileri KAYDET (SQLite)
+app.post('/api/kaydet', (req, res) => {
+    const veri = req.body;
+    console.log('💾 Kayıt isteği - Hipodrom:', veri.hipodrom, 'Tarih:', veri.tarih);
+    
+    const sql = `INSERT INTO at_verileri (hipodrom, hipodrom_id, tarih, race_count, total_horses, veri) VALUES (?, ?, ?, ?, ?, ?)`;
+    const params = [veri.hipodrom, veri.hipodromId, veri.tarih, veri.raceCount, veri.totalHorses, JSON.stringify(veri.data)];
+    
+    db.run(sql, params, function(err) {
+        if (err) {
+            console.error('❌ Kayıt hatası:', err.message);
+            res.json({ success: false, error: err.message });
+        } else {
+            console.log('✅ Kayıt başarılı! ID:', this.lastID);
+            res.json({ success: true, id: this.lastID });
+        }
+    });
+});
+
+// API 6: Kayıtlı verileri listele (GET)
+app.get('/api/kayitlar', (req, res) => {
+    db.all(`SELECT id, hipodrom, tarih, race_count, total_horses, kayit_tarihi FROM at_verileri ORDER BY kayit_tarihi DESC`, [], (err, rows) => {
+        if (err) {
+            res.json({ success: false, error: err.message });
+        } else {
+            res.json({ success: true, kayitlar: rows });
+        }
+    });
+});
+
+// API 7: Belirli bir kaydı getir
+app.get('/api/kayit/:id', (req, res) => {
+    const id = req.params.id;
+    db.get(`SELECT * FROM at_verileri WHERE id = ?`, [id], (err, row) => {
+        if (err) {
+            res.json({ success: false, error: err.message });
+        } else if (row) {
+            row.veri = JSON.parse(row.veri);
+            res.json({ success: true, kayit: row });
+        } else {
+            res.json({ success: false, error: 'Kayıt bulunamadı' });
+        }
+    });
+});
+
+process.on('SIGINT', async () => {
+    if (browser) await browser.close();
+    db.close();
+    console.log('\n👋 Program kapatıldı. Veritabanı kapatıldı.');
+    process.exit();
+});
+
+app.listen(PORT, () => {
+    console.log(`\n✅ 88ATSPEED Sunucusu çalışıyor:`);
+    console.log(`📍 http://localhost:${PORT}`);
+    console.log(`💾 SQLite veritabanı hazır: atlar.db`);
+    console.log(`🐎 API\'ler aktif!\n`);
+});
+
+// ==================== HESAPLAMA KAYITLARI API'leri ====================
+
+// HESAPLAMA verilerini kaydet
+app.post('/api/hesaplama-kaydet', (req, res) => {
+    const veri = req.body;
+    console.log('💾 HESAPLAMA kayıt isteği - Hipodrom:', veri.hipodrom, 'Tarih:', veri.tarih);
+    
+    const sql = `INSERT INTO hesaplama_kayitlari (hipodrom, hipodrom_id, tarih, race_count, total_horses, veri) VALUES (?, ?, ?, ?, ?, ?)`;
+    const params = [veri.hipodrom, veri.hipodromId, veri.tarih, veri.raceCount, veri.totalHorses, JSON.stringify(veri.data)];
+    
+    db.run(sql, params, function(err) {
+        if (err) {
+            console.error('❌ Kayıt hatası:', err.message);
+            res.json({ success: false, error: err.message });
+        } else {
+            console.log('✅ HESAPLAMA kayıt başarılı! ID:', this.lastID);
+            res.json({ success: true, id: this.lastID });
+        }
+    });
+});
+
+// HESAPLAMA kayıtlarını listele
+app.get('/api/hesaplama-kayitlar', (req, res) => {
+    db.all(`SELECT id, hipodrom, tarih, race_count, total_horses, kayit_tarihi FROM hesaplama_kayitlari ORDER BY kayit_tarihi DESC`, [], (err, rows) => {
+        if (err) {
+            res.json({ success: false, error: err.message });
+        } else {
+            res.json({ success: true, kayitlar: rows });
+        }
+    });
+});
+
+// HESAPLAMA kaydını getir
+app.get('/api/hesaplama-kayit/:id', (req, res) => {
+    const id = req.params.id;
+    db.get(`SELECT * FROM hesaplama_kayitlari WHERE id = ?`, [id], (err, row) => {
+        if (err) {
+            res.json({ success: false, error: err.message });
+        } else if (row) {
+            row.veri = JSON.parse(row.veri);
+            res.json({ success: true, kayit: row });
+        } else {
+            res.json({ success: false, error: 'Kayıt bulunamadı' });
+        }
+    });
+});
+
+// ==================== KARŞILAŞTIRMA KAYITLARI API'leri ====================
+
+// KARŞILAŞTIRMA verilerini kaydet
+app.post('/api/karsilastirma-kaydet', (req, res) => {
+    const veri = req.body;
+    console.log('💾 KARŞILAŞTIRMA kayıt isteği - Hipodrom:', veri.hipodrom, 'Tarih:', veri.tarih);
+    
+    const sql = `INSERT INTO karsilastirma_kayitlari (hipodrom, hipodrom_id, tarih, race_count, total_horses, siralama_veri, hesaplamalar) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+    const params = [veri.hipodrom, veri.hipodromId, veri.tarih, veri.raceCount, veri.totalHorses, JSON.stringify(veri.siralama_veri), JSON.stringify(veri.hesaplamalar || {})];
+    
+    db.run(sql, params, function(err) {
+        if (err) {
+            console.error('❌ Kayıt hatası:', err.message);
+            res.json({ success: false, error: err.message });
+        } else {
+            console.log('✅ KARŞILAŞTIRMA kayıt başarılı! ID:', this.lastID);
+            res.json({ success: true, id: this.lastID });
+        }
+    });
+});
+
+// KARŞILAŞTIRMA kayıtlarını listele
+app.get('/api/karsilastirma-kayitlar', (req, res) => {
+    db.all(`SELECT id, hipodrom, tarih, race_count, total_horses, kayit_tarihi FROM karsilastirma_kayitlari ORDER BY kayit_tarihi DESC`, [], (err, rows) => {
+        if (err) {
+            res.json({ success: false, error: err.message });
+        } else {
+            res.json({ success: true, kayitlar: rows });
+        }
+    });
+});
+
+// KARŞILAŞTIRMA kaydını getir
+app.get('/api/karsilastirma-kayit/:id', (req, res) => {
+    const id = req.params.id;
+    db.get(`SELECT * FROM karsilastirma_kayitlari WHERE id = ?`, [id], (err, row) => {
+        if (err) {
+            res.json({ success: false, error: err.message });
+        } else if (row) {
+            row.siralama_veri = JSON.parse(row.siralama_veri);
+            row.hesaplamalar = JSON.parse(row.hesaplamalar);
+            res.json({ success: true, kayit: row });
+        } else {
+            res.json({ success: false, error: 'Kayıt bulunamadı' });
+        }
+    });
+});
+
+// ==================== YÖNETİM ÇALIŞMALARI API'leri ====================
+
+// YÖNETİM çalışmasını kaydet
+app.post('/api/yonetim-calisma-kaydet', (req, res) => {
+    const veri = req.body;
+    console.log('💾 YÖNETİM çalışması kayıt isteği - Ad:', veri.ad);
+    
+    const sql = `INSERT INTO yonetim_calismalari (ad, aciklama, kaynak_kayit_id, kaynak_tur, tablo_veri, hesaplamalar, sutunlar) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+    const params = [veri.ad, veri.aciklama, veri.kaynak_kayit_id, veri.kaynak_tur, JSON.stringify(veri.tablo_veri), JSON.stringify(veri.hesaplamalar), veri.sutunlar];
+    
+    db.run(sql, params, function(err) {
+        if (err) {
+            console.error('❌ Kayıt hatası:', err.message);
+            res.json({ success: false, error: err.message });
+        } else {
+            console.log('✅ YÖNETİM çalışması kayıt başarılı! ID:', this.lastID);
+            res.json({ success: true, id: this.lastID });
+        }
+    });
+});
+
+// YÖNETİM çalışmalarını listele
+app.get('/api/yonetim-calismalari', (req, res) => {
+    db.all(`SELECT id, ad, aciklama, kaynak_kayit_id, kaynak_tur, kayit_tarihi FROM yonetim_calismalari ORDER BY kayit_tarihi DESC`, [], (err, rows) => {
+        if (err) {
+            res.json({ success: false, error: err.message });
+        } else {
+            res.json({ success: true, calismalar: rows });
+        }
+    });
+});
+
+// YÖNETİM çalışmasını getir
+app.get('/api/yonetim-calisma/:id', (req, res) => {
+    const id = req.params.id;
+    db.get(`SELECT * FROM yonetim_calismalari WHERE id = ?`, [id], (err, row) => {
+        if (err) {
+            res.json({ success: false, error: err.message });
+        } else if (row) {
+            row.tablo_veri = JSON.parse(row.tablo_veri);
+            row.hesaplamalar = JSON.parse(row.hesaplamalar);
+            res.json({ success: true, calisma: row });
+        } else {
+            res.json({ success: false, error: 'Çalışma bulunamadı' });
+        }
+    });
+});
+
+// ==================== YÖNETİM ÇALIŞMALARI V2 API'leri ====================
+
+// YÖNETİM çalışmasını kaydet (v2)
+app.post('/api/yonetim-calisma-kaydet-v2', (req, res) => {
+    const veri = req.body;
+    console.log('💾 YÖNETİM çalışması v2 kayıt isteği - Ad:', veri.ad);
+    
+    const sql = `INSERT INTO yonetim_calismalari_v2 (ad, aciklama, karsilastirma_kayit_id, hesaplama_kayit_id, tablo_veri, sutun_yapisi, hesaplamalar) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+    const params = [veri.ad, veri.aciklama, veri.karsilastirma_kayit_id, veri.hesaplama_kayit_id, JSON.stringify(veri.tablo_veri), veri.sutun_yapisi, veri.hesaplamalar];
+    
+    db.run(sql, params, function(err) {
+        if (err) {
+            console.error('❌ Kayıt hatası:', err.message);
+            res.json({ success: false, error: err.message });
+        } else {
+            console.log('✅ YÖNETİM çalışması v2 kayıt başarılı! ID:', this.lastID);
+            res.json({ success: true, id: this.lastID });
+        }
+    });
+});
+
+// YÖNETİM çalışmalarını listele (v2)
+app.get('/api/yonetim-calismalari-v2', (req, res) => {
+    db.all(`SELECT id, ad, aciklama, karsilastirma_kayit_id, hesaplama_kayit_id, kayit_tarihi FROM yonetim_calismalari_v2 ORDER BY kayit_tarihi DESC`, [], (err, rows) => {
+        if (err) {
+            res.json({ success: false, error: err.message });
+        } else {
+            res.json({ success: true, calismalar: rows });
+        }
+    });
+});
+
+// YÖNETİM çalışmasını getir (v2)
+app.get('/api/yonetim-calisma-v2/:id', (req, res) => {
+    const id = req.params.id;
+    db.get(`SELECT * FROM yonetim_calismalari_v2 WHERE id = ?`, [id], (err, row) => {
+        if (err) {
+            res.json({ success: false, error: err.message });
+        } else if (row) {
+            row.tablo_veri = JSON.parse(row.tablo_veri);
+            row.hesaplamalar = JSON.parse(row.hesaplamalar);
+            res.json({ success: true, calisma: row });
+        } else {
+            res.json({ success: false, error: 'Çalışma bulunamadı' });
+        }
+    });
+});
+
+// Excel export API
+const XLSX = require('xlsx');
+
+app.post('/api/excel-export', (req, res) => {
+    try {
+        const { data, baslik } = req.body;
+        
+        if (!data || data.length === 0) {
+            return res.json({ success: false, error: 'Veri yok' });
+        }
+        
+        // Çalışma kitabı oluştur
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        
+        // Sütun genişliklerini ayarla
+        ws['!cols'] = data[0].map(() => ({ wch: 15 }));
+        
+        // Kitaba ekle
+        XLSX.utils.book_append_sheet(wb, ws, baslik || '88ATSPEED');
+        
+        // Excel dosyasını buffer olarak al
+        const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'buffer' });
+        
+        // Base64'e çevir
+        const base64 = excelBuffer.toString('base64');
+        
+        res.json({ success: true, url: `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64}` });
+        
+    } catch (error) {
+        console.error('Excel hatası:', error.message);
+        res.json({ success: false, error: error.message });
+    }
+});

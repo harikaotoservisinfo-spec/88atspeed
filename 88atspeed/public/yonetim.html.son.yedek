@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Yönetim - 88ATSPEED</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: transparent; color: #fff; }
+        .yonetim-controls { background: rgba(30,30,60,0.8); border-radius: 20px; padding: 20px; margin-bottom: 20px; display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; }
+        .control-group { display: flex; flex-direction: column; gap: 8px; }
+        .control-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; color: #ff9800; }
+        .yonetim-btn { padding: 12px 20px; font-size: 14px; font-weight: 600; border-radius: 12px; cursor: pointer; background: linear-gradient(135deg, #ff9800, #f44336); color: white; min-width: 160px; border: none; }
+        .yonetim-btn:hover { opacity: 0.9; transform: translateY(-2px); }
+        .save-btn { background: linear-gradient(135deg, #2196F3, #1976D2); }
+        .excel-btn { background: linear-gradient(135deg, #4CAF50, #2E7D32); }
+        .upload-btn { background: linear-gradient(135deg, #9C27B0, #6A1B9A); }
+        .results-table { background: rgba(30,30,60,0.6); border-radius: 20px; overflow-x: auto; padding: 15px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        th, td { padding: 6px 8px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); border-right: 1px solid rgba(255,255,255,0.05); vertical-align: top; }
+        th { background: rgba(0,0,0,0.4); color: #ff9800; font-weight: 600; position: sticky; top: 0; }
+        td input, td select { background: #1a1a3e; border: 1px solid #ff9800; color: white; padding: 4px 6px; border-radius: 6px; width: 100%; font-size: 11px; }
+        .formula-input { background: #1a1a3e; border: 1px solid #4CAF50; color: #4CAF50; font-family: monospace; }
+        .col-formula-input { background: #0a2a4a; border: 1px solid #ff9800; color: #ff9800; font-family: monospace; font-size: 10px; width: 100%; text-align: center; }
+        .status { padding: 12px; border-radius: 12px; margin-bottom: 15px; text-align: center; }
+        .status-loading { background: rgba(255,152,0,0.2); color: #ff9800; }
+        .status-success { background: rgba(76,175,80,0.2); color: #4CAF50; }
+        .status-error { background: rgba(244,67,54,0.2); color: #f44336; }
+        .status-warning { background: rgba(255,152,0,0.2); color: #ff9800; }
+        .empty { text-align: center; padding: 60px; color: rgba(255,255,255,0.5); }
+        .kayit-listesi { background: rgba(0,0,0,0.3); border-radius: 12px; padding: 10px; margin-bottom: 15px; max-height: 200px; overflow-y: auto; }
+        .kayit-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; margin: 3px 0; background: rgba(255,255,255,0.05); border-radius: 8px; cursor: pointer; font-size: 12px; }
+        .kayit-item:hover { background: rgba(255,152,0,0.2); }
+        .kayit-item.selected { background: rgba(255,152,0,0.4); }
+        .race-card { background: rgba(30,30,60,0.4); border-radius: 16px; margin-bottom: 20px; overflow: hidden; }
+        .race-header { background: linear-gradient(135deg, rgba(255,152,0,0.2), rgba(76,175,80,0.1)); padding: 10px 15px; font-weight: bold; font-size: 14px; }
+        .add-col-btn { background: #4CAF50; color: white; border: none; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; margin-left: 10px; }
+        .delete-col-btn { background: #f44336; color: white; border: none; padding: 2px 6px; border-radius: 4px; cursor: pointer; font-size: 10px; margin-left: 5px; }
+        .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1a1a3e; padding: 20px; border-radius: 12px; z-index: 1000; display: none; min-width: 400px; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 999; display: none; }
+        .formula-help { font-size: 10px; color: #aaa; margin-top: 5px; display: flex; gap: 10px; flex-wrap: wrap; }
+        .formula-tag { background: #0a2a4a; padding: 2px 6px; border-radius: 4px; cursor: pointer; }
+        .formula-tag:hover { background: #ff9800; color: #000; }
+        .excel-buttons { display: flex; gap: 10px; }
+        .file-input { display: none; }
+        .formula-panel { background: rgba(0,0,0,0.3); border-radius: 12px; padding: 10px; margin-bottom: 15px; }
+        .btn-special { background: #ff9800; color: #000; }
+        .btn-special:hover { background: #ff5722; color: #fff; }
+        .dynamic-buttons { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+        .kosu-buton { background: #2196F3; color: white; padding: 3px 8px; border-radius: 12px; font-size: 10px; cursor: pointer; }
+        .kosu-buton:hover { background: #0b7dda; }
+    </style>
+</head>
+<body>
+<div id="yonetimContainer">
+<div class="yonetim-controls">
+<div class="control-group"><div class="control-label">📋 KARŞILAŞTIRMA KAYDI</div><button id="karsilastirmaKayitlariBtn" class="yonetim-btn">KARŞILAŞTIRMA KAYITLARI</button></div>
+<div class="control-group"><div class="control-label">📊 HESAPLAMA KAYDI</div><button id="hesaplamaKayitlariBtn" class="yonetim-btn">HESAPLAMA KAYITLARI</button></div>
+<div class="control-group"><div class="control-label">💾 ÇALIŞMAYI KAYDET</div><button id="calismayiKaydetBtn" class="yonetim-btn save-btn">KAYDET</button></div>
+<div class="control-group"><div class="control-label">📂 ÇALIŞMALARIM</div><button id="calismalariGetirBtn" class="yonetim-btn">KAYITLI ÇALIŞMALAR</button></div>
+<div class="excel-buttons">
+<div class="control-group"><div class="control-label">📊 EXCEL AKTAR</div><button id="csvIndirBtn" class="yonetim-btn excel-btn">CSV İNDİR</button></div>
+<div class="control-group"><div class="control-label">📗 EXCEL AKTAR</div><button id="excelIndirBtn" class="yonetim-btn excel-btn">EXCEL İNDİR</button></div>
+<div class="control-group"><div class="control-label">📂 EXCEL YÜKLE</div><button id="excelYukleBtn" class="yonetim-btn upload-btn">EXCEL YÜKLE</button><input type="file" id="excelFileInput" class="file-input" accept=".csv,.xlsx,.xls"></div>
+</div>
+</div>
+<div id="kayitListesi" class="kayit-listesi" style="display:none;"></div>
+<div id="calismaListesi" class="kayit-listesi" style="display:none;"></div>
+<div id="yonetimStatus"></div>
+<div id="yonetimResults" class="results-table"><div class="empty">🏇 Önce KARŞILAŞTIRMA ve HESAPLAMA kayıtlarını seçin veya EXCEL YÜKLE ile dosya yükleyin</div></div>
+</div>
+<div id="saveModal" class="modal-overlay"></div>
+<div id="saveModalContent" class="modal"><h3 style="margin-bottom:15px;">💾 Çalışmayı Kaydet</h3>
+<div class="control-group" style="margin-bottom:15px;"><div class="control-label">ÇALIŞMA ADI</div><input type="text" id="calismaAdi" style="padding:8px; border-radius:8px; background:#0f3460; color:white; border:none; width:100%;"></div>
+<div class="control-group" style="margin-bottom:15px;"><div class="control-label">AÇIKLAMA</div><textarea id="calismaAciklama" rows="3" style="padding:8px; border-radius:8px; background:#0f3460; color:white; border:none; width:100%;"></textarea></div>
+<div style="display:flex; gap:10px; justify-content:flex-end;"><button id="saveModalClose" style="padding:8px 20px; border-radius:8px; background:#555; color:white; border:none;">İPTAL</button><button id="saveModalConfirm" style="padding:8px 20px; border-radius:8px; background:#4CAF50; color:white; border:none;">KAYDET</button></div>
+</div>
+<script>
+// Global değişkenler
+let currentKarsilastirmaData = null;
+let currentHesaplamaData = null;
+let currentKarsilastirmaId = null;
+let currentHesaplamaId = null;
+let sutunlar = ['SIRA', 'AT İSMİ', 'AT ID'];
+let hesaplamaKolons = [];
+let ekSutunlar = [];
+let sutunFormulleri = {};
+let formulVerileri = null;
+let mevcutKosuSayisi = 0;
+let currentColName = null;
+
+async function formulleriYukle() {
+    try {
+        const response = await fetch('/formuller.json');
+        formulVerileri = await response.json();
+        console.log('✅ Formuller yuklendi');
+        return true;
+    } catch (error) {
+        console.error('❌ Formuller yuklenemedi:', error);
+        return false;
+    }
+}
+
+function dereceToSalise(d){if(!d||d==='-')return null;let s=d.toString().trim();s=s.replace(/:/g,'.');let p=s.split('.');if(p.length===3){let dk=parseInt(p[0])||0,sn=parseInt(p[1])||0,sl=parseInt(p[2])||0;return(dk*60*100)+(sn*100)+sl;}else if(p.length===2){let sn=parseInt(p[0])||0,sl=parseInt(p[1])||0;return(sn*100)+sl;}else if(p.length===1){return parseInt(p[0])||0;}return null;}
+function saliseToDerece(s){if(s===null||s===undefined)return '-';let ts=Math.floor(Math.abs(s));let dk=Math.floor(ts/6000);let ks=ts%6000;let sn=Math.floor(ks/100);let kl=ks%100;return dk+'.'+sn.toString().padStart(2,'0')+'.'+kl.toString().padStart(2,'0');}
+function dereceToSayi(d){if(!d||d==='-')return null;return dereceToSalise(d);}
+
+function metreBasinaSaliseHesapla(mesafe, derece) {
+    if (!mesafe || !derece || derece === '-') return null;
+    const mesafeSayi = parseInt(mesafe);
+    if (isNaN(mesafeSayi) || mesafeSayi === 0) return null;
+    const toplamSalise = dereceToSalise(derece);
+    if (toplamSalise === null) return null;
+    return (toplamSalise / mesafeSayi).toFixed(4);
+}
+
+function getAtHesaplamaVerisi(atId,kosuIndex,field){
+    if(!currentHesaplamaData)return '';
+    for(let race of currentHesaplamaData){
+        for(let horse of race.horses){
+            if(horse.atId==atId&&horse.kosular&&horse.kosular[kosuIndex]){
+                return horse.kosular[kosuIndex][field]||'-';
+            }
+        }
+    }
+    return '-';
+}
+
+function getColumnValues(colName,raceIndex){
+    let v=[];
+    if(!currentKarsilastirmaData)return v;
+    let race=currentKarsilastirmaData[raceIndex];
+    if(!race)return v;
+    let ci=ekSutunlar.indexOf(colName);
+    if(ci===-1)return v;
+    for(let j=0;j<race.horses.length;j++){
+        let inp=document.querySelector('input[data-race="'+raceIndex+'"][data-horse="'+j+'"][data-col="ek_'+ci+'"]');
+        if(inp&&inp.value){
+            let val=dereceToSayi(inp.value);
+            if(val===null)val=parseFloat(inp.value);
+            if(val!==null&&!isNaN(val))v.push({val:val,input:inp,j:j,rawValue:inp.value});
+        }
+    }
+    return v;
+}
+
+// ============ GELİŞMİŞ FORMÜL MOTORU (METRE_BASI_SALISE DESTEKLİ) ============
+function applyAdvancedFormula(colName, raceIndex, formula, values) {
+    let expr = formula.substring(1).toUpperCase();
+    
+    // METRE_BASI_SALISE(K1-MESAFE;K1-DERECE) formatını yakala
+    let metreMatch = expr.match(/METRE_BASI_SALISE\(([^;]+);([^)]+)\)/);
+    if(metreMatch) {
+        const mesafeSutun = metreMatch[1].trim();
+        const kosuNo = parseInt(mesafeSutun.match(/K(\d+)/)?.[1] || 0);
+        if(kosuNo > 0) {
+            const kosuIndex = kosuNo - 1;
+            console.log(`📏 METRE_BASI_SALISE hesaplanıyor: Koşu ${kosuNo}, ${values.length} at`);
+            for(let v of values) {
+                const horse = currentKarsilastirmaData[raceIndex].horses[v.j];
+                const mesafe = getAtHesaplamaVerisi(horse.atId, kosuIndex, 'mesafe');
+                const derece = getAtHesaplamaVerisi(horse.atId, kosuIndex, 'at_derece');
+                if(mesafe && derece && derece !== '-') {
+                    const mesafeSayi = parseInt(mesafe);
+                    const toplamSalise = dereceToSalise(derece);
+                    if(mesafeSayi > 0 && toplamSalise !== null) {
+                        const sonuc = (toplamSalise / mesafeSayi).toFixed(4);
+                        v.input.value = sonuc;
+                        v.input.style.backgroundColor = '#FF9800';
+                        v.input.style.color = '#000';
+                    }
+                }
+            }
+            return;
+        }
+    }
+    
+    // TOPLA formülü
+    if(expr === 'TOPLA(' + colName.toUpperCase() + ')') {
+        let total = values.reduce((s,v) => s + v.val, 0);
+        for(let v of values) {
+            v.input.value = total;
+            v.input.style.backgroundColor = '#ff9800';
+        }
+        return;
+    }
+    
+    // ORTALAMA formülü
+    if(expr === 'ORTALAMA(' + colName.toUpperCase() + ')') {
+        let avg = values.reduce((s,v) => s + v.val, 0) / values.length;
+        for(let v of values) {
+            v.input.value = avg.toFixed(4);
+            v.input.style.backgroundColor = '#ff9800';
+        }
+        return;
+    }
+    
+    // FARK formülü
+    if(expr === 'FARK(' + colName.toUpperCase() + ')') {
+        let maxV = Math.max(...values.map(v => v.val));
+        let minV = Math.min(...values.map(v => v.val));
+        let fark = maxV - minV;
+        for(let v of values) {
+            v.input.value = fark.toFixed(4);
+            v.input.style.backgroundColor = '#ff9800';
+        }
+        return;
+    }
+    
+    // SALISE_CEVIR formülü
+    if(expr === 'SALISE_CEVIR(' + colName.toUpperCase() + ')') {
+        for(let v of values) {
+            let sal = dereceToSalise(v.input.value);
+            v.input.value = sal !== null ? sal.toString() : '-';
+            v.input.style.backgroundColor = '#4CAF50';
+        }
+        return;
+    }
+    
+    // DERECE_CEVIR formülü
+    if(expr === 'DERECE_CEVIR(' + colName.toUpperCase() + ')') {
+        for(let v of values) {
+            let say = parseFloat(v.input.value);
+            v.input.value = saliseToDerece(say);
+            v.input.style.backgroundColor = '#2196F3';
+        }
+        return;
+    }
+    
+    // TOPLA_SALISE formülü
+    if(expr === 'TOPLA_SALISE(' + colName.toUpperCase() + ')') {
+        let total = values.reduce((s,v) => s + v.val, 0);
+        let totalDerece = saliseToDerece(total);
+        for(let v of values) {
+            v.input.value = totalDerece;
+            v.input.style.backgroundColor = '#ff9800';
+        }
+        return;
+    }
+    
+    // ORTALAMA_SALISE formülü
+    if(expr === 'ORTALAMA_SALISE(' + colName.toUpperCase() + ')') {
+        let avg = values.reduce((s,v) => s + v.val, 0) / values.length;
+        let avgDerece = saliseToDerece(avg);
+        for(let v of values) {
+            v.input.value = avgDerece;
+            v.input.style.backgroundColor = '#ff9800';
+        }
+        return;
+    }
+    
+    // MIN formülü (renklendirmeli)
+    if(expr === 'MIN(' + colName.toUpperCase() + ')') {
+        let minVal = Math.min(...values.map(v => v.val));
+        for(let v of values) {
+            if(v.val === minVal) {
+                v.input.style.backgroundColor = '#00ff00';
+                v.input.style.color = '#000';
+            } else {
+                v.input.style.backgroundColor = '#1a1a3e';
+                v.input.style.color = 'white';
+            }
+        }
+        return;
+    }
+    
+    // MAX formülü (renklendirmeli)
+    if(expr === 'MAX(' + colName.toUpperCase() + ')') {
+        let maxVal = Math.max(...values.map(v => v.val));
+        for(let v of values) {
+            if(v.val === maxVal) {
+                v.input.style.backgroundColor = '#ff0000';
+                v.input.style.color = '#fff';
+            } else {
+                v.input.style.backgroundColor = '#1a1a3e';
+                v.input.style.color = 'white';
+            }
+        }
+        return;
+    }
+    
+    // MIN_MAX formülü
+    if(expr === 'MIN_MAX(' + colName.toUpperCase() + ')') {
+        let minVal = Math.min(...values.map(v => v.val));
+        let maxVal = Math.max(...values.map(v => v.val));
+        for(let v of values) {
+            if(v.val === minVal) {
+                v.input.style.backgroundColor = '#00ff00';
+                v.input.style.color = '#000';
+            } else if(v.val === maxVal) {
+                v.input.style.backgroundColor = '#ff0000';
+                v.input.style.color = '#fff';
+            } else {
+                v.input.style.backgroundColor = '#1a1a3e';
+                v.input.style.color = 'white';
+            }
+        }
+        return;
+    }
+    
+    // EŞİK formülü
+    let esikMatch = expr.match(/ESIK\(([\d\.]+);\s*RENK\((\d+);(\d+);(\d+)\)\)/);
+    if(esikMatch) {
+        let esik = parseFloat(esikMatch[1]);
+        let r = parseInt(esikMatch[2]);
+        let g = parseInt(esikMatch[3]);
+        let b = parseInt(esikMatch[4]);
+        for(let v of values) {
+            if(v.val > esik) {
+                v.input.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
+                v.input.style.color = '#fff';
+            } else {
+                v.input.style.backgroundColor = '#1a1a3e';
+                v.input.style.color = 'white';
+            }
+        }
+        return;
+    }
+    
+    console.log('⚠️ Tanınmayan formül:', formula);
+}
+
+function applyColumnFormatting(colName,raceIndex){
+    let formula=sutunFormulleri[colName];
+    if(!formula||!formula.startsWith('='))return;
+    let values=getColumnValues(colName,raceIndex);
+    if(values.length===0)return;
+    applyAdvancedFormula(colName,raceIndex,formula,values);
+}
+
+function applyAllFormatting(){
+    if(!currentKarsilastirmaData)return;
+    for(let i=0;i<currentKarsilastirmaData.length;i++){
+        for(let s of ekSutunlar){
+            applyColumnFormatting(s,i);
+        }
+    }
+}
+
+function collectTableData(){
+    if(!currentKarsilastirmaData)return[];
+    let allCols=[...sutunlar,...hesaplamaKolons,...ekSutunlar];
+    let data=[allCols];
+    for(let i=0;i<currentKarsilastirmaData.length;i++){
+        let race=currentKarsilastirmaData[i];
+        for(let j=0;j<race.horses.length;j++){
+            let horse=race.horses[j];
+            let row=[horse.sira,horse.atIsmi,horse.atId];
+            for(let h=0;h<hesaplamaKolons.length;h++){
+                let kn=hesaplamaKolons[h];
+                let d='';
+                if(kn.includes('TARİH')){
+                    let ki=parseInt(kn.split('-')[0].substring(1))-1;
+                    d=getAtHesaplamaVerisi(horse.atId,ki,'tarih');
+                }else if(kn.includes('MESAFE')){
+                    let ki=parseInt(kn.split('-')[0].substring(1))-1;
+                    d=getAtHesaplamaVerisi(horse.atId,ki,'mesafe');
+                }else if(kn.includes('DERECE')){
+                    let ki=parseInt(kn.split('-')[0].substring(1))-1;
+                    d=getAtHesaplamaVerisi(horse.atId,ki,'at_derece');
+                }else if(kn.includes('SON800-1')){
+                    let ki=parseInt(kn.split('-')[0].substring(1))-1;
+                    d=getAtHesaplamaVerisi(horse.atId,ki,'son800_bir');
+                }else if(kn.includes('SON800-2')){
+                    let ki=parseInt(kn.split('-')[0].substring(1))-1;
+                    d=getAtHesaplamaVerisi(horse.atId,ki,'son800_iki');
+                }
+                row.push(d);
+            }
+            for(let e=0;e<ekSutunlar.length;e++){
+                let inp=document.querySelector('input[data-race="'+i+'"][data-horse="'+j+'"][data-col="ek_'+e+'"]');
+                row.push(inp?inp.value:'');
+            }
+            data.push(row);
+        }
+    }
+    return data;
+}
+
+function downloadCSV(){
+    let data=collectTableData();
+    if(data.length===0){document.getElementById('yonetimStatus').innerHTML='<div class="status status-error">❌ Önce bir tablo oluşturun!</div>';return;}
+    let csvContent=data.map(row=>row.map(cell=>'"'+String(cell).replace(/"/g,'""')+'"').join(',')).join('\n');
+    let blob=new Blob(["\uFEFF"+csvContent],{type:'text/csv;charset=utf-8;'});
+    let link=document.createElement('a');
+    let url=URL.createObjectURL(blob);
+    link.href=url;
+    link.setAttribute('download','88atspeed_veriler.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    document.getElementById('yonetimStatus').innerHTML='<div class="status status-success">✅ CSV dosyası indirildi!</div>';
+}
+
+async function downloadExcel(){
+    let data=collectTableData();
+    if(data.length===0){document.getElementById('yonetimStatus').innerHTML='<div class="status status-error">❌ Önce bir tablo oluşturun!</div>';return;}
+    document.getElementById('yonetimStatus').innerHTML='<div class="status status-loading">⏳ Excel dosyası hazırlanıyor...</div>';
+    try{
+        let resp=await fetch('/api/excel-export',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:data,baslik:'88ATSPEED Verileri'})});
+        let res=await resp.json();
+        if(res.success){
+            let link=document.createElement('a');
+            link.href=res.url;
+            link.download='88atspeed_veriler.xlsx';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            document.getElementById('yonetimStatus').innerHTML='<div class="status status-success">✅ Excel dosyası indirildi!</div>';
+        }else throw new Error(res.error);
+    }catch(e){document.getElementById('yonetimStatus').innerHTML='<div class="status status-error">❌ Excel hatası: '+e.message+'</div>';}
+}
+
+function uploadExcel(file){
+    let r=new FileReader();
+    r.onload=function(e){
+        let data=e.target.result;
+        let wb=XLSX.read(data,{type:'binary'});
+        let firstSheet=wb.Sheets[wb.SheetNames[0]];
+        let rows=XLSX.utils.sheet_to_json(firstSheet,{header:1,defval:''});
+        if(!rows||rows.length<2){document.getElementById('yonetimStatus').innerHTML='<div class="status status-error">❌ Dosyada veri bulunamadı!</div>';return;}
+        let headers=rows[0];
+        currentKarsilastirmaData=[{raceNo:"1",horseCount:rows.length-1,horses:[]}];
+        for(let i=1;i<rows.length;i++){let row=rows[i];if(row.length>=3){currentKarsilastirmaData[0].horses.push({sira:row[0]||i,atIsmi:row[1]||'Bilinmiyor',atId:row[2]||'-'});}}
+        ekSutunlar=[];
+        for(let c=3;c<headers.length;c++){if(headers[c]&&headers[c].toString().trim()){ekSutunlar.push(headers[c].toString());}}
+        document.getElementById('yonetimStatus').innerHTML='<div class="status status-success">✅ Excel dosyası yüklendi! '+(rows.length-1)+' at bulundu.</div>';
+        buildTable();
+    };
+    r.readAsBinaryString(file);
+}
+
+document.getElementById('karsilastirmaKayitlariBtn').onclick=async()=>{await listKayitlar('/api/karsilastirma-kayitlar','karsilastirma');};
+document.getElementById('hesaplamaKayitlariBtn').onclick=async()=>{await listKayitlar('/api/hesaplama-kayitlar','hesaplama');};
+document.getElementById('csvIndirBtn').onclick=downloadCSV;
+document.getElementById('excelIndirBtn').onclick=downloadExcel;
+document.getElementById('excelYukleBtn').onclick=()=>{document.getElementById('excelFileInput').click();};
+document.getElementById('excelFileInput').onchange=(e)=>{if(e.target.files&&e.target.files[0]){uploadExcel(e.target.files[0]);}};
+
+async function listKayitlar(apiUrl,tur){
+    let sd=document.getElementById('yonetimStatus'),kld=document.getElementById('kayitListesi');
+    sd.innerHTML='<div class="status status-loading">⏳ Kayıtlar yükleniyor...</div>';
+    try{
+        let resp=await fetch(apiUrl);
+        let res=await resp.json();
+        if(!res.success)throw new Error(res.error);
+        let kayitlar=res.kayitlar||res.calismalar||[];
+        if(kayitlar.length===0){
+            kld.innerHTML='<div class="empty">⚠️ Hiç kayıt bulunamadı</div>';
+            kld.style.display='block';
+            sd.innerHTML='<div class="status status-error">⚠️ Hiç kayıt yok</div>';
+            return;
+        }
+        let html='<div style="margin-bottom:10px; font-weight:bold;">📋 '+tur.toUpperCase()+' KAYITLARI:</div>';
+        for(let i=0;i<kayitlar.length;i++){
+            let k=kayitlar[i];
+            let kayitAdi=k.ad||(k.tarih+' - '+k.hipodrom);
+            html+='<div class="kayit-item" data-id="'+k.id+'" data-tur="'+tur+'" data-adi="'+kayitAdi+'"><span>📅 '+kayitAdi+' | 🕐 '+k.kayit_tarihi+'</span><span style="color:#ff9800;">📂 Seç →</span></div>';
+        }
+        kld.innerHTML=html;
+        kld.style.display='block';
+        document.getElementById('calismaListesi').style.display='none';
+        document.querySelectorAll('.kayit-item').forEach(item=>{
+            item.onclick=async()=>{
+                let id=item.dataset.id,tur2=item.dataset.tur;
+                document.querySelectorAll('.kayit-item').forEach(i=>i.classList.remove('selected'));
+                item.classList.add('selected');
+                await loadKayit(id,tur2);
+            };
+        });
+        sd.innerHTML='<div class="status status-success">✅ '+kayitlar.length+' kayıt bulundu.</div>';
+    }catch(e){sd.innerHTML='<div class="status status-error">❌ Hata: '+e.message+'</div>';}
+}
+
+async function loadKayit(id,tur){
+    let sd=document.getElementById('yonetimStatus');
+    sd.innerHTML='<div class="status status-loading">⏳ '+tur+' kaydı yükleniyor...</div>';
+    try{
+        if(tur==='karsilastirma'){
+            let resp=await fetch('/api/karsilastirma-kayit/'+id);
+            let res=await resp.json();
+            if(res.success){
+                currentKarsilastirmaData=res.kayit.siralama_veri;
+                currentKarsilastirmaId=id;
+                sd.innerHTML='<div class="status status-success">✅ KARŞILAŞTIRMA kaydı yüklendi!</div>';
+                if(currentHesaplamaData)buildTable();
+            }
+        }else if(tur==='hesaplama'){
+            if(!currentKarsilastirmaData){
+                sd.innerHTML='<div class="status status-warning">⚠️ Önce bir KARŞILAŞTIRMA kaydı seçin!</div>';
+                return;
+            }
+            let resp=await fetch('/api/hesaplama-kayit/'+id);
+            let res=await resp.json();
+            if(res.success){
+                currentHesaplamaData=res.kayit.veri;
+                currentHesaplamaId=id;
+                if(currentHesaplamaData&&currentHesaplamaData.length>0){
+                    for(let race of currentHesaplamaData){
+                        if(race.horses&&race.horses.length>0){
+                            let ilkAt=race.horses[0];
+                            if(ilkAt.kosular){
+                                let kosuSayisi=ilkAt.kosular.length;
+                                mevcutKosuSayisi = kosuSayisi;
+                                hesaplamaKolons=[];
+                                for(let i=1;i<=kosuSayisi;i++){
+                                    hesaplamaKolons.push('K'+i+'-TARİH','K'+i+'-MESAFE','K'+i+'-DERECE','K'+i+'-SON800-1','K'+i+'-SON800-2');
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+                sd.innerHTML='<div class="status status-success">✅ HESAPLAMA kaydı yüklendi! ('+mevcutKosuSayisi+' koşu)</div>';
+                buildTable();
+            }
+        }
+    }catch(e){sd.innerHTML='<div class="status status-error">❌ Yükleme hatası: '+e.message+'</div>';}
+}
+
+function addColumn(){
+    let cn=prompt('Yeni sütun adı:','HESAP-'+(ekSutunlar.length+1));
+    if(cn){ekSutunlar.push(cn);sutunFormulleri[cn]='';buildTable();}
+}
+
+function deleteColumn(idx){
+    let cn=ekSutunlar[idx];
+    if(confirm('"'+cn+'" sütununu silmek istediğinize emin misiniz?')){ekSutunlar.splice(idx,1);delete sutunFormulleri[cn];buildTable();}
+}
+
+function insertFormula(cn,formula){
+    console.log('🔧 insertFormula çalıştı!', cn, formula);
+    sutunFormulleri[cn]=formula;
+    let inp=document.querySelector('.col-formula-input[data-colname="'+cn+'"]');
+    if(inp)inp.value=formula;
+    applyAllFormatting();
+    console.log('✅ Formül kaydedildi:', cn, '=', formula);
+}
+
+function dinamikKosuButonlariniOlustur() {
+    if (!formulVerileri || mevcutKosuSayisi === 0) return '';
+    let html = '<div class="formula-help" style="margin-top:8px;"><strong>📏 METRE BAŞI SALISE (KOŞU BAZLI):</strong><div class="dynamic-buttons">';
+    for (let k = 1; k <= mevcutKosuSayisi; k++) {
+        const formulaMetni = `=METRE_BASI_SALISE(K${k}-MESAFE;K${k}-DERECE)`;
+        html += `<span class="formula-tag btn-special kosu-buton" onclick="if(currentColName) { hesaplaVeFormuluKaydet(currentColName, ${k-1}, '${formulaMetni}'); } else alert('Önce bir sütuna tıklayın!')">📏 K${k} (${k}. Koşu)</span>`;
+    }
+    html += '</div></div>';
+    return html;
+}
+
+function hesaplaVeFormuluKaydet(hedefSutunAdi, kosuIndex, formulaMetni) {
+    if (!currentKarsilastirmaData) {
+        document.getElementById('yonetimStatus').innerHTML = '<div class="status status-warning">⚠️ Önce bir Karşılaştırma kaydı yükleyin!</div>';
+        return;
+    }
+    
+    const kosuNo = kosuIndex + 1;
+    let hesaplananSayi = 0;
+    for (let i = 0; i < currentKarsilastirmaData.length; i++) {
+        const race = currentKarsilastirmaData[i];
+        for (let j = 0; j < race.horses.length; j++) {
+            const horse = race.horses[j];
+            const mesafe = getAtHesaplamaVerisi(horse.atId, kosuIndex, 'mesafe');
+            const derece = getAtHesaplamaVerisi(horse.atId, kosuIndex, 'at_derece');
+            const sonuc = metreBasinaSaliseHesapla(mesafe, derece);
+            if (sonuc !== null) {
+                const hedefInput = document.querySelector(`input[data-race="${i}"][data-horse="${j}"][data-col="ek_${ekSutunlar.indexOf(hedefSutunAdi)}"]`);
+                if (hedefInput) {
+                    hedefInput.value = sonuc;
+                    hedefInput.style.backgroundColor = '#FF9800';
+                    hedefInput.style.color = '#000';
+                    hesaplananSayi++;
+                }
+            }
+        }
+    }
+    
+    if (currentColName === hedefSutunAdi) {
+        sutunFormulleri[hedefSutunAdi] = formulaMetni;
+        const formulaInput = document.querySelector(`.col-formula-input[data-colname="${hedefSutunAdi}"]`);
+        if (formulaInput) formulaInput.value = formulaMetni;
+    }
+    
+    document.getElementById('yonetimStatus').innerHTML = '<div class="status status-success">✅ ' + hesaplananSayi + ' at için ' + kosuNo + '. koşu metre başı salise hesaplandı! Formül kaydedildi.</div>';
+}
+
+function formulPaneliniOlustur() {
+    if (!formulVerileri) return '<div class="status status-warning">⏳ Formüller yükleniyor...</div>';
+    let html = '<div class="formula-panel"><div style="margin-bottom:10px;"><button class="add-col-btn" onclick="addColumn()">➕ Yeni Sütun Ekle</button></div>';
+    html += '<div class="formula-help"><strong>📐 TEMEL FORMÜLLER:</strong>';
+    for (let f of formulVerileri.temel_formuller) {
+        html += `<span class="formula-tag" onclick="if(currentColName) insertFormula(currentColName, '${f.formul.replace('{sutun}', currentColName)}'); else alert('Önce bir sütuna tıklayın!')">${f.adi}</span>`;
+    }
+    html += '</div>';
+    html += '<div class="formula-help" style="margin-top:8px;"><strong>⏱️ DÖNÜŞÜM FORMÜLLERİ:</strong>';
+    for (let f of formulVerileri.donusum_formuller) {
+        html += `<span class="formula-tag" onclick="if(currentColName) insertFormula(currentColName, '${f.formul.replace('{sutun}', currentColName)}'); else alert('Önce bir sütuna tıklayın!')">${f.adi}</span>`;
+    }
+    html += '</div>';
+    html += '<div class="formula-help" style="margin-top:8px;"><strong>🎯 ÖZEL İŞLEMLER:</strong>';
+    html += `<span class="formula-tag btn-special" onclick="if(currentColName) { cevirK1DereceToSalise(currentColName); } else alert('Önce bir sütuna tıklayın!')">📊 K1-DERECE → SALİSE</span>`;
+    html += '</div>';
+    html += dinamikKosuButonlariniOlustur();
+    html += '<div class="formula-help" style="margin-top:8px;"><strong>🎨 RENKLENDİRME:</strong>';
+    html += `<span class="formula-tag" onclick="if(currentColName){let esik=prompt('Eşik değeri girin (örn: 0.55)');if(esik) insertFormula(currentColName, '=ESIK('+esik+'; RENK(255;255;0))');} else alert('Önce bir sütuna tıklayın!')">EŞİK (sarı)</span>`;
+    html += '</div>';
+    html += '<div class="formula-help">💡 İpucu: Önce bir sütuna tıklayın, sonra formül seçin</div></div>';
+    return html;
+}
+
+function cevirK1DereceToSalise(hedefSutunAdi) {
+    if (!currentKarsilastirmaData) {
+        document.getElementById('yonetimStatus').innerHTML = '<div class="status status-warning">⚠️ Önce bir Karşılaştırma kaydı yükleyin!</div>';
+        return;
+    }
+    let cevrilenSayi = 0;
+    for (let i = 0; i < currentKarsilastirmaData.length; i++) {
+        const race = currentKarsilastirmaData[i];
+        for (let j = 0; j < race.horses.length; j++) {
+            const horse = race.horses[j];
+            const dereceDegeri = getAtHesaplamaVerisi(horse.atId, 0, 'at_derece');
+            if (dereceDegeri && dereceDegeri !== '-') {
+                const saliseDegeri = dereceToSalise(dereceDegeri);
+                if (saliseDegeri !== null) {
+                    const hedefInput = document.querySelector(`input[data-race="${i}"][data-horse="${j}"][data-col="ek_${ekSutunlar.indexOf(hedefSutunAdi)}"]`);
+                    if (hedefInput) {
+                        hedefInput.value = saliseDegeri;
+                        hedefInput.style.backgroundColor = '#4CAF50';
+                        hedefInput.style.color = '#fff';
+                        cevrilenSayi++;
+                    }
+                }
+            }
+        }
+    }
+    if (currentColName === hedefSutunAdi) {
+        const formulaMetni = '=SALISE_CEVIR(K1-DERECE)';
+        sutunFormulleri[hedefSutunAdi] = formulaMetni;
+        const formulaInput = document.querySelector(`.col-formula-input[data-colname="${hedefSutunAdi}"]`);
+        if (formulaInput) formulaInput.value = formulaMetni;
+    }
+    document.getElementById('yonetimStatus').innerHTML = '<div class="status status-success">✅ ' + cevrilenSayi + ' atın K1-DERECE değeri saliseye çevrildi! Formül kaydedildi.</div>';
+}
+
+function buildTable(){
+    if(!currentKarsilastirmaData)return;
+    let allCols=[...sutunlar,...hesaplamaKolons,...ekSutunlar];
+    let html = formulPaneliniOlustur();
+    for(let i=0;i<currentKarsilastirmaData.length;i++){
+        let race=currentKarsilastirmaData[i];
+        html+='<div class="race-card">';
+        html+='<div class="race-header">🏆 '+race.raceNo+'. KOŞU ('+race.horseCount+' at)</div>';
+        html+='<div style="overflow-x:auto;">';
+        html+='<table border="0" cellpadding="5" cellspacing="0">';
+        html+='<thead><tr>';
+        for(let c=0;c<allCols.length;c++){
+            let ch=allCols[c];
+            let fi='';
+            if(ekSutunlar.includes(ch)){
+                let idx=ekSutunlar.indexOf(ch);
+                let cf=sutunFormulleri[ch]||'';
+                fi='<div><input type="text" class="col-formula-input" data-colname="'+ch+'" placeholder="=MIN('+ch+')" value="'+cf+'" style="width:100%;" onclick="currentColName=\''+ch+'\'; console.log(\'Seçilen sütun:\', currentColName)"></div>';
+                ch=ch+' <button class="delete-col-btn" onclick="deleteColumn('+idx+')">✖</button>';
+            }
+            html+='<th>'+ch+fi+'</th>';
+        }
+        html+='</thead><tbody>';
+        for(let j=0;j<race.horses.length;j++){
+            let horse=race.horses[j];
+            html+='<tr>';
+            html+='<td><input type="text" value="'+horse.sira+'" data-race="'+i+'" data-horse="'+j+'" data-col="sira" style="width:50px;"></td>';
+            html+='<td><input type="text" value="'+escapeHtml(horse.atIsmi)+'" data-race="'+i+'" data-horse="'+j+'" data-col="atIsmi" style="min-width:120px;"></td>';
+            html+='<td><input type="text" value="'+horse.atId+'" data-race="'+i+'" data-horse="'+j+'" data-col="atId" style="width:90px;"></td>';
+            for(let h=0;h<hesaplamaKolons.length;h++){
+                let kn=hesaplamaKolons[h];
+                let d='';
+                if(kn.includes('TARİH')){
+                    let ki=parseInt(kn.split('-')[0].substring(1))-1;
+                    d=getAtHesaplamaVerisi(horse.atId,ki,'tarih');
+                }else if(kn.includes('MESAFE')){
+                    let ki=parseInt(kn.split('-')[0].substring(1))-1;
+                    d=getAtHesaplamaVerisi(horse.atId,ki,'mesafe');
+                }else if(kn.includes('DERECE')){
+                    let ki=parseInt(kn.split('-')[0].substring(1))-1;
+                    d=getAtHesaplamaVerisi(horse.atId,ki,'at_derece');
+                }else if(kn.includes('SON800-1')){
+                    let ki=parseInt(kn.split('-')[0].substring(1))-1;
+                    d=getAtHesaplamaVerisi(horse.atId,ki,'son800_bir');
+                }else if(kn.includes('SON800-2')){
+                    let ki=parseInt(kn.split('-')[0].substring(1))-1;
+                    d=getAtHesaplamaVerisi(horse.atId,ki,'son800_iki');
+                }
+                html+='<td><input type="text" value="'+d+'" data-race="'+i+'" data-horse="'+j+'" data-col="hesap_'+h+'" style="width:80px;" readonly></td>';
+            }
+            for(let e=0;e<ekSutunlar.length;e++){
+                html+='<td><input type="text" class="formula-input" placeholder="Değer girin" data-race="'+i+'" data-horse="'+j+'" data-col="ek_'+e+'" style="width:100px;"></td>';
+            }
+            html+='</tr>';
+        }
+        html+='</tbody></table></div></div><br>';
+    }
+    document.getElementById('yonetimResults').innerHTML=html;
+    document.querySelectorAll('.col-formula-input').forEach(input=>{
+        let colName=input.dataset.colname;
+        input.onchange=()=>{sutunFormulleri[colName]=input.value;applyAllFormatting();};
+    });
+    document.querySelectorAll('input[data-col]').forEach(input=>{
+        input.onchange=()=>{if(input.dataset.col.startsWith('ek_')){applyAllFormatting();}};
+    });
+}
+
+document.getElementById('calismalariGetirBtn').onclick=async()=>{
+    let sd=document.getElementById('yonetimStatus'),cld=document.getElementById('calismaListesi');
+    sd.innerHTML='<div class="status status-loading">⏳ Kayıtlı çalışmalar yükleniyor...</div>';
+    try{
+        let resp=await fetch('/api/yonetim-calismalari-v2');
+        let res=await resp.json();
+        if(!res.success)throw new Error(res.error);
+        if(res.calismalar.length===0){
+            cld.innerHTML='<div class="empty">⚠️ Hiç kayıtlı çalışma bulunamadı.</div>';
+            cld.style.display='block';
+            sd.innerHTML='<div class="status status-error">⚠️ Hiç çalışma yok</div>';
+            return;
+        }
+        let html='<div style="margin-bottom:10px; font-weight:bold;">📂 KAYITLI ÇALIŞMALARIM:</div>';
+        for(let i=0;i<res.calismalar.length;i++){
+            let c=res.calismalar[i];
+            html+='<div class="kayit-item" data-id="'+c.id+'" data-ad="'+c.ad+'"><span>📝 '+c.ad+' | 📅 '+c.kayit_tarihi+'</span><span style="color:#4CAF50;">📂 Yükle →</span></div>';
+        }
+        cld.innerHTML=html;
+        cld.style.display='block';
+        document.getElementById('kayitListesi').style.display='none';
+        document.querySelectorAll('#calismaListesi .kayit-item').forEach(item=>{
+            item.onclick=async()=>{await loadCalisma(item.dataset.id);};
+        });
+        sd.innerHTML='<div class="status status-success">✅ '+res.calismalar.length+' çalışma bulundu.</div>';
+    }catch(e){sd.innerHTML='<div class="status status-error">❌ Hata: '+e.message+'</div>';}
+};
+
+async function loadCalisma(id){
+    let sd=document.getElementById('yonetimStatus');
+    sd.innerHTML='<div class="status status-loading">⏳ Çalışma yükleniyor...</div>';
+    try{
+        let resp=await fetch('/api/yonetim-calisma-v2/'+id);
+        let res=await resp.json();
+        if(!res.success)throw new Error(res.error);
+        
+        currentKarsilastirmaId=res.calisma.karsilastirma_kayit_id;
+        currentHesaplamaId=res.calisma.hesaplama_kayit_id;
+        
+        if(typeof res.calisma.sutun_yapisi==='string'){
+            ekSutunlar=JSON.parse(res.calisma.sutun_yapisi||'[]');
+        }else{
+            ekSutunlar=res.calisma.sutun_yapisi||[];
+        }
+        
+        if(typeof res.calisma.hesaplamalar==='string'){
+            sutunFormulleri=JSON.parse(res.calisma.hesaplamalar||'{}');
+        }else{
+            sutunFormulleri=res.calisma.hesaplamalar||{};
+        }
+        
+        console.log('📥 Yüklenen formüller:', sutunFormulleri);
+        
+        // Önce Karşılaştırma kaydını yükle
+        if(currentKarsilastirmaId){
+            let karsResp=await fetch('/api/karsilastirma-kayit/'+currentKarsilastirmaId);
+            let karsRes=await karsResp.json();
+            if(karsRes.success){
+                currentKarsilastirmaData=karsRes.kayit.siralama_veri;
+                console.log('✅ Karşılaştırma kaydı yüklendi:', currentKarsilastirmaData.length+' koşu');
+            }
+        }
+        
+        // Sonra Hesaplama kaydını yükle
+        if(currentHesaplamaId){
+            let hesaplamaResp=await fetch('/api/hesaplama-kayit/'+currentHesaplamaId);
+            let hesaplamaRes=await hesaplamaResp.json();
+            if(hesaplamaRes.success){
+                currentHesaplamaData=hesaplamaRes.kayit.veri;
+                if(currentHesaplamaData && currentHesaplamaData[0] && currentHesaplamaData[0].horses){
+                    let ilkAt=currentHesaplamaData[0].horses[0];
+                    if(ilkAt && ilkAt.kosular){
+                        mevcutKosuSayisi = ilkAt.kosular.length;
+                        hesaplamaKolons=[];
+                        for(let i=1;i<=mevcutKosuSayisi;i++){
+                            hesaplamaKolons.push('K'+i+'-TARİH','K'+i+'-MESAFE','K'+i+'-DERECE','K'+i+'-SON800-1','K'+i+'-SON800-2');
+                        }
+                        console.log('📊 Koşu sayısı:', mevcutKosuSayisi);
+                    }
+                }
+            }
+        }
+        
+        buildTable();
+        
+        setTimeout(() => {
+            console.log('🔄 Formüller uygulanıyor...', sutunFormulleri);
+            let uygulanan = 0;
+            for(let sutunAdi in sutunFormulleri) {
+                if(sutunFormulleri[sutunAdi] && sutunFormulleri[sutunAdi].startsWith('=')) {
+                    for(let i=0; i<currentKarsilastirmaData.length; i++) {
+                        try {
+                            applyColumnFormatting(sutunAdi, i);
+                        } catch(e) { console.log('Hata:', sutunAdi, e); }
+                    }
+                    uygulanan++;
+                    console.log('   Uygulandı:', sutunAdi, '=', sutunFormulleri[sutunAdi]);
+                }
+            }
+            console.log('✅ ' + uygulanan + ' formül uygulandı!');
+            if(uygulanan > 0) {
+                sd.innerHTML='<div class="status status-success">✅ Çalışma yüklendi! ('+mevcutKosuSayisi+' koşu, ' + uygulanan + ' formül uygulandı)</div>';
+            } else {
+                sd.innerHTML='<div class="status status-success">✅ Çalışma yüklendi! ('+mevcutKosuSayisi+' koşu)</div>';
+            }
+        }, 800);
+        
+    }catch(e){
+        console.error('loadCalisma hatası:',e);
+        sd.innerHTML='<div class="status status-error">❌ Yükleme hatası: '+e.message+'</div>';
+    }
+}
+
+document.getElementById('calismayiKaydetBtn').onclick=()=>{
+    if(!currentKarsilastirmaData){
+        document.getElementById('yonetimStatus').innerHTML='<div class="status status-error">❌ Önce bir KARŞILAŞTIRMA kaydı seçin veya EXCEL YÜKLE ile dosya yükleyin!</div>';
+        return;
+    }
+    console.log('💾 Kaydedilecek formüller:', sutunFormulleri);
+    document.getElementById('saveModal').style.display='block';
+    document.getElementById('saveModalContent').style.display='block';
+};
+
+document.getElementById('saveModalClose').onclick=()=>{
+    document.getElementById('saveModal').style.display='none';
+    document.getElementById('saveModalContent').style.display='none';
+};
+
+document.getElementById('saveModalConfirm').onclick=async()=>{
+    let ad=document.getElementById('calismaAdi').value;
+    let aciklama=document.getElementById('calismaAciklama').value;
+    if(!ad){document.getElementById('yonetimStatus').innerHTML='<div class="status status-error">❌ Lütfen bir çalışma adı girin!</div>';return;}
+    document.getElementById('saveModal').style.display='none';
+    document.getElementById('saveModalContent').style.display='none';
+    document.getElementById('yonetimStatus').innerHTML='<div class="status status-loading">⏳ Çalışma kaydediliyor...</div>';
+    console.log('📝 Kaydedilen ekSutunlar:', ekSutunlar);
+    console.log('📝 Kaydedilen sutunFormulleri:', sutunFormulleri);
+    let veri={
+        ad:ad,
+        aciklama:aciklama,
+        karsilastirma_kayit_id:currentKarsilastirmaId,
+        hesaplama_kayit_id:currentHesaplamaId,
+        tablo_veri:currentKarsilastirmaData,
+        sutun_yapisi:JSON.stringify(ekSutunlar),
+        hesaplamalar:JSON.stringify(sutunFormulleri)
+    };
+    try{
+        let resp=await fetch('/api/yonetim-calisma-kaydet-v2',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify(veri)
+        });
+        let res=await resp.json();
+        if(res.success){
+            document.getElementById('yonetimStatus').innerHTML='<div class="status status-success">✅ Çalışma kaydedildi! (ID: '+res.id+')</div>';
+            document.getElementById('calismaAdi').value='';
+            document.getElementById('calismaAciklama').value='';
+        }else throw new Error(res.error);
+    }catch(e){
+        console.error('Kayıt hatası:', e);
+        document.getElementById('yonetimStatus').innerHTML='<div class="status status-error">❌ Kayıt hatası: '+e.message+'</div>';
+    }
+};
+
+function escapeHtml(s){if(!s)return '-';return s.replace(/[&<>]/g,function(m){return m==='&'?'&amp;':m==='<'?'&lt;':'&gt;';});}
+
+window.addColumn=addColumn;
+window.deleteColumn=deleteColumn;
+window.insertFormula=insertFormula;
+window.applyColumnFormatting=applyColumnFormatting;
+window.applyAdvancedFormula=applyAdvancedFormula;
+window.cevirK1DereceToSalise=cevirK1DereceToSalise;
+window.hesaplaVeFormuluKaydet=hesaplaVeFormuluKaydet;
+
+formulleriYukle();
+</script>
+</body>
+</html>

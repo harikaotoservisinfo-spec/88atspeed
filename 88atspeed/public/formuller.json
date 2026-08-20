@@ -1,0 +1,21 @@
+{
+  "temel_formuller": [
+    {"adi": "MIN", "formul": "=MIN({sutun})", "aciklama": "En kucuk deger (yesil)"},
+    {"adi": "MAX", "formul": "=MAX({sutun})", "aciklama": "En buyuk deger (kirmizi)"},
+    {"adi": "MIN_MAX", "formul": "=MIN_MAX({sutun})", "aciklama": "Min yesil, Max kirmizi"},
+    {"adi": "TOPLA", "formul": "=TOPLA({sutun})", "aciklama": "Tum degerlerin toplami"},
+    {"adi": "ORTALAMA", "formul": "=ORTALAMA({sutun})", "aciklama": "Aritmetik ortalama"},
+    {"adi": "FARK", "formul": "=FARK({sutun})", "aciklama": "En buyuk - en kucuk"}
+  ],
+  "donusum_formuller": [
+    {"adi": "SALISE_CEVIR", "formul": "=SALISE_CEVIR({sutun})", "aciklama": "Derece → Salise"},
+    {"adi": "DERECE_CEVIR", "formul": "=DERECE_CEVIR({sutun})", "aciklama": "Salise → Derece"},
+    {"adi": "TOPLA_SALISE", "formul": "=TOPLA_SALISE({sutun})", "aciklama": "Dereceleri saliseye cevirip topla"},
+    {"adi": "ORTALAMA_SALISE", "formul": "=ORTALAMA_SALISE({sutun})", "aciklama": "Dereceleri saliseye cevirip ortalama al"}
+  ],
+  "ozel_islemler": [
+    {"adi": "K1-DERECE → SALISE", "islem": "cevirK1DereceToSalise", "aciklama": "K1-DERECE sutununu saliseye cevir"},
+    {"adi": "TUM DERECELER → TOPLAM SALISE", "islem": "tumDereceleriSaliseyeCevir", "aciklama": "Tum derece sutunlarini topla"},
+    {"adi": "METRE BASI SALISE", "islem": "hesaplaMetreBasiSalise", "aciklama": "Metre basina dusen salise (K1-MESAFE + K1-DERECE)"}
+  ]
+}

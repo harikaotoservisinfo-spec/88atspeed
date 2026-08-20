@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Karşılaştırma - 88ATSPEED</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: transparent; color: #fff; }
+        .compare-controls {
+            background: rgba(30, 30, 60, 0.8);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        .control-group { display: flex; flex-direction: column; gap: 8px; }
+        .control-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; color: #ff9800; }
+        .compare-select, .compare-btn {
+            padding: 12px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: 12px;
+            border: 1px solid rgba(255,152,0,0.3);
+            cursor: pointer;
+            background: rgba(0,0,0,0.5);
+            color: white;
+            min-width: 160px;
+        }
+        .compare-btn { background: linear-gradient(135deg, #ff9800, #f44336); border: none; }
+        .compare-btn:hover { opacity: 0.9; transform: translateY(-2px); }
+        .save-btn { background: linear-gradient(135deg, #2196F3, #1976D2); }
+        .results-table { background: rgba(30,30,60,0.6); border-radius: 20px; overflow-x: auto; padding: 15px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); border-right: 1px solid rgba(255,255,255,0.05); }
+        th { background: rgba(0,0,0,0.4); color: #ff9800; font-weight: 600; position: sticky; top: 0; }
+        .status { padding: 12px; border-radius: 12px; margin-bottom: 15px; text-align: center; }
+        .status-loading { background: rgba(255,152,0,0.2); color: #ff9800; }
+        .status-success { background: rgba(76,175,80,0.2); color: #4CAF50; }
+        .status-error { background: rgba(244,67,54,0.2); color: #f44336; }
+        .empty { text-align: center; padding: 60px; color: rgba(255,255,255,0.5); }
+        .race-card { background: rgba(30,30,60,0.4); border-radius: 16px; margin-bottom: 20px; overflow: hidden; }
+        .race-header { background: linear-gradient(135deg, rgba(255,152,0,0.2), rgba(76,175,80,0.1)); padding: 10px 15px; font-weight: bold; font-size: 14px; }
+        .kayit-listesi { background: rgba(0,0,0,0.3); border-radius: 12px; padding: 10px; margin-bottom: 15px; max-height: 200px; overflow-y: auto; }
+        .kayit-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; margin: 5px 0; background: rgba(255,255,255,0.05); border-radius: 8px; cursor: pointer; }
+        .kayit-item:hover { background: rgba(255,152,0,0.2); }
+    </style>
+</head>
+<body>
+<div id="karsilastirmaContainer">
+<div class="compare-controls">
+<div class="control-group"><div class="control-label">📅 TARİH</div><input type="date" id="karsTarih" class="compare-select"></div>
+<div class="control-group"><div class="control-label">🏟️ HIPODROM</div><select id="karsHipodrom" class="compare-select"><option value="">Önce tarih seçin</option></select></div>
+<div class="control-group"><div class="control-label">🚀 İŞLEM</div><button id="karsGetirBtn" class="compare-btn">SIRALAMA GETİR</button></div>
+<div class="control-group"><div class="control-label">💾 KAYIT</div><button id="karsKaydetBtn" class="compare-btn save-btn">KAYDET</button></div>
+<div class="control-group"><div class="control-label">📋 GEÇMİŞ</div><button id="karsKayitlariGetirBtn" class="compare-btn">KAYITLARI GETİR</button></div>
+</div>
+<div id="kayitListesi" class="kayit-listesi" style="display:none;"></div>
+<div id="karsStatus"></div>
+<div id="karsResults" class="results-table"><div class="empty">🏇 Tarih ve hipodrom seçip SIRALAMA GETİR butonuna tıklayın</div></div>
+</div>
+
+<script>
+let currentProgramData = null;
+let currentKayitId = null;
+
+const today = new Date().toISOString().split('T')[0];
+document.getElementById('karsTarih').value = today;
+
+document.getElementById('karsTarih').onchange = async () => {
+    const tarih = document.getElementById('karsTarih').value;
+    if (tarih) await loadHipodromlar(tarih);
+};
+
+async function loadHipodromlar(tarih) {
+    const statusDiv = document.getElementById('karsStatus');
+    const hipodromSelect = document.getElementById('karsHipodrom');
+    const tarihFormat = tarih.split('-').reverse().join('/');
+    statusDiv.innerHTML = '<div class="status status-loading">⏳ Hipodromlar yükleniyor...</div>';
+    try {
+        const response = await fetch('/api/hipodromlar?tarih=' + tarihFormat);
+        const result = await response.json();
+        if (!result.success || !result.hipodromlar || result.hipodromlar.length === 0) {
+            hipodromSelect.innerHTML = '<option value="">Bu tarihte hipodrom bulunamadı</option>';
+            statusDiv.innerHTML = '<div class="status status-warning">⚠️ ' + tarihFormat + ' tarihinde hipodrom bulunamadı!</div>';
+            return;
+        }
+        let options = '';
+        for (let h of result.hipodromlar) {
+            options += `<option value="${h.id}">${h.name}</option>`;
+        }
+        hipodromSelect.innerHTML = options;
+        statusDiv.innerHTML = '<div class="status status-success">✅ ' + result.hipodromlar.length + ' hipodrom bulundu</div>';
+    } catch (error) {
+        hipodromSelect.innerHTML = '<option value="">Hipodromlar yüklenemedi</option>';
+        statusDiv.innerHTML = '<div class="status status-error">❌ Hata: ' + error.message + '</div>';
+    }
+}
+
+window.onload = async () => {
+    const tarih = document.getElementById('karsTarih').value;
+    if (tarih) await loadHipodromlar(tarih);
+};
+
+// SIRALAMA GETİR - PROGRAM API'sini kullan (Hesaplama ile aynı)
+document.getElementById('karsGetirBtn').onclick = async () => {
+    const tarih = document.getElementById('karsTarih').value;
+    const sehirId = document.getElementById('karsHipodrom').value;
+    const sehirAdi = document.getElementById('karsHipodrom').options[document.getElementById('karsHipodrom').selectedIndex]?.text;
+    const statusDiv = document.getElementById('karsStatus');
+    const resultsDiv = document.getElementById('karsResults');
+    
+    if (!tarih) { statusDiv.innerHTML = '<div class="status status-error">❌ Lütfen bir tarih seçin!</div>'; return; }
+    if (!sehirId || !sehirAdi) { statusDiv.innerHTML = '<div class="status status-error">❌ Lütfen bir hipodrom seçin!</div>'; return; }
+    
+    const tarihFormat = tarih.split('-').reverse().join('/');
+    statusDiv.innerHTML = '<div class="status status-loading">⏳ ' + sehirAdi + ' - ' + tarihFormat + ' program bilgileri alınıyor...</div>';
+    resultsDiv.innerHTML = '<div class="empty">🏇 Veriler yükleniyor...</div>';
+    
+    try {
+        // PROGRAM API'sini kullan
+        const response = await fetch('/api/yaris-programi?sehir=' + sehirId + '&sehirAdi=' + encodeURIComponent(sehirAdi) + '&tarih=' + tarihFormat);
+        const result = await response.json();
+        
+        if (!result.success) throw new Error(result.error);
+        
+        if (!result.data || result.data.length === 0) {
+            statusDiv.innerHTML = '<div class="status status-warning">⚠️ ' + sehirAdi + ' - ' + tarihFormat + ' tarihinde program bulunamadı!</div>';
+            resultsDiv.innerHTML = '<div class="empty">⚠️ Bu tarihte program bulunamadı</div>';
+            return;
+        }
+        
+        currentProgramData = result.data;
+        displayProgram(currentProgramData);
+        statusDiv.innerHTML = '<div class="status status-success">✅ ' + result.hipodrom + ': ' + result.totalRaces + ' koşu programı alındı (' + result.tarih + ')</div>';
+        
+    } catch (error) {
+        statusDiv.innerHTML = '<div class="status status-error">❌ Hata: ' + error.message + '</div>';
+        resultsDiv.innerHTML = '<div class="empty">❌ ' + error.message + '</div>';
+    }
+};
+
+function displayProgram(data) {
+    if (!data || data.length === 0) {
+        document.getElementById('karsResults').innerHTML = '<div class="empty">⚠️ Veri bulunamadı</div>';
+        return;
+    }
+    
+    let html = '';
+    for (let i = 0; i < data.length; i++) {
+        const race = data[i];
+        html += '<div class="race-card">';
+        html += '<div class="race-header">🏆 ' + race.raceNo + '. KOŞU (' + race.horseCount + ' at)</div>';
+        html += '<div style="overflow-x:auto;">';
+        html += '<table border="0">';
+        html += '<thead><tr><th>SIRA</th><th>AT İSMİ</th><th>AT ID</th></tr></thead>';
+        html += '<tbody>';
+        
+        for (let j = 0; j < race.horses.length; j++) {
+            const horse = race.horses[j];
+            html += '<tr>';
+            html += '<td class="sira-no">' + horse.no + '</td>';
+            html += '<td><strong>' + escapeHtml(horse.name) + '</strong></td>';
+            html += '<td>' + horse.atId + '</td>';
+            html += '</tr>';
+        }
+        html += '</tbody></table></div></div><br>';
+    }
+    document.getElementById('karsResults').innerHTML = html;
+}
+
+// KAYDET - Programı Karşılaştırma kaydı olarak kaydet
+document.getElementById('karsKaydetBtn').onclick = async () => {
+    if (!currentProgramData) {
+        document.getElementById('karsStatus').innerHTML = '<div class="status status-error">❌ Önce SIRALAMA GETİR butonuna tıklayın!</div>';
+        return;
+    }
+    
+    const tarih = document.getElementById('karsTarih').value;
+    const sehirId = document.getElementById('karsHipodrom').value;
+    const sehirAdi = document.getElementById('karsHipodrom').options[document.getElementById('karsHipodrom').selectedIndex]?.text;
+    const tarihFormat = tarih.split('-').reverse().join('/');
+    
+    // Program verisini sıralama formatına çevir
+    const siralamaVeri = currentProgramData.map(race => ({
+        raceNo: race.raceNo,
+        horseCount: race.horseCount,
+        horses: race.horses.map(horse => ({
+            sira: horse.no,
+            atIsmi: horse.name,
+            atId: horse.atId
+        }))
+    }));
+    
+    const veri = {
+        hipodrom: sehirAdi,
+        hipodromId: sehirId,
+        tarih: tarihFormat,
+        raceCount: currentProgramData.length,
+        totalHorses: currentProgramData.reduce((sum, r) => sum + r.horses.length, 0),
+        siralama_veri: siralamaVeri,
+        hesaplamalar: { notlar: '' }
+    };
+    
+    document.getElementById('karsStatus').innerHTML = '<div class="status status-loading">⏳ Kaydediliyor...</div>';
+    
+    try {
+        const response = await fetch('/api/karsilastirma-kaydet', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(veri)
+        });
+        const result = await response.json();
+        if (result.success) {
+            document.getElementById('karsStatus').innerHTML = '<div class="status status-success">✅ Kayıt başarılı! ID: ' + result.id + '</div>';
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        document.getElementById('karsStatus').innerHTML = '<div class="status status-error">❌ Kayıt hatası: ' + error.message + '</div>';
+    }
+};
+
+// KAYITLARI GETİR (GEÇMİŞ)
+document.getElementById('karsKayitlariGetirBtn').onclick = async () => {
+    const statusDiv = document.getElementById('karsStatus');
+    const kayitListesiDiv = document.getElementById('kayitListesi');
+    
+    statusDiv.innerHTML = '<div class="status status-loading">⏳ Kayıtlar yükleniyor...</div>';
+    
+    try {
+        const response = await fetch('/api/karsilastirma-kayitlar');
+        const result = await response.json();
+        
+        if (!result.success) throw new Error(result.error);
+        
+        if (result.kayitlar.length === 0) {
+            kayitListesiDiv.innerHTML = '<div class="empty">⚠️ Hiç kayıt bulunamadı</div>';
+            kayitListesiDiv.style.display = 'block';
+            statusDiv.innerHTML = '<div class="status status-error">⚠️ Hiç kayıt yok</div>';
+            return;
+        }
+        
+        let html = '<div style="margin-bottom:10px; font-weight:bold;">📋 GEÇMİŞ KAYITLAR:</div>';
+        for (let i = 0; i < result.kayitlar.length; i++) {
+            const k = result.kayitlar[i];
+            html += `<div class="kayit-item" data-id="${k.id}">
+                        <span>📅 ${k.tarih} | 🏟️ ${k.hipodrom} | 🐎 ${k.total_horses} at | 🕐 ${k.kayit_tarihi}</span>
+                        <span style="color:#ff9800;">📂 Yükle →</span>
+                    </div>`;
+        }
+        kayitListesiDiv.innerHTML = html;
+        kayitListesiDiv.style.display = 'block';
+        
+        document.querySelectorAll('.kayit-item').forEach(item => {
+            item.onclick = async () => {
+                const id = item.dataset.id;
+                await loadKayit(id);
+                kayitListesiDiv.style.display = 'none';
+            };
+        });
+        
+        statusDiv.innerHTML = '<div class="status status-success">✅ ' + result.kayitlar.length + ' kayıt bulundu</div>';
+        
+    } catch (error) {
+        statusDiv.innerHTML = '<div class="status status-error">❌ Hata: ' + error.message + '</div>';
+    }
+};
+
+async function loadKayit(id) {
+    const statusDiv = document.getElementById('karsStatus');
+    statusDiv.innerHTML = '<div class="status status-loading">⏳ Kayıt yükleniyor...</div>';
+    
+    try {
+        const response = await fetch('/api/karsilastirma-kayit/' + id);
+        const result = await response.json();
+        
+        if (!result.success) throw new Error(result.error);
+        
+        currentProgramData = result.kayit.siralama_veri;
+        currentKayitId = id;
+        
+        const tarihParts = result.kayit.tarih.split('/');
+        document.getElementById('karsTarih').value = `${tarihParts[2]}-${tarihParts[1]}-${tarihParts[0]}`;
+        document.getElementById('karsHipodrom').value = result.kayit.hipodrom_id;
+        
+        displayProgram(result.kayit.siralama_veri);
+        statusDiv.innerHTML = '<div class="status status-success">✅ Kayıt yüklendi! (ID: ' + id + ')</div>';
+        
+    } catch (error) {
+        statusDiv.innerHTML = '<div class="status status-error">❌ Yükleme hatası: ' + error.message + '</div>';
+    }
+}
+
+function escapeHtml(s) {
+    if (!s) return '-';
+    return s.replace(/[&<>]/g, function(m) {
+        return m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;';
+    });
+}
+</script>
+</body>
+</html>

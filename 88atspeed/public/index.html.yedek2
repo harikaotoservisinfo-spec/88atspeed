@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>88ATSPEED | 7 Sekmeli Analiz Platformu</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #1a1a3e 50%, #24243e 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+        .container { max-width: 1600px; margin: 0 auto; padding: 20px; }
+        .header {
+            text-align: center;
+            background: linear-gradient(135deg, rgba(255,152,0,0.1), rgba(76,175,80,0.1));
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(255,152,0,0.3);
+        }
+        .logo {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            font-size: 48px;
+            font-weight: 800;
+        }
+        .logo-88 { color: #ff9800; text-shadow: 0 0 20px rgba(255,152,0,0.5); }
+        .logo-at { color: #4CAF50; text-shadow: 0 0 20px rgba(76,175,80,0.5); }
+        .logo-speed { color: #2196F3; text-shadow: 0 0 20px rgba(33,150,243,0.5); }
+        .subtitle { color: rgba(255,255,255,0.6); margin-top: 8px; font-size: 13px; letter-spacing: 2px; }
+        
+        /* Kontrol Paneli */
+        .global-controls {
+            background: rgba(30, 30, 60, 0.7);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 20px 25px;
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            gap: 15px;
+            flex-wrap: wrap;
+            border: 1px solid rgba(255,152,0,0.3);
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .control-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 700;
+            color: #ff9800;
+            text-align: center;
+        }
+        .global-select, .global-date, .global-btn {
+            padding: 12px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: 12px;
+            border: 1px solid rgba(255,152,0,0.3);
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            height: 48px;
+            min-width: 160px;
+        }
+        .global-select, .global-date {
+            background: rgba(0,0,0,0.5);
+            color: white;
+        }
+        .global-select option { text-align: center; }
+        .global-btn {
+            background: linear-gradient(135deg, #ff9800, #f44336);
+            border: none;
+            color: white;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .global-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(255,152,0,0.4); }
+        .save-btn { background: linear-gradient(135deg, #2196F3, #1976D2); }
+        
+        /* Sekmeler */
+        .tabs {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+        .tab-btn {
+            padding: 12px 22px;
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: 40px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(30, 30, 60, 0.5);
+            border: 1px solid rgba(255,255,255,0.1);
+            font-family: 'Inter', sans-serif;
+            text-align: center;
+            min-width: 110px;
+        }
+        .tab-btn:hover { background: rgba(255,152,0,0.2); transform: translateY(-2px); }
+        .tab-btn.active { background: linear-gradient(135deg, #ff9800, #f44336); border-color: transparent; box-shadow: 0 5px 20px rgba(255,152,0,0.4); }
+        
+        /* İçerik Alanları */
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.4s ease;
+            background: rgba(30, 30, 60, 0.4);
+            border-radius: 20px;
+            padding: 20px;
+            min-height: 500px;
+        }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .status {
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .status-loading { background: rgba(255,152,0,0.2); color: #ff9800; }
+        .status-success { background: rgba(76,175,80,0.2); color: #4CAF50; }
+        .status-error { background: rgba(244,67,54,0.2); color: #f44336; }
+        .info-box { text-align: center; padding: 60px; color: rgba(255,255,255,0.5); }
+        
+        .race-card {
+            background: rgba(30, 30, 60, 0.6);
+            border-radius: 16px;
+            margin-bottom: 20px;
+            overflow-x: auto;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .race-header {
+            background: linear-gradient(135deg, rgba(255,152,0,0.2), rgba(76,175,80,0.1));
+            padding: 15px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .race-header h3 { font-size: 17px; font-weight: 700; }
+        .race-badge {
+            background: #ff9800;
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+        .table-wrapper { padding: 15px; overflow-x: auto; }
+        table { border-collapse: collapse; font-size: 11px; width: 100%; min-width: 2800px; }
+        th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); border-right: 1px solid rgba(255,255,255,0.05); }
+        th { background: rgba(0,0,0,0.4); color: #ff9800; font-weight: 600; position: sticky; top: 0; }
+        .horse-no { font-weight: 800; color: #ff9800; text-align: center; background: rgba(0,0,0,0.3); }
+        .son800-badge {
+            background: linear-gradient(135deg, #ff9800, #f44336);
+            padding: 3px 8px;
+            border-radius: 15px;
+            font-size: 10px;
+            font-weight: 700;
+            display: inline-block;
+        }
+        .sticky-col { position: sticky; left: 0; background: #1a1a3e; z-index: 1; }
+        .sticky-col2 { position: sticky; left: 50px; background: #1a1a3e; z-index: 1; }
+        .sticky-col3 { position: sticky; left: 180px; background: #1a1a3e; z-index: 1; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <span class="logo-88">88</span>
+                <span class="logo-at">AT</span>
+                <span class="logo-speed">SPEED</span>
+            </div>
+            <div class="subtitle">7 SEKMELİ PROFESYONEL ANALİZ PLATFORMU</div>
+        </div>
+        
+        <div class="global-controls">
+            <div class="control-group">
+                <div class="control-label">📅 TARİH</div>
+                <input type="date" id="tarihSelect" class="global-date" onchange="this.blur(); loadHipodromlar();">
+            </div>
+            <div class="control-group">
+                <div class="control-label">🏟️ HIPODROM</div>
+                <select id="hipodromSelect" class="global-select">
+                    <option value="">Tarih seçiniz</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <div class="control-label">🚀 İŞLEM</div>
+                <button id="getirBtn" class="global-btn">GETİR</button>
+            </div>
+            <div class="control-group">
+                <div class="control-label">💾 KAYIT</div>
+                <button id="kaydetBtn" class="global-btn save-btn">KAYDET</button>
+            </div>
+        </div>
+        
+        <div id="status"></div>
+        
+        <div class="tabs">
+            <div class="tab-btn active" data-tab="hesaplama">📊 HESAPLAMA</div>
+            <div class="tab-btn" data-tab="yonetim">⚙️ YÖNETİM</div>
+            <div class="tab-btn" data-tab="karsilastirma">🆚 KARŞILAŞTIRMA</div>
+            <div class="tab-btn" data-tab="gosterim">👁️ GÖSTERİM</div>
+        </div>
+        
+        <div id="tab-hesaplama" class="tab-content active"><div class="info-box">📊 HESAPLAMA - GETİR butonuna tıklayın</div></div>
+        <div id="tab-yonetim" class="tab-content"><iframe src="yonetim.html" style="width:100%; min-height:600px; border:none; background:transparent;"></iframe></div>
+        <div id="tab-karsilastirma" class="tab-content"><iframe src="karsilastirma.html" style="width:100%; min-height:600px; border:none; background:transparent;"></iframe></div>
+        <div id="tab-gosterim" class="tab-content"><div class="info-box">👁️ GÖSTERİM - GETİR butonuna tıklayın</div></div>
+    </div>
+
+    <script>
+        let veriCache = {};
+        let currentRaces = null;
+        let currentHorses = [];
+        
+        function createStatusDiv() {
+            let statusDiv = document.getElementById('status');
+            if (!statusDiv) {
+                statusDiv = document.createElement('div');
+                statusDiv.id = 'status';
+                statusDiv.className = 'status';
+                document.querySelector('.global-controls').after(statusDiv);
+            }
+            return statusDiv;
+        }
+        
+        const statusDiv = createStatusDiv();
+        
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('tarihSelect').value = today;
+        
+        document.getElementById('tarihSelect').addEventListener('change', function() { loadHipodromlar(); this.blur(); });
+        document.getElementById('getirBtn').onclick = fetchProgram;
+        document.getElementById('kaydetBtn').onclick = veriKaydet;
+        
+        // SEKME GEÇİŞLERİ
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const tabId = this.dataset.tab;
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                this.classList.add('active');
+                document.getElementById('tab-' + tabId).classList.add('active');
+            });
+        });
+        
+        async function loadHipodromlar() {
+            let tarihInput = document.getElementById('tarihSelect').value;
+            if (!tarihInput) return;
+            let parts = tarihInput.split('-');
+            let tarih = parts[2] + '/' + parts[1] + '/' + parts[0];
+            let hipodromSelect = document.getElementById('hipodromSelect');
+            hipodromSelect.innerHTML = '<option value="">Hipodromlar yükleniyor...</option>';
+            statusDiv.innerHTML = '<div class="status status-loading">⏳ ' + tarih + ' tarihi için hipodromlar listeleniyor...</div>';
+            try {
+                let response = await fetch('/api/hipodromlar?tarih=' + tarih);
+                let result = await response.json();
+                if (result.success && result.hipodromlar && result.hipodromlar.length > 0) {
+                    hipodromSelect.innerHTML = '<option value="">Hipodrom seçin</option>';
+                    for (let i = 0; i < result.hipodromlar.length; i++) {
+                        let option = document.createElement('option');
+                        option.value = result.hipodromlar[i].id;
+                        option.textContent = result.hipodromlar[i].name;
+                        hipodromSelect.appendChild(option);
+                    }
+                    statusDiv.innerHTML = '<div class="status status-success">✅ ' + tarih + ' tarihinde ' + result.hipodromlar.length + ' hipodromda yarış var</div>';
+                } else {
+                    hipodromSelect.innerHTML = '<option value="">Hipodrom bulunamadı</option>';
+                    statusDiv.innerHTML = '<div class="status status-error">⚠️ ' + tarih + ' tarihinde yarış bulunamadı</div>';
+                }
+            } catch(e) {
+                hipodromSelect.innerHTML = '<option value="">Bağlantı hatası</option>';
+                statusDiv.innerHTML = '<div class="status status-error">❌ Sunucuya bağlanılamıyor</div>';
+            }
+        }
+        
+        async function getAtTumVeriler(atId, atAdi) {
+            if (veriCache[atId]) return veriCache[atId];
+            if (!atId) return { kosular: [] };
+            try {
+                let res = await fetch('/api/at-tum-veriler?id=' + atId + '&adi=' + encodeURIComponent(atAdi));
+                let data = await res.json();
+                if (data.success) {
+                    veriCache[atId] = data.kosular;
+                    return data.kosular;
+                }
+            } catch(e) { console.error(e); }
+            return [];
+        }
+        
+        function escapeHtml(s) {
+            if (!s) return '-';
+            return s.replace(/[&<>]/g, function(m) {
+                return m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;';
+            });
+        }
+        
+        async function fetchProgram() {
+            let hipodromId = document.getElementById('hipodromSelect').value;
+            let hipodromSelect = document.getElementById('hipodromSelect');
+            let hipodromText = hipodromSelect.options[hipodromSelect.selectedIndex] ? hipodromSelect.options[hipodromSelect.selectedIndex].text : '';
+            let tarihInput = document.getElementById('tarihSelect').value;
+            
+            if (!tarihInput) {
+                statusDiv.innerHTML = '<div class="status status-error">❌ Lütfen bir tarih seçin!</div>';
+                return;
+            }
+            let parts = tarihInput.split('-');
+            let tarih = parts[2] + '/' + parts[1] + '/' + parts[0];
+            
+            if (!hipodromId) {
+                statusDiv.innerHTML = '<div class="status status-error">❌ Lütfen bir hipodrom seçin!</div>';
+                return;
+            }
+            
+            // HESAPLAMA sekmesini aktif yap
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelector('.tab-btn[data-tab="hesaplama"]').classList.add('active');
+            document.getElementById('tab-hesaplama').classList.add('active');
+            
+            let sonucDiv = document.getElementById('tab-hesaplama');
+            statusDiv.innerHTML = '<div class="status status-loading">⏳ ' + hipodromText + ' programı çekiliyor...</div>';
+            sonucDiv.innerHTML = '<div class="info-box">🏇 Veriler çekiliyor...</div>';
+            
+            try {
+                let response = await fetch('/api/yaris-programi?sehir=' + hipodromId + '&sehirAdi=' + encodeURIComponent(hipodromText) + '&tarih=' + tarih);
+                let result = await response.json();
+                if (!result.success) throw new Error(result.error);
+                
+                currentRaces = result.data;
+                currentHorses = [];
+                for (let i = 0; i < currentRaces.length; i++) {
+                    for (let j = 0; j < currentRaces[i].horses.length; j++) {
+                        let horse = currentRaces[i].horses[j];
+                        currentHorses.push({ ...horse, raceNo: currentRaces[i].raceNo });
+                    }
+                }
+                
+                let uniqueIds = [];
+                let idsMap = {};
+                for (let i = 0; i < currentHorses.length; i++) {
+                    let id = currentHorses[i].atId;
+                    if (id && !idsMap[id]) {
+                        idsMap[id] = true;
+                        uniqueIds.push(id);
+                    }
+                }
+                
+                statusDiv.innerHTML = '<div class="status status-loading">⏳ ' + uniqueIds.length + ' at analiz ediliyor...</div>';
+                for (let i = 0; i < uniqueIds.length; i++) {
+                    await getAtTumVeriler(uniqueIds[i], '');
+                    statusDiv.innerHTML = '<div class="status status-loading">⏳ Analiz: ' + (i+1) + '/' + uniqueIds.length + ' at tamamlandı...</div>';
+                }
+                
+                hesaplamaGoster(currentRaces);
+                statusDiv.innerHTML = '<div class="status status-success">✅ ' + hipodromText + ': ' + result.totalRaces + ' koşu, ' + result.totalHorses + ' at analiz edildi.</div>';
+                
+            } catch (error) {
+                statusDiv.innerHTML = '<div class="status status-error">❌ Hata: ' + error.message + '</div>';
+                sonucDiv.innerHTML = '<div class="info-box">❌ ' + error.message + '</div>';
+            }
+        }
+        
+        function hesaplamaGoster(races) {
+            if (!races || races.length === 0) {
+                document.getElementById('tab-hesaplama').innerHTML = '<div class="info-box">📋 Veri bulunamadı</div>';
+                return;
+            }
+            
+            let thead = '<thead><tr>';
+            thead += '<th class="sticky-col">#</th>';
+            thead += '<th class="sticky-col2">AT İSMİ</th>';
+            thead += '<th class="sticky-col3">AT ID</th>';
+            for (let k = 1; k <= 7; k++) {
+                thead += '<th colspan="8" style="text-align:center;background:#ff9800;color:#000;">KOŞU ' + k + '</th>';
+            }
+            thead += '</tr>';
+            thead += '<tr>';
+            thead += '<th class="sticky-col">#</th>';
+            thead += '<th class="sticky-col2">AT İSMİ</th>';
+            thead += '<th class="sticky-col3">AT ID</th>';
+            for (let k = 1; k <= 7; k++) {
+                thead += '<th>TARİH</th><th>ŞEHİR</th><th>MESAFE</th><th>SIRA</th><th>AT DEREÇE</th><th>BİR.DEREÇE</th><th>SON800-1</th><th>SON800-2</th>';
+            }
+            thead += '</tr></thead>';
+            
+            let tbody = '<tbody>';
+            for (let i = 0; i < races.length; i++) {
+                const race = races[i];
+                for (let j = 0; j < race.horses.length; j++) {
+                    const horse = race.horses[j];
+                    const kosular = veriCache[horse.atId] || [];
+                    tbody += '<tr>';
+                    tbody += '<td class="horse-no sticky-col">' + horse.no + '</td>';
+                    tbody += '<td class="sticky-col2"><strong>' + escapeHtml(horse.name) + '</strong></td>';
+                    tbody += '<td class="sticky-col3">' + (horse.atId || '-') + '</td>';
+                    for (let k = 0; k < 7; k++) {
+                        const kose = kosular[k] || {};
+                        tbody += '<td>' + (kose.tarih || '-') + '</td>';
+                        tbody += '<td>' + (kose.sehir || '-') + '</td>';
+                        tbody += '<td>' + (kose.mesafe || '-') + '</td>';
+                        tbody += '<td>' + (kose.sira || '-') + '</td>';
+                        tbody += '<td>' + (kose.at_derece || '-') + '</td>';
+                        tbody += '<td>' + (kose.birinci_derece || '-') + '</td>';
+                        tbody += '<td><span class="son800-badge">' + (kose.son800_bir || '-') + '</span></td>';
+                        tbody += '<td><span class="son800-badge">' + (kose.son800_iki || '-') + '</span></td>';
+                    }
+                    tbody += '</tr>';
+                }
+            }
+            tbody += '</tbody>';
+            
+            let html = '<div class="race-card"><div class="race-header"><h3>🏁 7 KOŞU TÜM VERİLER TABLOSU</h3></div>';
+            html += '<div class="table-wrapper">';
+            html += '<table border="0" cellpadding="5" cellspacing="0">';
+            html += thead;
+            html += tbody;
+            html += '</table>';
+            html += '</div></div>';
+            
+            document.getElementById('tab-hesaplama').innerHTML = html;
+        }
+        
+        async function veriKaydet() {
+            if (!currentRaces) {
+                statusDiv.innerHTML = '<div class="status status-error">❌ Önce GETİR butonuna tıklayın!</div>';
+                return;
+            }
+            
+            let hipodromSelect = document.getElementById('hipodromSelect');
+            let sehirAdi = hipodromSelect.options[hipodromSelect.selectedIndex] ? hipodromSelect.options[hipodromSelect.selectedIndex].text : '';
+            let tarihInput = document.getElementById('tarihSelect').value;
+            let parts = tarihInput.split('-');
+            let tarih = parts[2] + '/' + parts[1] + '/' + parts[0];
+            
+            let veri = {
+                hipodrom: sehirAdi,
+                hipodromId: document.getElementById('hipodromSelect').value,
+                tarih: tarih,
+                raceCount: currentRaces.length,
+                totalHorses: currentHorses.length,
+                data: []
+            };
+            
+            for (let i = 0; i < currentRaces.length; i++) {
+                let race = currentRaces[i];
+                let raceData = { raceNo: race.raceNo, horses: [] };
+                for (let j = 0; j < race.horses.length; j++) {
+                    let horse = race.horses[j];
+                    let kosular = veriCache[horse.atId] || [];
+                    raceData.horses.push({
+                        no: horse.no,
+                        name: horse.name,
+                        atId: horse.atId,
+                        kosular: kosular
+                    });
+                }
+                veri.data.push(raceData);
+            }
+            
+            statusDiv.innerHTML = '<div class="status status-loading">⏳ Veri kaydediliyor...</div>';
+            try {
+                let response = await fetch('/api/hesaplama-kaydet', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(veri)
+                });
+                let result = await response.json();
+                if (result.success) {
+                    statusDiv.innerHTML = '<div class="status status-success">✅ Veri başarıyla kaydedildi!</div>';
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                statusDiv.innerHTML = '<div class="status status-error">❌ Kayıt hatası: ' + error.message + '</div>';
+            }
+        }
+        
+        loadHipodromlar();
+    </script>
+</body>
+</html>
+
