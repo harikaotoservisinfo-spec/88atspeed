@@ -96,11 +96,28 @@ const getBrowserHeaders = () => ({
 
 async function getBrowserInstance() {
     if (browser) return browser;
-    browser = await puppeteer.launch({
+    const launchOptions = {
         headless: true,
-        executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+    };
+    const chromePaths = [
+        process.env.CHROME_PATH,
+        '/usr/bin/google-chrome',
+        '/usr/bin/google-chrome-stable',
+        '/usr/bin/chromium-browser',
+        '/usr/bin/chromium',
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+    ].filter(Boolean);
+    for (const chromePath of chromePaths) {
+        try {
+            const fs = require('fs');
+            if (fs.existsSync(chromePath)) {
+                launchOptions.executablePath = chromePath;
+                break;
+            }
+        } catch (_) {}
+    }
+    browser = await puppeteer.launch(launchOptions);
     return browser;
 }
 
