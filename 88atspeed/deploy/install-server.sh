@@ -42,38 +42,28 @@ pm2 start ecosystem.config.js
 pm2 save
 pm2 startup systemd -u root --hp /root 2>/dev/null || true
 
-# Nginx (önce HTTP-only cert almak için geçici config)
-if [ ! -f "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" ]; then
-  cat > /etc/nginx/sites-available/88atspeed-temp.conf << EOF
-server {
-    listen 80;
-    listen [::]:80;
-    server_name ${DOMAIN};
-    location / {
-        proxy_pass http://127.0.0.1:${PORT};
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_read_timeout 300s;
-    }
-}
-EOF
-  ln -sf /etc/nginx/sites-available/88atspeed-temp.conf /etc/nginx/sites-enabled/88atspeed.conf
-  nginx -t && systemctl reload nginx
-
-  certbot certonly --nginx -d "${DOMAIN}" --non-interactive --agree-tos -m admin@lerta.tr || \
-  certbot certonly --webroot -w /var/www/html -d "${DOMAIN}" --non-interactive --agree-tos -m admin@lerta.tr
-
-  rm -f /etc/nginx/sites-enabled/88atspeed.conf
-fi
-
-# Kalıcı nginx config
-cp "$APP_DIR/deploy/nginx-88atspeed.conf" /etc/nginx/sites-available/88atspeed.conf
+# Nginx (önce HTTP-only; SSL DNS kaydı sonrası alınır)
+cp "$APP_DIR/deploy/nginx-88atspeed-http.conf" /etc/nginx/sites-available/88atspeed.conf
 ln -sf /etc/nginx/sites-available/88atspeed.conf /etc/nginx/sites-enabled/88atspeed.conf
 rm -f /etc/nginx/sites-enabled/88atspeed-temp.conf 2>/dev/null || true
 nginx -t && systemctl reload nginx
+
+# SSL sertifikası (DNS kaydı varsa)
+if dig +short "${DOMAIN}" A | grep -q .; then
+  if [ ! -f "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" ]; then
+    certbot certonly --nginx -d "${DOMAIN}" --non-interactive --agree-tos -m admin@lerta.tr || true
+  fi
+  if [ -f "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" ]; then
+    cp "$APP_DIR/deploy/nginx-88atspeed.conf" /etc/nginx/sites-available/88atspeed.conf
+    nginx -t && systemctl reload nginx
+    echo "🔒 SSL aktif: https://${DOMAIN}"
+  else
+    echo "⚠️  SSL alınamadı. DNS A kaydı ekleyin: ${DOMAIN} -> sunucu IP"
+  fi
+else
+  echo "⚠️  DNS kaydı bulunamadı. Şu A kaydını ekleyin:"
+  echo "   ${DOMAIN}  ->  $(curl -s ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')"
+fi
 
 echo ""
 echo "✅ 88ATSPEED kurulumu tamamlandı!"
