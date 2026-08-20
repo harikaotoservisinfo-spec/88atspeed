@@ -31,10 +31,23 @@ function requireAuth(req, res, next) {
     return res.status(401).json({ success: false, error: 'Geçersiz kimlik bilgileri' });
 }
 
+async function setupPage(page) {
+    await page.setRequestInterception(true);
+    page.on('request', (req) => {
+        const type = req.resourceType();
+        if (['image', 'font', 'media'].includes(type)) {
+            req.abort();
+        } else {
+            req.continue();
+        }
+    });
+}
+
 async function withPage(fn) {
     const browserInstance = await getBrowserInstance();
     const page = await browserInstance.newPage();
     try {
+        await setupPage(page);
         return await fn(page);
     } finally {
         await page.close().catch(() => {});
@@ -204,23 +217,35 @@ async function waitForRaceResults(page, atIsmi) {
                 }
             }
             return false;
-        }, { timeout: 25000 }, normalized);
+        }, { timeout: 12000 }, normalized);
+    } catch (_) {}
+}
+
+async function scrollToHashAnchor(page) {
+    try {
+        await page.evaluate(() => {
+            if (!location.hash) return;
+            const target = document.querySelector(location.hash);
+            if (target) target.scrollIntoView({ block: 'start' });
+        });
+        await new Promise(r => setTimeout(r, 500));
     } catch (_) {}
 }
 
 async function fetchKosuDetay(page, kosu, atIsmi) {
-    const normalizedAt = normalizeHorseName(atIsmi);
     let lastDetay = { birinciDerece: '-', atDerece: kosu.at_derece_ana_tablo, son800Bir: '-', son800Iki: '-' };
+    const waitSteps = [2000, 4000];
 
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < waitSteps.length; attempt++) {
         try {
             await gotoWithHeaders(page, kosu.tarihLink, {
-                waitUntil: attempt === 0 ? 'domcontentloaded' : 'networkidle2',
-                waitMs: attempt === 0 ? 1500 : 2500,
-                waitSelector: 'table tbody tr',
-                selectorTimeout: 20000,
-                timeout: 90000
+                waitUntil: 'domcontentloaded',
+                waitMs: waitSteps[attempt],
+                waitSelector: 'table tbody tr td:nth-child(10)',
+                selectorTimeout: 12000,
+                timeout: 45000
             });
+            await scrollToHashAnchor(page);
             await waitForRaceResults(page, atIsmi);
 
             const detay = await page.evaluate((horseName) => {
