@@ -127,6 +127,23 @@ async function gotoWithHeaders(page, url) {
     await new Promise(r => setTimeout(r, 2000));
 }
 
+async function gotoKosuDetay(page, url) {
+    await page.setExtraHTTPHeaders(getBrowserHeaders());
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+    try {
+        await page.waitForSelector('table tbody tr', { timeout: 12000 });
+    } catch (_) {}
+    if (url.includes('#')) {
+        await page.evaluate(() => {
+            if (location.hash) {
+                const el = document.querySelector(location.hash);
+                if (el) el.scrollIntoView({ block: 'start' });
+            }
+        });
+    }
+    await new Promise(r => setTimeout(r, 3000));
+}
+
 // API 1: Hipodromları getir
 app.get('/api/hipodromlar', async (req, res) => {
     const tarih = req.query.tarih;
@@ -287,6 +304,7 @@ app.get('/api/yaris-programi', async (req, res) => {
 // API 3: Atın TÜM VERİLERİNİ getir (DÜZELTİLMİŞ)
 app.get('/api/at-tum-veriler', async (req, res) => {
     const atId = req.query.id;
+    const adiParam = (req.query.adi || '').trim();
     
     console.log('📡 At tüm veriler isteği - ID:', atId);
     
@@ -305,18 +323,24 @@ app.get('/api/at-tum-veriler', async (req, res) => {
         const atUrl = `https://www.tjk.org/TR/YarisSever/Query/ConnectedPage/AtKosuBilgileri?QueryParameter_AtId=${atId}`;
         await gotoWithHeaders(page, atUrl);
         
-        // Sayfa içeriğini kontrol et (SADECE gerçek hata mesajlarını kontrol et)
-        const pageContent = await page.evaluate(() => document.body.innerText);
-        if (pageContent.includes("bulunamadı") || pageContent.includes("hata")) {
+        // Sayfa yüklendi mi kontrol et
+        const pageOk = await page.evaluate(() => {
+            const title = document.querySelector('h2.tableTitle');
+            if (!title) return false;
+            const text = title.innerText.trim().toLowerCase();
+            return text && !text.includes('bulunamadı');
+        });
+        if (!pageOk) {
             console.log(`⚠️ At ID ${atId} için sayfaya erişilemedi`);
             await page.close();
-            return res.json({ success: true, atAdi: "Erişim Engellendi", atId: atId, kosular: [] });
+            return res.json({ success: true, atAdi: 'Erişim Engellendi', atId: atId, kosular: [] });
         }
         
         let atIsmi = await page.evaluate(() => {
-            const isimElement = document.querySelector("h2.tableTitle");
-            return isimElement ? isimElement.innerText.trim() : "Bilinmeyen At";
+            const isimElement = document.querySelector('h2.tableTitle');
+            return isimElement ? isimElement.innerText.trim() : 'Bilinmeyen At';
         });
+        if (adiParam) atIsmi = adiParam;
         
         // DÜZELTİLMİŞ: Koşu detaylarının olduğu ikinci tabloyu al (index 1)
         const kosular = await page.evaluate(() => {
@@ -373,63 +397,61 @@ app.get('/api/at-tum-veriler', async (req, res) => {
             let son800Iki = "-";
             
             try {
-                await gotoWithHeaders(page, kosu.tarihLink);
+                await gotoKosuDetay(page, kosu.tarihLink);
                 
                 const detay = await page.evaluate((atIsmi) => {
-                    const tables = document.querySelectorAll("table");
+                    const target = (atIsmi || '').split('(')[0].replace(/\s+/g, ' ').trim().toLocaleUpperCase('tr-TR').replace(/İ/g, 'I');
+                    const tables = document.querySelectorAll('table');
                     let atTabloIndex = -1;
+                    let birinciDerece = null;
+                    let atDereceDetay = null;
+                    let son800 = null;
                     
                     for (let t = 0; t < tables.length; t++) {
-                        const rows = tables[t].querySelectorAll("tbody tr");
+                        const rows = tables[t].querySelectorAll('tbody tr');
                         for (let row of rows) {
-                            const atIsimCell = row.querySelector("td:nth-child(3)");
-                            if (atIsimCell && atIsimCell.innerText.trim().toUpperCase().includes(atIsmi.toUpperCase())) {
-                                atTabloIndex = t;
-                                break;
+                            const siraCell = row.querySelector('td:nth-child(2)');
+                            const nameCell = row.querySelector('td:nth-child(3)');
+                            const dereceCell = row.querySelector('td:nth-child(10)');
+                            if (!dereceCell) continue;
+                            
+                            if (siraCell && siraCell.innerText.trim() === '1' && !birinciDerece) {
+                                birinciDerece = dereceCell.innerText.trim();
+                            }
+                            
+                            if (target && nameCell) {
+                                const cellName = nameCell.innerText.split('(')[0].replace(/\s+/g, ' ').trim().toLocaleUpperCase('tr-TR').replace(/İ/g, 'I');
+                                if (cellName.includes(target)) {
+                                    atDereceDetay = dereceCell.innerText.trim();
+                                    atTabloIndex = t;
+                                }
                             }
                         }
                         if (atTabloIndex !== -1) break;
                     }
                     
-                    let birinciDerece = null;
-                    let atDereceDetay = null;
-                    let son800 = null;
-                    
                     if (atTabloIndex !== -1) {
-                        const tablo = tables[atTabloIndex];
-                        const rows = tablo.querySelectorAll("tbody tr");
-                        
+                        const rows = tables[atTabloIndex].querySelectorAll('tbody tr');
                         for (let row of rows) {
-                            const siraCell = row.querySelector("td:nth-child(2)");
-                            const dereceCell = row.querySelector("td:nth-child(10)");
-                            
-                            if (siraCell && siraCell.innerText.trim() === "1") {
-                                if (dereceCell) {
-                                    birinciDerece = dereceCell.innerText.trim();
-                                }
-                            }
-                            
-                            const atIsimCell = row.querySelector("td:nth-child(3)");
-                            if (atIsimCell && atIsimCell.innerText.trim().toUpperCase().includes(atIsmi.toUpperCase())) {
-                                if (dereceCell) {
-                                    atDereceDetay = dereceCell.innerText.trim();
-                                }
+                            const siraCell = row.querySelector('td:nth-child(2)');
+                            const dereceCell = row.querySelector('td:nth-child(10)');
+                            if (siraCell && siraCell.innerText.trim() === '1' && dereceCell) {
+                                birinciDerece = dereceCell.innerText.trim();
+                                break;
                             }
                         }
                     }
                     
-                    const bodyText = document.body.innerText;
-                    const son800Index = bodyText.indexOf("Son 800");
+                    const bodyText = document.body.innerText || '';
+                    const son800Index = bodyText.indexOf('Son 800');
                     if (son800Index !== -1) {
-                        const son800Text = bodyText.substring(son800Index, son800Index + 100);
-                        let match = son800Text.match(/(\d+[\.\:]\d+[\.\:]\d+)\s*[\-\–]\s*(\d+[\.\:]\d+[\.\:]\d+)/);
+                        const son800Text = bodyText.substring(son800Index, son800Index + 120);
+                        let match = son800Text.match(/Son\s*800\s*:?\s*(\d+[\.\:]\d+[\.\:]\d+)\s*[\-\–]\s*(\d+[\.\:]\d+[\.\:]\d+)/i);
                         if (match) {
-                            son800 = match[1] + "|" + match[2];
+                            son800 = match[1] + '|' + match[2];
                         } else {
-                            const matchTek = son800Text.match(/(\d+[\.\:]\d+[\.\:]\d+)/);
-                            if (matchTek) {
-                                son800 = matchTek[1] + "|";
-                            }
+                            const matchTek = son800Text.match(/Son\s*800\s*:?\s*(\d+[\.\:]\d+[\.\:]\d+)/i);
+                            if (matchTek) son800 = matchTek[1] + '|';
                         }
                     }
                     
