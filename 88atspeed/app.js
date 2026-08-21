@@ -1,12 +1,8 @@
 const express = require('express');
-const puppeteer = require('puppeteer-extra');
-const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+const puppeteer = require('puppeteer');
 const sqlite3 = require('sqlite3').verbose();
 const app = express();
 const PORT = 3023;
-
-// Stealth plugin ile bot tespitini engelle
-puppeteer.use(StealthPlugin());
 
 let browser = null;
 
@@ -97,15 +93,8 @@ const getBrowserHeaders = () => ({
 async function getBrowserInstance() {
     if (browser) return browser;
     const launchOptions = {
-        headless: 'new',
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-gpu',
-            '--lang=tr-TR',
-            '--window-size=1920,1080'
-        ]
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--lang=tr-TR']
     };
     const chromePaths = [
         process.env.CHROME_PATH,
@@ -134,85 +123,49 @@ async function gotoWithHeaders(page, url) {
     await new Promise(r => setTimeout(r, 2000));
 }
 
-async function waitForRaceTables(page, hashId) {
-    for (let attempt = 0; attempt < 4; attempt++) {
-        try {
-            await page.waitForFunction(() => {
-                const rows = document.querySelectorAll('table.tablesorter tbody tr');
-                if (rows.length === 0) return false;
-                for (const row of rows) {
-                    const cells = row.querySelectorAll('td');
-                    for (let i = cells.length - 1; i >= 0; i--) {
-                        const t = cells[i].innerText.trim();
-                        if (/^\d[\.\:]\d{2}[\.\:]\d{2}$/.test(t)) return true;
-                    }
-                }
-                return false;
-            }, { timeout: 20000, polling: 500 });
-            return true;
-        } catch (_) {
-            if (hashId) {
-                await page.evaluate((id) => {
-                    location.hash = '';
-                    void document.body.offsetHeight;
-                    location.hash = id;
-                    const el = document.getElementById(id);
-                    if (el) el.scrollIntoView({ block: 'start', behavior: 'instant' });
-                }, hashId);
-            } else if (attempt < 3) {
-                await page.reload({ waitUntil: 'networkidle2', timeout: 60000 });
-            }
-            await new Promise(r => setTimeout(r, 3000 + attempt * 2000));
-        }
-    }
-    return false;
-}
-
-async function gotoKosuDetay(page, url, extraWaitMs) {
+// final_mesafeler.js / kesin_mesafeler.js ile aynı: hipodrom sekmesi + bekleme
+async function gotoKosuSonucSayfasi(page, url, sehirAdi) {
     await page.setExtraHTTPHeaders(getBrowserHeaders());
     const hashId = url.includes('#') ? url.split('#').pop() : '';
     const baseUrl = hashId ? url.split('#')[0] : url;
-    await page.goto(baseUrl, { waitUntil: 'networkidle2', timeout: 90000 });
+    await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+    try {
+        await page.waitForSelector('.gunluk-tabs', { timeout: 15000 });
+    } catch (_) {}
+
+    const sehirKey = (sehirAdi || '').split(/[\s(]/)[0].trim();
+    if (sehirKey) {
+        await page.evaluate((sehir) => {
+            const tabs = document.querySelectorAll('.gunluk-tabs a');
+            for (const tab of tabs) {
+                if (tab.textContent.includes(sehir)) {
+                    tab.click();
+                    break;
+                }
+            }
+        }, sehirKey);
+        await new Promise(r => setTimeout(r, 5000));
+    }
+
     if (hashId) {
         await page.evaluate((id) => {
             location.hash = id;
             const el = document.getElementById(id) || document.querySelector('[id="' + id + '"]');
-            if (el) el.scrollIntoView({ block: 'start', behavior: 'instant' });
+            if (el) el.scrollIntoView({ block: 'start' });
         }, hashId);
+        await new Promise(r => setTimeout(r, 2000));
     }
-    await waitForRaceTables(page, hashId);
-    await new Promise(r => setTimeout(r, extraWaitMs || 3000));
-    const loaded = await page.evaluate(() => document.querySelectorAll('table.tablesorter tbody tr').length > 0);
-    return loaded;
-}
 
-async function waitForKosuDetayReady(page, atIsmi) {
     try {
-        await page.waitForFunction((horseName) => {
-            const norm = (value) => (value || '').split('(')[0].replace(/\s+/g, ' ').trim().toLocaleUpperCase('tr-TR').replace(/İ/g, 'I');
-            const target = norm(horseName);
-            const timeRe = /^\d[\.\:]\d{2}[\.\:]\d{2}$/;
-            const findRowDerece = (row) => {
-                const cells = row.querySelectorAll('td');
-                for (let i = cells.length - 1; i >= 0; i--) {
-                    const t = cells[i].innerText.trim();
-                    if (timeRe.test(t)) return t;
-                }
-                return '';
-            };
-            for (const tablo of document.querySelectorAll('table.tablesorter')) {
-                for (const row of tablo.querySelectorAll('tbody tr')) {
-                    const derece = findRowDerece(row);
-                    if (!timeRe.test(derece)) continue;
-                    const nameCell = row.querySelector('td:nth-child(3)');
-                    if (target && nameCell && norm(nameCell.innerText).includes(target)) return true;
-                    const siraCell = row.querySelector('td:nth-child(2)');
-                    if (siraCell && siraCell.innerText.trim() === '1') return true;
-                }
-            }
-            return false;
-        }, { timeout: 45000, polling: 500 }, atIsmi);
+        await page.waitForFunction(
+            () => document.querySelectorAll('table tbody tr').length > 0 && document.body.innerText.length > 3000,
+            { timeout: 30000, polling: 500 }
+        );
     } catch (_) {}
+
+    await new Promise(r => setTimeout(r, 2000));
+    return page.evaluate(() => document.querySelectorAll('table tbody tr').length > 0);
 }
 
 function getPageDebugInfo() {
@@ -226,13 +179,12 @@ function getPageDebugInfo() {
             if (cells.length) samples.push({ tablo: t, satir: r, hucreler: cells });
         }
     }
-    const idx = bt.indexOf('Son 800');
-    const tablesorter = document.querySelectorAll('table.tablesorter').length;
+    const idx = bt.indexOf('Son 800 :');
     return {
         url: location.href,
         hash: location.hash,
         tabloSayisi: tables.length,
-        tablesorterSayisi: tablesorter,
+        tablesorterSayisi: document.querySelectorAll('table.tablesorter').length,
         metinUzunluk: bt.length,
         son800Var: idx !== -1,
         son800Ornek: idx !== -1 ? bt.substring(idx, idx + 90) : null,
@@ -240,140 +192,61 @@ function getPageDebugInfo() {
     };
 }
 
-function parseKosuDetayFromPage(atIsmi) {
-    function findRowDerece(row) {
-        const cells = row.querySelectorAll('td');
-        for (let i = cells.length - 1; i >= 0; i--) {
-            const t = cells[i].innerText.trim();
-            if (/^\d[\.\:]\d{2}[\.\:]\d{2}$/.test(t)) return t;
-        }
-        const col10 = row.querySelector('td:nth-child(10)');
-        return col10 ? col10.innerText.trim() : null;
-    }
+async function parseKosuDetayFromPage(page, atIsmi) {
+    return page.evaluate((atIsmi) => {
+        const tables = document.querySelectorAll('table');
+        let atTabloIndex = -1;
 
-    function findRowSira(row) {
-        const c2 = row.querySelector('td:nth-child(2)');
-        if (c2 && /^\d+$/.test(c2.innerText.trim())) return c2.innerText.trim();
-        const c1 = row.querySelector('td:nth-child(1)');
-        if (c1 && /^\d+$/.test(c1.innerText.trim())) return c1.innerText.trim();
-        return null;
-    }
-
-    function findRowName(row) {
-        const c3 = row.querySelector('td:nth-child(3)');
-        if (c3) return c3.innerText.trim();
-        const cells = row.querySelectorAll('td');
-        for (const cell of cells) {
-            const t = cell.innerText.trim();
-            if (t.length > 2 && /[A-ZÇĞİÖŞÜ]/i.test(t) && !/^\d[\.\:]/.test(t)) return t;
-        }
-        return '';
-    }
-
-    function parseSon800(text) {
-        if (!text) return null;
-        const isValidSon800 = (d) => {
-            const parts = d.replace(/:/g, '.').split('.');
-            if (parts.length !== 3) return false;
-            const [m, s, cs] = parts.map(Number);
-            if ([m, s, cs].some(n => isNaN(n))) return false;
-            if (s > 59 || cs > 99) return false;
-            const totalCs = m * 6000 + s * 100 + cs;
-            return totalCs >= 4500 && totalCs <= 15000;
-        };
-        const chunk = text.substring(0, 250);
-        const match = chunk.match(/Son\s*800\s*:?\s*([\d\.\:]+\s*[\-\–]?\s*[\d\.\:]*)/i);
-        const segment = match ? match[1] : chunk;
-        const times = segment.match(/\d[\.\:]\d{2}[\.\:]\d{2}/g) || [];
-        const valid = times.filter(isValidSon800);
-        if (!valid.length) return null;
-        if (valid.length >= 2) return valid[0] + '|' + valid[1];
-        return valid[0] + '|';
-    }
-
-    function getRaceSectionText(table) {
-        let node = table;
-        for (let i = 0; i < 6 && node; i++) {
-            const txt = node.innerText || '';
-            if (/Son\s*800\s*:/i.test(txt)) return txt;
-            node = node.parentElement;
-        }
-        return '';
-    }
-
-    const target = (atIsmi || '').split('(')[0].replace(/\s+/g, ' ').trim().toLocaleUpperCase('tr-TR').replace(/İ/g, 'I');
-    const tables = document.querySelectorAll('table.tablesorter');
-    let atTabloIndex = -1;
-    let birinciDerece = null;
-    let atDereceDetay = null;
-    let son800 = null;
-
-    const hashId = (location.hash || '').replace(/^#/, '');
-    if (hashId) {
-        const anchor = document.getElementById(hashId);
-        if (anchor) {
-            let node = anchor;
-            for (let i = 0; i < 8 && node; i++) {
-                const table = node.querySelector ? node.querySelector('table') : null;
-                if (table) {
-                    const idx = Array.prototype.indexOf.call(tables, table);
-                    if (idx !== -1) atTabloIndex = idx;
-                    break;
-                }
-                node = node.nextElementSibling || node.parentElement;
-            }
-        }
-    }
-
-    const scanTables = atTabloIndex !== -1 ? [atTabloIndex] : [...tables.keys()];
-
-    for (const t of scanTables) {
-        const rows = tables[t].querySelectorAll('tbody tr');
-        for (const row of rows) {
-            const derece = findRowDerece(row);
-            if (!derece || derece === '-') continue;
-            const sira = findRowSira(row);
-            const name = findRowName(row);
-            if (sira === '1' && !birinciDerece) birinciDerece = derece;
-            if (target && name) {
-                const cellName = name.split('(')[0].replace(/\s+/g, ' ').trim().toLocaleUpperCase('tr-TR').replace(/İ/g, 'I');
-                if (cellName.includes(target) || target.includes(cellName)) {
-                    atDereceDetay = derece;
-                    atTabloIndex = t;
-                }
-            }
-        }
-    }
-
-    if (atTabloIndex !== -1) {
-        const rows = tables[atTabloIndex].querySelectorAll('tbody tr');
-        for (const row of rows) {
-            if (findRowSira(row) === '1') {
-                const d = findRowDerece(row);
-                if (d) { birinciDerece = d; break; }
-            }
-        }
-        const sectionText = getRaceSectionText(tables[atTabloIndex]);
-        const son800Idx = sectionText.indexOf('Son 800');
-        if (son800Idx !== -1) {
-            son800 = parseSon800(sectionText.substring(son800Idx));
-        }
-    }
-
-    if (!birinciDerece) {
         for (let t = 0; t < tables.length; t++) {
             const rows = tables[t].querySelectorAll('tbody tr');
             for (const row of rows) {
-                if (findRowSira(row) === '1') {
-                    const d = findRowDerece(row);
-                    if (d) { birinciDerece = d; break; }
+                const atIsimCell = row.querySelector('td:nth-child(3)');
+                if (atIsimCell && atIsimCell.innerText.trim().toUpperCase().includes(atIsmi.toUpperCase())) {
+                    atTabloIndex = t;
+                    break;
                 }
             }
-            if (birinciDerece) break;
+            if (atTabloIndex !== -1) break;
         }
-    }
 
-    return { birinciDerece, atDereceDetay, son800 };
+        let birinciDerece = null;
+        let atDereceDetay = null;
+        let son800 = null;
+
+        if (atTabloIndex !== -1) {
+            const tablo = tables[atTabloIndex];
+            const rows = tablo.querySelectorAll('tbody tr');
+
+            for (const row of rows) {
+                const siraCell = row.querySelector('td:nth-child(2)');
+                const dereceCell = row.querySelector('td:nth-child(10)');
+
+                if (siraCell && siraCell.innerText.trim() === '1' && dereceCell) {
+                    birinciDerece = dereceCell.innerText.trim();
+                }
+
+                const atIsimCell = row.querySelector('td:nth-child(3)');
+                if (atIsimCell && atIsimCell.innerText.trim().toUpperCase().includes(atIsmi.toUpperCase()) && dereceCell) {
+                    atDereceDetay = dereceCell.innerText.trim();
+                }
+            }
+        }
+
+        const bodyText = document.body.innerText;
+        const son800Index = bodyText.indexOf('Son 800 :');
+        if (son800Index !== -1) {
+            const son800Text = bodyText.substring(son800Index, son800Index + 100);
+            let match = son800Text.match(/(\d+[\.\:]\d+[\.\:]\d+)\s*[\-\–]\s*(\d+[\.\:]\d+[\.\:]\d+)/);
+            if (match) {
+                son800 = match[1] + '|' + match[2];
+            } else {
+                const matchTek = son800Text.match(/(\d+[\.\:]\d+[\.\:]\d+)/);
+                if (matchTek) son800 = matchTek[1] + '|';
+            }
+        }
+
+        return { birinciDerece, atDereceDetay, son800 };
+    }, atIsmi);
 }
 
 app.get('/api/scrape-test', async (req, res) => {
@@ -397,7 +270,12 @@ app.get('/api/scrape-test', async (req, res) => {
                 const tarihCell = row.querySelector('td:first-child');
                 const tarihLink = tarihCell?.querySelector('a');
                 if (!tarihLink?.href) continue;
-                data.push({ tarih: tarihCell.innerText.trim(), tarihLink: tarihLink.href });
+                const sehirCell = row.querySelector('td:nth-child(2)');
+                data.push({
+                    tarih: tarihCell.innerText.trim(),
+                    tarihLink: tarihLink.href,
+                    sehir: sehirCell ? sehirCell.innerText.trim() : ''
+                });
             }
             return data.slice(0, 1);
         });
@@ -406,9 +284,8 @@ app.get('/api/scrape-test', async (req, res) => {
             return res.json({ success: false, error: 'Koşu listesi bulunamadı', ms: Date.now() - start });
         }
         const kosu = kosular[0];
-        const tablesLoaded = await gotoKosuDetay(page, kosu.tarihLink, 3000);
-        await waitForKosuDetayReady(page, adi);
-        const detay = await page.evaluate(parseKosuDetayFromPage, adi);
+        const tablesLoaded = await gotoKosuSonucSayfasi(page, kosu.tarihLink, kosu.sehir);
+        const detay = await parseKosuDetayFromPage(page, adi);
         const debug = req.query.debug === '1'
             ? await page.evaluate(getPageDebugInfo)
             : undefined;
@@ -681,26 +558,22 @@ app.get('/api/at-tum-veriler', async (req, res) => {
             let atDerece = kosu.at_derece_ana_tablo;
             let son800Bir = "-";
             let son800Iki = "-";
-            
-            for (let attempt = 0; attempt < 2; attempt++) {
-                try {
-                    await gotoKosuDetay(page, kosu.tarihLink, attempt === 0 ? 4000 : 6000);
-                    await waitForKosuDetayReady(page, atIsmi);
-                    const detay = await page.evaluate(parseKosuDetayFromPage, atIsmi);
-                    
-                    birinciDerece = detay.birinciDerece || "-";
-                    if (detay.atDereceDetay && detay.atDereceDetay !== "-") {
-                        atDerece = detay.atDereceDetay;
-                    }
-                    if (detay.son800 && detay.son800 !== "-") {
-                        const parts = detay.son800.split("|");
-                        son800Bir = parts[0] || "-";
-                        son800Iki = parts[1] || "-";
-                    }
-                    if (birinciDerece !== "-" || son800Bir !== "-") break;
-                } catch (err) {
-                    console.error('Koşu detay hatası:', kosu.tarih, err.message);
+
+            try {
+                await gotoKosuSonucSayfasi(page, kosu.tarihLink, kosu.sehir);
+                const detay = await parseKosuDetayFromPage(page, atIsmi);
+
+                birinciDerece = detay.birinciDerece || "-";
+                if (detay.atDereceDetay && detay.atDereceDetay !== "-") {
+                    atDerece = detay.atDereceDetay;
                 }
+                if (detay.son800 && detay.son800 !== "-") {
+                    const parts = detay.son800.split("|");
+                    son800Bir = parts[0] || "-";
+                    son800Iki = parts[1] || "-";
+                }
+            } catch (err) {
+                console.error('Koşu detay hatası:', kosu.tarih, err.message);
             }
             
             sonuclar.push({
