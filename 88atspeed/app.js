@@ -135,10 +135,10 @@ async function gotoKosuDetay(page, url) {
     } catch (_) {}
     if (url.includes('#')) {
         await page.evaluate(() => {
-            if (location.hash) {
-                const el = document.querySelector(location.hash);
-                if (el) el.scrollIntoView({ block: 'start' });
-            }
+            if (!location.hash) return;
+            const id = location.hash.slice(1);
+            const el = document.getElementById(id) || document.querySelector('[id="' + id + '"]');
+            if (el) el.scrollIntoView({ block: 'start' });
         });
     }
     await new Promise(r => setTimeout(r, 3000));
