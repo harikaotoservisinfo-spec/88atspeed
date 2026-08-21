@@ -182,11 +182,29 @@ const GosterimEngine = {
         );
     },
 
-    collectTopTests(race, hedefMesafe) {
+    /** Kayıt program tarihindeki koşuları hesaplamadan çıkar (ör. bugünün sonuçları) */
+    _filterKosular(kosular, programTarih) {
+        if (!programTarih || !kosular?.length) return kosular || [];
+        return kosular.filter(k => k.tarih !== programTarih);
+    },
+
+    _raceForCalc(race, programTarih) {
+        if (!programTarih) return race;
+        return {
+            ...race,
+            horses: (race.horses || []).map(h => ({
+                ...h,
+                kosular: this._filterKosular(h.kosular, programTarih)
+            }))
+        };
+    },
+
+    collectTopTests(race, hedefMesafe, programTarih) {
+        const calcRace = this._raceForCalc(race, programTarih);
         const test1Degerleri = [];
         const test2Degerleri = [];
-        for (let j = 0; j < race.horses.length; j++) {
-            const kosular = race.horses[j].kosular || [];
+        for (let j = 0; j < calcRace.horses.length; j++) {
+            const kosular = calcRace.horses[j].kosular || [];
             for (let idx = 0; idx < kosular.length; idx++) {
                 const atKosu = kosular[idx];
                 const gecmisMesafe = atKosu.mesafe;
@@ -225,13 +243,14 @@ const GosterimEngine = {
         return { enIyilerTest1, enIyilerTest2 };
     },
 
-    computeHorseTrends(race, hedefMesafe) {
+    computeHorseTrends(race, hedefMesafe, programTarih) {
+        const calcRace = this._raceForCalc(race, programTarih);
         const trends = {
             test4Farki: {}, test7Farki: {},
             ilkFark: {}, sonFark: {}, farklarinFarki: {}
         };
-        for (let j = 0; j < race.horses.length; j++) {
-            const kosularSorted = this._sortKosularChrono(race.horses[j].kosular || []);
+        for (let j = 0; j < calcRace.horses.length; j++) {
+            const kosularSorted = this._sortKosularChrono(calcRace.horses[j].kosular || []);
             const test4Degerleri = [];
             const test7Degerleri = [];
             const farkDegerleri = [];
@@ -389,13 +408,15 @@ const GosterimEngine = {
         return '';
     },
 
-    buildRaceRows(race) {
+    buildRaceRows(race, options = {}) {
+        const programTarih = options.programTarih || null;
         const hedefMesafe = this._hedefMesafe(race);
-        const enIyiler = this.collectTopTests(race, hedefMesafe);
-        const trends = this.computeHorseTrends(race, hedefMesafe);
+        const calcRace = this._raceForCalc(race, programTarih);
+        const enIyiler = this.collectTopTests(calcRace, hedefMesafe, programTarih);
+        const trends = this.computeHorseTrends(calcRace, hedefMesafe, programTarih);
         const rows = [];
-        for (let j = 0; j < race.horses.length; j++) {
-            const horse = race.horses[j];
+        for (let j = 0; j < calcRace.horses.length; j++) {
+            const horse = calcRace.horses[j];
             const kosularSorted = this._sortKosularNewest(horse.kosular || []);
             for (let idx = 0; idx < kosularSorted.length; idx++) {
                 rows.push(this.buildRowValues(horse, kosularSorted[idx], idx, j, hedefMesafe, trends, enIyiler));

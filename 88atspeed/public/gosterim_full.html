@@ -99,6 +99,7 @@
 <script>
 let currentHesaplamaData = null;
 let currentHesaplamaId = null;
+let currentProgramTarih = null;
 let currentSort = { column: null, direction: 'asc', type: null };
 
 const GOSTERIM_HEADERS = [
@@ -196,9 +197,13 @@ async function loadKayit(id) {
         
         currentHesaplamaData = result.kayit.veri;
         currentHesaplamaId = id;
+        currentProgramTarih = result.kayit.tarih || null;
         
         displayResults(currentHesaplamaData);
-        statusDiv.innerHTML = '<div class="status status-success">✅ Kayıt yüklendi! (ID: ' + id + ')</div>';
+        const tarihNotu = currentProgramTarih
+            ? ' — ' + currentProgramTarih + ' koşuları hariç tutuldu'
+            : '';
+        statusDiv.innerHTML = '<div class="status status-success">✅ Kayıt yüklendi! (ID: ' + id + ')' + tarihNotu + '</div>';
         
     } catch (error) {
         statusDiv.innerHTML = '<div class="status status-error">❌ Yükleme hatası: ' + error.message + '</div>';
@@ -219,7 +224,7 @@ function displayResults(data) {
         const racePist = race.pist || '';
         const mesafeGosterim = raceMesafe !== '?' ? raceMesafe + ' ' + racePist : '?';
 
-        let raceRowsData = GosterimEngine.buildRaceRows(race);
+        let raceRowsData = GosterimEngine.buildRaceRows(race, { programTarih: currentProgramTarih });
         raceRowsData = GosterimEngine.sortRows(raceRowsData, currentSort);
 
         let raceHtml = `<div class="race-card">`;
