@@ -134,39 +134,56 @@ async function gotoWithHeaders(page, url) {
     await new Promise(r => setTimeout(r, 2000));
 }
 
+async function waitForRaceTables(page, hashId) {
+    for (let attempt = 0; attempt < 4; attempt++) {
+        try {
+            await page.waitForFunction(() => {
+                const rows = document.querySelectorAll('table.tablesorter tbody tr');
+                if (rows.length === 0) return false;
+                for (const row of rows) {
+                    const cells = row.querySelectorAll('td');
+                    for (let i = cells.length - 1; i >= 0; i--) {
+                        const t = cells[i].innerText.trim();
+                        if (/^\d[\.\:]\d{2}[\.\:]\d{2}$/.test(t)) return true;
+                    }
+                }
+                return false;
+            }, { timeout: 20000, polling: 500 });
+            return true;
+        } catch (_) {
+            if (hashId) {
+                await page.evaluate((id) => {
+                    location.hash = '';
+                    void document.body.offsetHeight;
+                    location.hash = id;
+                    const el = document.getElementById(id);
+                    if (el) el.scrollIntoView({ block: 'start', behavior: 'instant' });
+                }, hashId);
+            } else if (attempt < 3) {
+                await page.reload({ waitUntil: 'networkidle2', timeout: 60000 });
+            }
+            await new Promise(r => setTimeout(r, 3000 + attempt * 2000));
+        }
+    }
+    return false;
+}
+
 async function gotoKosuDetay(page, url, extraWaitMs) {
     await page.setExtraHTTPHeaders(getBrowserHeaders());
     const hashId = url.includes('#') ? url.split('#').pop() : '';
     const baseUrl = hashId ? url.split('#')[0] : url;
-    await page.goto(baseUrl + (hashId ? '#' + hashId : ''), { waitUntil: 'load', timeout: 60000 });
-    try {
-        await page.waitForSelector('table tbody tr', { timeout: 25000 });
-    } catch (_) {}
+    await page.goto(baseUrl, { waitUntil: 'networkidle2', timeout: 90000 });
     if (hashId) {
         await page.evaluate((id) => {
             location.hash = id;
             const el = document.getElementById(id) || document.querySelector('[id="' + id + '"]');
             if (el) el.scrollIntoView({ block: 'start', behavior: 'instant' });
         }, hashId);
-        try {
-            await page.waitForFunction((id) => {
-                const anchor = document.getElementById(id);
-                if (!anchor) return false;
-                let node = anchor;
-                for (let i = 0; i < 8 && node; i++) {
-                    const table = node.querySelector ? node.querySelector('table') : null;
-                    if (table) {
-                        const derece = table.querySelector('tbody tr td:nth-child(10)');
-                        if (derece && /\d[\.\:]\d{2}[\.\:]\d{2}/.test(derece.innerText.trim())) return true;
-                    }
-                    node = node.nextElementSibling || node.parentElement;
-                }
-                return false;
-            }, { timeout: 25000, polling: 400 }, hashId);
-        } catch (_) {}
-        await new Promise(r => setTimeout(r, 2000));
     }
-    await new Promise(r => setTimeout(r, extraWaitMs || 5000));
+    await waitForRaceTables(page, hashId);
+    await new Promise(r => setTimeout(r, extraWaitMs || 3000));
+    const loaded = await page.evaluate(() => document.querySelectorAll('table.tablesorter tbody tr').length > 0);
+    return loaded;
 }
 
 async function waitForKosuDetayReady(page, atIsmi) {
@@ -181,10 +198,9 @@ async function waitForKosuDetayReady(page, atIsmi) {
                     const t = cells[i].innerText.trim();
                     if (timeRe.test(t)) return t;
                 }
-                const col10 = row.querySelector('td:nth-child(10)');
-                return col10 ? col10.innerText.trim() : '';
+                return '';
             };
-            for (const tablo of document.querySelectorAll('table')) {
+            for (const tablo of document.querySelectorAll('table.tablesorter')) {
                 for (const row of tablo.querySelectorAll('tbody tr')) {
                     const derece = findRowDerece(row);
                     if (!timeRe.test(derece)) continue;
@@ -194,8 +210,8 @@ async function waitForKosuDetayReady(page, atIsmi) {
                     if (siraCell && siraCell.innerText.trim() === '1') return true;
                 }
             }
-            return (document.body.innerText || '').includes('Son 800');
-        }, { timeout: 30000, polling: 500 }, atIsmi);
+            return false;
+        }, { timeout: 45000, polling: 500 }, atIsmi);
     } catch (_) {}
 }
 
@@ -211,10 +227,12 @@ function getPageDebugInfo() {
         }
     }
     const idx = bt.indexOf('Son 800');
+    const tablesorter = document.querySelectorAll('table.tablesorter').length;
     return {
         url: location.href,
         hash: location.hash,
         tabloSayisi: tables.length,
+        tablesorterSayisi: tablesorter,
         metinUzunluk: bt.length,
         son800Var: idx !== -1,
         son800Ornek: idx !== -1 ? bt.substring(idx, idx + 90) : null,
@@ -254,25 +272,37 @@ function parseKosuDetayFromPage(atIsmi) {
 
     function parseSon800(text) {
         if (!text) return null;
+        const isValidSon800 = (d) => {
+            const parts = d.replace(/:/g, '.').split('.');
+            if (parts.length !== 3) return false;
+            const [m, s, cs] = parts.map(Number);
+            if ([m, s, cs].some(n => isNaN(n))) return false;
+            if (s > 59 || cs > 99) return false;
+            const totalCs = m * 6000 + s * 100 + cs;
+            return totalCs >= 4500 && totalCs <= 15000;
+        };
         const chunk = text.substring(0, 250);
-        const times = chunk.match(/\d[\.\:]\d{2}[\.\:]\d{2}/g);
-        if (!times || !times.length) return null;
-        if (times.length >= 2) return times[0] + '|' + times[1];
-        return times[0] + '|';
+        const match = chunk.match(/Son\s*800\s*:?\s*([\d\.\:]+\s*[\-\–]?\s*[\d\.\:]*)/i);
+        const segment = match ? match[1] : chunk;
+        const times = segment.match(/\d[\.\:]\d{2}[\.\:]\d{2}/g) || [];
+        const valid = times.filter(isValidSon800);
+        if (!valid.length) return null;
+        if (valid.length >= 2) return valid[0] + '|' + valid[1];
+        return valid[0] + '|';
     }
 
     function getRaceSectionText(table) {
         let node = table;
         for (let i = 0; i < 6 && node; i++) {
             const txt = node.innerText || '';
-            if (txt.includes('Son 800')) return txt;
+            if (/Son\s*800\s*:/i.test(txt)) return txt;
             node = node.parentElement;
         }
         return '';
     }
 
     const target = (atIsmi || '').split('(')[0].replace(/\s+/g, ' ').trim().toLocaleUpperCase('tr-TR').replace(/İ/g, 'I');
-    const tables = document.querySelectorAll('table');
+    const tables = document.querySelectorAll('table.tablesorter');
     let atTabloIndex = -1;
     let birinciDerece = null;
     let atDereceDetay = null;
@@ -330,14 +360,6 @@ function parseKosuDetayFromPage(atIsmi) {
         }
     }
 
-    if (!son800) {
-        const bodyText = document.body.innerText || '';
-        const son800Index = bodyText.indexOf('Son 800');
-        if (son800Index !== -1) {
-            son800 = parseSon800(bodyText.substring(son800Index));
-        }
-    }
-
     if (!birinciDerece) {
         for (let t = 0; t < tables.length; t++) {
             const rows = tables[t].querySelectorAll('tbody tr');
@@ -384,7 +406,7 @@ app.get('/api/scrape-test', async (req, res) => {
             return res.json({ success: false, error: 'Koşu listesi bulunamadı', ms: Date.now() - start });
         }
         const kosu = kosular[0];
-        await gotoKosuDetay(page, kosu.tarihLink, 4000);
+        const tablesLoaded = await gotoKosuDetay(page, kosu.tarihLink, 3000);
         await waitForKosuDetayReady(page, adi);
         const detay = await page.evaluate(parseKosuDetayFromPage, adi);
         const debug = req.query.debug === '1'
@@ -397,6 +419,7 @@ app.get('/api/scrape-test', async (req, res) => {
             ms: Date.now() - start,
             kosu: kosu.tarih,
             kosuLink: kosu.tarihLink,
+            tablolarYuklendi: tablesLoaded,
             birinci_derece: detay.birinciDerece || '-',
             son800_bir: son800Parts[0] || '-',
             son800_iki: son800Parts[1] || '-',
