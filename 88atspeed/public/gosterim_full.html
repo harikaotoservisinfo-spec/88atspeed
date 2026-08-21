@@ -8,227 +8,15 @@
     <meta http-equiv="Expires" content="0">
     <title>Gösterim - 88ATSPEED</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="css/theme.css?v=20260821c" rel="stylesheet">
     <style>
-        :root {
-            --bg-page: #f2f1ec;
-            --bg-surface: #faf9f6;
-            --bg-card: #ffffff;
-            --text-primary: #0f2247;
-            --text-secondary: #3d4f6f;
-            --text-muted: #6b7a94;
-            --accent: #1a237e;
-            --accent-light: #3949ab;
-            --accent-soft: rgba(26, 35, 126, 0.08);
-            --border: rgba(15, 34, 71, 0.12);
-            --border-strong: rgba(15, 34, 71, 0.2);
-            --shadow-sm: 0 1px 3px rgba(15, 34, 71, 0.06);
-            --shadow-md: 0 4px 14px rgba(15, 34, 71, 0.1);
-            --shadow-lg: 0 8px 28px rgba(15, 34, 71, 0.12);
-            --radius-sm: 8px;
-            --radius-md: 12px;
-            --radius-lg: 16px;
-            --radius-xl: 20px;
-            --success: #1b5e20;
-            --success-bg: #e8f5e9;
-            --warning: #e65100;
-            --warning-bg: #fff3e0;
-            --error: #b71c1c;
-            --error-bg: #ffebee;
-            --highlight-yellow: #fff176;
-            --highlight-yellow-row: #fffde7;
-            --highlight-pink-row: #fce4ec;
-            --highlight-pink: #f8bbd0;
-        }
+        #gosterimContainer { padding: 20px 24px 32px; max-width: 100%; }
+        .gosterim-controls { justify-content: flex-start; }
+        .gosterim-btn { min-width: 220px; }
+        .results-table { margin-top: 4px; background: transparent; padding: 0; }
+        .race-header { display: flex; align-items: center; gap: 10px; }
+        .race-table-wrap { overflow-x: auto; padding: 16px 16px 20px; background: var(--bg-surface); }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg-page);
-            color: var(--text-primary);
-            line-height: 1.45;
-            -webkit-font-smoothing: antialiased;
-        }
-
-        #gosterimContainer {
-            padding: 20px 24px 32px;
-            max-width: 100%;
-        }
-
-        /* Kontrol paneli */
-        .gosterim-controls {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-xl);
-            padding: 20px 24px;
-            margin-bottom: 20px;
-            display: flex;
-            gap: 16px;
-            align-items: flex-end;
-            flex-wrap: wrap;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .control-group { display: flex; flex-direction: column; gap: 8px; }
-
-        .control-label {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 1.4px;
-            font-weight: 700;
-            color: var(--accent);
-        }
-
-        .gosterim-btn {
-            padding: 13px 24px;
-            font-size: 14px;
-            font-weight: 700;
-            border-radius: var(--radius-md);
-            cursor: pointer;
-            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
-            color: #fff;
-            min-width: 220px;
-            border: none;
-            box-shadow: 0 4px 12px rgba(26, 35, 126, 0.25);
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
-            font-family: inherit;
-        }
-
-        .gosterim-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 18px rgba(26, 35, 126, 0.32);
-        }
-
-        .gosterim-btn:active { transform: translateY(0); }
-
-        /* Durum mesajları */
-        .status {
-            padding: 14px 18px;
-            border-radius: var(--radius-md);
-            margin-bottom: 16px;
-            text-align: center;
-            font-weight: 600;
-            font-size: 14px;
-            border: 1px solid transparent;
-        }
-
-        .status-loading {
-            background: var(--warning-bg);
-            color: var(--warning);
-            border-color: rgba(230, 81, 0, 0.2);
-        }
-
-        .status-success {
-            background: var(--success-bg);
-            color: var(--success);
-            border-color: rgba(27, 94, 32, 0.2);
-        }
-
-        .status-error {
-            background: var(--error-bg);
-            color: var(--error);
-            border-color: rgba(183, 28, 28, 0.2);
-        }
-
-        /* Kayıt listesi */
-        .kayit-listesi {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-lg);
-            padding: 16px;
-            margin-bottom: 20px;
-            max-height: 320px;
-            overflow-y: auto;
-            box-shadow: var(--shadow-md);
-        }
-
-        .kayit-listesi-title {
-            margin-bottom: 12px;
-            font-weight: 700;
-            font-size: 14px;
-            color: var(--text-primary);
-            letter-spacing: 0.3px;
-        }
-
-        .kayit-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
-            padding: 12px 16px;
-            margin: 6px 0;
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            cursor: pointer;
-            transition: all 0.15s ease;
-            color: var(--text-primary);
-            font-size: 13px;
-        }
-
-        .kayit-item:hover {
-            background: var(--accent-soft);
-            border-color: var(--accent-light);
-            box-shadow: var(--shadow-sm);
-            transform: translateX(4px);
-        }
-
-        .kayit-item-action {
-            color: var(--accent);
-            font-weight: 700;
-            white-space: nowrap;
-            font-size: 12px;
-        }
-
-        /* Boş durum */
-        .empty {
-            text-align: center;
-            padding: 56px 24px;
-            color: var(--text-muted);
-            font-size: 15px;
-            font-weight: 500;
-        }
-
-        /* Koşu kartı */
-        .results-table { margin-top: 4px; }
-
-        .race-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-xl);
-            margin-bottom: 28px;
-            overflow: hidden;
-            box-shadow: var(--shadow-lg);
-        }
-
-        .race-header {
-            background: linear-gradient(135deg, var(--accent) 0%, #283593 100%);
-            color: #fff;
-            padding: 16px 20px;
-            font-weight: 700;
-            font-size: 15px;
-            letter-spacing: 0.2px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .race-header-badge {
-            background: rgba(255, 255, 255, 0.18);
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-        }
-
-        .race-table-wrap {
-            overflow-x: auto;
-            padding: 16px 16px 20px;
-            background: var(--bg-surface);
-        }
-
-        /* Tablo – kart satırları */
         .gosterim-table {
             width: 100%;
             border-collapse: separate;
@@ -236,13 +24,7 @@
             font-size: 11px;
             min-width: 2400px;
         }
-
-        .gosterim-table thead tr {
-            position: sticky;
-            top: 0;
-            z-index: 20;
-        }
-
+        .gosterim-table thead tr { position: sticky; top: 0; z-index: 20; }
         .gosterim-table th {
             background: var(--text-primary);
             color: #eef1f8;
@@ -256,67 +38,29 @@
             cursor: pointer;
             user-select: none;
             border: none;
-            transition: background 0.15s ease;
         }
-
-        .gosterim-table th:first-child {
-            border-radius: var(--radius-md) 0 0 var(--radius-md);
-            padding-left: 14px;
-        }
-
-        .gosterim-table th:last-child {
-            border-radius: 0 var(--radius-md) var(--radius-md) 0;
-            padding-right: 14px;
-        }
-
-        .gosterim-table th:hover {
-            background: var(--accent-light);
-        }
-
-        .gosterim-table th .sort-icon {
-            display: inline-block;
-            margin-left: 4px;
-            font-size: 9px;
-            opacity: 0.45;
-        }
-
+        .gosterim-table th:first-child { border-radius: var(--radius-md) 0 0 var(--radius-md); padding-left: 14px; }
+        .gosterim-table th:last-child { border-radius: 0 var(--radius-md) var(--radius-md) 0; padding-right: 14px; }
+        .gosterim-table th:hover { background: var(--accent-light); }
+        .gosterim-table th .sort-icon { display: inline-block; margin-left: 4px; font-size: 9px; opacity: 0.45; }
         .gosterim-table th.sort-asc .sort-icon,
-        .gosterim-table th.sort-desc .sort-icon {
-            opacity: 1;
-            color: #fff176;
-        }
+        .gosterim-table th.sort-desc .sort-icon { opacity: 1; color: #fff176; }
+        .gosterim-table th.sort-desc .sort-icon { transform: rotate(180deg); display: inline-block; }
 
-        .gosterim-table th.sort-desc .sort-icon {
-            transform: rotate(180deg);
-            display: inline-block;
-        }
-
-        /* Satır kartı */
-        .gosterim-table tbody tr.row-card {
-            transition: transform 0.12s ease, box-shadow 0.12s ease;
-        }
-
-        .gosterim-table tbody tr.row-card:hover {
-            transform: translateY(-1px);
-        }
-
-        .gosterim-table tbody tr.row-card:hover td {
-            box-shadow: 0 6px 20px rgba(15, 34, 71, 0.12);
-        }
-
+        .gosterim-table tbody tr.row-card { transition: transform 0.12s ease; }
+        .gosterim-table tbody tr.row-card:hover { transform: translateY(-1px); }
+        .gosterim-table tbody tr.row-card:hover td { box-shadow: 0 6px 20px rgba(15, 34, 71, 0.12); }
         .gosterim-table tbody td {
             background: var(--bg-card);
             color: var(--text-primary);
-            padding: 10px 10px;
+            padding: 10px;
             text-align: center;
             vertical-align: middle;
             border-top: 1px solid var(--border);
             border-bottom: 1px solid var(--border);
             font-weight: 500;
             box-shadow: var(--shadow-sm);
-            transition: background 0.12s ease, box-shadow 0.12s ease;
         }
-
         .gosterim-table tbody td:first-child {
             border-left: 1px solid var(--border);
             border-radius: var(--radius-md) 0 0 var(--radius-md);
@@ -324,119 +68,20 @@
             font-weight: 700;
             color: var(--accent);
         }
-
         .gosterim-table tbody td:last-child {
             border-right: 1px solid var(--border);
             border-radius: 0 var(--radius-md) var(--radius-md) 0;
             padding-right: 14px;
         }
-
-        /* Yapışkan sol sütunlar */
-        .gosterim-table .col-sticky {
-            position: sticky;
-            left: 0;
-            z-index: 5;
-            background: var(--bg-card);
-        }
-
-        .gosterim-table .col-sticky-2 {
-            position: sticky;
-            left: 48px;
-            z-index: 5;
-            background: var(--bg-card);
-            text-align: left;
-            min-width: 140px;
-            font-weight: 600;
-        }
-
+        .gosterim-table .col-sticky { position: sticky; left: 0; z-index: 5; background: var(--bg-card); }
+        .gosterim-table .col-sticky-2 { position: sticky; left: 48px; z-index: 5; background: var(--bg-card); text-align: left; min-width: 140px; font-weight: 600; }
         .gosterim-table thead .col-sticky,
-        .gosterim-table thead .col-sticky-2 {
-            z-index: 25;
-            background: var(--text-primary);
-        }
-
-        /* Alternatif satır tonu */
-        .gosterim-table tbody tr.row-card:nth-child(even) td {
-            background: #fdfcfa;
-        }
-
+        .gosterim-table thead .col-sticky-2 { z-index: 25; background: var(--text-primary); }
+        .gosterim-table tbody tr.row-card:nth-child(even) td { background: #fdfcfa; }
         .gosterim-table tbody tr.row-card:nth-child(even) .col-sticky,
-        .gosterim-table tbody tr.row-card:nth-child(even) .col-sticky-2 {
-            background: #fdfcfa;
-        }
-
-        /* Vurgu hücreleri */
-        .sari-hucre {
-            background-color: var(--highlight-yellow) !important;
-            color: var(--text-primary) !important;
-            font-weight: 800 !important;
-        }
-
-        tr.sari-satir td {
-            background-color: var(--highlight-yellow-row) !important;
-            border-color: rgba(255, 193, 7, 0.35) !important;
-        }
-
-        tr.sari-satir .col-sticky,
-        tr.sari-satir .col-sticky-2 {
-            background-color: var(--highlight-yellow-row) !important;
-        }
-
-        .eniyi-test1,
-        .eniyi-test2 {
-            background-color: var(--highlight-yellow) !important;
-            color: var(--text-primary) !important;
-            font-weight: 800 !important;
-        }
-
-        .kirmizi-yazi {
-            color: #c62828 !important;
-            font-weight: 800 !important;
-        }
-
-        .yesil-yazi {
-            color: #2e7d32 !important;
-            font-weight: 800 !important;
-        }
-
-        .pembe-hucre {
-            background-color: var(--highlight-pink) !important;
-            color: var(--text-primary) !important;
-        }
-
-        tr.pembe-satir td {
-            background-color: var(--highlight-pink-row) !important;
-            border-color: rgba(233, 30, 99, 0.25) !important;
-        }
-
-        tr.pembe-satir .col-sticky,
-        tr.pembe-satir .col-sticky-2 {
-            background-color: var(--highlight-pink-row) !important;
-        }
-
-        /* Kaydırma çubuğu */
-        .race-table-wrap::-webkit-scrollbar,
-        .kayit-listesi::-webkit-scrollbar {
-            height: 8px;
-            width: 8px;
-        }
-
-        .race-table-wrap::-webkit-scrollbar-track,
-        .kayit-listesi::-webkit-scrollbar-track {
-            background: var(--bg-page);
-            border-radius: 4px;
-        }
-
-        .race-table-wrap::-webkit-scrollbar-thumb,
-        .kayit-listesi::-webkit-scrollbar-thumb {
-            background: rgba(26, 35, 126, 0.25);
-            border-radius: 4px;
-        }
-
-        .race-table-wrap::-webkit-scrollbar-thumb:hover,
-        .kayit-listesi::-webkit-scrollbar-thumb:hover {
-            background: rgba(26, 35, 126, 0.4);
-        }
+        .gosterim-table tbody tr.row-card:nth-child(even) .col-sticky-2 { background: #fdfcfa; }
+        tr.sari-satir .col-sticky, tr.sari-satir .col-sticky-2 { background-color: var(--highlight-yellow-row) !important; }
+        tr.pembe-satir .col-sticky, tr.pembe-satir .col-sticky-2 { background-color: var(--highlight-pink-row) !important; }
     </style>
 </head>
 <body>
