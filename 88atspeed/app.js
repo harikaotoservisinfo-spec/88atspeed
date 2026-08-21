@@ -194,19 +194,75 @@ function getPageDebugInfo() {
 
 async function parseKosuDetayFromPage(page, atIsmi) {
     return page.evaluate((atIsmi) => {
-        const tables = document.querySelectorAll('table');
-        let atTabloIndex = -1;
-
-        for (let t = 0; t < tables.length; t++) {
-            const rows = tables[t].querySelectorAll('tbody tr');
-            for (const row of rows) {
-                const atIsimCell = row.querySelector('td:nth-child(3)');
-                if (atIsimCell && atIsimCell.innerText.trim().toUpperCase().includes(atIsmi.toUpperCase())) {
-                    atTabloIndex = t;
-                    break;
+        function normName(value) {
+            return (value || '').split('(')[0].replace(/\s+/g, ' ').trim().toLocaleUpperCase('tr-TR').replace(/İ/g, 'I');
+        }
+        function namesMatch(cellText, target) {
+            const a = normName(cellText);
+            const b = normName(target);
+            return a && b && (a.includes(b) || b.includes(a));
+        }
+        function findTableByHash() {
+            const hashId = (location.hash || '').replace(/^#/, '');
+            if (!hashId) return -1;
+            const anchor = document.getElementById(hashId);
+            if (!anchor) return -1;
+            let node = anchor;
+            for (let i = 0; i < 8 && node; i++) {
+                const table = node.querySelector ? node.querySelector('table') : null;
+                if (table) {
+                    const tables = document.querySelectorAll('table');
+                    const idx = Array.prototype.indexOf.call(tables, table);
+                    if (idx !== -1) return idx;
+                }
+                node = node.nextElementSibling || node.parentElement;
+            }
+            return -1;
+        }
+        function getBirinciFromTable(table) {
+            if (!table) return null;
+            for (const row of table.querySelectorAll('tbody tr')) {
+                const siraCell = row.querySelector('td:nth-child(2)');
+                const dereceCell = row.querySelector('td:nth-child(10)');
+                if (siraCell && siraCell.innerText.trim() === '1' && dereceCell) {
+                    const d = dereceCell.innerText.trim();
+                    if (d && d !== '-') return d;
                 }
             }
-            if (atTabloIndex !== -1) break;
+            return null;
+        }
+        function getSon800FromNode(node) {
+            if (!node) return null;
+            let el = node;
+            for (let i = 0; i < 6 && el; i++) {
+                const txt = el.innerText || '';
+                const idx = txt.indexOf('Son 800 :');
+                if (idx !== -1) {
+                    const chunk = txt.substring(idx, idx + 100);
+                    let match = chunk.match(/Son\s*800\s*:\s*(\d+[\.\:]\d+[\.\:]\d+)\s*[\-\–]\s*(\d+[\.\:]\d+[\.\:]\d+)/);
+                    if (match) return match[1] + '|' + match[2];
+                    match = chunk.match(/Son\s*800\s*:\s*(\d+[\.\:]\d+[\.\:]\d+)/);
+                    if (match) return match[1] + '|';
+                }
+                el = el.parentElement;
+            }
+            return null;
+        }
+
+        const tables = document.querySelectorAll('table');
+        let atTabloIndex = findTableByHash();
+
+        if (atTabloIndex === -1) {
+            for (let t = 0; t < tables.length; t++) {
+                for (const row of tables[t].querySelectorAll('tbody tr')) {
+                    const atIsimCell = row.querySelector('td:nth-child(3)');
+                    if (atIsimCell && namesMatch(atIsimCell.innerText, atIsmi)) {
+                        atTabloIndex = t;
+                        break;
+                    }
+                }
+                if (atTabloIndex !== -1) break;
+            }
         }
 
         let birinciDerece = null;
@@ -215,33 +271,36 @@ async function parseKosuDetayFromPage(page, atIsmi) {
 
         if (atTabloIndex !== -1) {
             const tablo = tables[atTabloIndex];
-            const rows = tablo.querySelectorAll('tbody tr');
+            birinciDerece = getBirinciFromTable(tablo);
+            son800 = getSon800FromNode(tablo);
 
-            for (const row of rows) {
-                const siraCell = row.querySelector('td:nth-child(2)');
+            for (const row of tablo.querySelectorAll('tbody tr')) {
                 const dereceCell = row.querySelector('td:nth-child(10)');
-
-                if (siraCell && siraCell.innerText.trim() === '1' && dereceCell) {
-                    birinciDerece = dereceCell.innerText.trim();
-                }
-
                 const atIsimCell = row.querySelector('td:nth-child(3)');
-                if (atIsimCell && atIsimCell.innerText.trim().toUpperCase().includes(atIsmi.toUpperCase()) && dereceCell) {
+                if (atIsimCell && namesMatch(atIsimCell.innerText, atIsmi) && dereceCell) {
                     atDereceDetay = dereceCell.innerText.trim();
                 }
             }
         }
 
-        const bodyText = document.body.innerText;
-        const son800Index = bodyText.indexOf('Son 800 :');
-        if (son800Index !== -1) {
-            const son800Text = bodyText.substring(son800Index, son800Index + 100);
-            let match = son800Text.match(/(\d+[\.\:]\d+[\.\:]\d+)\s*[\-\–]\s*(\d+[\.\:]\d+[\.\:]\d+)/);
-            if (match) {
-                son800 = match[1] + '|' + match[2];
-            } else {
-                const matchTek = son800Text.match(/(\d+[\.\:]\d+[\.\:]\d+)/);
-                if (matchTek) son800 = matchTek[1] + '|';
+        if (!birinciDerece) {
+            for (let t = 0; t < tables.length; t++) {
+                birinciDerece = getBirinciFromTable(tables[t]);
+                if (birinciDerece) break;
+            }
+        }
+
+        if (!son800) {
+            const bodyText = document.body.innerText;
+            const son800Index = bodyText.indexOf('Son 800 :');
+            if (son800Index !== -1) {
+                const chunk = bodyText.substring(son800Index, son800Index + 100);
+                let match = chunk.match(/Son\s*800\s*:\s*(\d+[\.\:]\d+[\.\:]\d+)\s*[\-\–]\s*(\d+[\.\:]\d+[\.\:]\d+)/);
+                if (match) son800 = match[1] + '|' + match[2];
+                else {
+                    match = chunk.match(/Son\s*800\s*:\s*(\d+[\.\:]\d+[\.\:]\d+)/);
+                    if (match) son800 = match[1] + '|';
+                }
             }
         }
 
@@ -564,6 +623,9 @@ app.get('/api/at-tum-veriler', async (req, res) => {
                 const detay = await parseKosuDetayFromPage(page, atIsmi);
 
                 birinciDerece = detay.birinciDerece || "-";
+                if (birinciDerece === "-" && kosu.sira === "1" && atDerece && atDerece !== "-") {
+                    birinciDerece = atDerece;
+                }
                 if (detay.atDereceDetay && detay.atDereceDetay !== "-") {
                     atDerece = detay.atDereceDetay;
                 }
