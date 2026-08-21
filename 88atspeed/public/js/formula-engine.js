@@ -155,4 +155,262 @@ const FormulaEngine = {
     }
 };
 
-if (typeof module !== 'undefined') module.exports = FormulaEngine;
+const GosterimEngine = {
+    COL: {
+        TEST1: 17, TEST2: 18, TEST3: 19, TEST4: 20, TEST5: 21,
+        TEST6: 22, TEST7: 23, FARK: 13, FARK8002: 16
+    },
+
+    _hedefMesafe(race) {
+        const m = (race.mesafe && race.mesafe !== '?') ? race.mesafe : (race.raceDistance || '?');
+        return parseInt(m, 10);
+    },
+
+    _kosuKey(j, atKosu) {
+        return `${j}_${atKosu.tarih || ''}_${atKosu.at_derece || ''}`;
+    },
+
+    _sortKosularChrono(kosular) {
+        return [...kosular].sort((a, b) =>
+            AtSpeedUtils.parseDateTR(a.tarih) - AtSpeedUtils.parseDateTR(b.tarih)
+        );
+    },
+
+    _sortKosularNewest(kosular) {
+        return [...kosular].sort((a, b) =>
+            AtSpeedUtils.parseDateTR(b.tarih) - AtSpeedUtils.parseDateTR(a.tarih)
+        );
+    },
+
+    collectTopTests(race, hedefMesafe) {
+        const test1Degerleri = [];
+        const test2Degerleri = [];
+        for (let j = 0; j < race.horses.length; j++) {
+            const kosular = race.horses[j].kosular || [];
+            for (let idx = 0; idx < kosular.length; idx++) {
+                const atKosu = kosular[idx];
+                const gecmisMesafe = atKosu.mesafe;
+                const dereceSalise = AtSpeedUtils.dereceToSalise(atKosu.at_derece);
+                const dr_sl = AtSpeedUtils.metreBasiSalise(dereceSalise, gecmisMesafe);
+                let test1Val = null;
+                if (dr_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
+                    test1Val = hedefMesafe * dr_sl;
+                }
+                if (test1Val !== null) {
+                    test1Degerleri.push({ j, atKosu, val: test1Val });
+                }
+                const son800_1Salise = AtSpeedUtils.dereceToSalise(atKosu.son800_bir);
+                const son800_1_sl = son800_1Salise ? son800_1Salise / 800 : null;
+                let test2Val = null;
+                if (son800_1_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
+                    test2Val = hedefMesafe * son800_1_sl;
+                }
+                if (test2Val !== null) {
+                    test2Degerleri.push({ j, atKosu, val: test2Val });
+                }
+            }
+        }
+        test1Degerleri.sort((a, b) => a.val - b.val);
+        test2Degerleri.sort((a, b) => a.val - b.val);
+        const enIyilerTest1 = new Set();
+        const enIyilerTest2 = new Set();
+        for (let t = 0; t < Math.min(3, test1Degerleri.length); t++) {
+            const item = test1Degerleri[t];
+            enIyilerTest1.add(this._kosuKey(item.j, item.atKosu));
+        }
+        for (let t = 0; t < Math.min(3, test2Degerleri.length); t++) {
+            const item = test2Degerleri[t];
+            enIyilerTest2.add(this._kosuKey(item.j, item.atKosu));
+        }
+        return { enIyilerTest1, enIyilerTest2 };
+    },
+
+    computeHorseTrends(race, hedefMesafe) {
+        const trends = {
+            test4Farki: {}, test7Farki: {},
+            ilkFark: {}, sonFark: {}, farklarinFarki: {}
+        };
+        for (let j = 0; j < race.horses.length; j++) {
+            const kosularSorted = this._sortKosularChrono(race.horses[j].kosular || []);
+            const test4Degerleri = [];
+            const test7Degerleri = [];
+            const farkDegerleri = [];
+            for (const atKosu of kosularSorted) {
+                const gecmisMesafe = atKosu.mesafe;
+                const dereceSalise = AtSpeedUtils.dereceToSalise(atKosu.at_derece);
+                const birinciSalise = AtSpeedUtils.dereceToSalise(atKosu.birinci_derece);
+                const dr_sl = AtSpeedUtils.metreBasiSalise(dereceSalise, gecmisMesafe);
+                const birinci_dr_sl = AtSpeedUtils.metreBasiSalise(birinciSalise, gecmisMesafe);
+                let test1_salise = (dr_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0)
+                    ? hedefMesafe * dr_sl : null;
+                let son800_2 = atKosu.son800_iki;
+                if (!son800_2 || son800_2 === '-') son800_2 = atKosu.son800_bir;
+                const son800_2Salise = AtSpeedUtils.dereceToSalise(son800_2);
+                const son800_2_sl_val = son800_2Salise ? son800_2Salise / 800 : null;
+                let test3_salise = (son800_2_sl_val !== null && !isNaN(hedefMesafe) && hedefMesafe > 0)
+                    ? hedefMesafe * son800_2_sl_val : null;
+                if (test1_salise !== null && test3_salise !== null) {
+                    test4Degerleri.push(test3_salise - test1_salise);
+                }
+                const son800_1_sl = AtSpeedUtils.dereceToSalise(atKosu.son800_bir);
+                const s1 = son800_1_sl ? son800_1_sl / 800 : null;
+                let test2_salise = (s1 !== null && !isNaN(hedefMesafe) && hedefMesafe > 0)
+                    ? hedefMesafe * s1 : null;
+                if (test1_salise !== null && test2_salise !== null) {
+                    test7Degerleri.push(test1_salise - test2_salise);
+                }
+                if (birinci_dr_sl !== null && dr_sl !== null) {
+                    farkDegerleri.push(birinci_dr_sl - dr_sl);
+                }
+            }
+            trends.test4Farki[j] = test4Degerleri.length
+                ? test4Degerleri[test4Degerleri.length - 1] - test4Degerleri[0] : null;
+            trends.test7Farki[j] = test7Degerleri.length
+                ? test7Degerleri[test7Degerleri.length - 1] - test7Degerleri[0] : null;
+            if (farkDegerleri.length) {
+                trends.ilkFark[j] = farkDegerleri[0];
+                trends.sonFark[j] = farkDegerleri[farkDegerleri.length - 1];
+                trends.farklarinFarki[j] = trends.sonFark[j] - trends.ilkFark[j];
+            } else {
+                trends.ilkFark[j] = null;
+                trends.sonFark[j] = null;
+                trends.farklarinFarki[j] = null;
+            }
+        }
+        return trends;
+    },
+
+    buildRowValues(horse, atKosu, rowIndex, horseIndex, hedefMesafe, trends, enIyiler) {
+        const gecmisMesafe = atKosu.mesafe;
+        const dereceStr = atKosu.at_derece;
+        const birinciDerece = atKosu.birinci_derece;
+        let son800_1 = atKosu.son800_bir;
+        let son800_2 = atKosu.son800_iki;
+        if (!son800_2 || son800_2 === '-') son800_2 = son800_1;
+
+        const dereceSalise = AtSpeedUtils.dereceToSalise(dereceStr);
+        const birinciSalise = AtSpeedUtils.dereceToSalise(birinciDerece);
+        const son800_1Salise = AtSpeedUtils.dereceToSalise(son800_1);
+        const son800_2Salise = AtSpeedUtils.dereceToSalise(son800_2);
+
+        const dr_sl = AtSpeedUtils.metreBasiSalise(dereceSalise, gecmisMesafe);
+        const birinci_dr_sl = AtSpeedUtils.metreBasiSalise(birinciSalise, gecmisMesafe);
+        const son800_1_sl = son800_1Salise ? son800_1Salise / 800 : null;
+        const son800_2_sl = son800_2Salise ? son800_2Salise / 800 : null;
+        const fark = (birinci_dr_sl !== null && dr_sl !== null) ? birinci_dr_sl - dr_sl : null;
+        const fark_8002_8001 = (son800_2_sl !== null && son800_1_sl !== null)
+            ? son800_2_sl - son800_1_sl : null;
+
+        let test1_salise = null, test2_salise = null, test3_salise = null;
+        if (dr_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) test1_salise = hedefMesafe * dr_sl;
+        if (son800_1_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) test2_salise = hedefMesafe * son800_1_sl;
+        if (son800_2_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) test3_salise = hedefMesafe * son800_2_sl;
+
+        let kirmiziYazi = false;
+        if (test1_salise !== null && test2_salise !== null && test3_salise !== null) {
+            kirmiziYazi = test1_salise < test2_salise && test1_salise < test3_salise;
+        }
+
+        let test4_salise = null, test5_salise = null, test6_salise = null, test7_salise = null;
+        if (test1_salise !== null && test3_salise !== null) test4_salise = test3_salise - test1_salise;
+        if (test1_salise !== null && birinciSalise !== null) test5_salise = test1_salise - birinciSalise;
+        if (test1_salise !== null && test2_salise !== null) test6_salise = test2_salise - test1_salise;
+        if (test1_salise !== null && test2_salise !== null) test7_salise = test1_salise - test2_salise;
+
+        let yesilYazi = test5_salise !== null && (test5_salise / 100) < 1;
+        let ayniMi = test4_salise !== null && test6_salise !== null && test4_salise === test6_salise;
+        const kosuKey = this._kosuKey(horseIndex, atKosu);
+
+        const gosterimFark = fark;
+        const values = [
+            (rowIndex + 1).toString(),
+            horse.name || '-',
+            horse.atId || '-',
+            atKosu.tarih || '-',
+            atKosu.sehir || '-',
+            gecmisMesafe || '-',
+            atKosu.sira || '-',
+            dereceStr || '-',
+            birinciDerece || '-',
+            son800_1 || '-',
+            son800_2 || '-',
+            dr_sl !== null ? dr_sl.toFixed(4) : '-',
+            birinci_dr_sl !== null ? birinci_dr_sl.toFixed(4) : '-',
+            gosterimFark !== null ? (gosterimFark > 0 ? '+' : '') + gosterimFark.toFixed(4) : '-',
+            son800_1_sl !== null ? son800_1_sl.toFixed(4) : '-',
+            son800_2_sl !== null ? son800_2_sl.toFixed(4) : '-',
+            fark_8002_8001 !== null ? (fark_8002_8001 > 0 ? '+' : '') + fark_8002_8001.toFixed(4) : '-',
+            test1_salise !== null ? AtSpeedUtils.saliseToDerece(test1_salise) : '-',
+            test2_salise !== null ? AtSpeedUtils.saliseToDerece(test2_salise) : '-',
+            test3_salise !== null ? AtSpeedUtils.saliseToDerece(test3_salise) : '-',
+            test4_salise !== null ? AtSpeedUtils.saliseToFarkFormat(test4_salise) : '-',
+            AtSpeedUtils.saliseToFarkFormat(test5_salise),
+            test6_salise !== null ? AtSpeedUtils.saliseToFarkFormat(test6_salise) : '-',
+            test7_salise !== null ? AtSpeedUtils.saliseToFarkFormat(test7_salise) : '-',
+            trends.test4Farki[horseIndex] !== null ? AtSpeedUtils.saliseToFarkFormat(trends.test4Farki[horseIndex]) : '-',
+            trends.test7Farki[horseIndex] !== null ? AtSpeedUtils.saliseToFarkFormat(trends.test7Farki[horseIndex]) : '-',
+            trends.ilkFark[horseIndex] !== null ? (trends.ilkFark[horseIndex] > 0 ? '+' : '') + trends.ilkFark[horseIndex].toFixed(4) : '-',
+            trends.sonFark[horseIndex] !== null ? (trends.sonFark[horseIndex] > 0 ? '+' : '') + trends.sonFark[horseIndex].toFixed(4) : '-',
+            trends.farklarinFarki[horseIndex] !== null ? (trends.farklarinFarki[horseIndex] > 0 ? '+' : '') + trends.farklarinFarki[horseIndex].toFixed(4) : '-'
+        ];
+
+        const farkBosMu = values[this.COL.FARK] === '-';
+        const fark8002BosMu = values[this.COL.FARK8002] === '-';
+
+        return {
+            values,
+            classes: {
+                satirClass: ayniMi ? 'sari-satir' : (farkBosMu && fark8002BosMu ? 'pembe-satir' : ''),
+                test4Class: ayniMi ? 'sari-hucre' : '',
+                test6Class: ayniMi ? 'sari-hucre' : '',
+                test1Class: enIyiler.enIyilerTest1.has(kosuKey) ? 'eniyi-test1' : '',
+                test2Class: enIyiler.enIyilerTest2.has(kosuKey) ? 'eniyi-test2' : '',
+                kirmiziClass: kirmiziYazi ? 'kirmizi-yazi' : '',
+                yesilClass: yesilYazi ? 'yesil-yazi' : '',
+                farkClass: farkBosMu && !fark8002BosMu ? 'pembe-hucre' : '',
+                fark8002Class: !farkBosMu && fark8002BosMu ? 'pembe-hucre' : ''
+            }
+        };
+    },
+
+    getCellClass(columnIndex, classes) {
+        const c = parseInt(columnIndex, 10);
+        const { COL } = this;
+        if (c === COL.TEST1 && classes.test1Class) return classes.test1Class;
+        if (c === COL.TEST2 && classes.test2Class) return classes.test2Class;
+        if (c === COL.TEST4 && classes.test4Class) return classes.test4Class;
+        if (c === COL.TEST6 && classes.test6Class) return classes.test6Class;
+        if ((c === COL.TEST1 || c === COL.TEST2 || c === COL.TEST3) && classes.kirmiziClass) {
+            return classes.kirmiziClass;
+        }
+        if (c === COL.TEST5 && classes.yesilClass) return classes.yesilClass;
+        if (c === COL.FARK && classes.farkClass) return classes.farkClass;
+        if (c === COL.FARK8002 && classes.fark8002Class) return classes.fark8002Class;
+        return '';
+    },
+
+    buildRaceRows(race) {
+        const hedefMesafe = this._hedefMesafe(race);
+        const enIyiler = this.collectTopTests(race, hedefMesafe);
+        const trends = this.computeHorseTrends(race, hedefMesafe);
+        const rows = [];
+        for (let j = 0; j < race.horses.length; j++) {
+            const horse = race.horses[j];
+            const kosularSorted = this._sortKosularNewest(horse.kosular || []);
+            for (let idx = 0; idx < kosularSorted.length; idx++) {
+                rows.push(this.buildRowValues(horse, kosularSorted[idx], idx, j, hedefMesafe, trends, enIyiler));
+            }
+        }
+        return rows;
+    },
+
+    sortRows(rows, sortState) {
+        if (sortState.column === null || sortState.column === undefined) return rows;
+        const columnIndex = AtSpeedUtils.sortColumnIndex(sortState.column);
+        if (columnIndex === null) return rows;
+        const type = sortState.type || AtSpeedUtils.getSortType(columnIndex);
+        return AtSpeedUtils.sortTableData([...rows], columnIndex, type, sortState.direction || 'asc');
+    }
+};
+
+if (typeof module !== 'undefined') module.exports = { FormulaEngine, GosterimEngine };

@@ -74,14 +74,24 @@ const AtSpeedUtils = {
     },
 
     getSortType(columnIndex) {
+        const col = parseInt(columnIndex, 10);
         const types = {
-            0: 'number', 3: 'date', 5: 'number', 6: 'number',
+            0: 'number',   // satır SIRA
+            2: 'number',   // AT ID
+            3: 'date',     // TARİH
+            5: 'number',   // MESAFE
+            6: 'number',   // bitiş SIRA
             11: 'number', 12: 'number', 13: 'number', 14: 'number',
-            15: 'number', 16: 'number', 20: 'number', 21: 'number',
-            22: 'number', 23: 'number', 24: 'number', 25: 'number',
-            26: 'number', 27: 'number', 28: 'number'
+            15: 'number', 16: 'number',
+            20: 'number', 21: 'number', 22: 'number', 23: 'number',
+            24: 'number', 25: 'number', 26: 'number', 27: 'number', 28: 'number'
         };
-        return types[columnIndex] || 'string';
+        return types[col] || 'string';
+    },
+
+    sortColumnIndex(column) {
+        const idx = parseInt(column, 10);
+        return isNaN(idx) ? null : idx;
     },
 
     sortTableData(rowsData, columnIndex, type, direction) {
