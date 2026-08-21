@@ -127,11 +127,11 @@ async function gotoWithHeaders(page, url) {
     await new Promise(r => setTimeout(r, 2000));
 }
 
-async function gotoKosuDetay(page, url) {
+async function gotoKosuDetay(page, url, extraWaitMs) {
     await page.setExtraHTTPHeaders(getBrowserHeaders());
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
     try {
-        await page.waitForSelector('table tbody tr', { timeout: 12000 });
+        await page.waitForSelector('table tbody tr', { timeout: 15000 });
     } catch (_) {}
     if (url.includes('#')) {
         await page.evaluate(() => {
@@ -140,8 +140,104 @@ async function gotoKosuDetay(page, url) {
             const el = document.getElementById(id) || document.querySelector('[id="' + id + '"]');
             if (el) el.scrollIntoView({ block: 'start' });
         });
+        await new Promise(r => setTimeout(r, 800));
     }
-    await new Promise(r => setTimeout(r, 3000));
+    await new Promise(r => setTimeout(r, extraWaitMs || 3500));
+}
+
+async function waitForKosuDetayReady(page, atIsmi) {
+    try {
+        await page.waitForFunction((horseName) => {
+            const norm = (value) => (value || '').split('(')[0].replace(/\s+/g, ' ').trim().toLocaleUpperCase('tr-TR').replace(/İ/g, 'I');
+            const target = norm(horseName);
+            const timeRe = /\d[\.\:]\d{2}[\.\:]\d{2}/;
+            for (const tablo of document.querySelectorAll('table')) {
+                for (const row of tablo.querySelectorAll('tbody tr')) {
+                    const dereceCell = row.querySelector('td:nth-child(10)');
+                    const derece = dereceCell ? dereceCell.innerText.trim() : '';
+                    if (!timeRe.test(derece)) continue;
+                    const nameCell = row.querySelector('td:nth-child(3)');
+                    if (target && nameCell && norm(nameCell.innerText).includes(target)) return true;
+                    const siraCell = row.querySelector('td:nth-child(2)');
+                    if (siraCell && siraCell.innerText.trim() === '1') return true;
+                }
+            }
+            return (document.body.innerText || '').includes('Son 800');
+        }, { timeout: 20000, polling: 500 }, atIsmi);
+    } catch (_) {}
+}
+
+function parseKosuDetayFromPage(atIsmi) {
+    const target = (atIsmi || '').split('(')[0].replace(/\s+/g, ' ').trim().toLocaleUpperCase('tr-TR').replace(/İ/g, 'I');
+    const tables = document.querySelectorAll('table');
+    let atTabloIndex = -1;
+    let birinciDerece = null;
+    let atDereceDetay = null;
+    let son800 = null;
+
+    for (let t = 0; t < tables.length; t++) {
+        const rows = tables[t].querySelectorAll('tbody tr');
+        for (const row of rows) {
+            const siraCell = row.querySelector('td:nth-child(2)');
+            const nameCell = row.querySelector('td:nth-child(3)');
+            const dereceCell = row.querySelector('td:nth-child(10)');
+            if (!dereceCell) continue;
+            const derece = dereceCell.innerText.trim();
+            if (!derece || derece === '-') continue;
+
+            if (siraCell && siraCell.innerText.trim() === '1' && !birinciDerece) {
+                birinciDerece = derece;
+            }
+            if (target && nameCell) {
+                const cellName = nameCell.innerText.split('(')[0].replace(/\s+/g, ' ').trim().toLocaleUpperCase('tr-TR').replace(/İ/g, 'I');
+                if (cellName.includes(target)) {
+                    atDereceDetay = derece;
+                    atTabloIndex = t;
+                }
+            }
+        }
+        if (atTabloIndex !== -1) break;
+    }
+
+    if (atTabloIndex !== -1) {
+        const rows = tables[atTabloIndex].querySelectorAll('tbody tr');
+        for (const row of rows) {
+            const siraCell = row.querySelector('td:nth-child(2)');
+            const dereceCell = row.querySelector('td:nth-child(10)');
+            if (siraCell && siraCell.innerText.trim() === '1' && dereceCell) {
+                birinciDerece = dereceCell.innerText.trim();
+                break;
+            }
+        }
+    } else {
+        for (let t = 0; t < tables.length; t++) {
+            const rows = tables[t].querySelectorAll('tbody tr');
+            for (const row of rows) {
+                const siraCell = row.querySelector('td:nth-child(2)');
+                const dereceCell = row.querySelector('td:nth-child(10)');
+                if (siraCell && siraCell.innerText.trim() === '1' && dereceCell && dereceCell.innerText.trim()) {
+                    birinciDerece = dereceCell.innerText.trim();
+                    break;
+                }
+            }
+            if (birinciDerece) break;
+        }
+    }
+
+    const bodyText = document.body.innerText || '';
+    const son800Index = bodyText.indexOf('Son 800');
+    if (son800Index !== -1) {
+        const son800Text = bodyText.substring(son800Index, son800Index + 120);
+        let match = son800Text.match(/Son\s*800\s*:?\s*(\d+[\.\:]\d+[\.\:]\d+)\s*[\-\–]\s*(\d+[\.\:]\d+[\.\:]\d+)/i);
+        if (match) {
+            son800 = match[1] + '|' + match[2];
+        } else {
+            const matchTek = son800Text.match(/Son\s*800\s*:?\s*(\d+[\.\:]\d+[\.\:]\d+)/i);
+            if (matchTek) son800 = matchTek[1] + '|';
+        }
+    }
+
+    return { birinciDerece, atDereceDetay, son800 };
 }
 
 // API 1: Hipodromları getir
@@ -315,8 +411,7 @@ app.get('/api/at-tum-veriler', async (req, res) => {
     try {
         const browserInstance = await getBrowserInstance();
         const page = await browserInstance.newPage();
-        
-        // Önce ana sayfaya git (session oluşması için)
+        await page.setViewport({ width: 1920, height: 1080 });
         await gotoWithHeaders(page, 'https://www.tjk.org/');
         
         // Sonra at sayfasına git
@@ -396,81 +491,25 @@ app.get('/api/at-tum-veriler', async (req, res) => {
             let son800Bir = "-";
             let son800Iki = "-";
             
-            try {
-                await gotoKosuDetay(page, kosu.tarihLink);
-                
-                const detay = await page.evaluate((atIsmi) => {
-                    const target = (atIsmi || '').split('(')[0].replace(/\s+/g, ' ').trim().toLocaleUpperCase('tr-TR').replace(/İ/g, 'I');
-                    const tables = document.querySelectorAll('table');
-                    let atTabloIndex = -1;
-                    let birinciDerece = null;
-                    let atDereceDetay = null;
-                    let son800 = null;
+            for (let attempt = 0; attempt < 2; attempt++) {
+                try {
+                    await gotoKosuDetay(page, kosu.tarihLink, attempt === 0 ? 3500 : 5500);
+                    await waitForKosuDetayReady(page, atIsmi);
+                    const detay = await page.evaluate(parseKosuDetayFromPage, atIsmi);
                     
-                    for (let t = 0; t < tables.length; t++) {
-                        const rows = tables[t].querySelectorAll('tbody tr');
-                        for (let row of rows) {
-                            const siraCell = row.querySelector('td:nth-child(2)');
-                            const nameCell = row.querySelector('td:nth-child(3)');
-                            const dereceCell = row.querySelector('td:nth-child(10)');
-                            if (!dereceCell) continue;
-                            
-                            if (siraCell && siraCell.innerText.trim() === '1' && !birinciDerece) {
-                                birinciDerece = dereceCell.innerText.trim();
-                            }
-                            
-                            if (target && nameCell) {
-                                const cellName = nameCell.innerText.split('(')[0].replace(/\s+/g, ' ').trim().toLocaleUpperCase('tr-TR').replace(/İ/g, 'I');
-                                if (cellName.includes(target)) {
-                                    atDereceDetay = dereceCell.innerText.trim();
-                                    atTabloIndex = t;
-                                }
-                            }
-                        }
-                        if (atTabloIndex !== -1) break;
+                    birinciDerece = detay.birinciDerece || "-";
+                    if (detay.atDereceDetay && detay.atDereceDetay !== "-") {
+                        atDerece = detay.atDereceDetay;
                     }
-                    
-                    if (atTabloIndex !== -1) {
-                        const rows = tables[atTabloIndex].querySelectorAll('tbody tr');
-                        for (let row of rows) {
-                            const siraCell = row.querySelector('td:nth-child(2)');
-                            const dereceCell = row.querySelector('td:nth-child(10)');
-                            if (siraCell && siraCell.innerText.trim() === '1' && dereceCell) {
-                                birinciDerece = dereceCell.innerText.trim();
-                                break;
-                            }
-                        }
+                    if (detay.son800 && detay.son800 !== "-") {
+                        const parts = detay.son800.split("|");
+                        son800Bir = parts[0] || "-";
+                        son800Iki = parts[1] || "-";
                     }
-                    
-                    const bodyText = document.body.innerText || '';
-                    const son800Index = bodyText.indexOf('Son 800');
-                    if (son800Index !== -1) {
-                        const son800Text = bodyText.substring(son800Index, son800Index + 120);
-                        let match = son800Text.match(/Son\s*800\s*:?\s*(\d+[\.\:]\d+[\.\:]\d+)\s*[\-\–]\s*(\d+[\.\:]\d+[\.\:]\d+)/i);
-                        if (match) {
-                            son800 = match[1] + '|' + match[2];
-                        } else {
-                            const matchTek = son800Text.match(/Son\s*800\s*:?\s*(\d+[\.\:]\d+[\.\:]\d+)/i);
-                            if (matchTek) son800 = matchTek[1] + '|';
-                        }
-                    }
-                    
-                    return { birinciDerece, atDereceDetay, son800 };
-                }, atIsmi);
-                
-                birinciDerece = detay.birinciDerece || "-";
-                if (detay.atDereceDetay && detay.atDereceDetay !== "-") {
-                    atDerece = detay.atDereceDetay;
+                    if (birinciDerece !== "-" || son800Bir !== "-") break;
+                } catch (err) {
+                    console.error('Koşu detay hatası:', kosu.tarih, err.message);
                 }
-                
-                if (detay.son800 && detay.son800 !== "-") {
-                    const parts = detay.son800.split("|");
-                    son800Bir = parts[0] || "-";
-                    son800Iki = parts[1] || "-";
-                }
-                
-            } catch (err) {
-                console.error(err.message);
             }
             
             sonuclar.push({
