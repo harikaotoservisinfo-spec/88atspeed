@@ -123,6 +123,22 @@
             min-height: 500px;
         }
         .tab-content.active { display: block; }
+
+        /* GÖSTERİM sekmesi – kirli beyaz tam ekran iframe */
+        .tab-content-gosterim {
+            background: #f2f1ec;
+            padding: 0;
+            border: 1px solid rgba(15, 34, 71, 0.1);
+            overflow: hidden;
+        }
+        .tab-content-gosterim iframe {
+            display: block;
+            width: 100%;
+            min-height: 720px;
+            border: none;
+            background: #f2f1ec;
+        }
+
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
@@ -225,7 +241,7 @@
         <div id="tab-hesaplama" class="tab-content active"><div class="info-box">📊 HESAPLAMA - GETİR butonuna tıklayın</div></div>
         <div id="tab-yonetim" class="tab-content"><iframe src="yonetim.html" style="width:100%; min-height:600px; border:none; background:transparent;"></iframe></div>
         <div id="tab-karsilastirma" class="tab-content"><iframe src="karsilastirma.html" style="width:100%; min-height:600px; border:none; background:transparent;"></iframe></div>
-        <div id="tab-gosterim" class="tab-content"><iframe src="gosterim_full.html" style="width:100%; min-height:600px; border:none; background:transparent;"></iframe></div>
+        <div id="tab-gosterim" class="tab-content tab-content-gosterim"><iframe id="gosterimFrame" src="gosterim_full.html?v=20260821b" title="Gösterim"></iframe></div>
     </div>
 
     <script>
@@ -261,6 +277,11 @@
                 document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                 this.classList.add('active');
                 document.getElementById('tab-' + tabId).classList.add('active');
+
+                if (tabId === 'gosterim') {
+                    const frame = document.getElementById('gosterimFrame');
+                    if (frame) frame.src = 'gosterim_full.html?v=' + Date.now();
+                }
             });
         });
         

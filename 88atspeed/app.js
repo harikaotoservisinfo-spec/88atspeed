@@ -68,7 +68,15 @@ db.run(`CREATE TABLE IF NOT EXISTS yonetim_calismalari_v2 (
     kayit_tarihi DATETIME DEFAULT CURRENT_TIMESTAMP
 )`);
 
-app.use(express.static('public'));
+app.use(express.static('public', {
+    setHeaders(res, filePath) {
+        if (filePath.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+        }
+    }
+}));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -280,13 +288,6 @@ async function parseKosuDetayFromPage(page, atIsmi) {
                 if (atIsimCell && namesMatch(atIsimCell.innerText, atIsmi) && dereceCell) {
                     atDereceDetay = dereceCell.innerText.trim();
                 }
-            }
-        }
-
-        if (!birinciDerece) {
-            for (let t = 0; t < tables.length; t++) {
-                birinciDerece = getBirinciFromTable(tables[t]);
-                if (birinciDerece) break;
             }
         }
 
