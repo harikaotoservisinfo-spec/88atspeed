@@ -240,6 +240,54 @@ function parseKosuDetayFromPage(atIsmi) {
     return { birinciDerece, atDereceDetay, son800 };
 }
 
+app.get('/api/scrape-test', async (req, res) => {
+    const atId = req.query.id || '99891';
+    const adi = (req.query.adi || 'SANCAKALAN').trim();
+    const start = Date.now();
+    try {
+        const browserInstance = await getBrowserInstance();
+        const page = await browserInstance.newPage();
+        await page.setViewport({ width: 1920, height: 1080 });
+        await gotoWithHeaders(page, 'https://www.tjk.org/');
+        const atUrl = `https://www.tjk.org/TR/YarisSever/Query/ConnectedPage/AtKosuBilgileri?QueryParameter_AtId=${atId}`;
+        await gotoWithHeaders(page, atUrl);
+        const kosular = await page.evaluate(() => {
+            const tables = document.querySelectorAll('table.tablesorter');
+            const kosuTablosu = tables.length >= 2 ? tables[1] : tables[0];
+            if (!kosuTablosu) return [];
+            const rows = kosuTablosu.querySelectorAll('tbody tr');
+            const data = [];
+            for (const row of rows) {
+                const tarihCell = row.querySelector('td:first-child');
+                const tarihLink = tarihCell?.querySelector('a');
+                if (!tarihLink?.href) continue;
+                data.push({ tarih: tarihCell.innerText.trim(), tarihLink: tarihLink.href });
+            }
+            return data.slice(0, 1);
+        });
+        if (!kosular.length) {
+            await page.close();
+            return res.json({ success: false, error: 'Koşu listesi bulunamadı', ms: Date.now() - start });
+        }
+        const kosu = kosular[0];
+        await gotoKosuDetay(page, kosu.tarihLink, 3500);
+        await waitForKosuDetayReady(page, adi);
+        const detay = await page.evaluate(parseKosuDetayFromPage, adi);
+        await page.close();
+        res.json({
+            success: true,
+            ms: Date.now() - start,
+            kosu: kosu.tarih,
+            birinci_derece: detay.birinciDerece || '-',
+            son800_bir: detay.son800 ? detay.son800.split('|')[0] : '-',
+            son800_iki: detay.son800 ? (detay.son800.split('|')[1] || '-') : '-',
+            tamam: !!(detay.birinciDerece && detay.son800)
+        });
+    } catch (e) {
+        res.json({ success: false, error: e.message, ms: Date.now() - start });
+    }
+});
+
 // API 1: Hipodromları getir
 app.get('/api/hipodromlar', async (req, res) => {
     const tarih = req.query.tarih;

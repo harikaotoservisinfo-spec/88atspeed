@@ -3,7 +3,7 @@
 set -euo pipefail
 
 APP_DIR="/var/www/88atspeed"
-BRANCH="${1:-cursor/kaydet-new-tab-c2e4}"
+BRANCH="${1:-cursor/fix-birinci-son800-c2e4}"
 REPO="https://github.com/harikaotoservisinfo-spec/88atspeed.git"
 TMP="/tmp/88atspeed-deploy-$$"
 
