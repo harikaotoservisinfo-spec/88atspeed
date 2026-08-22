@@ -58,13 +58,25 @@ const KuralPanel = {
   moveRule(ruleId, toIndex) {
     const cfg = this.loadConfig();
     const from = cfg.order.indexOf(ruleId);
-    if (from < 0) return;
-    cfg.order.splice(from, 1);
-    const insertAt = Math.max(0, Math.min(toIndex, cfg.order.length));
-    cfg.order.splice(insertAt, 0, ruleId);
+    if (from < 0 || from === toIndex) return false;
+
+    const item = cfg.order.splice(from, 1)[0];
+    let insertAt = toIndex;
+    if (from < toIndex) insertAt--;
+    insertAt = Math.max(0, Math.min(insertAt, cfg.order.length));
+    cfg.order.splice(insertAt, 0, item);
+
     this.saveConfig(cfg);
     this.render();
     this._notifyChange();
+    return true;
+  },
+
+  nudgeRule(ruleId, delta) {
+    const cfg = this.loadConfig();
+    const from = cfg.order.indexOf(ruleId);
+    if (from < 0) return;
+    this.moveRule(ruleId, from + delta);
   },
 
   toggleRule(ruleId, enabled) {
@@ -141,6 +153,12 @@ const KuralPanel = {
         + ' <code>' + AtSpeedUtils.escapeHtml(id) + '</code>' + siraBadge + '</div>';
       html += '<div class="kural-conds">' + AtSpeedUtils.escapeHtml(meta.condText) + '</div>';
       html += '</div>';
+      html += '<div class="kural-move-btns">';
+      html += '<button type="button" class="kural-nudge-btn" data-rule-id="' + AtSpeedUtils.escapeHtml(id) + '" data-delta="-1" title="Yukarı"'
+        + (idx === 0 ? ' disabled' : '') + '>▲</button>';
+      html += '<button type="button" class="kural-nudge-btn" data-rule-id="' + AtSpeedUtils.escapeHtml(id) + '" data-delta="1" title="Aşağı"'
+        + (idx === cfg.order.length - 1 ? ' disabled' : '') + '>▼</button>';
+      html += '</div>';
       html += '<label class="kural-toggle" title="Aktif/pasif">';
       html += '<input type="checkbox" class="kural-enable-cb" data-rule-id="' + AtSpeedUtils.escapeHtml(id) + '"'
         + (disabled ? '' : ' checked') + '> Aktif</label>';
@@ -156,33 +174,48 @@ const KuralPanel = {
   _bindListEvents(list) {
     list.querySelectorAll('.kural-item').forEach(item => {
       item.addEventListener('dragstart', (e) => {
-        this._dragId = item.dataset.ruleId;
-        item.classList.add('kural-dragging');
+        const ruleId = item.dataset.ruleId;
+        this._dragId = ruleId;
         e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', ruleId);
+        item.classList.add('kural-dragging');
       });
       item.addEventListener('dragend', () => {
         item.classList.remove('kural-dragging');
-        this._dragId = null;
         list.querySelectorAll('.kural-item').forEach(el => el.classList.remove('kural-drop-target'));
+        setTimeout(() => { this._dragId = null; }, 0);
       });
       item.addEventListener('dragover', (e) => {
         e.preventDefault();
-        if (!this._dragId || item.dataset.ruleId === this._dragId) return;
+        e.dataTransfer.dropEffect = 'move';
+        const dragId = e.dataTransfer.getData('text/plain') || this._dragId;
+        if (!dragId || item.dataset.ruleId === dragId) return;
         item.classList.add('kural-drop-target');
       });
       item.addEventListener('dragleave', () => item.classList.remove('kural-drop-target'));
       item.addEventListener('drop', (e) => {
         e.preventDefault();
+        e.stopPropagation();
         item.classList.remove('kural-drop-target');
-        if (!this._dragId) return;
+        const ruleId = e.dataTransfer.getData('text/plain') || this._dragId;
+        if (!ruleId || ruleId === item.dataset.ruleId) return;
         const toIndex = parseInt(item.dataset.index, 10);
-        this.moveRule(this._dragId, toIndex);
+        this.moveRule(ruleId, toIndex);
       });
     });
 
     list.querySelectorAll('.kural-enable-cb').forEach(cb => {
       cb.addEventListener('change', () => {
         this.toggleRule(cb.dataset.ruleId, cb.checked);
+      });
+    });
+
+    list.querySelectorAll('.kural-nudge-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const delta = parseInt(btn.dataset.delta, 10);
+        this.nudgeRule(btn.dataset.ruleId, delta);
       });
     });
 

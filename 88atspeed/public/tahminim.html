@@ -299,6 +299,19 @@
             border: none; background: #ffcdd2; color: #c62828;
             width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-weight: 700; flex-shrink: 0;
         }
+        .kural-move-btns { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
+        .kural-nudge-btn {
+            border: 1px solid #cfd8dc; background: #fff; color: #37474f;
+            width: 28px; height: 22px; border-radius: 4px; cursor: pointer; font-size: 10px; line-height: 1;
+            padding: 0;
+        }
+        .kural-nudge-btn:hover:not(:disabled) { background: #e3f2fd; border-color: #1565c0; }
+        .kural-nudge-btn:disabled { opacity: 0.35; cursor: default; }
+        .tahmin-at-input.tahmin-changed { animation: tahminFlash 0.8s ease; }
+        @keyframes tahminFlash {
+            0%, 100% { background: #e3f2fd; }
+            50% { background: #fff59d; }
+        }
         .kural-panel-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
         .kural-yeni-form {
             margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);
@@ -367,7 +380,7 @@
 <script src="js/formula-engine.js?v=20260823c"></script>
 <script src="js/tahmin-engine.js?v=20260824d"></script>
 <script src="js/sonuc-engine.js?v=20260824c"></script>
-<script src="js/kural-panel.js?v=20260824d"></script>
+<script src="js/kural-panel.js?v=20260824e"></script>
 <script>
 let currentKayitId = null;
 let currentKayitMeta = null;
@@ -437,12 +450,14 @@ function getHorseDatalist(race) {
     });
 }
 
-function applyTahminlerToDom(tahminler, detay) {
+function applyTahminlerToDom(tahminler, detay, prevTahminler) {
     if (!tahminler) return;
+    let degisenSayisi = 0;
     for (const raceIdx of Object.keys(tahminler)) {
         const card = document.querySelector('.tahmin-race-card[data-race-index="' + raceIdx + '"]');
         if (!card) continue;
         const rows = tahminler[raceIdx] || [];
+        const prevRows = prevTahminler?.[raceIdx] || [];
         const raceDetay = detay?.[raceIdx] || [];
         card.querySelectorAll('.tahmin-row').forEach(rowEl => {
             const tag = rowEl.querySelector('.tahmin-rule-tag');
@@ -451,10 +466,18 @@ function applyTahminlerToDom(tahminler, detay) {
         card.querySelectorAll('.tahmin-at-input').forEach(input => {
             const sira = parseInt(input.dataset.sira, 10);
             const found = rows.find(r => r.sira === sira);
-            input.value = found?.name || '';
-            input.classList.toggle('tahmin-auto-filled', !!(found?.name));
+            const prev = prevRows.find(r => r.sira === sira);
+            const yeniAd = found?.name || '';
+            const eskiAd = prev?.name || '';
+            if (yeniAd && eskiAd && SonucEngine.normalizeHorseName(yeniAd) !== SonucEngine.normalizeHorseName(eskiAd)) {
+                degisenSayisi++;
+                input.classList.add('tahmin-changed');
+                setTimeout(() => input.classList.remove('tahmin-changed'), 900);
+            }
+            input.value = yeniAd;
+            input.classList.toggle('tahmin-auto-filled', !!yeniAd);
             const m = raceDetay[sira - 1];
-            if (m?.ruleId && found?.name) {
+            if (m?.ruleId && yeniAd) {
                 const cell = input.closest('.tahmin-cell');
                 const tag = document.createElement('div');
                 tag.className = 'tahmin-rule-tag';
@@ -463,6 +486,7 @@ function applyTahminlerToDom(tahminler, detay) {
             }
         });
     }
+    return degisenSayisi;
 }
 
 function applyGerceklerToDom(gercekler) {
@@ -641,6 +665,7 @@ function runOtomatikAktar() {
         setStatus('<div class="status status-error">❌ Önce kayıt yükleyin</div>');
         return;
     }
+    const prevTahminler = getTahminlerFromDom();
     const ruleTiers = KuralPanel.getActiveTiers();
     const { tahminler, detay } = TahminEngine.computeAllRaces(currentRaceData, {
         programTarih: currentKayitMeta.tarih,
@@ -648,17 +673,18 @@ function runOtomatikAktar() {
         ruleTiers
     });
     lastAktarDetay = detay;
-    applyTahminlerToDom(tahminler, detay);
+    const degisen = applyTahminlerToDom(tahminler, detay, prevTahminler);
     saveTahminToStorage(getTahminlerFromDom());
 
     let k1Count = 0;
     for (const raceIdx of Object.keys(detay)) {
         if (detay[raceIdx]?.[0]?.ruleId === 'K1') k1Count++;
     }
+    const ilkKural = ruleTiers[0]?.id || '-';
     setStatus('<div class="status status-success">⚡ Tahmin güncellendi — '
-        + Object.keys(tahminler).length + ' koşu, '
-        + ruleTiers.length + ' aktif kural, '
-        + k1Count + ' koşuda K1 ile 1. sıra</div>');
+        + Object.keys(tahminler).length + ' koşu | 1. kural: <strong>' + ilkKural + '</strong>'
+        + (degisen ? ' | ' + degisen + ' sıra değişti' : ' | sıralama aynı (SKOR eşit)')
+        + '</div>');
     updateBasariGosterim();
 }
 
