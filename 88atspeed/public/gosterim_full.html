@@ -359,6 +359,27 @@
             color: #fff !important;
             box-shadow: inset 0 0 14px rgba(144, 202, 249, 0.45), 0 0 10px rgba(25, 118, 210, 0.5) !important;
         }
+
+        /* Son 2 koşu yeşil + TEST1=TEST2=TEST3 + TEST1/2 sarı → satır koyu kırmızı fosfor kenar */
+        @keyframes fosfor-kirmizi-kenar {
+            0%, 100% {
+                border-color: #b71c1c !important;
+                box-shadow: inset 0 0 10px rgba(255, 23, 68, 0.35), 0 0 10px rgba(198, 40, 40, 0.55);
+            }
+            50% {
+                border-color: #ff1744 !important;
+                box-shadow: inset 0 0 14px rgba(255, 82, 82, 0.5), 0 0 18px rgba(255, 23, 68, 0.75);
+            }
+        }
+        tr.fosfor-kirmizi-kenar-satir td,
+        tr.fosfor-kirmizi-kenar-satir .col-delete,
+        tr.fosfor-kirmizi-kenar-satir .col-sticky,
+        tr.fosfor-kirmizi-kenar-satir .col-sticky-2 {
+            border: 2px solid #b71c1c !important;
+            animation: fosfor-kirmizi-kenar 1.4s ease-in-out infinite;
+            position: relative;
+            z-index: 1;
+        }
     </style>
 </head>
 <body>
@@ -372,7 +393,7 @@
 </div>
 
 <script src="js/utils.js?v=20260822h"></script>
-<script src="js/formula-engine.js?v=20260822v"></script>
+<script src="js/formula-engine.js?v=20260822w"></script>
 <script>
 let currentHesaplamaData = null;
 let currentHesaplamaId = null;

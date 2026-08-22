@@ -514,8 +514,9 @@ const GosterimEngine = {
         return trends;
     },
 
-    _buildSatirClass({ gucluUyari, maviFosfor, ayniMi, farkBosMu, fark8002BosMu }) {
+    _buildSatirClass({ gucluUyari, maviFosfor, ayniMi, farkBosMu, fark8002BosMu, fosforKirmiziKenar }) {
         const parts = [];
+        if (fosforKirmiziKenar) parts.push('fosfor-kirmizi-kenar-satir');
         if (gucluUyari) parts.push('guclu-uyari-satir');
         if (maviFosfor) parts.push('fosfor-mavi-satir');
         if (!gucluUyari && !maviFosfor) {
@@ -523,6 +524,18 @@ const GosterimEngine = {
             else if (farkBosMu && fark8002BosMu) parts.push('pembe-satir');
         }
         return parts.join(' ');
+    },
+
+    _isFosforYesilKosu(atKosu, hedefMesafe) {
+        const { test1, test2, test3 } = this._computeTestSalise(atKosu, hedefMesafe);
+        if (test1 === null || test2 === null || test3 === null) return false;
+        return (test3 - test1) === (test2 - test1);
+    },
+
+    _horseSonIkiKosuYesil(horse, hedefMesafe) {
+        const sonIki = this._sortKosularNewest(horse.kosular || []).slice(0, 2);
+        if (sonIki.length < 2) return false;
+        return sonIki.every(k => this._isFosforYesilKosu(k, hedefMesafe));
     },
 
     buildRowValues(horse, atKosu, rowIndex, horseIndex, hedefMesafe, trends, enIyiler, hipodromSehir) {
@@ -614,11 +627,17 @@ const GosterimEngine = {
         const atIdVurgu = enIyiler.sifiraYakinAtlarSon3?.has(horseIndex);
         const tarihVurgu = enIyiler.sifiraYakinAtlarSon2?.has(horseIndex);
         const kombineUyari = atIsmiVurgu && atIdVurgu && tarihVurgu && kirmiziYazi;
+        const test123Ayni = test1_salise !== null
+            && test1_salise === test2_salise && test2_salise === test3_salise;
+        const sonIkiYesil = this._horseSonIkiKosuYesil(horse, hedefMesafe);
+        const fosforKirmiziKenar = sonIkiYesil && test123Ayni && test12Yakin;
 
         return {
             values,
             classes: {
-                satirClass: this._buildSatirClass({ gucluUyari, maviFosfor, ayniMi, farkBosMu, fark8002BosMu }),
+                satirClass: this._buildSatirClass({
+                    gucluUyari, maviFosfor, ayniMi, farkBosMu, fark8002BosMu, fosforKirmiziKenar
+                }),
                 maviFosforClass: maviFosfor ? 'fosfor-mavi-yazi' : '',
                 test4Class: ayniMi ? 'fosfor-yesil-hucre' : '',
                 test6Class: ayniMi ? 'fosfor-yesil-hucre' : '',
