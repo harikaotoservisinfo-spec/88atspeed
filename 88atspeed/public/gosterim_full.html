@@ -113,20 +113,33 @@
         .gosterim-table tbody tr.row-card:nth-child(even) .col-sticky-2 { background: #fdfcfa; }
         tr.pembe-satir .col-delete, tr.pembe-satir .col-sticky, tr.pembe-satir .col-sticky-2 { background-color: var(--highlight-pink-row) !important; }
 
-        /* TEST4 = TEST6 eşleşmesi — tüm satır açık fosfor yeşil (eski sarı mantık) */
-        tr.fosfor-yesil-satir td,
+        /* TEST4 = TEST6 — açık fosfor yeşil satır (eşleşen hücreler hariç) */
+        tr.fosfor-yesil-satir td:not(.eslesme-yesil),
         tr.fosfor-yesil-satir .col-delete,
-        tr.fosfor-yesil-satir .col-sticky,
-        tr.fosfor-yesil-satir .col-sticky-2 {
+        tr.fosfor-yesil-satir .col-sticky:not(.eslesme-yesil),
+        tr.fosfor-yesil-satir .col-sticky-2:not(.eslesme-yesil) {
             background: #e8ff9e !important;
             color: #1b5e20 !important;
             box-shadow: inset 0 0 10px rgba(118, 255, 3, 0.2);
         }
-        .fosfor-yesil-hucre {
+        .fosfor-yesil-hucre:not(.eslesme-yesil) {
             background: #c5f77d !important;
             color: #1b5e20 !important;
             font-weight: 800 !important;
             box-shadow: inset 0 0 8px rgba(118, 255, 3, 0.25);
+        }
+
+        /* Koyu yeşil eşleşme — fosfor/pembe satırda da geçerli */
+        tr.fosfor-yesil-satir td.eslesme-yesil,
+        tr.fosfor-yesil-satir td.eslesme-yesil.col-sticky,
+        tr.fosfor-yesil-satir td.eslesme-yesil.col-sticky-2,
+        tr.pembe-satir td.eslesme-yesil,
+        tr.fosfor-yesil-satir td.eslesme-yesil.son800-eniyi {
+            background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%) !important;
+            color: #ccff90 !important;
+            font-weight: 800 !important;
+            box-shadow: inset 0 0 10px rgba(118, 255, 3, 0.35), 0 0 6px rgba(76, 175, 80, 0.25) !important;
+            text-shadow: 0 0 4px rgba(204, 255, 144, 0.6);
         }
 
         .row-delete-btn {
@@ -170,8 +183,8 @@
 <div id="gosterimResults" class="results-table"><div class="empty">🏇 HESAPLAMA KAYITLARI butonuna tıklayın</div></div>
 </div>
 
-<script src="js/utils.js?v=20260822f"></script>
-<script src="js/formula-engine.js?v=20260822f"></script>
+<script src="js/utils.js?v=20260822h"></script>
+<script src="js/formula-engine.js?v=20260822h"></script>
 <script>
 let currentHesaplamaData = null;
 let currentHesaplamaId = null;
@@ -339,10 +352,11 @@ function displayResults(data) {
             raceHtml += `<td class="col-delete"><button type="button" class="row-delete-btn" title="Bu geçmiş koşuyu sil">🗑️</button></td>`;
             for (let c = 0; c < row.values.length; c++) {
                 const cellClass = GosterimEngine.getCellClass(c, row.classes);
-                let stickyClass = '';
-                if (c === 0) stickyClass = ' col-sticky';
-                else if (c === 1) stickyClass = ' col-sticky-2';
-                raceHtml += `<td class="${cellClass}${stickyClass}">${AtSpeedUtils.escapeHtml(row.values[c])}</td>`;
+                const tdClasses = [];
+                if (cellClass) tdClasses.push(cellClass);
+                if (c === 0) tdClasses.push('col-sticky');
+                else if (c === 1) tdClasses.push('col-sticky-2');
+                raceHtml += `<td class="${tdClasses.join(' ')}">${AtSpeedUtils.escapeHtml(row.values[c])}</td>`;
             }
             raceHtml += `</tr>`;
         }

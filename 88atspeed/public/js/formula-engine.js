@@ -461,12 +461,18 @@ const GosterimEngine = {
     getCellClass(columnIndex, classes) {
         const c = parseInt(columnIndex, 10);
         const { COL } = this;
-        if (c === COL.TEST1 && classes.test1Class) return classes.test1Class;
-        if (c === COL.TEST2 && classes.test2Class) return classes.test2Class;
         if (c === COL.MESAFE && classes.mesafeClass) return classes.mesafeClass;
         if (c === COL.SEHIR && classes.sehirClass) return classes.sehirClass;
         if (c === COL.SON800_1 && classes.son800_1Class) return classes.son800_1Class;
         if (c === COL.SON800_2 && classes.son800_2Class) return classes.son800_2Class;
+        if (c === COL.TEST1 && classes.test1Class) return classes.test1Class;
+        if (c === COL.TEST2 && classes.test2Class) return classes.test2Class;
+        if ((c === COL.TEST1 || c === COL.TEST2 || c === COL.TEST3) && classes.kirmiziClass) {
+            return classes.kirmiziClass;
+        }
+        if (c === COL.TEST5 && classes.yesilClass) return classes.yesilClass;
+        if (c === COL.FARK && classes.farkClass) return classes.farkClass;
+        if (c === COL.FARK8002 && classes.fark8002Class) return classes.fark8002Class;
         if (c === COL.TEST4 && classes.test4Class) return classes.test4Class;
         if (c === COL.TEST6 && classes.test6Class) return classes.test6Class;
         return '';
