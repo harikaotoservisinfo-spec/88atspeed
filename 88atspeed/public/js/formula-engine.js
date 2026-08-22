@@ -520,10 +520,10 @@ const GosterimEngine = {
         return trends;
     },
 
-    _buildSatirClass({ gucluUyari, maviFosfor, ayniMi, farkBosMu, fark8002BosMu, fosforKirmiziKenar, testSiraliKoyuMaviKenar }) {
+    _buildSatirClass({ gucluUyari, maviFosfor, ayniMi, farkBosMu, fark8002BosMu, fosforKirmiziKenar, koyuMaviKenar }) {
         const parts = [];
         if (fosforKirmiziKenar) parts.push('fosfor-kirmizi-kenar-satir');
-        if (testSiraliKoyuMaviKenar) parts.push('test-sirali-koyu-mavi-kenar-satir');
+        if (koyuMaviKenar) parts.push('koyu-mavi-kenar-satir');
         if (gucluUyari) parts.push('guclu-uyari-satir');
         if (maviFosfor) parts.push('fosfor-mavi-satir');
         if (!gucluUyari && !maviFosfor) {
@@ -563,12 +563,14 @@ const GosterimEngine = {
      * Mavi kenarlı satırı olan atlar arasında |TEST9| (test7Farki) 0'a en yakın at(lar).
      * Sadece o atın mavi kenarlı satırlarında TEST9 hücresi koyu mavi vurgulanır.
      */
-    collectMaviKenarTest9YakinAtlar(race, hedefMesafe, trends) {
+    collectMaviKenarTest9YakinAtlar(race, hedefMesafe, trends, enIyiler) {
         const adaylar = [];
         for (let j = 0; j < race.horses.length; j++) {
             let hasMaviKenar = false;
             for (const atKosu of race.horses[j].kosular || []) {
-                if (this._computeTestSiraliKoyuMaviKenar(atKosu, hedefMesafe)) {
+                const kosuKey = this._kosuKey(j, atKosu);
+                if (this._computeTestSiraliKoyuMaviKenar(atKosu, hedefMesafe)
+                    || enIyiler.enIyilerSon800_1?.has(kosuKey)) {
                     hasMaviKenar = true;
                     break;
                 }
@@ -712,7 +714,9 @@ const GosterimEngine = {
         const kombineUyari = atIsmiVurgu && atIdVurgu && tarihVurgu && kirmiziYazi;
         const fosforKirmiziKenar = enIyiler.fosforKirmiziSatirlar?.has(kosuKey);
         const testSiraliKoyuMaviKenar = this._computeTestSiraliKoyuMaviKenar(atKosu, hedefMesafe);
-        const test9MaviKenarVurgu = testSiraliKoyuMaviKenar
+        const son800_1KoyuMaviKenar = enIyiler.enIyilerSon800_1?.has(kosuKey);
+        const koyuMaviKenar = testSiraliKoyuMaviKenar || son800_1KoyuMaviKenar;
+        const test9MaviKenarVurgu = koyuMaviKenar
             && enIyiler.maviKenarTest9VurguAtlar?.has(horseIndex);
 
         return {
@@ -720,7 +724,7 @@ const GosterimEngine = {
             classes: {
                 satirClass: this._buildSatirClass({
                     gucluUyari, maviFosfor, ayniMi, farkBosMu, fark8002BosMu, fosforKirmiziKenar,
-                    testSiraliKoyuMaviKenar
+                    koyuMaviKenar
                 }),
                 maviFosforClass: maviFosfor ? 'fosfor-mavi-yazi' : '',
                 test4Class: ayniMi ? 'fosfor-yesil-hucre' : '',
@@ -816,7 +820,7 @@ const GosterimEngine = {
         enIyiler.fosforKirmiziSatirlar = fosforKirmiziSatirlar;
         const trends = this.computeHorseTrends(calcRace, hedefMesafe);
         const { maviKenarTest9VurguAtlar } = this.collectMaviKenarTest9YakinAtlar(
-            calcRace, hedefMesafe, trends
+            calcRace, hedefMesafe, trends, enIyiler
         );
         enIyiler.maviKenarTest9VurguAtlar = maviKenarTest9VurguAtlar;
         const rows = [];
