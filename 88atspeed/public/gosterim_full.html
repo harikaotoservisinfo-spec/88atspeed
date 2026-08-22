@@ -111,8 +111,23 @@
         .gosterim-table tbody tr.row-card:nth-child(even) .col-delete,
         .gosterim-table tbody tr.row-card:nth-child(even) .col-sticky,
         .gosterim-table tbody tr.row-card:nth-child(even) .col-sticky-2 { background: #fdfcfa; }
-        tr.sari-satir .col-delete, tr.sari-satir .col-sticky, tr.sari-satir .col-sticky-2 { background-color: var(--highlight-yellow-row) !important; }
         tr.pembe-satir .col-delete, tr.pembe-satir .col-sticky, tr.pembe-satir .col-sticky-2 { background-color: var(--highlight-pink-row) !important; }
+
+        /* TEST4 = TEST6 eşleşmesi — tüm satır açık fosfor yeşil (eski sarı mantık) */
+        tr.fosfor-yesil-satir td,
+        tr.fosfor-yesil-satir .col-delete,
+        tr.fosfor-yesil-satir .col-sticky,
+        tr.fosfor-yesil-satir .col-sticky-2 {
+            background: #e8ff9e !important;
+            color: #1b5e20 !important;
+            box-shadow: inset 0 0 10px rgba(118, 255, 3, 0.2);
+        }
+        .fosfor-yesil-hucre {
+            background: #c5f77d !important;
+            color: #1b5e20 !important;
+            font-weight: 800 !important;
+            box-shadow: inset 0 0 8px rgba(118, 255, 3, 0.25);
+        }
 
         .row-delete-btn {
             border: 1px solid rgba(198, 40, 40, 0.35);

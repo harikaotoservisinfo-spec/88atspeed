@@ -441,9 +441,9 @@ const GosterimEngine = {
         return {
             values,
             classes: {
-                satirClass: ayniMi ? 'sari-satir' : (farkBosMu && fark8002BosMu ? 'pembe-satir' : ''),
-                test4Class: ayniMi ? 'sari-hucre' : '',
-                test6Class: ayniMi ? 'sari-hucre' : '',
+                satirClass: ayniMi ? 'fosfor-yesil-satir' : (farkBosMu && fark8002BosMu ? 'pembe-satir' : ''),
+                test4Class: ayniMi ? 'fosfor-yesil-hucre' : '',
+                test6Class: ayniMi ? 'fosfor-yesil-hucre' : '',
                 test1Class: enIyiler.enIyilerTest1.has(kosuKey) ? 'eniyi-test1' : '',
                 test2Class: enIyiler.enIyilerTest2.has(kosuKey) ? 'eniyi-test2' : '',
                 kirmiziClass: kirmiziYazi ? 'kirmizi-yazi' : '',
@@ -463,18 +463,12 @@ const GosterimEngine = {
         const { COL } = this;
         if (c === COL.TEST1 && classes.test1Class) return classes.test1Class;
         if (c === COL.TEST2 && classes.test2Class) return classes.test2Class;
-        if (c === COL.TEST4 && classes.test4Class) return classes.test4Class;
-        if (c === COL.TEST6 && classes.test6Class) return classes.test6Class;
-        if ((c === COL.TEST1 || c === COL.TEST2 || c === COL.TEST3) && classes.kirmiziClass) {
-            return classes.kirmiziClass;
-        }
-        if (c === COL.TEST5 && classes.yesilClass) return classes.yesilClass;
-        if (c === COL.FARK && classes.farkClass) return classes.farkClass;
-        if (c === COL.FARK8002 && classes.fark8002Class) return classes.fark8002Class;
         if (c === COL.MESAFE && classes.mesafeClass) return classes.mesafeClass;
         if (c === COL.SEHIR && classes.sehirClass) return classes.sehirClass;
         if (c === COL.SON800_1 && classes.son800_1Class) return classes.son800_1Class;
         if (c === COL.SON800_2 && classes.son800_2Class) return classes.son800_2Class;
+        if (c === COL.TEST4 && classes.test4Class) return classes.test4Class;
+        if (c === COL.TEST6 && classes.test6Class) return classes.test6Class;
         return '';
     },
 
