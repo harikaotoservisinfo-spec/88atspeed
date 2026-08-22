@@ -254,15 +254,16 @@
     <div id="arsivPanel" class="arsiv-panel"></div>
     <div id="tahminimResults"><div class="empty">🎯 GÖSTERİM sekmesinde kayıt yükleyin veya buradan kayıt seçin</div></div>
     <div class="tahmin-hint">
-        <strong>Tahmin + gerçek sonuç:</strong> Otomatik aktarım tahminleri doldurur. Sağdaki yeşil alana gerçek sıralamayı girin —
-        başarı yüzdesi anında hesaplanır. Sonuçları kaydedin veya arşive ekleyerek birden fazla günü karşılaştırıp kural performansını analiz edin.
+        <strong>Gerçek sıra girişi:</strong> Her satırda tahmin edilen atın gerçek bitiş sırasını girin.
+        Örnek: <code>7</code> veya <code>ŞEKER PİRAYE (1) (7)</code> — tahmin 1. sıradaysa ve at 7. bitirdiyse.
+        Alternatif: 2. sıraya gerçekte 2. gelen atın adını yazın. Başarı anında hesaplanır.
     </div>
 </div>
 
 <script src="js/utils.js?v=20260822h"></script>
 <script src="js/formula-engine.js?v=20260823c"></script>
 <script src="js/tahmin-engine.js?v=20260823e"></script>
-<script src="js/sonuc-engine.js?v=20260824a"></script>
+<script src="js/sonuc-engine.js?v=20260824b"></script>
 <script>
 let currentKayitId = null;
 let currentKayitMeta = null;
@@ -402,16 +403,27 @@ function updateBasariGosterim() {
             if (!row) continue;
             row.classList.remove('row-exact', 'row-miss');
             const gInput = row.querySelector('.gercek-at-input');
-            const gNorm = SonucEngine.normalizeHorseName(p.gercek);
+            const gCell = gInput.closest('.tahmin-cell');
+            const oldTag = gCell.querySelector('.gercek-sira-tag');
+            if (oldTag) oldTag.remove();
+
+            const hasGercekInput = !!(p.gercek && String(p.gercek).trim());
             gInput.classList.remove('gercek-filled', 'gercek-exact', 'gercek-miss');
-            if (gNorm) {
+            if (hasGercekInput) {
                 gInput.classList.add('gercek-filled');
-                if (p.exact) {
-                    row.classList.add('row-exact');
-                    gInput.classList.add('gercek-exact');
-                } else if (SonucEngine.normalizeHorseName(p.tahmin)) {
-                    row.classList.add('row-miss');
-                    gInput.classList.add('gercek-miss');
+                if (p.tahminGercekSira !== null && p.tahminGercekSira !== undefined) {
+                    const tag = document.createElement('div');
+                    tag.className = 'tahmin-rule-tag gercek-sira-tag';
+                    tag.style.color = p.exact ? '#2e7d32' : '#c62828';
+                    tag.textContent = '→ gerçek: ' + p.tahminGercekSira + '. sıra';
+                    gCell.appendChild(tag);
+                    if (p.exact) {
+                        row.classList.add('row-exact');
+                        gInput.classList.add('gercek-exact');
+                    } else if (SonucEngine.normalizeHorseName(p.tahmin)) {
+                        row.classList.add('row-miss');
+                        gInput.classList.add('gercek-miss');
+                    }
                 }
             }
         }
@@ -583,7 +595,7 @@ function buildTahminGrid(data) {
             html += '</div>';
             html += '<div class="tahmin-cell">';
             html += '<input type="text" class="gercek-at-input" data-sira="' + s + '" list="' + datalistId + '"';
-            html += ' placeholder="Gerçek ' + s + '. sıra" autocomplete="off">';
+            html += ' placeholder="Sıra (örn: ' + s + ' veya 7)" autocomplete="off">';
             html += '</div></div>';
         }
 

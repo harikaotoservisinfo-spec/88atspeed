@@ -3,12 +3,15 @@ const SonucEngine = {
   ARCHIVE_KEY: '88atspeed-sonuc-arsivi',
   GERCEK_PREFIX: '88atspeed-gercek-sonuc-',
 
+  /** Tüm sondaki (sayı) parantezlerini temizle */
   normalizeHorseName(name) {
-    return String(name || '')
-      .trim()
-      .toUpperCase()
-      .replace(/\s*\(\d+\)\s*$/, '')
-      .replace(/\s+/g, ' ');
+    let s = String(name || '').trim().toUpperCase();
+    let prev;
+    do {
+      prev = s;
+      s = s.replace(/\s*\(\d+\)\s*$/, '');
+    } while (s !== prev);
+    return s.replace(/\s+/g, ' ');
   },
 
   namesEqual(a, b) {
@@ -17,13 +20,68 @@ const SonucEngine = {
     return !!(na && nb && na === nb);
   },
 
-  /** Sıra listesinden isim → sıra haritası */
-  _nameToSiraMap(rows) {
-    const map = new Map();
-    for (const row of rows || []) {
-      const n = this.normalizeHorseName(row.name);
-      if (n) map.set(n, row.sira);
+  /**
+   * Gerçek sonuç girişini ayrıştır.
+   * Desteklenen formatlar:
+   * - "7" veya "(7)" → tahmin edilen atın gerçek sırası
+   * - "AT ADI (no) (7)" → at adı + gerçek sıra
+   * - "AT ADI" → bu sıradaki gerçek at (sıra listesi modu)
+   */
+  parseGercekInput(raw, rowSira, maxSira) {
+    const s = String(raw || '').trim();
+    if (!s) return null;
+
+    const onlyNum = s.match(/^\(?\s*(\d+)\s*\)?$/);
+    if (onlyNum) {
+      const finishSira = parseInt(onlyNum[1], 10);
+      if (finishSira >= 1 && finishSira <= maxSira) {
+        return { horseName: null, finishSira, inputMode: 'finish-only' };
+      }
+      return null;
     }
+
+    const trailing = s.match(/\((\d+)\)\s*$/);
+    if (!trailing) {
+      return { horseName: s, finishSira: rowSira, inputMode: 'sira-list' };
+    }
+
+    const lastNum = parseInt(trailing[1], 10);
+    const withoutLast = s.replace(/\s*\(\d+\)\s*$/, '').trim();
+    const innerTrailing = withoutLast.match(/\((\d+)\)\s*$/);
+
+    if (innerTrailing && lastNum >= 1 && lastNum <= maxSira) {
+      const horseName = withoutLast.replace(/\s*\(\d+\)\s*$/, '').trim() || withoutLast;
+      return { horseName, finishSira: lastNum, inputMode: 'horse-finish' };
+    }
+
+    return { horseName: s, finishSira: rowSira, inputMode: 'sira-list' };
+  },
+
+  /** Tahmin + gerçek satırlarından at → gerçek sıra haritası oluştur */
+  _buildActualSiraMap(tahminRows, gercekRows, maxSira) {
+    const map = new Map();
+    const tahminBySira = new Map((tahminRows || []).map(r => [r.sira, r.name]));
+
+    for (const row of gercekRows || []) {
+      const raw = row.name;
+      if (!String(raw || '').trim()) continue;
+
+      const parsed = this.parseGercekInput(raw, row.sira, maxSira);
+      if (!parsed) continue;
+
+      let horseName = parsed.horseName;
+      if (!horseName && parsed.inputMode === 'finish-only') {
+        horseName = tahminBySira.get(row.sira) || '';
+      }
+
+      const norm = this.normalizeHorseName(horseName);
+      if (!norm) continue;
+
+      if (parsed.finishSira >= 1 && parsed.finishSira <= maxSira) {
+        map.set(norm, parsed.finishSira);
+      }
+    }
+
     return map;
   },
 
@@ -31,10 +89,17 @@ const SonucEngine = {
   compareRace(tahminRows, gercekRows, detayMeta) {
     const tahmin = tahminRows || [];
     const gercek = gercekRows || [];
-    const filledGercek = gercek.filter(r => this.normalizeHorseName(r.name));
-    const filledTahmin = tahmin.filter(r => this.normalizeHorseName(r.name));
 
-    if (!filledGercek.length) {
+    const maxSira = Math.max(
+      ...tahmin.map(r => r.sira),
+      ...gercek.map(r => r.sira),
+      0
+    );
+
+    const horseActualSira = this._buildActualSiraMap(tahmin, gercek, maxSira);
+    const hasGercek = horseActualSira.size > 0;
+
+    if (!hasGercek) {
       return {
         hasGercek: false,
         exactMatches: 0,
@@ -50,38 +115,38 @@ const SonucEngine = {
       };
     }
 
-    const gercekBySira = new Map(gercek.map(r => [r.sira, r.name]));
     const tahminBySira = new Map(tahmin.map(r => [r.sira, r.name]));
-    const gercekNameToSira = this._nameToSiraMap(gercek);
+    const gercekBySira = new Map(gercek.map(r => [r.sira, r.name]));
     const pozisyonlar = [];
     let exactMatches = 0;
     let siraFarkToplam = 0;
     let siraFarkSayisi = 0;
-
-    const maxSira = Math.max(
-      ...tahmin.map(r => r.sira),
-      ...gercek.map(r => r.sira),
-      0
-    );
+    let totalCompared = 0;
 
     for (let s = 1; s <= maxSira; s++) {
       const tName = tahminBySira.get(s) || '';
       const gName = gercekBySira.get(s) || '';
       const tNorm = this.normalizeHorseName(tName);
-      const gNorm = this.normalizeHorseName(gName);
-      const exact = !!(tNorm && gNorm && tNorm === gNorm);
-      if (exact) exactMatches++;
+      const parsedG = this.parseGercekInput(gName, s, maxSira);
 
       let tahminGercekSira = null;
-      let gercekTahminSira = null;
-      if (tNorm && gercekNameToSira.has(tNorm)) {
-        tahminGercekSira = gercekNameToSira.get(tNorm);
+      if (tNorm && horseActualSira.has(tNorm)) {
+        tahminGercekSira = horseActualSira.get(tNorm);
+      }
+
+      const hasTahmin = !!tNorm;
+      const hasGercekForRow = !!(parsedG || (tNorm && tahminGercekSira !== null));
+
+      if (hasTahmin && (hasGercekForRow || tahminGercekSira !== null)) {
+        totalCompared++;
+      }
+
+      const exact = !!(tNorm && tahminGercekSira !== null && tahminGercekSira === s);
+      if (exact) exactMatches++;
+
+      if (tNorm && tahminGercekSira !== null) {
         siraFarkToplam += Math.abs(s - tahminGercekSira);
         siraFarkSayisi++;
-      }
-      const gercekNameToSiraFromTahmin = this._nameToSiraMap(tahmin);
-      if (gNorm && gercekNameToSiraFromTahmin.has(gNorm)) {
-        gercekTahminSira = gercekNameToSiraFromTahmin.get(gNorm);
       }
 
       const meta = detayMeta?.[s - 1];
@@ -89,25 +154,25 @@ const SonucEngine = {
         sira: s,
         tahmin: tName,
         gercek: gName,
+        tahminGercekSira,
         exact,
         ruleId: meta?.ruleId || null,
-        score: meta?.score ?? null,
-        tahminGercekSira,
-        gercekTahminSira
+        score: meta?.score ?? null
       });
     }
 
-    const totalCompared = pozisyonlar.filter(p =>
-      this.normalizeHorseName(p.tahmin) && this.normalizeHorseName(p.gercek)
-    ).length;
+    const t1Norm = this.normalizeHorseName(tahminBySira.get(1));
+    const birinciDogru = !!(t1Norm && horseActualSira.get(t1Norm) === 1);
 
-    const birinciDogru = this.namesEqual(tahminBySira.get(1), gercekBySira.get(1));
-
-    const tahminTop3 = tahmin.filter(r => r.sira <= 3).map(r => this.normalizeHorseName(r.name)).filter(Boolean);
-    const gercekTop3 = gercek.filter(r => r.sira <= 3).map(r => this.normalizeHorseName(r.name)).filter(Boolean);
-    const gercekTop3Set = new Set(gercekTop3);
-    const top3Hits = tahminTop3.filter(n => gercekTop3Set.has(n)).length;
-    const top3Total = Math.min(3, tahminTop3.length, gercekTop3.length);
+    let top3Hits = 0;
+    let top3Total = 0;
+    for (let s = 1; s <= Math.min(3, maxSira); s++) {
+      const tNorm = this.normalizeHorseName(tahminBySira.get(s));
+      if (!tNorm) continue;
+      top3Total++;
+      const actual = horseActualSira.get(tNorm);
+      if (actual !== undefined && actual <= 3) top3Hits++;
+    }
 
     const exactPct = totalCompared ? Math.round((exactMatches / totalCompared) * 100) : 0;
     const top3Pct = top3Total ? Math.round((top3Hits / top3Total) * 100) : 0;
@@ -115,7 +180,6 @@ const SonucEngine = {
       ? Math.round((siraFarkToplam / siraFarkSayisi) * 10) / 10
       : null;
 
-    // Ağırlıklı başarı: 1. sıra %40, top3 %35, tam eşleşme %25
     const birinciSkor = birinciDogru ? 100 : 0;
     const basariPuani = Math.round(
       birinciSkor * 0.4 + top3Pct * 0.35 + exactPct * 0.25
@@ -299,14 +363,12 @@ const SonucEngine = {
     }
     let kosuSayisi = 0;
     let basariToplam = 0;
-    const mergedKosular = [];
 
     for (const entry of archive) {
       const b = entry.basari;
       if (!b) continue;
       kosuSayisi += b.kosuSayisi || 0;
       if (b.ortalamaBasari != null) basariToplam += b.ortalamaBasari;
-      mergedKosular.push(...(b.kosular || []));
     }
 
     return {
