@@ -102,6 +102,16 @@
             box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.15);
         }
         .tahmin-at-input::placeholder { color: var(--text-muted); font-weight: 500; }
+        .tahmin-at-input.tahmin-auto-filled {
+            background: #e3f2fd;
+            border-color: #1565c0;
+        }
+        .tahmin-rule-tag {
+            font-size: 10px;
+            font-weight: 600;
+            color: #0d47a1;
+            margin-top: 2px;
+        }
         .tahmin-hint {
             margin-top: 16px;
             padding: 12px 14px;
@@ -116,7 +126,8 @@
 <body>
 <div id="tahminimContainer">
     <div class="tahminim-controls">
-        <button type="button" id="kayitSenkronBtn" class="tahminim-btn tahminim-btn-primary">🔄 GÖSTERİM kaydını kullan</button>
+        <button type="button" id="otomatikAktarBtn" class="tahminim-btn tahminim-btn-primary">⚡ Otomatik aktar</button>
+        <button type="button" id="kayitSenkronBtn" class="tahminim-btn">🔄 GÖSTERİM kaydını kullan</button>
         <button type="button" id="kayitlariGetirBtn" class="tahminim-btn">📋 Kayıt listesinden seç</button>
         <button type="button" id="tahminKaydetBtn" class="tahminim-btn">💾 Tahminleri kaydet</button>
         <button type="button" id="tahminTemizleBtn" class="tahminim-btn">🗑️ Temizle</button>
@@ -126,16 +137,21 @@
     <div id="tahminimMeta" class="tahminim-meta" style="display:none;"></div>
     <div id="tahminimResults"><div class="empty">🎯 GÖSTERİM sekmesinde kayıt yükleyin veya buradan kayıt seçin</div></div>
     <div class="tahmin-hint">
-        Aktarma kuralları henüz tanımlanmadı. Koşu sayısı kadar tahmin alanı açılır; at isimlerini elle girebilir veya
-        sonraki adımda GÖSTERİM hesaplamalarından otomatik aktaracağız.
+        <strong>1. sıra kuralı (K1 — 12/12):</strong> Sol SIRA mavi + AT İSMİ mavi + TARİH mavi + son koşu program şehrinde
+        + şehir/mesafe geçmişi + şehir/mesafede 1./2. + SON800-1 top 3 + TEST1 en iyi + TEST1/2/3 kırmızı
+        + son koşu yeşil satır + TEST1/2 sarı + TEST9 vurgulu — hepsi aynı anda.
+        Diğer sıralar kademeli kurallar ve skor ile doldurulur.
     </div>
 </div>
 
 <script src="js/utils.js?v=20260822h"></script>
+<script src="js/formula-engine.js?v=20260823c"></script>
+<script src="js/tahmin-engine.js?v=20260823e"></script>
 <script>
 let currentKayitId = null;
 let currentKayitMeta = null;
 let currentRaceData = null;
+let lastAktarDetay = null;
 
 function storageKey() {
     return currentKayitId ? '88atspeed-tahmin-' + currentKayitId : null;
@@ -170,18 +186,55 @@ function getTahminlerFromDom() {
     return tahminler;
 }
 
-function applyTahminlerToDom(tahminler) {
+function applyTahminlerToDom(tahminler, detay) {
     if (!tahminler) return;
     for (const raceIdx of Object.keys(tahminler)) {
         const card = document.querySelector('.tahmin-race-card[data-race-index="' + raceIdx + '"]');
         if (!card) continue;
         const rows = tahminler[raceIdx] || [];
+        const raceDetay = detay?.[raceIdx] || [];
+        card.querySelectorAll('.tahmin-row').forEach(rowEl => {
+            const input = rowEl.querySelector('.tahmin-at-input');
+            const tag = rowEl.querySelector('.tahmin-rule-tag');
+            if (tag) tag.remove();
+        });
         card.querySelectorAll('.tahmin-at-input').forEach(input => {
             const sira = parseInt(input.dataset.sira, 10);
             const found = rows.find(r => r.sira === sira);
-            if (found) input.value = found.name || '';
+            input.value = found?.name || '';
+            input.classList.toggle('tahmin-auto-filled', !!(found?.name));
+            const m = raceDetay[sira - 1];
+            if (m?.ruleId && found?.name) {
+                const rowEl = input.closest('.tahmin-row');
+                const tag = document.createElement('div');
+                tag.className = 'tahmin-rule-tag';
+                tag.textContent = m.ruleId + ' (' + m.score + '/12)';
+                rowEl.appendChild(tag);
+            }
         });
     }
+}
+
+function runOtomatikAktar() {
+    if (!currentRaceData || !currentKayitMeta) {
+        setStatus('<div class="status status-error">❌ Önce kayıt yükleyin</div>');
+        return;
+    }
+    const { tahminler, detay } = TahminEngine.computeAllRaces(currentRaceData, {
+        programTarih: currentKayitMeta.tarih,
+        hipodromSehir: currentKayitMeta.hipodrom
+    });
+    lastAktarDetay = detay;
+    applyTahminlerToDom(tahminler, detay);
+    saveTahminToStorage(getTahminlerFromDom());
+
+    let k1Count = 0;
+    for (const raceIdx of Object.keys(detay)) {
+        if (detay[raceIdx]?.[0]?.ruleId === 'K1') k1Count++;
+    }
+    setStatus('<div class="status status-success">⚡ Otomatik aktarım tamamlandı — '
+        + Object.keys(tahminler).length + ' koşu, '
+        + k1Count + ' koşuda 1. sıra K1 (tam kural) eşleşti</div>');
 }
 
 function setStatus(html) {
@@ -253,7 +306,7 @@ function onKayitLoaded(kayit) {
     currentRaceData = kayit.veri;
     updateMeta();
     buildTahminGrid(currentRaceData);
-    setStatus('<div class="status status-success">✅ ' + currentRaceData.length + ' koşu için tahmin alanları hazır (Kayıt #' + currentKayitId + ')</div>');
+    runOtomatikAktar();
 }
 
 async function loadKayitById(id) {
@@ -307,6 +360,8 @@ document.getElementById('kayitlariGetirBtn').onclick = async () => {
     }
 };
 
+document.getElementById('otomatikAktarBtn').onclick = runOtomatikAktar;
+
 document.getElementById('kayitSenkronBtn').onclick = () => {
     window.parent.postMessage({ type: '88atspeed-request-gosterim-kayit' }, '*');
     setStatus('<div class="status status-loading">⏳ GÖSTERİM sekmesinden kayıt isteniyor...</div>');
@@ -348,10 +403,11 @@ window.TahminimPage = {
             saveTahminToStorage(getTahminlerFromDom());
         }
     },
-    setTahminler: (tahminler) => {
-        applyTahminlerToDom(tahminler);
+    setTahminler: (tahminler, detay) => {
+        applyTahminlerToDom(tahminler, detay);
         saveTahminToStorage(getTahminlerFromDom());
-    }
+    },
+    runOtomatikAktar
 };
 </script>
 </body>

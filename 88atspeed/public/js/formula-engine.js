@@ -851,6 +851,32 @@ const GosterimEngine = {
         if (columnIndex === null) return rows;
         const type = sortState.type || AtSpeedUtils.getSortType(columnIndex);
         return AtSpeedUtils.sortTableData([...rows], columnIndex, type, sortState.direction || 'asc');
+    },
+
+    /** GÖSTERİM + TAHMİNİM için ortak en iyiler / trend paketi */
+    buildEnIyilerBundle(race, options = {}) {
+        const programTarih = options.programTarih || null;
+        const hedefMesafe = this._hedefMesafe(race);
+        const calcRace = this._raceForCalc(race, programTarih);
+        const topTests = this.collectTopTests(calcRace, hedefMesafe);
+        const closestTest12 = this.collectClosestTest12(calcRace, hedefMesafe);
+        const enIyiler = {
+            ...topTests,
+            ...this.collectTopSon800(calcRace),
+            ...closestTest12,
+            ...this.collectMaviFosforTest123(calcRace, hedefMesafe, topTests.enIyilerTest3),
+            ...this.collectSifiraYakin8002Ortalamalar(calcRace)
+        };
+        const { fosforKirmiziSatirlar } = this.collectFosforKirmiziSatirlar(
+            calcRace, hedefMesafe, enIyiler
+        );
+        enIyiler.fosforKirmiziSatirlar = fosforKirmiziSatirlar;
+        const trends = this.computeHorseTrends(calcRace, hedefMesafe);
+        const { maviKenarTest9VurguAtlar } = this.collectMaviKenarTest9YakinAtlar(
+            calcRace, hedefMesafe, trends, enIyiler
+        );
+        enIyiler.maviKenarTest9VurguAtlar = maviKenarTest9VurguAtlar;
+        return { calcRace, hedefMesafe, enIyiler, trends };
     }
 };
 
