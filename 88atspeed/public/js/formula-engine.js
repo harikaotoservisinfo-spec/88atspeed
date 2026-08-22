@@ -167,7 +167,7 @@ const GosterimEngine = {
         SON800_1: 9,
         SON800_2: 10,
         TEST1: 17, TEST2: 18, TEST3: 19, TEST4: 20, TEST5: 21,
-        TEST6: 22, TEST7: 23, FARK: 13, FARK8002: 16
+        TEST6: 22, TEST7: 23, TEST8: 24, TEST9: 25, FARK: 13, FARK8002: 16
     },
 
     _normalizeSehir(sehir) {
@@ -560,6 +560,34 @@ const GosterimEngine = {
     },
 
     /**
+     * Mavi kenarlı satırı olan atlar arasında |TEST9| (test7Farki) 0'a en yakın at(lar).
+     * Sadece o atın mavi kenarlı satırlarında TEST9 hücresi koyu mavi vurgulanır.
+     */
+    collectMaviKenarTest9YakinAtlar(race, hedefMesafe, trends) {
+        const adaylar = [];
+        for (let j = 0; j < race.horses.length; j++) {
+            let hasMaviKenar = false;
+            for (const atKosu of race.horses[j].kosular || []) {
+                if (this._computeTestSiraliKoyuMaviKenar(atKosu, hedefMesafe)) {
+                    hasMaviKenar = true;
+                    break;
+                }
+            }
+            if (!hasMaviKenar) continue;
+            const test9 = trends.test7Farki[j];
+            if (test9 === null || test9 === undefined) continue;
+            adaylar.push({ j, abs: Math.abs(test9) });
+        }
+        const maviKenarTest9VurguAtlar = new Set();
+        if (!adaylar.length) return { maviKenarTest9VurguAtlar };
+        const minAbs = Math.min(...adaylar.map(a => a.abs));
+        for (const { j, abs } of adaylar) {
+            if (abs === minAbs) maviKenarTest9VurguAtlar.add(j);
+        }
+        return { maviKenarTest9VurguAtlar };
+    },
+
+    /**
      * Fosfor kırmızı kenar satırları:
      * - En yeni 2 fosfor-yeşil koşu (TEST4=TEST6) mevcut
      * - Tüm koşulardan en az birinde TEST1/TEST2 sarı
@@ -684,6 +712,8 @@ const GosterimEngine = {
         const kombineUyari = atIsmiVurgu && atIdVurgu && tarihVurgu && kirmiziYazi;
         const fosforKirmiziKenar = enIyiler.fosforKirmiziSatirlar?.has(kosuKey);
         const testSiraliKoyuMaviKenar = this._computeTestSiraliKoyuMaviKenar(atKosu, hedefMesafe);
+        const test9MaviKenarVurgu = testSiraliKoyuMaviKenar
+            && enIyiler.maviKenarTest9VurguAtlar?.has(horseIndex);
 
         return {
             values,
@@ -714,7 +744,8 @@ const GosterimEngine = {
                 atIdClass: atIdVurgu ? 'at-id-mavi-vurgu' : '',
                 tarihClass: tarihVurgu ? 'tarih-koyu-mavi-vurgu' : '',
                 atSiraClass: kombineUyari ? 'at-sira-koyu-mavi-vurgu' : '',
-                siraNoClass: enIyiler.test12YakinAtlar?.has(horseIndex) ? 'sira-no-koyu-mavi-vurgu' : ''
+                siraNoClass: enIyiler.test12YakinAtlar?.has(horseIndex) ? 'sira-no-koyu-mavi-vurgu' : '',
+                test9Class: test9MaviKenarVurgu ? 'mavi-kenar-test9-vurgu' : ''
             }
         };
     },
@@ -755,6 +786,8 @@ const GosterimEngine = {
             parts.push(classes.test4Class);
         } else if (c === COL.TEST6 && classes.test6Class) {
             parts.push(classes.test6Class);
+        } else if (c === COL.TEST9 && classes.test9Class) {
+            parts.push(classes.test9Class);
         }
         if (classes.maviFosforClass && c !== COL.SIRA_NO && c !== COL.AT_ISMI && c !== COL.AT_ID && c !== COL.TARIH && c !== COL.AT_SIRA && !parts.includes('test23-yanip-son')) {
             parts.push(classes.maviFosforClass);
@@ -782,6 +815,10 @@ const GosterimEngine = {
         );
         enIyiler.fosforKirmiziSatirlar = fosforKirmiziSatirlar;
         const trends = this.computeHorseTrends(calcRace, hedefMesafe);
+        const { maviKenarTest9VurguAtlar } = this.collectMaviKenarTest9YakinAtlar(
+            calcRace, hedefMesafe, trends
+        );
+        enIyiler.maviKenarTest9VurguAtlar = maviKenarTest9VurguAtlar;
         const rows = [];
         for (let j = 0; j < calcRace.horses.length; j++) {
             const horse = calcRace.horses[j];

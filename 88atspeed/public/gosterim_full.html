@@ -424,6 +424,14 @@
             left: 104px;
             z-index: 6;
         }
+
+        /* Mavi kenarlı satırlar arasında |TEST9| 0'a en yakın at → TEST9 koyu mavi yazı */
+        .mavi-kenar-test9-vurgu,
+        tr.test-sirali-koyu-mavi-kenar-satir td.mavi-kenar-test9-vurgu {
+            color: #0a3d91 !important;
+            font-weight: 800 !important;
+            text-shadow: 0 0 8px rgba(25, 118, 210, 0.75), 0 0 14px rgba(13, 71, 161, 0.55), 0 0 4px rgba(255, 255, 255, 0.6);
+        }
     </style>
 </head>
 <body>
@@ -437,7 +445,7 @@
 </div>
 
 <script src="js/utils.js?v=20260822h"></script>
-<script src="js/formula-engine.js?v=20260823a"></script>
+<script src="js/formula-engine.js?v=20260823b"></script>
 <script>
 let currentHesaplamaData = null;
 let currentHesaplamaId = null;
