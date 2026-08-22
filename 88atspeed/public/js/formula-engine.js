@@ -157,6 +157,7 @@ const FormulaEngine = {
 
 const GosterimEngine = {
     COL: {
+        SIRA_NO: 0,
         AT_ISMI: 1,
         AT_ID: 2,
         TARIH: 3,
@@ -317,10 +318,12 @@ const GosterimEngine = {
             return a.test2 - b.test2;
         });
         const enIyilerTest12Yakin = new Set();
+        const test12YakinAtlar = new Set();
         for (let t = 0; t < Math.min(3, pairs.length); t++) {
             enIyilerTest12Yakin.add(this._kosuKey(pairs[t].j, pairs[t].atKosu));
+            test12YakinAtlar.add(pairs[t].j);
         }
-        return { enIyilerTest12Yakin };
+        return { enIyilerTest12Yakin, test12YakinAtlar };
     },
 
     _computeTestSalise(atKosu, hedefMesafe) {
@@ -637,7 +640,8 @@ const GosterimEngine = {
                 atIsmiClass: atIsmiVurgu ? 'at-ismi-mavi-vurgu' : '',
                 atIdClass: atIdVurgu ? 'at-id-mavi-vurgu' : '',
                 tarihClass: tarihVurgu ? 'tarih-koyu-mavi-vurgu' : '',
-                atSiraClass: kombineUyari ? 'at-sira-koyu-mavi-vurgu' : ''
+                atSiraClass: kombineUyari ? 'at-sira-koyu-mavi-vurgu' : '',
+                siraNoClass: enIyiler.test12YakinAtlar?.has(horseIndex) ? 'sira-no-koyu-mavi-vurgu' : ''
             }
         };
     },
@@ -646,6 +650,7 @@ const GosterimEngine = {
         const c = parseInt(columnIndex, 10);
         const { COL } = this;
         const parts = [];
+        if (c === COL.SIRA_NO && classes.siraNoClass) parts.push(classes.siraNoClass);
         if (c === COL.MESAFE && classes.mesafeClass) parts.push(classes.mesafeClass);
         if (c === COL.SEHIR && classes.sehirClass) parts.push(classes.sehirClass);
         if (c === COL.AT_ISMI && classes.atIsmiClass) parts.push(classes.atIsmiClass);
@@ -678,7 +683,7 @@ const GosterimEngine = {
         } else if (c === COL.TEST6 && classes.test6Class) {
             parts.push(classes.test6Class);
         }
-        if (classes.maviFosforClass && c !== COL.AT_ISMI && c !== COL.AT_ID && c !== COL.TARIH && c !== COL.AT_SIRA && !parts.includes('test23-yanip-son')) {
+        if (classes.maviFosforClass && c !== COL.SIRA_NO && c !== COL.AT_ISMI && c !== COL.AT_ID && c !== COL.TARIH && c !== COL.AT_SIRA && !parts.includes('test23-yanip-son')) {
             parts.push(classes.maviFosforClass);
         }
         return parts.length ? parts.join(' ') : '';
