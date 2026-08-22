@@ -261,6 +261,24 @@
             font-weight: 600;
             color: #0d47a1;
         }
+        .tahmin-rule-tag-priority {
+            color: #6a1b9a;
+            font-weight: 700;
+        }
+        .tahmin-row.row-tahmin-changed .tahmin-at-input {
+            background: #fff59d !important;
+            border-color: #f9a825 !important;
+        }
+        .tahmin-race-card.race-order-changed {
+            box-shadow: 0 0 0 2px #ffb300;
+        }
+        .tahmin-race-priority-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 10px;
+            font-weight: 700;
+        }
         .tahmin-hint {
             margin-top: 16px;
             padding: 12px 14px;
@@ -398,7 +416,7 @@
         <div class="tahminim-rules-sidebar">
             <div class="kural-panel" id="kuralPanel">
                 <div class="kural-panel-title">📐 Kural sırası — sürükleyin veya ▲▼</div>
-                <div class="kural-panel-sub">Yukarıdan aşağıya öncelik verilir. Her kuralın koşullarına ne kadar uyuyorsa o kadar üste çıkar — tam eşleşme şart değil. Sırayı değiştirdiğinizde tahminler anında yeniden hesaplanır.</div>
+                <div class="kural-panel-sub">Listenin <strong>1. kuralı</strong> birincil sıralama anahtarıdır. Her atın altında <strong>★ KURAL (x/y)</strong> o kuraldaki eşleşmeyi gösterir. 1. at aynı kalabilir; 2–10. sıralar değişir.</div>
                 <div id="kuralSiraList" class="kural-list"></div>
                 <div class="kural-item kural-item-fixed">SKOR — eşleşme yoksa en yüksek skorlu at (son çare, sabit)</div>
                 <div class="kural-panel-actions">
@@ -420,7 +438,7 @@
 
 <script src="js/utils.js?v=20260822h"></script>
 <script src="js/formula-engine.js?v=20260823c"></script>
-<script src="js/tahmin-engine.js?v=20260824h"></script>
+<script src="js/tahmin-engine.js?v=20260824i"></script>
 <script src="js/sonuc-engine.js?v=20260824c"></script>
 <script src="js/kural-panel.js?v=20260824f"></script>
 <script>
@@ -514,15 +532,26 @@ function getHorseDatalist(race) {
 }
 
 function applyTahminlerToDom(tahminler, detay, prevTahminler) {
-    if (!tahminler) return;
+    if (!tahminler) return { degisen: 0, birinciDegisen: 0, kosuDegisen: 0 };
     let degisenSayisi = 0;
+    let birinciDegisen = 0;
+    let kosuDegisen = 0;
+    const priorityRuleId = KuralPanel.getActiveTiers()[0]?.id || '-';
+
     for (const raceIdx of Object.keys(tahminler)) {
         const card = document.querySelector('.tahmin-race-card[data-race-index="' + raceIdx + '"]');
         if (!card) continue;
         const rows = tahminler[raceIdx] || [];
         const prevRows = prevTahminler?.[raceIdx] || [];
         const raceDetay = detay?.[raceIdx] || [];
+        let kosuIcindeDegisen = 0;
+
+        const badge = card.querySelector('.tahmin-race-priority-badge');
+        if (badge) badge.textContent = 'öncelik: ' + priorityRuleId;
+
+        card.classList.remove('race-order-changed');
         card.querySelectorAll('.tahmin-row').forEach(rowEl => {
+            rowEl.classList.remove('row-tahmin-changed');
             const tag = rowEl.querySelector('.tahmin-rule-tag');
             if (tag) tag.remove();
         });
@@ -532,24 +561,38 @@ function applyTahminlerToDom(tahminler, detay, prevTahminler) {
             const prev = prevRows.find(r => r.sira === sira);
             const yeniAd = found?.name || '';
             const eskiAd = prev?.name || '';
+            const rowEl = input.closest('.tahmin-row');
             if (yeniAd && eskiAd && SonucEngine.normalizeHorseName(yeniAd) !== SonucEngine.normalizeHorseName(eskiAd)) {
                 degisenSayisi++;
+                kosuIcindeDegisen++;
+                if (sira === 1) birinciDegisen++;
                 input.classList.add('tahmin-changed');
-                setTimeout(() => input.classList.remove('tahmin-changed'), 900);
+                rowEl?.classList.add('row-tahmin-changed');
+                setTimeout(() => {
+                    input.classList.remove('tahmin-changed');
+                    rowEl?.classList.remove('row-tahmin-changed');
+                }, 2500);
             }
             input.value = yeniAd;
             input.classList.toggle('tahmin-auto-filled', !!yeniAd);
             const m = raceDetay[sira - 1];
-            if (m?.ruleId && yeniAd) {
+            if (m && yeniAd) {
                 const cell = input.closest('.tahmin-cell');
                 const tag = document.createElement('div');
-                tag.className = 'tahmin-rule-tag';
-                tag.textContent = m.ruleId + ' (' + m.score + '/12)';
+                tag.className = 'tahmin-rule-tag tahmin-rule-tag-priority';
+                const pId = m.priorityRuleId || priorityRuleId;
+                const pMatch = m.priorityMatched != null ? m.priorityMatched : 0;
+                const pTotal = m.priorityTotal || 0;
+                tag.textContent = '★ ' + pId + ' (' + pMatch + '/' + pTotal + ') · skor ' + m.score + '/12';
                 cell.appendChild(tag);
             }
         });
+        if (kosuIcindeDegisen > 0) {
+            kosuDegisen++;
+            card.classList.add('race-order-changed');
+        }
     }
-    return degisenSayisi;
+    return { degisen: degisenSayisi, birinciDegisen, kosuDegisen };
 }
 
 function applyGerceklerToDom(gercekler) {
@@ -736,22 +779,23 @@ function runOtomatikAktar() {
         ruleTiers
     });
     lastAktarDetay = detay;
-    const degisen = applyTahminlerToDom(tahminler, detay, prevTahminler);
+    const { degisen, birinciDegisen, kosuDegisen } = applyTahminlerToDom(tahminler, detay, prevTahminler) || { degisen: 0, birinciDegisen: 0, kosuDegisen: 0 };
     saveTahminToStorage(getTahminlerFromDom());
 
-    const kullanilanKurallar = [];
-    for (const raceIdx of Object.keys(detay)) {
-        for (const m of detay[raceIdx] || []) {
-            if (m?.ruleId && m.ruleId !== 'SKOR') kullanilanKurallar.push(m.ruleId);
-        }
-    }
-    const kullanilanOzet = [...new Set(kullanilanKurallar)].slice(0, 4).join(', ') || 'SKOR';
     const ilkKural = ruleTiers[0]?.id || '-';
     updateAktifKuralBanner();
+    let degisimMsg;
+    if (!degisen) {
+        degisimMsg = ' | <strong>sıralama aynı</strong> — bu kural atlar arasında fark yaratmıyor';
+    } else if (!birinciDegisen) {
+        degisimMsg = ' | <strong>' + degisen + ' sıra değişti</strong> (' + kosuDegisen + ' koşu) · 1. at aynı kaldı';
+    } else {
+        degisimMsg = ' | <strong>' + degisen + ' sıra değişti</strong> (' + kosuDegisen + ' koşu, 1. at dahil)';
+    }
     setStatus('<div class="status status-success">⚡ Tahmin güncellendi — '
-        + Object.keys(tahminler).length + ' koşu | öncelik: <strong>' + ilkKural + '</strong>'
-        + ' | kullanılan: <strong>' + kullanilanOzet + '</strong>'
-        + (degisen ? ' | <strong>' + degisen + ' sıra değişti</strong>' : ' | sıralama aynı')
+        + Object.keys(tahminler).length + ' koşu | 1. öncelik: <strong>' + ilkKural + '</strong>'
+        + degisimMsg
+        + ' · Her atın altında <strong>★ ' + ilkKural + ' (x/y)</strong> eşleşmesi görünür'
         + '</div>');
     updateBasariGosterim();
     notifyParentResize();
@@ -796,6 +840,7 @@ function buildTahminGrid(data) {
         html += '<span>🏁 ' + raceNo + '. KOŞU</span>';
         html += '<span class="tahmin-race-badge">' + horseCount + ' AT</span>';
         html += '<span class="tahmin-race-badge">' + AtSpeedUtils.escapeHtml(mesafeGosterim) + '</span>';
+        html += '<span class="tahmin-race-priority-badge">öncelik: -</span>';
         html += '</div>';
         html += '<span class="tahmin-race-basari"></span>';
         html += '</div><div class="tahmin-race-body">';

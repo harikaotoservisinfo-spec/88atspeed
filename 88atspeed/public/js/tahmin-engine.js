@@ -100,11 +100,29 @@ const TahminEngine = {
     return required.every(k => cond[k]);
   },
 
-  _matchRatio(cond, required) {
+  _matchCount(cond, required) {
     if (!required?.length) return 0;
     let matched = 0;
     for (const k of required) if (cond[k]) matched++;
-    return matched / required.length;
+    return matched;
+  },
+
+  _matchRatio(cond, required) {
+    if (!required?.length) return 0;
+    return this._matchCount(cond, required) / required.length;
+  },
+
+  _priorityMeta(profile, tiers) {
+    const top = tiers[0];
+    if (!top) {
+      return { priorityRuleId: 'SKOR', priorityMatched: 0, priorityTotal: 0 };
+    }
+    const priorityMatched = this._matchCount(profile.cond, top.required);
+    return {
+      priorityRuleId: top.id,
+      priorityMatched,
+      priorityTotal: top.required.length
+    };
   },
 
   _compareByRulePriority(a, b, tiers) {
@@ -123,14 +141,8 @@ const TahminEngine = {
 
   _primaryRuleId(profile, tiers) {
     for (const tier of tiers) {
-      if (this._matchesRequired(profile.cond, tier.required)) return tier.id;
+      if (this._matchRatio(profile.cond, tier.required) > 0) return tier.id;
     }
-    let best = { id: 'SKOR', ratio: 0 };
-    for (const tier of tiers) {
-      const ratio = this._matchRatio(profile.cond, tier.required);
-      if (ratio > best.ratio) best = { id: tier.id, ratio };
-    }
-    if (best.ratio > 0) return best.id;
     return 'SKOR';
   },
 
@@ -270,6 +282,7 @@ const TahminEngine = {
     const sorted = [...profiles].sort((a, b) => this._compareByRulePriority(a, b, tiers));
     const result = sorted.map((p) => p.name);
     const meta = sorted.map((p) => ({
+      ...this._priorityMeta(p, tiers),
       ruleId: this._primaryRuleId(p, tiers),
       score: p.score,
       cond: p.cond
