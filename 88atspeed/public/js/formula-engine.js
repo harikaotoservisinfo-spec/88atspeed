@@ -212,10 +212,16 @@ const GosterimEngine = {
         );
     },
 
+    _normalizeTarih(tarih) {
+        if (!tarih) return '';
+        return String(tarih).trim().replace(/\//g, '.');
+    },
+
     /** Kayıt program tarihindeki koşuları hesaplamadan çıkar (ör. bugünün sonuçları) */
     _filterKosular(kosular, programTarih) {
         if (!programTarih || !kosular?.length) return kosular || [];
-        return kosular.filter(k => k.tarih !== programTarih);
+        const programNorm = this._normalizeTarih(programTarih);
+        return kosular.filter(k => this._normalizeTarih(k.tarih) !== programNorm);
     },
 
     _raceForCalc(race, programTarih) {
@@ -532,10 +538,11 @@ const GosterimEngine = {
         return (test3 - test1) === (test2 - test1);
     },
 
+    /** Atın kronolojik olarak en yeni 2 fosfor-yeşil koşusu var mı */
     _horseSonIkiKosuYesil(horse, hedefMesafe) {
-        const sonIki = this._sortKosularNewest(horse.kosular || []).slice(0, 2);
-        if (sonIki.length < 2) return false;
-        return sonIki.every(k => this._isFosforYesilKosu(k, hedefMesafe));
+        const yesilKosular = this._sortKosularNewest(horse.kosular || [])
+            .filter(k => this._isFosforYesilKosu(k, hedefMesafe));
+        return yesilKosular.length >= 2;
     },
 
     _computeKirmiziYazi(atKosu, hedefMesafe) {
@@ -546,9 +553,10 @@ const GosterimEngine = {
 
     /**
      * Fosfor kırmızı kenar satırları:
-     * - Son 2 koşu yeşil (TEST4=TEST6)
+     * - En yeni 2 fosfor-yeşil koşu (TEST4=TEST6) mevcut
      * - Tüm koşulardan en az birinde TEST1/TEST2 sarı
-     * - Son 3 koşunun hepsinde TEST1<TEST2 ve TEST1<TEST3 (kırmızı kural)
+     * - Son 3 koşudan en az birinde kırmızı TEST (TEST1<TEST2 ve TEST1<TEST3)
+     * → son 3 koşu satırına kırmızı fosfor kenar
      */
     collectFosforKirmiziSatirlar(race, hedefMesafe, enIyiler) {
         const fosforKirmiziSatirlar = new Set();
@@ -568,7 +576,7 @@ const GosterimEngine = {
 
             const sonUc = this._sortKosularNewest(kosular).slice(0, 3);
             if (sonUc.length < 3) continue;
-            if (!sonUc.every(k => this._computeKirmiziYazi(k, hedefMesafe))) continue;
+            if (!sonUc.some(k => this._computeKirmiziYazi(k, hedefMesafe))) continue;
 
             for (const atKosu of sonUc) {
                 fosforKirmiziSatirlar.add(this._kosuKey(j, atKosu));
