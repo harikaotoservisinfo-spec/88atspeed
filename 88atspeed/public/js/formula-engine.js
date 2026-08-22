@@ -157,6 +157,7 @@ const FormulaEngine = {
 
 const GosterimEngine = {
     COL: {
+        MESAFE: 5,
         TEST1: 17, TEST2: 18, TEST3: 19, TEST4: 20, TEST5: 21,
         TEST6: 22, TEST7: 23, FARK: 13, FARK8002: 16
     },

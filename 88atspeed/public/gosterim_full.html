@@ -8,7 +8,7 @@
     <meta http-equiv="Expires" content="0">
     <title>Gösterim - 88ATSPEED</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="css/theme.css?v=20260821c" rel="stylesheet">
+    <link href="css/theme.css?v=20260822a" rel="stylesheet">
     <style>
         #gosterimContainer { padding: 20px 24px 32px; max-width: 100%; }
         .gosterim-controls { justify-content: flex-start; }
@@ -247,7 +247,7 @@ async function loadKayit(id) {
         const tarihNotu = currentProgramTarih
             ? ' — ' + currentProgramTarih + ' koşuları hariç tutuldu'
             : '';
-        statusDiv.innerHTML = '<div class="status status-success">✅ Kayıt yüklendi! (ID: ' + id + ')' + tarihNotu + '</div>';
+        statusDiv.innerHTML = '<div class="status status-success">✅ Kayıt yüklendi! (ID: ' + id + ')' + tarihNotu + ' — 🗑️ SİL sütunu tablonun solunda (sabit)</div>';
         
     } catch (error) {
         statusDiv.innerHTML = '<div class="status status-error">❌ Yükleme hatası: ' + error.message + '</div>';
