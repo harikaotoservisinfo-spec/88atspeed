@@ -501,6 +501,16 @@ tr.guclu-uyari-satir td:not(.eslesme-yesil) {
     border-top: 2px solid #76ff03;
     border-bottom: 2px solid #76ff03;
 }
+@keyframes test23-blink {
+    0%, 100% { background: #01579b !important; color: #84ffff !important; }
+    50% { background: #e1f5fe !important; color: #01579b !important; }
+}
+.test23-yanip-son { animation: test23-blink 1.1s ease-in-out infinite; font-weight: 800 !important; }
+.fosfor-mavi-satir td:not(.eslesme-yesil):not(.test23-yanip-son) {
+    color: #0277bd !important;
+    font-weight: 700 !important;
+    text-shadow: 0 0 8px #00e5ff, 0 0 14px #18ffff;
+}
 .kirmizi-yazi { color: #c62828 !important; font-weight: 800 !important; }
 .yesil-yazi { color: #2e7d32 !important; font-weight: 800 !important; }
 .pembe-hucre { background-color: var(--highlight-pink) !important; color: var(--text-primary) !important; }

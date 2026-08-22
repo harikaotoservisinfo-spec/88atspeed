@@ -319,6 +319,53 @@ const GosterimEngine = {
         return { enIyilerTest12Yakin };
     },
 
+    _computeTestSalise(atKosu, hedefMesafe) {
+        const gecmisMesafe = atKosu.mesafe;
+        const dereceSalise = AtSpeedUtils.dereceToSalise(atKosu.at_derece);
+        const dr_sl = AtSpeedUtils.metreBasiSalise(dereceSalise, gecmisMesafe);
+        const son800_1Salise = AtSpeedUtils.dereceToSalise(atKosu.son800_bir);
+        const son800_1_sl = son800_1Salise ? son800_1Salise / 800 : null;
+        let son800_2 = atKosu.son800_iki;
+        if (!son800_2 || son800_2 === '-') son800_2 = atKosu.son800_bir;
+        const son800_2Salise = AtSpeedUtils.dereceToSalise(son800_2);
+        const son800_2_sl = son800_2Salise ? son800_2Salise / 800 : null;
+        if (isNaN(hedefMesafe) || hedefMesafe <= 0) {
+            return { test1: null, test2: null, test3: null };
+        }
+        return {
+            test1: dr_sl !== null ? hedefMesafe * dr_sl : null,
+            test2: son800_1_sl !== null ? hedefMesafe * son800_1_sl : null,
+            test3: son800_2_sl !== null ? hedefMesafe * son800_2_sl : null
+        };
+    },
+
+    /**
+     * TEST3 top-3 + TEST2<TEST3 + TEST1<=TEST2 → fosfor mavi satır.
+     * Aynı koşuda kurala uyanlar arasında TEST3−TEST2 farkı en yüksek → TEST2/TEST3 yanıp söner.
+     */
+    collectMaviFosforTest123(race, hedefMesafe, enIyilerTest3) {
+        const qualifying = [];
+        for (let j = 0; j < race.horses.length; j++) {
+            for (const atKosu of race.horses[j].kosular || []) {
+                const kosuKey = this._kosuKey(j, atKosu);
+                if (!enIyilerTest3.has(kosuKey)) continue;
+                const { test1, test2, test3 } = this._computeTestSalise(atKosu, hedefMesafe);
+                if (test1 === null || test2 === null || test3 === null) continue;
+                if (!(test2 < test3 && test1 <= test2)) continue;
+                qualifying.push({ kosuKey, fark23: test3 - test2 });
+            }
+        }
+        const maviFosforSatir = new Set(qualifying.map(q => q.kosuKey));
+        const test23YanipSonen = new Set();
+        if (qualifying.length) {
+            const maxFark = Math.max(...qualifying.map(q => q.fark23));
+            for (const q of qualifying) {
+                if (q.fark23 === maxFark) test23YanipSonen.add(q.kosuKey);
+            }
+        }
+        return { maviFosforSatir, test23YanipSonen };
+    },
+
     /** Koşu içinde SON800-1 ve SON800-2 için en düşük 3 süre */
     collectTopSon800(race) {
         const son800_1 = [];
@@ -491,18 +538,22 @@ const GosterimEngine = {
         const fark8002BosMu = values[this.COL.FARK8002] === '-';
         const test12Yakin = enIyiler.enIyilerTest12Yakin?.has(kosuKey);
         const gucluUyari = kirmiziYazi && test12Yakin;
+        const maviFosfor = enIyiler.maviFosforSatir?.has(kosuKey);
+        const test23Yanip = enIyiler.test23YanipSonen?.has(kosuKey);
 
         return {
             values,
             classes: {
                 satirClass: gucluUyari ? 'guclu-uyari-satir'
-                    : (ayniMi ? 'fosfor-yesil-satir' : (farkBosMu && fark8002BosMu ? 'pembe-satir' : '')),
+                    : (maviFosfor ? 'fosfor-mavi-satir'
+                    : (ayniMi ? 'fosfor-yesil-satir' : (farkBosMu && fark8002BosMu ? 'pembe-satir' : ''))),
                 test4Class: ayniMi ? 'fosfor-yesil-hucre' : '',
                 test6Class: ayniMi ? 'fosfor-yesil-hucre' : '',
                 test1Class: enIyiler.enIyilerTest1.has(kosuKey) ? 'eslesme-yesil' : '',
                 test2Class: enIyiler.enIyilerTest2.has(kosuKey) ? 'eslesme-yesil' : '',
                 test3Class: enIyiler.enIyilerTest3.has(kosuKey) ? 'eslesme-yesil' : '',
                 test12YakinClass: test12Yakin ? 'fosfor-sari-yazi' : '',
+                test23YanipClass: test23Yanip ? 'test23-yanip-son' : '',
                 kirmiziClass: kirmiziYazi ? 'kirmizi-yazi' : '',
                 yesilClass: yesilYazi ? 'yesil-yazi' : '',
                 farkClass: farkBosMu && !fark8002BosMu ? 'pembe-hucre' : '',
@@ -530,10 +581,12 @@ const GosterimEngine = {
             if (classes.test12YakinClass) parts.push(classes.test12YakinClass);
             else if (classes.kirmiziClass) parts.push(classes.kirmiziClass);
         } else if (c === COL.TEST2) {
+            if (classes.test23YanipClass) parts.push(classes.test23YanipClass);
             if (classes.test2Class) parts.push(classes.test2Class);
             if (classes.test12YakinClass) parts.push(classes.test12YakinClass);
             else if (classes.kirmiziClass) parts.push(classes.kirmiziClass);
         } else if (c === COL.TEST3) {
+            if (classes.test23YanipClass) parts.push(classes.test23YanipClass);
             if (classes.test3Class) parts.push(classes.test3Class);
             else if (classes.kirmiziClass) parts.push(classes.kirmiziClass);
         }
@@ -552,10 +605,12 @@ const GosterimEngine = {
         const raceIndex = options.raceIndex ?? 0;
         const hedefMesafe = this._hedefMesafe(race);
         const calcRace = this._raceForCalc(race, programTarih);
+        const topTests = this.collectTopTests(calcRace, hedefMesafe);
         const enIyiler = {
-            ...this.collectTopTests(calcRace, hedefMesafe),
+            ...topTests,
             ...this.collectTopSon800(calcRace),
-            ...this.collectClosestTest12(calcRace, hedefMesafe)
+            ...this.collectClosestTest12(calcRace, hedefMesafe),
+            ...this.collectMaviFosforTest123(calcRace, hedefMesafe, topTests.enIyilerTest3)
         };
         const trends = this.computeHorseTrends(calcRace, hedefMesafe);
         const rows = [];
