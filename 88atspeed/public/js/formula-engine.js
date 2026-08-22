@@ -358,7 +358,7 @@ const GosterimEngine = {
 
     buildRowValues(horse, atKosu, rowIndex, horseIndex, hedefMesafe, trends, enIyiler, hipodromSehir) {
         const gecmisMesafe = atKosu.mesafe;
-        const mesafeSayi = parseInt(gecmisMesafe, 10);
+        const mesafeSayi = parseInt(String(gecmisMesafe).replace(/[^\d]/g, ''), 10);
         const mesafeEslesme = !isNaN(hedefMesafe) && hedefMesafe > 0
             && !isNaN(mesafeSayi) && mesafeSayi === hedefMesafe;
         const sehirEslesme = this._sehirEslesme(atKosu.sehir, hipodromSehir);
@@ -444,7 +444,7 @@ const GosterimEngine = {
                 satirClass: ayniMi ? 'fosfor-yesil-satir' : (farkBosMu && fark8002BosMu ? 'pembe-satir' : ''),
                 test4Class: ayniMi ? 'fosfor-yesil-hucre' : '',
                 test6Class: ayniMi ? 'fosfor-yesil-hucre' : '',
-                test1Class: enIyiler.enIyilerTest1.has(kosuKey) ? 'eniyi-test1' : '',
+                test1Class: enIyiler.enIyilerTest1.has(kosuKey) ? 'eslesme-yesil' : '',
                 test2Class: enIyiler.enIyilerTest2.has(kosuKey) ? 'eniyi-test2' : '',
                 kirmiziClass: kirmiziYazi ? 'kirmizi-yazi' : '',
                 yesilClass: yesilYazi ? 'yesil-yazi' : '',
