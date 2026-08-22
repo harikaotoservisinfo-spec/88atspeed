@@ -217,11 +217,25 @@ textarea { height: auto; min-height: 80px; }
     overflow: hidden;
 }
 
+.tab-content-tahminim {
+    background: var(--bg-page);
+    padding: 0;
+    overflow: visible;
+}
+
 .tab-content-iframe iframe,
 .tab-content-gosterim iframe {
     display: block;
     width: 100%;
     min-height: 720px;
+    border: none;
+    background: var(--bg-page);
+}
+
+.tab-content-tahminim iframe {
+    display: block;
+    width: 100%;
+    min-height: 800px;
     border: none;
     background: var(--bg-page);
 }

@@ -112,6 +112,41 @@
             font-size: 13px;
         }
         .arsiv-item:last-child { border-bottom: none; }
+        .tahminim-layout {
+            display: grid;
+            grid-template-columns: 1fr min(400px, 100%);
+            gap: 16px;
+            align-items: start;
+        }
+        .tahminim-rules-sidebar {
+            position: sticky;
+            top: 8px;
+            max-height: calc(100vh - 24px);
+            overflow-y: auto;
+        }
+        @media (max-width: 1100px) {
+            .tahminim-layout { grid-template-columns: 1fr; }
+            .tahminim-rules-sidebar {
+                order: -1;
+                position: relative;
+                top: 0;
+                max-height: 420px;
+            }
+        }
+        .aktif-kural-banner {
+            display: none;
+            margin-bottom: 12px;
+            padding: 10px 14px;
+            background: linear-gradient(135deg, #e8eaf6 0%, #e3f2fd 100%);
+            border: 1px solid #9fa8da;
+            border-radius: var(--radius-md);
+            font-size: 12px;
+            font-weight: 600;
+            color: #1a237e;
+            line-height: 1.5;
+        }
+        .aktif-kural-banner.visible { display: block; }
+        .aktif-kural-banner strong { color: #0d47a1; }
         .tahminim-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
@@ -236,12 +271,12 @@
             color: #0d47a1;
         }
         .kural-panel {
-            margin-top: 24px;
+            margin-top: 0;
             padding: 18px 20px 20px;
             background: #fff;
-            border: 1px solid var(--border);
+            border: 2px solid #5c6bc0;
             border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-sm);
+            box-shadow: var(--shadow-md);
         }
         .kural-panel-title {
             font-weight: 800;
@@ -347,32 +382,39 @@
     <div id="kayitListesi" class="kayit-listesi" style="display:none;"></div>
     <div id="tahminimStatus"></div>
     <div id="tahminimMeta" class="tahminim-meta" style="display:none;"></div>
-    <div id="basariOzetPanel" class="basari-ozet-panel"></div>
-    <div id="arsivPanel" class="arsiv-panel"></div>
-    <div id="tahminimResults"><div class="empty">🎯 GÖSTERİM sekmesinde kayıt yükleyin veya buradan kayıt seçin</div></div>
+    <div id="aktifKuralBanner" class="aktif-kural-banner"></div>
 
-    <div class="kural-panel" id="kuralPanel">
-        <div class="kural-panel-title">📐 Kural sırası — sürükleyerek değiştirin</div>
-        <div class="kural-panel-sub">Yukarıdan aşağıya uygulanır. Sırayı değiştirdiğinizde tahminler ve başarı özeti otomatik güncellenir. Gerçek sonuçlarınız korunur.</div>
-        <div id="kuralSiraList" class="kural-list"></div>
-        <div class="kural-item kural-item-fixed">SKOR — eşleşme yoksa en yüksek skorlu at (son çare, sabit)</div>
-        <div class="kural-panel-actions">
-            <button type="button" id="kuralSiraResetBtn" class="tahminim-btn">↩️ Varsayılana dön</button>
-        </div>
-        <div class="kural-yeni-form">
-            <h4>➕ Yeni özel kural ekle</h4>
-            <div id="kuralCondPicker" class="kural-cond-picker"></div>
-            <div class="kural-yeni-row">
-                <input type="text" id="kuralYeniAd" placeholder="Kural adı (isteğe bağlı)">
-                <label><input type="checkbox" id="kuralYeniSira1"> Sadece 1. sıra</label>
-                <button type="button" id="kuralEkleBtn" class="tahminim-btn tahminim-btn-primary">Ekle ve uygula</button>
+    <div class="tahminim-layout">
+        <div class="tahminim-left">
+            <div id="basariOzetPanel" class="basari-ozet-panel"></div>
+            <div id="arsivPanel" class="arsiv-panel"></div>
+            <div id="tahminimResults"><div class="empty">🎯 GÖSTERİM sekmesinde kayıt yükleyin veya buradan kayıt seçin</div></div>
+            <div class="tahmin-hint">
+                <strong>Gerçek sıra girişi:</strong> Sıra numarası (<code>7</code>) veya <code>koşmaz</code> yazın.
+                Koşmayan atlar başarı hesabına dahil edilmez. Başarı anında hesaplanır; arşive ekleyerek kural performansını izleyin.
             </div>
         </div>
-    </div>
 
-    <div class="tahmin-hint">
-        <strong>Gerçek sıra girişi:</strong> Sıra numarası (<code>7</code>) veya <code>koşmaz</code> yazın.
-        Koşmayan atlar başarı hesabına dahil edilmez. Başarı anında hesaplanır; arşive ekleyerek kural performansını izleyin.
+        <div class="tahminim-rules-sidebar">
+            <div class="kural-panel" id="kuralPanel">
+                <div class="kural-panel-title">📐 Kural sırası — sürükleyin veya ▲▼</div>
+                <div class="kural-panel-sub">Yukarıdan aşağıya uygulanır. Sırayı değiştirdiğinizde tahminler <strong>anında</strong> yeniden hesaplanır.</div>
+                <div id="kuralSiraList" class="kural-list"></div>
+                <div class="kural-item kural-item-fixed">SKOR — eşleşme yoksa en yüksek skorlu at (son çare, sabit)</div>
+                <div class="kural-panel-actions">
+                    <button type="button" id="kuralSiraResetBtn" class="tahminim-btn">↩️ Varsayılana dön</button>
+                </div>
+                <div class="kural-yeni-form">
+                    <h4>➕ Yeni özel kural ekle</h4>
+                    <div id="kuralCondPicker" class="kural-cond-picker"></div>
+                    <div class="kural-yeni-row">
+                        <input type="text" id="kuralYeniAd" placeholder="Kural adı (isteğe bağlı)">
+                        <label><input type="checkbox" id="kuralYeniSira1"> Sadece 1. sıra</label>
+                        <button type="button" id="kuralEkleBtn" class="tahminim-btn tahminim-btn-primary">Ekle ve uygula</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -380,12 +422,33 @@
 <script src="js/formula-engine.js?v=20260823c"></script>
 <script src="js/tahmin-engine.js?v=20260824d"></script>
 <script src="js/sonuc-engine.js?v=20260824c"></script>
-<script src="js/kural-panel.js?v=20260824e"></script>
+<script src="js/kural-panel.js?v=20260824f"></script>
 <script>
 let currentKayitId = null;
 let currentKayitMeta = null;
 let currentRaceData = null;
 let lastAktarDetay = null;
+
+function notifyParentResize() {
+    const h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+    try {
+        window.parent.postMessage({ type: '88atspeed-iframe-resize', frame: 'tahminim', height: h }, '*');
+    } catch (_) {}
+}
+
+function updateAktifKuralBanner() {
+    const banner = document.getElementById('aktifKuralBanner');
+    if (!banner) return;
+    const tiers = KuralPanel.getActiveTiers();
+    if (!tiers.length) {
+        banner.classList.remove('visible');
+        return;
+    }
+    const ilk3 = tiers.slice(0, 5).map((t, i) => (i + 1) + '. <strong>' + t.id + '</strong>').join(' → ');
+    banner.innerHTML = '⚡ Aktif kural sırası: ' + ilk3 + (tiers.length > 5 ? ' → …' : '') + ' → SKOR';
+    banner.classList.add('visible');
+    notifyParentResize();
+}
 
 function storageKey() {
     return currentKayitId ? '88atspeed-tahmin-' + currentKayitId : null;
@@ -681,11 +744,13 @@ function runOtomatikAktar() {
         if (detay[raceIdx]?.[0]?.ruleId === 'K1') k1Count++;
     }
     const ilkKural = ruleTiers[0]?.id || '-';
+    updateAktifKuralBanner();
     setStatus('<div class="status status-success">⚡ Tahmin güncellendi — '
         + Object.keys(tahminler).length + ' koşu | 1. kural: <strong>' + ilkKural + '</strong>'
-        + (degisen ? ' | ' + degisen + ' sıra değişti' : ' | sıralama aynı (SKOR eşit)')
+        + (degisen ? ' | <strong>' + degisen + ' sıra değişti</strong>' : ' | sıralama aynı')
         + '</div>');
     updateBasariGosterim();
+    notifyParentResize();
 }
 
 function setStatus(html) {
@@ -757,7 +822,7 @@ function buildTahminGrid(data) {
     html += '</div>';
     document.getElementById('tahminimResults').innerHTML = html;
 
-    applyTahminlerToDom(loadTahminFromStorage());
+    applyTahminlerToDom(loadTahminFromStorage(), null);
     applyGerceklerToDom(loadGercekFromStorage());
 
     document.querySelectorAll('.gercek-at-input').forEach(input => {
@@ -768,6 +833,7 @@ function buildTahminGrid(data) {
     });
 
     updateBasariGosterim();
+    notifyParentResize();
 }
 
 function onKayitLoaded(kayit) {
@@ -942,9 +1008,16 @@ window.TahminimPage = {
 };
 
 KuralPanel.setOnChange(() => {
+    updateAktifKuralBanner();
     if (currentRaceData && currentKayitMeta) runOtomatikAktar();
 });
 KuralPanel.init();
+updateAktifKuralBanner();
+window.addEventListener('resize', () => notifyParentResize());
+if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => notifyParentResize()).observe(document.getElementById('tahminimContainer'));
+}
+notifyParentResize();
 </script>
 </body>
 </html>

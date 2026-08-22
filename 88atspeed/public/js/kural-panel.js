@@ -59,12 +59,10 @@ const KuralPanel = {
     const cfg = this.loadConfig();
     const from = cfg.order.indexOf(ruleId);
     if (from < 0 || from === toIndex) return false;
+    if (toIndex < 0 || toIndex >= cfg.order.length) return false;
 
     const item = cfg.order.splice(from, 1)[0];
-    let insertAt = toIndex;
-    if (from < toIndex) insertAt--;
-    insertAt = Math.max(0, Math.min(insertAt, cfg.order.length));
-    cfg.order.splice(insertAt, 0, item);
+    cfg.order.splice(toIndex, 0, item);
 
     this.saveConfig(cfg);
     this.render();
@@ -76,7 +74,9 @@ const KuralPanel = {
     const cfg = this.loadConfig();
     const from = cfg.order.indexOf(ruleId);
     if (from < 0) return;
-    this.moveRule(ruleId, from + delta);
+    const to = from + delta;
+    if (to < 0 || to >= cfg.order.length) return;
+    this.moveRule(ruleId, to);
   },
 
   toggleRule(ruleId, enabled) {
