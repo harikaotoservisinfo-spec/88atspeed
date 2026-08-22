@@ -26,18 +26,95 @@
             border-color: #0d47a1;
         }
         .tahminim-btn-primary:hover { filter: brightness(1.05); }
+        .tahminim-btn-success {
+            background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%);
+            color: #fff;
+            border-color: #1b5e20;
+        }
         .tahminim-meta {
             padding: 12px 16px;
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: var(--radius-md);
-            margin-bottom: 20px;
+            margin-bottom: 16px;
             font-size: 14px;
             font-weight: 500;
         }
+        .basari-ozet-panel {
+            display: none;
+            margin-bottom: 20px;
+            padding: 16px 18px;
+            background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%);
+            border: 1px solid #81c784;
+            border-radius: var(--radius-lg);
+        }
+        .basari-ozet-panel.visible { display: block; }
+        .basari-ozet-title {
+            font-weight: 800;
+            font-size: 15px;
+            color: #1b5e20;
+            margin-bottom: 12px;
+        }
+        .basari-stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .basari-stat {
+            background: #fff;
+            border-radius: var(--radius-md);
+            padding: 10px 12px;
+            border: 1px solid #c8e6c9;
+            text-align: center;
+        }
+        .basari-stat-val {
+            font-size: 22px;
+            font-weight: 800;
+            color: #2e7d32;
+            line-height: 1.1;
+        }
+        .basari-stat-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #558b2f;
+            margin-top: 4px;
+        }
+        .rule-stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin-top: 8px;
+        }
+        .rule-stats-table th, .rule-stats-table td {
+            padding: 6px 10px;
+            border: 1px solid #c8e6c9;
+            text-align: left;
+        }
+        .rule-stats-table th { background: #e8f5e9; font-weight: 700; }
+        .arsiv-panel {
+            display: none;
+            margin-bottom: 20px;
+            padding: 14px 16px;
+            background: #fff8e1;
+            border: 1px solid #ffe082;
+            border-radius: var(--radius-lg);
+            max-height: 280px;
+            overflow-y: auto;
+        }
+        .arsiv-panel.visible { display: block; }
+        .arsiv-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 10px;
+            border-bottom: 1px solid #ffe082;
+            font-size: 13px;
+        }
+        .arsiv-item:last-child { border-bottom: none; }
         .tahminim-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
             gap: 16px;
         }
         .tahmin-race-card {
@@ -47,6 +124,9 @@
             box-shadow: var(--shadow-sm);
             overflow: hidden;
         }
+        .tahmin-race-card.basari-yuksek { border-color: #66bb6a; }
+        .tahmin-race-card.basari-orta { border-color: #ffa726; }
+        .tahmin-race-card.basari-dusuk { border-color: #ef5350; }
         .tahmin-race-header {
             background: linear-gradient(135deg, #0d47a1 0%, #1565c0 100%);
             color: #e3f2fd;
@@ -57,7 +137,9 @@
             flex-wrap: wrap;
             gap: 8px;
             align-items: center;
+            justify-content: space-between;
         }
+        .tahmin-race-header-left { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
         .tahmin-race-badge {
             background: rgba(255, 255, 255, 0.15);
             padding: 3px 10px;
@@ -65,15 +147,39 @@
             font-size: 11px;
             font-weight: 600;
         }
+        .tahmin-race-basari {
+            background: rgba(255, 255, 255, 0.25);
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            display: none;
+        }
+        .tahmin-race-basari.visible { display: inline-block; }
         .tahmin-race-body { padding: 12px 14px 14px; }
+        .tahmin-col-headers {
+            display: grid;
+            grid-template-columns: 36px 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 6px;
+            padding: 0 0 4px;
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .tahmin-col-headers span:nth-child(3) { color: #2e7d32; }
         .tahmin-row {
             display: grid;
-            grid-template-columns: 36px 1fr;
+            grid-template-columns: 36px 1fr 1fr;
             gap: 8px;
-            align-items: center;
+            align-items: start;
             margin-bottom: 8px;
         }
         .tahmin-row:last-child { margin-bottom: 0; }
+        .tahmin-row.row-exact .tahmin-sira { background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%); }
+        .tahmin-row.row-miss .tahmin-sira { background: linear-gradient(135deg, #b71c1c 0%, #c62828 100%); }
         .tahmin-sira {
             width: 36px;
             height: 36px;
@@ -85,32 +191,38 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            flex-shrink: 0;
         }
-        .tahmin-at-input {
+        .tahmin-cell { display: flex; flex-direction: column; gap: 2px; }
+        .tahmin-at-input, .gercek-at-input {
             width: 100%;
-            padding: 9px 12px;
+            padding: 9px 10px;
             border: 1px solid var(--border);
             border-radius: var(--radius-md);
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
             background: #fff;
             color: var(--text-primary);
         }
-        .tahmin-at-input:focus {
+        .tahmin-at-input { background: #e3f2fd; border-color: #90caf9; }
+        .gercek-at-input:focus {
             outline: none;
-            border-color: #1565c0;
-            box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.15);
+            border-color: #2e7d32;
+            box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.15);
         }
-        .tahmin-at-input::placeholder { color: var(--text-muted); font-weight: 500; }
-        .tahmin-at-input.tahmin-auto-filled {
-            background: #e3f2fd;
-            border-color: #1565c0;
+        .tahmin-at-input.tahmin-auto-filled { background: #bbdefb; border-color: #1565c0; }
+        .gercek-at-input.gercek-filled { background: #e8f5e9; border-color: #66bb6a; }
+        .gercek-at-input.gercek-exact { background: #c8e6c9; border-color: #2e7d32; }
+        .gercek-at-input.gercek-miss { background: #ffcdd2; border-color: #e53935; }
+        .tahmin-at-input::placeholder, .gercek-at-input::placeholder {
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 11px;
         }
         .tahmin-rule-tag {
             font-size: 10px;
             font-weight: 600;
             color: #0d47a1;
-            margin-top: 2px;
         }
         .tahmin-hint {
             margin-top: 16px;
@@ -130,23 +242,27 @@
         <button type="button" id="kayitSenkronBtn" class="tahminim-btn">🔄 GÖSTERİM kaydını kullan</button>
         <button type="button" id="kayitlariGetirBtn" class="tahminim-btn">📋 Kayıt listesinden seç</button>
         <button type="button" id="tahminKaydetBtn" class="tahminim-btn">💾 Tahminleri kaydet</button>
+        <button type="button" id="sonucKaydetBtn" class="tahminim-btn tahminim-btn-success">✅ Sonuçları kaydet</button>
+        <button type="button" id="arsiveEkleBtn" class="tahminim-btn">📦 Arşive ekle</button>
+        <button type="button" id="arsivGosterBtn" class="tahminim-btn">📊 Arşiv özeti</button>
         <button type="button" id="tahminTemizleBtn" class="tahminim-btn">🗑️ Temizle</button>
     </div>
     <div id="kayitListesi" class="kayit-listesi" style="display:none;"></div>
     <div id="tahminimStatus"></div>
     <div id="tahminimMeta" class="tahminim-meta" style="display:none;"></div>
+    <div id="basariOzetPanel" class="basari-ozet-panel"></div>
+    <div id="arsivPanel" class="arsiv-panel"></div>
     <div id="tahminimResults"><div class="empty">🎯 GÖSTERİM sekmesinde kayıt yükleyin veya buradan kayıt seçin</div></div>
     <div class="tahmin-hint">
-        <strong>1. sıra kuralı (K1 — 12/12):</strong> Sol SIRA mavi + AT İSMİ mavi + TARİH mavi + son koşu program şehrinde
-        + şehir/mesafe geçmişi + şehir/mesafede 1./2. + SON800-1 top 3 + TEST1 en iyi + TEST1/2/3 kırmızı
-        + son koşu yeşil satır + TEST1/2 sarı + TEST9 vurgulu — hepsi aynı anda.
-        Diğer sıralar kademeli kurallar ve skor ile doldurulur.
+        <strong>Tahmin + gerçek sonuç:</strong> Otomatik aktarım tahminleri doldurur. Sağdaki yeşil alana gerçek sıralamayı girin —
+        başarı yüzdesi anında hesaplanır. Sonuçları kaydedin veya arşive ekleyerek birden fazla günü karşılaştırıp kural performansını analiz edin.
     </div>
 </div>
 
 <script src="js/utils.js?v=20260822h"></script>
 <script src="js/formula-engine.js?v=20260823c"></script>
 <script src="js/tahmin-engine.js?v=20260823e"></script>
+<script src="js/sonuc-engine.js?v=20260824a"></script>
 <script>
 let currentKayitId = null;
 let currentKayitMeta = null;
@@ -160,15 +276,23 @@ function storageKey() {
 function loadTahminFromStorage() {
     const key = storageKey();
     if (!key) return null;
-    try {
-        return JSON.parse(localStorage.getItem(key) || 'null');
-    } catch (_) { return null; }
+    try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (_) { return null; }
 }
 
 function saveTahminToStorage(tahminler) {
     const key = storageKey();
     if (!key) return;
     localStorage.setItem(key, JSON.stringify(tahminler));
+}
+
+function loadGercekFromStorage() {
+    if (!currentKayitId) return null;
+    return SonucEngine.loadGercekSonuc(currentKayitId);
+}
+
+function saveGercekToStorage(gercekler) {
+    if (!currentKayitId) return;
+    SonucEngine.saveGercekSonuc(currentKayitId, gercekler);
 }
 
 function getTahminlerFromDom() {
@@ -186,6 +310,28 @@ function getTahminlerFromDom() {
     return tahminler;
 }
 
+function getGerceklerFromDom() {
+    const gercekler = {};
+    document.querySelectorAll('.tahmin-race-card').forEach(card => {
+        const raceIdx = card.dataset.raceIndex;
+        gercekler[raceIdx] = [];
+        card.querySelectorAll('.gercek-at-input').forEach(input => {
+            gercekler[raceIdx].push({
+                sira: parseInt(input.dataset.sira, 10),
+                name: input.value.trim()
+            });
+        });
+    });
+    return gercekler;
+}
+
+function getHorseDatalist(race) {
+    return (race.horses || []).map(h => {
+        const no = h.no ? ' (' + h.no + ')' : '';
+        return (h.name || '') + no;
+    });
+}
+
 function applyTahminlerToDom(tahminler, detay) {
     if (!tahminler) return;
     for (const raceIdx of Object.keys(tahminler)) {
@@ -194,7 +340,6 @@ function applyTahminlerToDom(tahminler, detay) {
         const rows = tahminler[raceIdx] || [];
         const raceDetay = detay?.[raceIdx] || [];
         card.querySelectorAll('.tahmin-row').forEach(rowEl => {
-            const input = rowEl.querySelector('.tahmin-at-input');
             const tag = rowEl.querySelector('.tahmin-rule-tag');
             if (tag) tag.remove();
         });
@@ -205,14 +350,160 @@ function applyTahminlerToDom(tahminler, detay) {
             input.classList.toggle('tahmin-auto-filled', !!(found?.name));
             const m = raceDetay[sira - 1];
             if (m?.ruleId && found?.name) {
-                const rowEl = input.closest('.tahmin-row');
+                const cell = input.closest('.tahmin-cell');
                 const tag = document.createElement('div');
                 tag.className = 'tahmin-rule-tag';
                 tag.textContent = m.ruleId + ' (' + m.score + '/12)';
-                rowEl.appendChild(tag);
+                cell.appendChild(tag);
             }
         });
     }
+}
+
+function applyGerceklerToDom(gercekler) {
+    if (!gercekler) return;
+    for (const raceIdx of Object.keys(gercekler)) {
+        const card = document.querySelector('.tahmin-race-card[data-race-index="' + raceIdx + '"]');
+        if (!card) continue;
+        const rows = gercekler[raceIdx] || [];
+        card.querySelectorAll('.gercek-at-input').forEach(input => {
+            const sira = parseInt(input.dataset.sira, 10);
+            const found = rows.find(r => r.sira === sira);
+            input.value = found?.name || '';
+        });
+    }
+}
+
+function updateBasariGosterim() {
+    const tahminler = getTahminlerFromDom();
+    const gercekler = getGerceklerFromDom();
+    const basari = SonucEngine.computeKayitBasari(tahminler, gercekler, lastAktarDetay);
+
+    for (const kosu of basari.kosular) {
+        const card = document.querySelector('.tahmin-race-card[data-race-index="' + kosu.raceIndex + '"]');
+        if (!card) continue;
+
+        card.classList.remove('basari-yuksek', 'basari-orta', 'basari-dusuk');
+        const badge = card.querySelector('.tahmin-race-basari');
+        if (kosu.hasGercek) {
+            badge.classList.add('visible');
+            badge.textContent = kosu.basariPuani + '% başarı'
+                + (kosu.birinciDogru ? ' ✓1.' : '')
+                + ' | ' + kosu.exactMatches + '/' + kosu.totalCompared + ' tam';
+            if (kosu.basariPuani >= 70) card.classList.add('basari-yuksek');
+            else if (kosu.basariPuani >= 40) card.classList.add('basari-orta');
+            else card.classList.add('basari-dusuk');
+        } else {
+            badge.classList.remove('visible');
+        }
+
+        for (const p of kosu.pozisyonlar) {
+            const row = card.querySelector('.tahmin-row .gercek-at-input[data-sira="' + p.sira + '"]')?.closest('.tahmin-row');
+            if (!row) continue;
+            row.classList.remove('row-exact', 'row-miss');
+            const gInput = row.querySelector('.gercek-at-input');
+            const gNorm = SonucEngine.normalizeHorseName(p.gercek);
+            gInput.classList.remove('gercek-filled', 'gercek-exact', 'gercek-miss');
+            if (gNorm) {
+                gInput.classList.add('gercek-filled');
+                if (p.exact) {
+                    row.classList.add('row-exact');
+                    gInput.classList.add('gercek-exact');
+                } else if (SonucEngine.normalizeHorseName(p.tahmin)) {
+                    row.classList.add('row-miss');
+                    gInput.classList.add('gercek-miss');
+                }
+            }
+        }
+    }
+
+    const panel = document.getElementById('basariOzetPanel');
+    if (!basari.kosuSayisi) {
+        panel.classList.remove('visible');
+        panel.innerHTML = '';
+        return;
+    }
+
+    panel.classList.add('visible');
+    panel.innerHTML = '<div class="basari-ozet-title">📈 Bu kayıt — başarı özeti (' + basari.kosuSayisi + ' koşu)</div>'
+        + '<div class="basari-stat-grid">'
+        + statBox(basari.ortalamaBasari + '%', 'Ortalama başarı')
+        + statBox(basari.birinciPct + '%', '1. sıra (' + basari.birinciDogruSayisi + '/' + basari.birinciToplam + ')')
+        + statBox(basari.top3Pct + '%', 'Top 3 (' + basari.top3HitsToplam + '/' + basari.top3TotalToplam + ')')
+        + statBox(basari.exactPct + '%', 'Tam eşleşme (' + basari.toplamExact + '/' + basari.toplamCompared + ')')
+        + '</div>';
+
+    const ruleStats = SonucEngine.aggregateRuleStats([{
+        kosular: basari.kosular.map(k => ({ pozisyonlar: k.pozisyonlar }))
+    }]);
+    if (ruleStats.length) {
+        panel.innerHTML += '<div style="font-weight:700;font-size:13px;margin-bottom:6px;">Kural performansı (bu kayıt)</div>'
+            + ruleStatsTable(ruleStats);
+    }
+}
+
+function statBox(val, label) {
+    return '<div class="basari-stat"><div class="basari-stat-val">' + val + '</div>'
+        + '<div class="basari-stat-label">' + label + '</div></div>';
+}
+
+function ruleStatsTable(stats) {
+    let html = '<table class="rule-stats-table"><thead><tr>'
+        + '<th>Kural</th><th>Kullanım</th><th>Tam eşleşme</th><th>1. sıra</th></tr></thead><tbody>';
+    for (const s of stats) {
+        html += '<tr><td><strong>' + AtSpeedUtils.escapeHtml(s.ruleId) + '</strong></td>'
+            + '<td>' + s.total + '</td>'
+            + '<td>' + s.exact + ' (' + s.exactPct + '%)</td>'
+            + '<td>' + (s.birinciTotal ? s.birinci + '/' + s.birinciTotal + ' (' + s.birinciPct + '%)' : '-') + '</td></tr>';
+    }
+    return html + '</tbody></table>';
+}
+
+function renderArsivPanel() {
+    const archive = SonucEngine.getArchive();
+    const summary = SonucEngine.aggregateArchiveSummary(archive);
+    const panel = document.getElementById('arsivPanel');
+
+    if (!archive.length) {
+        panel.classList.add('visible');
+        panel.innerHTML = '<div style="font-weight:700;">📊 Arşiv boş — sonuç girdikten sonra "Arşive ekle" ile kaydedin.</div>';
+        return;
+    }
+
+    panel.classList.add('visible');
+    let html = '<div style="font-weight:800;font-size:14px;margin-bottom:10px;">📊 Arşiv özeti — '
+        + summary.kayitSayisi + ' kayıt, ' + summary.kosuSayisi + ' koşu'
+        + (summary.ortalamaBasari != null ? ', ort. başarı: ' + summary.ortalamaBasari + '%' : '')
+        + '</div>';
+
+    if (summary.ruleStats.length) {
+        html += '<div style="font-weight:700;font-size:12px;margin-bottom:4px;">Tüm arşiv — kural performansı</div>';
+        html += ruleStatsTable(summary.ruleStats);
+        html += '<hr style="margin:12px 0;border-color:#ffe082;">';
+    }
+
+    html += '<div style="font-weight:700;font-size:12px;margin-bottom:6px;">Kayıtlı sonuçlar</div>';
+    for (const entry of archive) {
+        const b = entry.basari;
+        html += '<div class="arsiv-item">'
+            + '<span>📅 ' + AtSpeedUtils.escapeHtml(entry.tarih)
+            + ' | ' + AtSpeedUtils.escapeHtml(entry.hipodrom)
+            + ' | Kayıt #' + entry.kayitId
+            + (b?.ortalamaBasari != null ? ' — <strong>' + b.ortalamaBasari + '%</strong>' : '')
+            + '</span>'
+            + '<button type="button" class="tahminim-btn" style="padding:4px 10px;font-size:11px;" data-arsiv-id="' + entry.id + '">Sil</button>'
+            + '</div>';
+    }
+    panel.innerHTML = html;
+
+    panel.querySelectorAll('[data-arsiv-id]').forEach(btn => {
+        btn.onclick = () => {
+            if (!confirm('Bu arşiv kaydı silinsin mi?')) return;
+            SonucEngine.removeFromArchive(btn.dataset.arsivId);
+            renderArsivPanel();
+            setStatus('<div class="status status-warning">⚠️ Arşiv kaydı silindi</div>');
+        };
+    });
 }
 
 function runOtomatikAktar() {
@@ -235,6 +526,7 @@ function runOtomatikAktar() {
     setStatus('<div class="status status-success">⚡ Otomatik aktarım tamamlandı — '
         + Object.keys(tahminler).length + ' koşu, '
         + k1Count + ' koşuda 1. sıra K1 (tam kural) eşleşti</div>');
+    updateBasariGosterim();
 }
 
 function setStatus(html) {
@@ -268,21 +560,38 @@ function buildTahminGrid(data) {
         const pist = race.pist || '';
         const mesafeGosterim = mesafe !== '?' ? mesafe + (pist ? ' ' + pist : '') : '?';
         const horseCount = (race.horses || []).length;
+        const datalistId = 'at-list-' + i;
 
         html += '<div class="tahmin-race-card" data-race-index="' + i + '">';
         html += '<div class="tahmin-race-header">';
+        html += '<div class="tahmin-race-header-left">';
         html += '<span>🏁 ' + raceNo + '. KOŞU</span>';
         html += '<span class="tahmin-race-badge">' + horseCount + ' AT</span>';
         html += '<span class="tahmin-race-badge">' + AtSpeedUtils.escapeHtml(mesafeGosterim) + '</span>';
+        html += '</div>';
+        html += '<span class="tahmin-race-basari"></span>';
         html += '</div><div class="tahmin-race-body">';
+
+        html += '<div class="tahmin-col-headers"><span></span><span>Tahmin</span><span>Gerçek</span></div>';
 
         for (let s = 1; s <= horseCount; s++) {
             html += '<div class="tahmin-row">';
             html += '<div class="tahmin-sira">' + s + '</div>';
-            html += '<input type="text" class="tahmin-at-input" data-sira="' + s + '"';
-            html += ' placeholder="' + s + '. sıra — at ismi" autocomplete="off">';
+            html += '<div class="tahmin-cell">';
+            html += '<input type="text" class="tahmin-at-input" data-sira="' + s + '" readonly tabindex="-1"';
+            html += ' placeholder="Tahmin">';
             html += '</div>';
+            html += '<div class="tahmin-cell">';
+            html += '<input type="text" class="gercek-at-input" data-sira="' + s + '" list="' + datalistId + '"';
+            html += ' placeholder="Gerçek ' + s + '. sıra" autocomplete="off">';
+            html += '</div></div>';
         }
+
+        html += '<datalist id="' + datalistId + '">';
+        for (const name of getHorseDatalist(race)) {
+            html += '<option value="' + AtSpeedUtils.escapeHtml(name) + '">';
+        }
+        html += '</datalist>';
 
         html += '</div></div>';
     }
@@ -290,10 +599,16 @@ function buildTahminGrid(data) {
     document.getElementById('tahminimResults').innerHTML = html;
 
     applyTahminlerToDom(loadTahminFromStorage());
+    applyGerceklerToDom(loadGercekFromStorage());
 
-    document.querySelectorAll('.tahmin-at-input').forEach(input => {
-        input.addEventListener('input', () => saveTahminToStorage(getTahminlerFromDom()));
+    document.querySelectorAll('.gercek-at-input').forEach(input => {
+        input.addEventListener('input', () => {
+            saveGercekToStorage(getGerceklerFromDom());
+            updateBasariGosterim();
+        });
     });
+
+    updateBasariGosterim();
 }
 
 function onKayitLoaded(kayit) {
@@ -376,12 +691,67 @@ document.getElementById('tahminKaydetBtn').onclick = () => {
     setStatus('<div class="status status-success">✅ Tahminler kaydedildi (tarayıcıda)</div>');
 };
 
+document.getElementById('sonucKaydetBtn').onclick = () => {
+    if (!currentKayitId) {
+        setStatus('<div class="status status-error">❌ Önce kayıt yükleyin</div>');
+        return;
+    }
+    const gercekler = getGerceklerFromDom();
+    const hasAny = Object.values(gercekler).some(rows =>
+        rows.some(r => SonucEngine.normalizeHorseName(r.name))
+    );
+    if (!hasAny) {
+        setStatus('<div class="status status-error">❌ En az bir gerçek sonuç girin</div>');
+        return;
+    }
+    saveGercekToStorage(gercekler);
+    updateBasariGosterim();
+    const basari = SonucEngine.computeKayitBasari(getTahminlerFromDom(), gercekler, lastAktarDetay);
+    setStatus('<div class="status status-success">✅ Sonuçlar kaydedildi — '
+        + basari.kosuSayisi + ' koşu, ortalama başarı: ' + basari.ortalamaBasari + '%</div>');
+};
+
+document.getElementById('arsiveEkleBtn').onclick = () => {
+    if (!currentKayitId) {
+        setStatus('<div class="status status-error">❌ Önce kayıt yükleyin</div>');
+        return;
+    }
+    const tahminler = getTahminlerFromDom();
+    const gercekler = getGerceklerFromDom();
+    const basari = SonucEngine.computeKayitBasari(tahminler, gercekler, lastAktarDetay);
+    if (!basari.kosuSayisi) {
+        setStatus('<div class="status status-error">❌ Arşive eklemek için gerçek sonuç girin</div>');
+        return;
+    }
+    const entry = SonucEngine.buildArchiveEntry(
+        currentKayitId, currentKayitMeta, tahminler, gercekler, lastAktarDetay
+    );
+    const count = SonucEngine.addToArchive(entry);
+    renderArsivPanel();
+    setStatus('<div class="status status-success">📦 Arşive eklendi — toplam ' + count + ' kayıt, bu kayıt başarı: '
+        + basari.ortalamaBasari + '%</div>');
+};
+
+document.getElementById('arsivGosterBtn').onclick = () => {
+    const panel = document.getElementById('arsivPanel');
+    if (panel.classList.contains('visible')) {
+        panel.classList.remove('visible');
+    } else {
+        renderArsivPanel();
+    }
+};
+
 document.getElementById('tahminTemizleBtn').onclick = () => {
     if (!currentKayitId) return;
-    if (!confirm('Bu kayıt için tüm tahminler silinsin mi?')) return;
+    if (!confirm('Bu kayıt için tahmin ve gerçek sonuçlar silinsin mi?')) return;
     localStorage.removeItem(storageKey());
-    document.querySelectorAll('.tahmin-at-input').forEach(input => { input.value = ''; });
-    setStatus('<div class="status status-warning">⚠️ Tahminler temizlendi</div>');
+    localStorage.removeItem(SonucEngine.gercekStorageKey(currentKayitId));
+    document.querySelectorAll('.tahmin-at-input').forEach(input => { input.value = ''; input.classList.remove('tahmin-auto-filled'); });
+    document.querySelectorAll('.gercek-at-input').forEach(input => { input.value = ''; });
+    document.querySelectorAll('.tahmin-rule-tag').forEach(t => t.remove());
+    document.getElementById('basariOzetPanel').classList.remove('visible');
+    setStatus('<div class="status status-warning">⚠️ Tahmin ve sonuçlar temizlendi</div>');
+    updateBasariGosterim();
 };
 
 window.addEventListener('message', (e) => {
@@ -390,10 +760,11 @@ window.addEventListener('message', (e) => {
     }
 });
 
-/** Dışarıdan aktarma kuralları için (sonraki adım) */
 window.TahminimPage = {
     getRaceData: () => currentRaceData,
     getKayitId: () => currentKayitId,
+    getGercekler: () => getGerceklerFromDom(),
+    getBasari: () => SonucEngine.computeKayitBasari(getTahminlerFromDom(), getGerceklerFromDom(), lastAktarDetay),
     setTahminAt: (raceIndex, sira, name) => {
         const input = document.querySelector(
             '.tahmin-race-card[data-race-index="' + raceIndex + '"] .tahmin-at-input[data-sira="' + sira + '"]'
@@ -406,6 +777,7 @@ window.TahminimPage = {
     setTahminler: (tahminler, detay) => {
         applyTahminlerToDom(tahminler, detay);
         saveTahminToStorage(getTahminlerFromDom());
+        updateBasariGosterim();
     },
     runOtomatikAktar
 };
