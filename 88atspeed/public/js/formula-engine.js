@@ -508,7 +508,9 @@ const GosterimEngine = {
                 farkClass: farkBosMu && !fark8002BosMu ? 'pembe-hucre' : '',
                 fark8002Class: !farkBosMu && fark8002BosMu ? 'pembe-hucre' : '',
                 mesafeClass: mesafeEslesme ? eslesmeYesil : '',
-                sehirClass: sehirEslesme ? eslesmeYesil : '',
+                sehirClass: sehirEslesme
+                    ? (gucluUyari ? `${eslesmeYesil} guclu-sehir-eslesme` : eslesmeYesil)
+                    : (gucluUyari ? 'guclu-sehir-farkli' : ''),
                 son800_1Class: this._son800HucreClass(enIyiler.enIyilerSon800_1, kosuKey, sehirEslesme, eslesmeYesil),
                 son800_2Class: this._son800HucreClass(enIyiler.enIyilerSon800_2, kosuKey, sehirEslesme, eslesmeYesil)
             }
