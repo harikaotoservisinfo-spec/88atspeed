@@ -488,6 +488,11 @@ tr.sari-satir td { background-color: var(--highlight-yellow-row) !important; }
     box-shadow: inset 0 0 10px rgba(118, 255, 3, 0.35), 0 0 6px rgba(76, 175, 80, 0.25);
 }
 .eniyi-test2 { background-color: var(--highlight-yellow) !important; color: var(--text-primary) !important; font-weight: 800 !important; }
+.fosfor-sari-yazi {
+    color: #b8860b !important;
+    font-weight: 800 !important;
+    text-shadow: 0 0 6px #fff176, 0 0 10px #ffeb3b, 0 0 3px #f9a825;
+}
 .kirmizi-yazi { color: #c62828 !important; font-weight: 800 !important; }
 .yesil-yazi { color: #2e7d32 !important; font-weight: 800 !important; }
 .pembe-hucre { background-color: var(--highlight-pink) !important; color: var(--text-primary) !important; }

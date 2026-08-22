@@ -285,6 +285,40 @@ const GosterimEngine = {
         return { enIyilerTest1, enIyilerTest2, enIyilerTest3 };
     },
 
+    /** TEST1 ile TEST2 birbirine en yakın ve değerleri en düşük 3 satır */
+    collectClosestTest12(race, hedefMesafe) {
+        const pairs = [];
+        for (let j = 0; j < race.horses.length; j++) {
+            for (const atKosu of race.horses[j].kosular || []) {
+                const gecmisMesafe = atKosu.mesafe;
+                const dereceSalise = AtSpeedUtils.dereceToSalise(atKosu.at_derece);
+                const dr_sl = AtSpeedUtils.metreBasiSalise(dereceSalise, gecmisMesafe);
+                const son800_1Salise = AtSpeedUtils.dereceToSalise(atKosu.son800_bir);
+                const son800_1_sl = son800_1Salise ? son800_1Salise / 800 : null;
+                if (dr_sl === null || son800_1_sl === null || isNaN(hedefMesafe) || hedefMesafe <= 0) continue;
+                const test1 = hedefMesafe * dr_sl;
+                const test2 = hedefMesafe * son800_1_sl;
+                pairs.push({
+                    j,
+                    atKosu,
+                    fark: Math.abs(test1 - test2),
+                    test1,
+                    test2
+                });
+            }
+        }
+        pairs.sort((a, b) => {
+            if (a.fark !== b.fark) return a.fark - b.fark;
+            if (a.test1 !== b.test1) return a.test1 - b.test1;
+            return a.test2 - b.test2;
+        });
+        const enIyilerTest12Yakin = new Set();
+        for (let t = 0; t < Math.min(3, pairs.length); t++) {
+            enIyilerTest12Yakin.add(this._kosuKey(pairs[t].j, pairs[t].atKosu));
+        }
+        return { enIyilerTest12Yakin };
+    },
+
     /** Koşu içinde SON800-1 ve SON800-2 için en düşük 3 süre */
     collectTopSon800(race) {
         const son800_1 = [];
@@ -465,6 +499,7 @@ const GosterimEngine = {
                 test1Class: enIyiler.enIyilerTest1.has(kosuKey) ? 'eslesme-yesil' : '',
                 test2Class: enIyiler.enIyilerTest2.has(kosuKey) ? 'eslesme-yesil' : '',
                 test3Class: enIyiler.enIyilerTest3.has(kosuKey) ? 'eslesme-yesil' : '',
+                test12YakinClass: enIyiler.enIyilerTest12Yakin?.has(kosuKey) ? 'fosfor-sari-yazi' : '',
                 kirmiziClass: kirmiziYazi ? 'kirmizi-yazi' : '',
                 yesilClass: yesilYazi ? 'yesil-yazi' : '',
                 farkClass: farkBosMu && !fark8002BosMu ? 'pembe-hucre' : '',
@@ -480,16 +515,24 @@ const GosterimEngine = {
     getCellClass(columnIndex, classes) {
         const c = parseInt(columnIndex, 10);
         const { COL } = this;
-        if (c === COL.MESAFE && classes.mesafeClass) return classes.mesafeClass;
-        if (c === COL.SEHIR && classes.sehirClass) return classes.sehirClass;
-        if (c === COL.SON800_1 && classes.son800_1Class) return classes.son800_1Class;
-        if (c === COL.SON800_2 && classes.son800_2Class) return classes.son800_2Class;
-        if (c === COL.TEST1 && classes.test1Class) return classes.test1Class;
-        if (c === COL.TEST2 && classes.test2Class) return classes.test2Class;
-        if (c === COL.TEST3 && classes.test3Class) return classes.test3Class;
-        if ((c === COL.TEST1 || c === COL.TEST2 || c === COL.TEST3) && classes.kirmiziClass) {
-            return classes.kirmiziClass;
+        const parts = [];
+        if (c === COL.MESAFE && classes.mesafeClass) parts.push(classes.mesafeClass);
+        if (c === COL.SEHIR && classes.sehirClass) parts.push(classes.sehirClass);
+        if (c === COL.SON800_1 && classes.son800_1Class) parts.push(classes.son800_1Class);
+        if (c === COL.SON800_2 && classes.son800_2Class) parts.push(classes.son800_2Class);
+        if (c === COL.TEST1) {
+            if (classes.test1Class) parts.push(classes.test1Class);
+            if (classes.test12YakinClass) parts.push(classes.test12YakinClass);
+            else if (classes.kirmiziClass) parts.push(classes.kirmiziClass);
+        } else if (c === COL.TEST2) {
+            if (classes.test2Class) parts.push(classes.test2Class);
+            if (classes.test12YakinClass) parts.push(classes.test12YakinClass);
+            else if (classes.kirmiziClass) parts.push(classes.kirmiziClass);
+        } else if (c === COL.TEST3) {
+            if (classes.test3Class) parts.push(classes.test3Class);
+            else if (classes.kirmiziClass) parts.push(classes.kirmiziClass);
         }
+        if (parts.length) return parts.join(' ');
         if (c === COL.TEST5 && classes.yesilClass) return classes.yesilClass;
         if (c === COL.FARK && classes.farkClass) return classes.farkClass;
         if (c === COL.FARK8002 && classes.fark8002Class) return classes.fark8002Class;
@@ -506,7 +549,8 @@ const GosterimEngine = {
         const calcRace = this._raceForCalc(race, programTarih);
         const enIyiler = {
             ...this.collectTopTests(calcRace, hedefMesafe),
-            ...this.collectTopSon800(calcRace)
+            ...this.collectTopSon800(calcRace),
+            ...this.collectClosestTest12(calcRace, hedefMesafe)
         };
         const trends = this.computeHorseTrends(calcRace, hedefMesafe);
         const rows = [];
