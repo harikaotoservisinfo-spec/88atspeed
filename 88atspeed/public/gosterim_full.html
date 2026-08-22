@@ -82,6 +82,21 @@
         .gosterim-table tbody tr.row-card:nth-child(even) .col-sticky-2 { background: #fdfcfa; }
         tr.sari-satir .col-sticky, tr.sari-satir .col-sticky-2 { background-color: var(--highlight-yellow-row) !important; }
         tr.pembe-satir .col-sticky, tr.pembe-satir .col-sticky-2 { background-color: var(--highlight-pink-row) !important; }
+
+        .col-delete { width: 44px; min-width: 44px; text-align: center; padding: 6px 4px !important; }
+        .gosterim-table thead .col-delete { background: var(--text-primary); cursor: default; }
+        .row-delete-btn {
+            border: 1px solid rgba(198, 40, 40, 0.35);
+            background: #ffebee;
+            color: #b71c1c;
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 14px;
+            line-height: 1;
+            cursor: pointer;
+            transition: background 0.12s ease, transform 0.12s ease;
+        }
+        .row-delete-btn:hover { background: #ffcdd2; transform: scale(1.08); }
     </style>
 </head>
 <body>
@@ -224,10 +239,13 @@ function displayResults(data) {
         const racePist = race.pist || '';
         const mesafeGosterim = raceMesafe !== '?' ? raceMesafe + ' ' + racePist : '?';
 
-        let raceRowsData = GosterimEngine.buildRaceRows(race, { programTarih: currentProgramTarih });
+        let raceRowsData = GosterimEngine.buildRaceRows(race, {
+            programTarih: currentProgramTarih,
+            raceIndex: i
+        });
         raceRowsData = GosterimEngine.sortRows(raceRowsData, currentSort);
 
-        let raceHtml = `<div class="race-card">`;
+        let raceHtml = `<div class="race-card" data-race-index="${i}">`;
         raceHtml += `<div class="race-header">`;
         raceHtml += `<span>🏆 ${race.raceNo}. KOŞU</span>`;
         raceHtml += `<span class="race-header-badge">${race.horses.length} AT</span>`;
@@ -236,6 +254,7 @@ function displayResults(data) {
         raceHtml += `<div class="race-table-wrap">`;
         raceHtml += `<table class="gosterim-table" id="raceTable_${i}">`;
         raceHtml += `<thead><tr>`;
+        raceHtml += `<th class="col-delete">SİL</th>`;
         for (const h of GOSTERIM_HEADERS) {
             const sortClass = String(currentSort.column) === String(h.col)
                 ? (currentSort.direction === 'asc' ? ' sort-asc' : ' sort-desc')
@@ -246,7 +265,13 @@ function displayResults(data) {
 
         for (const row of raceRowsData) {
             const rowClass = ['row-card', row.classes.satirClass].filter(Boolean).join(' ');
-            raceHtml += `<tr class="${rowClass}">`;
+            const m = row.meta || {};
+            raceHtml += `<tr class="${rowClass}" data-race="${m.raceIndex}" data-horse="${m.horseIndex}"`;
+            raceHtml += ` data-tarih="${AtSpeedUtils.escapeHtml(m.tarih || '')}"`;
+            raceHtml += ` data-sehir="${AtSpeedUtils.escapeHtml(m.sehir || '')}"`;
+            raceHtml += ` data-mesafe="${AtSpeedUtils.escapeHtml(String(m.mesafe || ''))}"`;
+            raceHtml += ` data-derece="${AtSpeedUtils.escapeHtml(m.at_derece || '')}">`;
+            raceHtml += `<td class="col-delete"><button type="button" class="row-delete-btn" title="Bu geçmiş koşuyu sil">🗑️</button></td>`;
             for (let c = 0; c < row.values.length; c++) {
                 const cellClass = GosterimEngine.getCellClass(c, row.classes);
                 let stickyClass = '';
@@ -262,6 +287,23 @@ function displayResults(data) {
     }
 
     document.getElementById('gosterimResults').innerHTML = html;
+
+    document.querySelectorAll('.row-delete-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const tr = btn.closest('tr');
+            if (!tr || !currentHesaplamaData) return;
+            const raceIdx = parseInt(tr.dataset.race, 10);
+            const horseIdx = parseInt(tr.dataset.horse, 10);
+            if (isNaN(raceIdx) || isNaN(horseIdx)) return;
+            deleteKosuSatir(raceIdx, horseIdx, {
+                tarih: tr.dataset.tarih,
+                sehir: tr.dataset.sehir,
+                mesafe: tr.dataset.mesafe,
+                at_derece: tr.dataset.derece
+            });
+        });
+    });
 
     document.querySelectorAll('.race-card table').forEach(table => {
         const headers = table.querySelectorAll('th');
@@ -284,6 +326,21 @@ function displayResults(data) {
             });
         });
     });
+}
+
+function deleteKosuSatir(raceIdx, horseIdx, kosuRef) {
+    const race = currentHesaplamaData[raceIdx];
+    const horse = race?.horses?.[horseIdx];
+    if (!horse) return;
+
+    const onceki = (horse.kosular || []).length;
+    horse.kosular = (horse.kosular || []).filter(k => !GosterimEngine.kosuEquals(k, kosuRef));
+    if (horse.kosular.length === onceki) return;
+
+    displayResults(currentHesaplamaData);
+    const statusDiv = document.getElementById('gosterimStatus');
+    const etiket = [kosuRef.tarih, kosuRef.sehir, kosuRef.mesafe + 'm'].filter(Boolean).join(' · ');
+    statusDiv.innerHTML = '<div class="status status-success">🗑️ Silindi: ' + AtSpeedUtils.escapeHtml(etiket) + ' (bellekte — kaydetmek için HESAPLAMA sekmesinden yeniden kayıt gerekir)</div>';
 }
 </script>
 </body>
