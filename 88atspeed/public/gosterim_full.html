@@ -126,6 +126,15 @@
             transition: background 0.12s ease, transform 0.12s ease;
         }
         .row-delete-btn:hover { background: #ffcdd2; transform: scale(1.08); }
+
+        /* Koşu başlığı mesafesi ile eşleşen geçmiş koşu mesafesi */
+        .mesafe-eslesme {
+            background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%) !important;
+            color: #ccff90 !important;
+            font-weight: 800 !important;
+            box-shadow: inset 0 0 10px rgba(118, 255, 3, 0.35), 0 0 6px rgba(76, 175, 80, 0.25);
+            text-shadow: 0 0 4px rgba(204, 255, 144, 0.6);
+        }
     </style>
 </head>
 <body>
@@ -138,8 +147,8 @@
 <div id="gosterimResults" class="results-table"><div class="empty">🏇 HESAPLAMA KAYITLARI butonuna tıklayın</div></div>
 </div>
 
-<script src="js/utils.js?v=20260822a"></script>
-<script src="js/formula-engine.js?v=20260822a"></script>
+<script src="js/utils.js?v=20260822b"></script>
+<script src="js/formula-engine.js?v=20260822b"></script>
 <script>
 let currentHesaplamaData = null;
 let currentHesaplamaId = null;

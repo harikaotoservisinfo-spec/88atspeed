@@ -308,6 +308,9 @@ const GosterimEngine = {
 
     buildRowValues(horse, atKosu, rowIndex, horseIndex, hedefMesafe, trends, enIyiler) {
         const gecmisMesafe = atKosu.mesafe;
+        const mesafeSayi = parseInt(gecmisMesafe, 10);
+        const mesafeEslesme = !isNaN(hedefMesafe) && hedefMesafe > 0
+            && !isNaN(mesafeSayi) && mesafeSayi === hedefMesafe;
         const dereceStr = atKosu.at_derece;
         const birinciDerece = atKosu.birinci_derece;
         let son800_1 = atKosu.son800_bir;
@@ -394,7 +397,8 @@ const GosterimEngine = {
                 kirmiziClass: kirmiziYazi ? 'kirmizi-yazi' : '',
                 yesilClass: yesilYazi ? 'yesil-yazi' : '',
                 farkClass: farkBosMu && !fark8002BosMu ? 'pembe-hucre' : '',
-                fark8002Class: !farkBosMu && fark8002BosMu ? 'pembe-hucre' : ''
+                fark8002Class: !farkBosMu && fark8002BosMu ? 'pembe-hucre' : '',
+                mesafeClass: mesafeEslesme ? 'mesafe-eslesme' : ''
             }
         };
     },
@@ -412,6 +416,7 @@ const GosterimEngine = {
         if (c === COL.TEST5 && classes.yesilClass) return classes.yesilClass;
         if (c === COL.FARK && classes.farkClass) return classes.farkClass;
         if (c === COL.FARK8002 && classes.fark8002Class) return classes.fark8002Class;
+        if (c === COL.MESAFE && classes.mesafeClass) return classes.mesafeClass;
         return '';
     },
 
