@@ -489,17 +489,20 @@ const GosterimEngine = {
 
         const farkBosMu = values[this.COL.FARK] === '-';
         const fark8002BosMu = values[this.COL.FARK8002] === '-';
+        const test12Yakin = enIyiler.enIyilerTest12Yakin?.has(kosuKey);
+        const gucluUyari = kirmiziYazi && test12Yakin;
 
         return {
             values,
             classes: {
-                satirClass: ayniMi ? 'fosfor-yesil-satir' : (farkBosMu && fark8002BosMu ? 'pembe-satir' : ''),
+                satirClass: gucluUyari ? 'guclu-uyari-satir'
+                    : (ayniMi ? 'fosfor-yesil-satir' : (farkBosMu && fark8002BosMu ? 'pembe-satir' : '')),
                 test4Class: ayniMi ? 'fosfor-yesil-hucre' : '',
                 test6Class: ayniMi ? 'fosfor-yesil-hucre' : '',
                 test1Class: enIyiler.enIyilerTest1.has(kosuKey) ? 'eslesme-yesil' : '',
                 test2Class: enIyiler.enIyilerTest2.has(kosuKey) ? 'eslesme-yesil' : '',
                 test3Class: enIyiler.enIyilerTest3.has(kosuKey) ? 'eslesme-yesil' : '',
-                test12YakinClass: enIyiler.enIyilerTest12Yakin?.has(kosuKey) ? 'fosfor-sari-yazi' : '',
+                test12YakinClass: test12Yakin ? 'fosfor-sari-yazi' : '',
                 kirmiziClass: kirmiziYazi ? 'kirmizi-yazi' : '',
                 yesilClass: yesilYazi ? 'yesil-yazi' : '',
                 farkClass: farkBosMu && !fark8002BosMu ? 'pembe-hucre' : '',

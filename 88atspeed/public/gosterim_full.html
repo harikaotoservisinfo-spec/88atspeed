@@ -182,6 +182,38 @@
             color: #fff176 !important;
             text-shadow: 0 0 8px #ffeb3b, 0 0 14px #ffd600, 0 0 4px #f9a825;
         }
+
+        /* Güçlü uyarı: kırmızı kural + TEST1≈TEST2 fosfor sarı aynı satırda */
+        tr.guclu-uyari-satir td:not(.eslesme-yesil),
+        tr.guclu-uyari-satir .col-delete,
+        tr.guclu-uyari-satir .col-sticky:not(.eslesme-yesil),
+        tr.guclu-uyari-satir .col-sticky-2:not(.eslesme-yesil) {
+            background: linear-gradient(135deg, #0a2e12 0%, #1b5e20 45%, #256329 100%) !important;
+            color: #e8f5e9 !important;
+            font-weight: 700 !important;
+            box-shadow: inset 0 0 14px rgba(118, 255, 3, 0.3), 0 0 10px rgba(27, 94, 32, 0.45);
+            border-top: 2px solid #76ff03;
+            border-bottom: 2px solid #76ff03;
+        }
+        tr.guclu-uyari-satir td.eslesme-yesil,
+        tr.guclu-uyari-satir td.eslesme-yesil.col-sticky,
+        tr.guclu-uyari-satir td.eslesme-yesil.col-sticky-2 {
+            background: linear-gradient(135deg, #004d14 0%, #1b5e20 50%, #388e3c 100%) !important;
+            color: #ccff90 !important;
+            font-weight: 800 !important;
+            box-shadow: inset 0 0 16px rgba(118, 255, 3, 0.5), 0 0 10px rgba(118, 255, 3, 0.35) !important;
+            text-shadow: 0 0 6px rgba(204, 255, 144, 0.8);
+        }
+        tr.guclu-uyari-satir .fosfor-sari-yazi {
+            color: #fff59d !important;
+            font-weight: 800 !important;
+            text-shadow: 0 0 10px #ffeb3b, 0 0 18px #ffd600, 0 0 6px #fff;
+        }
+        tr.guclu-uyari-satir .kirmizi-yazi {
+            color: #ff8a80 !important;
+            font-weight: 800 !important;
+            text-shadow: 0 0 10px #ff5252, 0 0 6px #fff, 0 0 3px #d50000;
+        }
     </style>
 </head>
 <body>
@@ -195,7 +227,7 @@
 </div>
 
 <script src="js/utils.js?v=20260822h"></script>
-<script src="js/formula-engine.js?v=20260822l"></script>
+<script src="js/formula-engine.js?v=20260822m"></script>
 <script>
 let currentHesaplamaData = null;
 let currentHesaplamaId = null;
