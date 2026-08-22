@@ -557,6 +557,17 @@ async function loadKayit(id) {
             : '';
         const hipodromNotu = currentHipodrom ? ' | 🏟️ ' + currentHipodrom + ' şehri yeşil' : '';
         statusDiv.innerHTML = '<div class="status status-success">✅ Kayıt yüklendi! (ID: ' + id + ')' + tarihNotu + hipodromNotu + ' — 🗑️ SİL sütunu solda</div>';
+
+        window.parent.postMessage({
+            type: '88atspeed-kayit-loaded',
+            kayit: {
+                id: id,
+                tarih: currentProgramTarih || result.kayit.tarih,
+                hipodrom: currentHipodrom || result.kayit.hipodrom,
+                race_count: currentHesaplamaData.length,
+                veri: currentHesaplamaData
+            }
+        }, '*');
         
     } catch (error) {
         statusDiv.innerHTML = '<div class="status status-error">❌ Yükleme hatası: ' + error.message + '</div>';
@@ -684,6 +695,20 @@ function deleteKosuSatir(raceIdx, horseIdx, kosuRef) {
     const etiket = [kosuRef.tarih, kosuRef.sehir, kosuRef.mesafe + 'm'].filter(Boolean).join(' · ');
     statusDiv.innerHTML = '<div class="status status-success">🗑️ Silindi: ' + AtSpeedUtils.escapeHtml(etiket) + ' (bellekte — kaydetmek için HESAPLAMA sekmesinden yeniden kayıt gerekir)</div>';
 }
+
+window.addEventListener('message', (e) => {
+    if (e.data?.type !== '88atspeed-request-kayit-export' || !currentHesaplamaData) return;
+    window.parent.postMessage({
+        type: '88atspeed-kayit-loaded',
+        kayit: {
+            id: currentHesaplamaId,
+            tarih: currentProgramTarih,
+            hipodrom: currentHipodrom,
+            race_count: currentHesaplamaData.length,
+            veri: currentHesaplamaData
+        }
+    }, '*');
+});
 </script>
 </body>
 </html>
