@@ -445,7 +445,7 @@ const GosterimEngine = {
                 test4Class: ayniMi ? 'fosfor-yesil-hucre' : '',
                 test6Class: ayniMi ? 'fosfor-yesil-hucre' : '',
                 test1Class: enIyiler.enIyilerTest1.has(kosuKey) ? 'eslesme-yesil' : '',
-                test2Class: enIyiler.enIyilerTest2.has(kosuKey) ? 'eniyi-test2' : '',
+                test2Class: enIyiler.enIyilerTest2.has(kosuKey) ? 'eslesme-yesil' : '',
                 kirmiziClass: kirmiziYazi ? 'kirmizi-yazi' : '',
                 yesilClass: yesilYazi ? 'yesil-yazi' : '',
                 farkClass: farkBosMu && !fark8002BosMu ? 'pembe-hucre' : '',
