@@ -127,7 +127,8 @@
         }
         .row-delete-btn:hover { background: #ffcdd2; transform: scale(1.08); }
 
-        /* Koşu başlığı mesafesi ile eşleşen geçmiş koşu mesafesi */
+        /* Kayıt hipodromu / koşu mesafesi ile eşleşen hücreler */
+        .eslesme-yesil,
         .mesafe-eslesme {
             background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%) !important;
             color: #ccff90 !important;
@@ -147,12 +148,13 @@
 <div id="gosterimResults" class="results-table"><div class="empty">🏇 HESAPLAMA KAYITLARI butonuna tıklayın</div></div>
 </div>
 
-<script src="js/utils.js?v=20260822b"></script>
-<script src="js/formula-engine.js?v=20260822b"></script>
+<script src="js/utils.js?v=20260822d"></script>
+<script src="js/formula-engine.js?v=20260822d"></script>
 <script>
 let currentHesaplamaData = null;
 let currentHesaplamaId = null;
 let currentProgramTarih = null;
+let currentHipodrom = null;
 let currentSort = { column: null, direction: 'asc', type: null };
 
 const GOSTERIM_HEADERS = [
@@ -251,12 +253,14 @@ async function loadKayit(id) {
         currentHesaplamaData = result.kayit.veri;
         currentHesaplamaId = id;
         currentProgramTarih = result.kayit.tarih || null;
+        currentHipodrom = result.kayit.hipodrom || null;
         
         displayResults(currentHesaplamaData);
         const tarihNotu = currentProgramTarih
             ? ' — ' + currentProgramTarih + ' koşuları hariç tutuldu'
             : '';
-        statusDiv.innerHTML = '<div class="status status-success">✅ Kayıt yüklendi! (ID: ' + id + ')' + tarihNotu + ' — 🗑️ SİL sütunu tablonun solunda (sabit)</div>';
+        const hipodromNotu = currentHipodrom ? ' | 🏟️ ' + currentHipodrom + ' şehri yeşil' : '';
+        statusDiv.innerHTML = '<div class="status status-success">✅ Kayıt yüklendi! (ID: ' + id + ')' + tarihNotu + hipodromNotu + ' — 🗑️ SİL sütunu solda</div>';
         
     } catch (error) {
         statusDiv.innerHTML = '<div class="status status-error">❌ Yükleme hatası: ' + error.message + '</div>';
@@ -279,6 +283,7 @@ function displayResults(data) {
 
         let raceRowsData = GosterimEngine.buildRaceRows(race, {
             programTarih: currentProgramTarih,
+            hipodromSehir: currentHipodrom,
             raceIndex: i
         });
         raceRowsData = GosterimEngine.sortRows(raceRowsData, currentSort);

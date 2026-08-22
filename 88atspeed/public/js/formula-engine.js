@@ -157,9 +157,23 @@ const FormulaEngine = {
 
 const GosterimEngine = {
     COL: {
+        SEHIR: 4,
         MESAFE: 5,
         TEST1: 17, TEST2: 18, TEST3: 19, TEST4: 20, TEST5: 21,
         TEST6: 22, TEST7: 23, FARK: 13, FARK8002: 16
+    },
+
+    _normalizeSehir(sehir) {
+        if (!sehir) return '';
+        return String(sehir).trim().toLocaleLowerCase('tr-TR');
+    },
+
+    _sehirEslesme(atKosuSehir, hipodromSehir) {
+        if (!hipodromSehir) return false;
+        const a = this._normalizeSehir(atKosuSehir);
+        const b = this._normalizeSehir(hipodromSehir);
+        if (!a || !b) return false;
+        return a === b || a.includes(b) || b.includes(a);
     },
 
     _hedefMesafe(race) {
@@ -306,11 +320,13 @@ const GosterimEngine = {
         return trends;
     },
 
-    buildRowValues(horse, atKosu, rowIndex, horseIndex, hedefMesafe, trends, enIyiler) {
+    buildRowValues(horse, atKosu, rowIndex, horseIndex, hedefMesafe, trends, enIyiler, hipodromSehir) {
         const gecmisMesafe = atKosu.mesafe;
         const mesafeSayi = parseInt(gecmisMesafe, 10);
         const mesafeEslesme = !isNaN(hedefMesafe) && hedefMesafe > 0
             && !isNaN(mesafeSayi) && mesafeSayi === hedefMesafe;
+        const sehirEslesme = this._sehirEslesme(atKosu.sehir, hipodromSehir);
+        const eslesmeYesil = 'eslesme-yesil';
         const dereceStr = atKosu.at_derece;
         const birinciDerece = atKosu.birinci_derece;
         let son800_1 = atKosu.son800_bir;
@@ -398,7 +414,8 @@ const GosterimEngine = {
                 yesilClass: yesilYazi ? 'yesil-yazi' : '',
                 farkClass: farkBosMu && !fark8002BosMu ? 'pembe-hucre' : '',
                 fark8002Class: !farkBosMu && fark8002BosMu ? 'pembe-hucre' : '',
-                mesafeClass: mesafeEslesme ? 'mesafe-eslesme' : ''
+                mesafeClass: mesafeEslesme ? eslesmeYesil : '',
+                sehirClass: sehirEslesme ? eslesmeYesil : ''
             }
         };
     },
@@ -417,11 +434,13 @@ const GosterimEngine = {
         if (c === COL.FARK && classes.farkClass) return classes.farkClass;
         if (c === COL.FARK8002 && classes.fark8002Class) return classes.fark8002Class;
         if (c === COL.MESAFE && classes.mesafeClass) return classes.mesafeClass;
+        if (c === COL.SEHIR && classes.sehirClass) return classes.sehirClass;
         return '';
     },
 
     buildRaceRows(race, options = {}) {
         const programTarih = options.programTarih || null;
+        const hipodromSehir = options.hipodromSehir || null;
         const raceIndex = options.raceIndex ?? 0;
         const hedefMesafe = this._hedefMesafe(race);
         const calcRace = this._raceForCalc(race, programTarih);
@@ -433,7 +452,7 @@ const GosterimEngine = {
             const kosularSorted = this._sortKosularNewest(horse.kosular || []);
             for (let idx = 0; idx < kosularSorted.length; idx++) {
                 const atKosu = kosularSorted[idx];
-                const row = this.buildRowValues(horse, atKosu, idx, j, hedefMesafe, trends, enIyiler);
+                const row = this.buildRowValues(horse, atKosu, idx, j, hedefMesafe, trends, enIyiler, hipodromSehir);
                 row.meta = {
                     raceIndex,
                     horseIndex: j,
