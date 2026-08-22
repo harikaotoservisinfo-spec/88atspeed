@@ -227,6 +227,7 @@ const GosterimEngine = {
     collectTopTests(race, hedefMesafe) {
         const test1Degerleri = [];
         const test2Degerleri = [];
+        const test3Degerleri = [];
         for (let j = 0; j < race.horses.length; j++) {
             const kosular = race.horses[j].kosular || [];
             for (let idx = 0; idx < kosular.length; idx++) {
@@ -250,12 +251,25 @@ const GosterimEngine = {
                 if (test2Val !== null) {
                     test2Degerleri.push({ j, atKosu, val: test2Val });
                 }
+                let son800_2 = atKosu.son800_iki;
+                if (!son800_2 || son800_2 === '-') son800_2 = atKosu.son800_bir;
+                const son800_2Salise = AtSpeedUtils.dereceToSalise(son800_2);
+                const son800_2_sl = son800_2Salise ? son800_2Salise / 800 : null;
+                let test3Val = null;
+                if (son800_2_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
+                    test3Val = hedefMesafe * son800_2_sl;
+                }
+                if (test3Val !== null) {
+                    test3Degerleri.push({ j, atKosu, val: test3Val });
+                }
             }
         }
         test1Degerleri.sort((a, b) => a.val - b.val);
         test2Degerleri.sort((a, b) => a.val - b.val);
+        test3Degerleri.sort((a, b) => a.val - b.val);
         const enIyilerTest1 = new Set();
         const enIyilerTest2 = new Set();
+        const enIyilerTest3 = new Set();
         for (let t = 0; t < Math.min(3, test1Degerleri.length); t++) {
             const item = test1Degerleri[t];
             enIyilerTest1.add(this._kosuKey(item.j, item.atKosu));
@@ -264,7 +278,11 @@ const GosterimEngine = {
             const item = test2Degerleri[t];
             enIyilerTest2.add(this._kosuKey(item.j, item.atKosu));
         }
-        return { enIyilerTest1, enIyilerTest2 };
+        for (let t = 0; t < Math.min(3, test3Degerleri.length); t++) {
+            const item = test3Degerleri[t];
+            enIyilerTest3.add(this._kosuKey(item.j, item.atKosu));
+        }
+        return { enIyilerTest1, enIyilerTest2, enIyilerTest3 };
     },
 
     /** Koşu içinde SON800-1 ve SON800-2 için en düşük 3 süre */
@@ -446,6 +464,7 @@ const GosterimEngine = {
                 test6Class: ayniMi ? 'fosfor-yesil-hucre' : '',
                 test1Class: enIyiler.enIyilerTest1.has(kosuKey) ? 'eslesme-yesil' : '',
                 test2Class: enIyiler.enIyilerTest2.has(kosuKey) ? 'eslesme-yesil' : '',
+                test3Class: enIyiler.enIyilerTest3.has(kosuKey) ? 'eslesme-yesil' : '',
                 kirmiziClass: kirmiziYazi ? 'kirmizi-yazi' : '',
                 yesilClass: yesilYazi ? 'yesil-yazi' : '',
                 farkClass: farkBosMu && !fark8002BosMu ? 'pembe-hucre' : '',
@@ -467,6 +486,7 @@ const GosterimEngine = {
         if (c === COL.SON800_2 && classes.son800_2Class) return classes.son800_2Class;
         if (c === COL.TEST1 && classes.test1Class) return classes.test1Class;
         if (c === COL.TEST2 && classes.test2Class) return classes.test2Class;
+        if (c === COL.TEST3 && classes.test3Class) return classes.test3Class;
         if ((c === COL.TEST1 || c === COL.TEST2 || c === COL.TEST3) && classes.kirmiziClass) {
             return classes.kirmiziClass;
         }
