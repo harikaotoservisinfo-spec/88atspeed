@@ -538,6 +538,45 @@ const GosterimEngine = {
         return sonIki.every(k => this._isFosforYesilKosu(k, hedefMesafe));
     },
 
+    _computeKirmiziYazi(atKosu, hedefMesafe) {
+        const { test1, test2, test3 } = this._computeTestSalise(atKosu, hedefMesafe);
+        if (test1 === null || test2 === null || test3 === null) return false;
+        return test1 < test2 && test1 < test3;
+    },
+
+    /**
+     * Fosfor kırmızı kenar satırları:
+     * - Son 2 koşu yeşil (TEST4=TEST6)
+     * - Tüm koşulardan en az birinde TEST1/TEST2 sarı
+     * - Son 3 koşunun hepsinde TEST1<TEST2 ve TEST1<TEST3 (kırmızı kural)
+     */
+    collectFosforKirmiziSatirlar(race, hedefMesafe, enIyiler) {
+        const fosforKirmiziSatirlar = new Set();
+        for (let j = 0; j < race.horses.length; j++) {
+            const horse = race.horses[j];
+            const kosular = horse.kosular || [];
+            if (!this._horseSonIkiKosuYesil(horse, hedefMesafe)) continue;
+
+            let hasSari = false;
+            for (const atKosu of kosular) {
+                if (enIyiler.enIyilerTest12Yakin?.has(this._kosuKey(j, atKosu))) {
+                    hasSari = true;
+                    break;
+                }
+            }
+            if (!hasSari) continue;
+
+            const sonUc = this._sortKosularNewest(kosular).slice(0, 3);
+            if (sonUc.length < 3) continue;
+            if (!sonUc.every(k => this._computeKirmiziYazi(k, hedefMesafe))) continue;
+
+            for (const atKosu of sonUc) {
+                fosforKirmiziSatirlar.add(this._kosuKey(j, atKosu));
+            }
+        }
+        return { fosforKirmiziSatirlar };
+    },
+
     buildRowValues(horse, atKosu, rowIndex, horseIndex, hedefMesafe, trends, enIyiler, hipodromSehir) {
         const gecmisMesafe = atKosu.mesafe;
         const mesafeSayi = parseInt(String(gecmisMesafe).replace(/[^\d]/g, ''), 10);
@@ -627,10 +666,7 @@ const GosterimEngine = {
         const atIdVurgu = enIyiler.sifiraYakinAtlarSon3?.has(horseIndex);
         const tarihVurgu = enIyiler.sifiraYakinAtlarSon2?.has(horseIndex);
         const kombineUyari = atIsmiVurgu && atIdVurgu && tarihVurgu && kirmiziYazi;
-        const test123Ayni = test1_salise !== null
-            && test1_salise === test2_salise && test2_salise === test3_salise;
-        const sonIkiYesil = this._horseSonIkiKosuYesil(horse, hedefMesafe);
-        const fosforKirmiziKenar = sonIkiYesil && test123Ayni && test12Yakin;
+        const fosforKirmiziKenar = enIyiler.fosforKirmiziSatirlar?.has(kosuKey);
 
         return {
             values,
@@ -715,13 +751,18 @@ const GosterimEngine = {
         const hedefMesafe = this._hedefMesafe(race);
         const calcRace = this._raceForCalc(race, programTarih);
         const topTests = this.collectTopTests(calcRace, hedefMesafe);
+        const closestTest12 = this.collectClosestTest12(calcRace, hedefMesafe);
         const enIyiler = {
             ...topTests,
             ...this.collectTopSon800(calcRace),
-            ...this.collectClosestTest12(calcRace, hedefMesafe),
+            ...closestTest12,
             ...this.collectMaviFosforTest123(calcRace, hedefMesafe, topTests.enIyilerTest3),
             ...this.collectSifiraYakin8002Ortalamalar(calcRace)
         };
+        const { fosforKirmiziSatirlar } = this.collectFosforKirmiziSatirlar(
+            calcRace, hedefMesafe, enIyiler
+        );
+        enIyiler.fosforKirmiziSatirlar = fosforKirmiziSatirlar;
         const trends = this.computeHorseTrends(calcRace, hedefMesafe);
         const rows = [];
         for (let j = 0; j < calcRace.horses.length; j++) {
