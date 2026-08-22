@@ -39,7 +39,7 @@
             user-select: none;
             border: none;
         }
-        .gosterim-table th:first-child { border-radius: var(--radius-md) 0 0 var(--radius-md); padding-left: 14px; }
+        .gosterim-table th:first-child { border-radius: var(--radius-md) 0 0 var(--radius-md); }
         .gosterim-table th:last-child { border-radius: 0 var(--radius-md) var(--radius-md) 0; padding-right: 14px; }
         .gosterim-table th:hover { background: var(--accent-light); }
         .gosterim-table th .sort-icon { display: inline-block; margin-left: 4px; font-size: 9px; opacity: 0.45; }
@@ -61,30 +61,59 @@
             font-weight: 500;
             box-shadow: var(--shadow-sm);
         }
-        .gosterim-table tbody td:first-child {
-            border-left: 1px solid var(--border);
-            border-radius: var(--radius-md) 0 0 var(--radius-md);
-            padding-left: 14px;
-            font-weight: 700;
-            color: var(--accent);
-        }
         .gosterim-table tbody td:last-child {
             border-right: 1px solid var(--border);
             border-radius: 0 var(--radius-md) var(--radius-md) 0;
             padding-right: 14px;
         }
-        .gosterim-table .col-sticky { position: sticky; left: 0; z-index: 5; background: var(--bg-card); }
-        .gosterim-table .col-sticky-2 { position: sticky; left: 48px; z-index: 5; background: var(--bg-card); text-align: left; min-width: 140px; font-weight: 600; }
+        .gosterim-table .col-delete {
+            position: sticky;
+            left: 0;
+            z-index: 6;
+            width: 52px;
+            min-width: 52px;
+            text-align: center;
+            padding: 6px 4px !important;
+            background: var(--bg-card);
+            border-left: 1px solid var(--border);
+            border-radius: var(--radius-md) 0 0 var(--radius-md);
+            box-shadow: 2px 0 6px rgba(15, 34, 71, 0.06);
+        }
+        .gosterim-table thead .col-delete {
+            z-index: 26;
+            background: #b71c1c;
+            color: #fff;
+            cursor: default;
+        }
+        .gosterim-table thead .col-delete:hover { background: #b71c1c; }
+        .gosterim-table .col-sticky {
+            position: sticky;
+            left: 52px;
+            z-index: 5;
+            background: var(--bg-card);
+            font-weight: 700;
+            color: var(--accent);
+            box-shadow: 2px 0 6px rgba(15, 34, 71, 0.04);
+        }
+        .gosterim-table .col-sticky-2 {
+            position: sticky;
+            left: 104px;
+            z-index: 5;
+            background: var(--bg-card);
+            text-align: left;
+            min-width: 140px;
+            font-weight: 600;
+            box-shadow: 2px 0 6px rgba(15, 34, 71, 0.04);
+        }
         .gosterim-table thead .col-sticky,
-        .gosterim-table thead .col-sticky-2 { z-index: 25; background: var(--text-primary); }
+        .gosterim-table thead .col-sticky-2 { z-index: 25; background: var(--text-primary); color: #eef1f8; }
         .gosterim-table tbody tr.row-card:nth-child(even) td { background: #fdfcfa; }
+        .gosterim-table tbody tr.row-card:nth-child(even) .col-delete,
         .gosterim-table tbody tr.row-card:nth-child(even) .col-sticky,
         .gosterim-table tbody tr.row-card:nth-child(even) .col-sticky-2 { background: #fdfcfa; }
-        tr.sari-satir .col-sticky, tr.sari-satir .col-sticky-2 { background-color: var(--highlight-yellow-row) !important; }
-        tr.pembe-satir .col-sticky, tr.pembe-satir .col-sticky-2 { background-color: var(--highlight-pink-row) !important; }
+        tr.sari-satir .col-delete, tr.sari-satir .col-sticky, tr.sari-satir .col-sticky-2 { background-color: var(--highlight-yellow-row) !important; }
+        tr.pembe-satir .col-delete, tr.pembe-satir .col-sticky, tr.pembe-satir .col-sticky-2 { background-color: var(--highlight-pink-row) !important; }
 
-        .col-delete { width: 44px; min-width: 44px; text-align: center; padding: 6px 4px !important; }
-        .gosterim-table thead .col-delete { background: var(--text-primary); cursor: default; }
         .row-delete-btn {
             border: 1px solid rgba(198, 40, 40, 0.35);
             background: #ffebee;
@@ -109,8 +138,8 @@
 <div id="gosterimResults" class="results-table"><div class="empty">🏇 HESAPLAMA KAYITLARI butonuna tıklayın</div></div>
 </div>
 
-<script src="js/utils.js"></script>
-<script src="js/formula-engine.js"></script>
+<script src="js/utils.js?v=20260822a"></script>
+<script src="js/formula-engine.js?v=20260822a"></script>
 <script>
 let currentHesaplamaData = null;
 let currentHesaplamaId = null;
@@ -287,6 +316,8 @@ function displayResults(data) {
     }
 
     document.getElementById('gosterimResults').innerHTML = html;
+
+    document.querySelectorAll('.race-table-wrap').forEach(el => { el.scrollLeft = 0; });
 
     document.querySelectorAll('.row-delete-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
