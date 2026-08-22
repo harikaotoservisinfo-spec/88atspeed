@@ -123,6 +123,26 @@ const TahminEngine = {
       siraOnly: 1
     });
 
+    tiers.push({
+      id: 'K1-8',
+      label: '1. sıra — güçlü paket (8/12)',
+      required: [
+        'siraNoMavi', 'atIsmiMavi', 'tarihMavi', 'sonKosuProgramSehir',
+        'dahaOnceSehirMesafe', 'test1EnIyi', 'test123Kirmizi', 'son800Top3'
+      ],
+      siraOnly: 1
+    });
+
+    tiers.push({
+      id: 'K1-6',
+      label: '1. sıra — mavi + TEST (6/12)',
+      required: [
+        'siraNoMavi', 'atIsmiMavi', 'tarihMavi',
+        'test1EnIyi', 'test123Kirmizi', 'son800Top3'
+      ],
+      siraOnly: 1
+    });
+
     for (let drop = 1; drop <= keys.length - 4; drop++) {
       tiers.push({
         id: 'K' + (drop + 1),
@@ -195,8 +215,9 @@ const TahminEngine = {
       let picked = null;
       let ruleId = 'SKOR';
 
+      // 1. sırada K1 → K1-8 → K1-6 → diğer kademeler; koşmaz atlar SKOR'da kalır
       const tiersToTry = sira === 1
-        ? tiers.filter(t => t.siraOnly === 1)
+        ? tiers
         : tiers.filter(t => !t.siraOnly);
 
       for (const tier of tiersToTry) {

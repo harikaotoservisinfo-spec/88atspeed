@@ -214,6 +214,8 @@
         .gercek-at-input.gercek-filled { background: #e8f5e9; border-color: #66bb6a; }
         .gercek-at-input.gercek-exact { background: #c8e6c9; border-color: #2e7d32; }
         .gercek-at-input.gercek-miss { background: #ffcdd2; border-color: #e53935; }
+        .gercek-at-input.gercek-kosmaz { background: #f5f5f5; border-color: #bdbdbd; color: #757575; }
+        .tahmin-row.row-kosmaz .tahmin-sira { background: linear-gradient(135deg, #757575 0%, #9e9e9e 100%); }
         .tahmin-at-input::placeholder, .gercek-at-input::placeholder {
             color: var(--text-muted);
             font-weight: 500;
@@ -254,16 +256,15 @@
     <div id="arsivPanel" class="arsiv-panel"></div>
     <div id="tahminimResults"><div class="empty">🎯 GÖSTERİM sekmesinde kayıt yükleyin veya buradan kayıt seçin</div></div>
     <div class="tahmin-hint">
-        <strong>Gerçek sıra girişi:</strong> Her satırda tahmin edilen atın gerçek bitiş sırasını girin.
-        Örnek: <code>7</code> veya <code>ŞEKER PİRAYE (1) (7)</code> — tahmin 1. sıradaysa ve at 7. bitirdiyse.
-        Alternatif: 2. sıraya gerçekte 2. gelen atın adını yazın. Başarı anında hesaplanır.
+        <strong>Gerçek sıra girişi:</strong> Sıra numarası (<code>7</code>) veya <code>koşmaz</code> yazın.
+        Koşmayan atlar başarı hesabına dahil edilmez. Başarı anında hesaplanır; arşive ekleyerek kural performansını izleyin.
     </div>
 </div>
 
 <script src="js/utils.js?v=20260822h"></script>
 <script src="js/formula-engine.js?v=20260823c"></script>
-<script src="js/tahmin-engine.js?v=20260823e"></script>
-<script src="js/sonuc-engine.js?v=20260824b"></script>
+<script src="js/tahmin-engine.js?v=20260824c"></script>
+<script src="js/sonuc-engine.js?v=20260824c"></script>
 <script>
 let currentKayitId = null;
 let currentKayitMeta = null;
@@ -388,12 +389,16 @@ function updateBasariGosterim() {
         const badge = card.querySelector('.tahmin-race-basari');
         if (kosu.hasGercek) {
             badge.classList.add('visible');
-            badge.textContent = kosu.basariPuani + '% başarı'
+            const basariText = kosu.basariPuani != null ? kosu.basariPuani + '% başarı' : '—';
+            badge.textContent = basariText
                 + (kosu.birinciDogru ? ' ✓1.' : '')
-                + ' | ' + kosu.exactMatches + '/' + kosu.totalCompared + ' tam';
-            if (kosu.basariPuani >= 70) card.classList.add('basari-yuksek');
-            else if (kosu.basariPuani >= 40) card.classList.add('basari-orta');
-            else card.classList.add('basari-dusuk');
+                + ' | ' + kosu.exactMatches + '/' + kosu.totalCompared + ' tam'
+                + (kosu.kosmazSayisi ? ' | ' + kosu.kosmazSayisi + ' koşmaz' : '');
+            if (kosu.basariPuani != null) {
+                if (kosu.basariPuani >= 70) card.classList.add('basari-yuksek');
+                else if (kosu.basariPuani >= 40) card.classList.add('basari-orta');
+                else card.classList.add('basari-dusuk');
+            }
         } else {
             badge.classList.remove('visible');
         }
@@ -401,15 +406,24 @@ function updateBasariGosterim() {
         for (const p of kosu.pozisyonlar) {
             const row = card.querySelector('.tahmin-row .gercek-at-input[data-sira="' + p.sira + '"]')?.closest('.tahmin-row');
             if (!row) continue;
-            row.classList.remove('row-exact', 'row-miss');
+            row.classList.remove('row-exact', 'row-miss', 'row-kosmaz');
             const gInput = row.querySelector('.gercek-at-input');
             const gCell = gInput.closest('.tahmin-cell');
             const oldTag = gCell.querySelector('.gercek-sira-tag');
             if (oldTag) oldTag.remove();
 
             const hasGercekInput = !!(p.gercek && String(p.gercek).trim());
-            gInput.classList.remove('gercek-filled', 'gercek-exact', 'gercek-miss');
-            if (hasGercekInput) {
+            gInput.classList.remove('gercek-filled', 'gercek-exact', 'gercek-miss', 'gercek-kosmaz');
+
+            if (p.kosmaz) {
+                row.classList.add('row-kosmaz');
+                gInput.classList.add('gercek-kosmaz');
+                const tag = document.createElement('div');
+                tag.className = 'tahmin-rule-tag gercek-sira-tag';
+                tag.style.color = '#757575';
+                tag.textContent = 'koşmaz — değerlendirilmedi';
+                gCell.appendChild(tag);
+            } else if (hasGercekInput) {
                 gInput.classList.add('gercek-filled');
                 if (p.tahminGercekSira !== null && p.tahminGercekSira !== undefined) {
                     const tag = document.createElement('div');
@@ -439,10 +453,11 @@ function updateBasariGosterim() {
     panel.classList.add('visible');
     panel.innerHTML = '<div class="basari-ozet-title">📈 Bu kayıt — başarı özeti (' + basari.kosuSayisi + ' koşu)</div>'
         + '<div class="basari-stat-grid">'
-        + statBox(basari.ortalamaBasari + '%', 'Ortalama başarı')
-        + statBox(basari.birinciPct + '%', '1. sıra (' + basari.birinciDogruSayisi + '/' + basari.birinciToplam + ')')
-        + statBox(basari.top3Pct + '%', 'Top 3 (' + basari.top3HitsToplam + '/' + basari.top3TotalToplam + ')')
-        + statBox(basari.exactPct + '%', 'Tam eşleşme (' + basari.toplamExact + '/' + basari.toplamCompared + ')')
+        + statBox((basari.ortalamaBasari != null ? basari.ortalamaBasari : '—') + '%', 'Ortalama başarı')
+        + statBox((basari.birinciPct != null ? basari.birinciPct : '—') + '%', '1. sıra (' + basari.birinciDogruSayisi + '/' + basari.birinciToplam + ')')
+        + statBox((basari.top3Pct != null ? basari.top3Pct : '—') + '%', 'Top 3 (' + basari.top3HitsToplam + '/' + basari.top3TotalToplam + ')')
+        + statBox((basari.exactPct != null ? basari.exactPct : '—') + '%', 'Tam eşleşme (' + basari.toplamExact + '/' + basari.toplamCompared + ')')
+        + (basari.toplamKosmaz ? statBox(basari.toplamKosmaz, 'Koşmaz (hariç)') : '')
         + '</div>';
 
     const ruleStats = SonucEngine.aggregateRuleStats([{
@@ -595,7 +610,7 @@ function buildTahminGrid(data) {
             html += '</div>';
             html += '<div class="tahmin-cell">';
             html += '<input type="text" class="gercek-at-input" data-sira="' + s + '" list="' + datalistId + '"';
-            html += ' placeholder="Sıra (örn: ' + s + ' veya 7)" autocomplete="off">';
+            html += ' placeholder="Sıra veya koşmaz" autocomplete="off">';
             html += '</div></div>';
         }
 
