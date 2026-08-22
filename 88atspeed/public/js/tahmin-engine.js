@@ -100,6 +100,40 @@ const TahminEngine = {
     return required.every(k => cond[k]);
   },
 
+  _matchRatio(cond, required) {
+    if (!required?.length) return 0;
+    let matched = 0;
+    for (const k of required) if (cond[k]) matched++;
+    return matched / required.length;
+  },
+
+  _compareByRulePriority(a, b, tiers) {
+    // Kural sırasına göre kısmi eşleşme (tam eşleşme = %100)
+    for (const tier of tiers) {
+      const ar = this._matchRatio(a.cond, tier.required);
+      const br = this._matchRatio(b.cond, tier.required);
+      if (ar !== br) return br - ar;
+    }
+    if (b.score !== a.score) return b.score - a.score;
+    if (a.test9Abs !== b.test9Abs) return a.test9Abs - b.test9Abs;
+    const noA = parseInt(a.no, 10) || 999;
+    const noB = parseInt(b.no, 10) || 999;
+    return noA - noB;
+  },
+
+  _primaryRuleId(profile, tiers) {
+    for (const tier of tiers) {
+      if (this._matchesRequired(profile.cond, tier.required)) return tier.id;
+    }
+    let best = { id: 'SKOR', ratio: 0 };
+    for (const tier of tiers) {
+      const ratio = this._matchRatio(profile.cond, tier.required);
+      if (ratio > best.ratio) best = { id: tier.id, ratio };
+    }
+    if (best.ratio > 0) return best.id;
+    return 'SKOR';
+  },
+
   _pickCandidate(candidates) {
     if (!candidates.length) return null;
     candidates.sort((a, b) => {
@@ -233,46 +267,13 @@ const TahminEngine = {
       };
     });
 
-    const assigned = new Set();
-    const meta = new Array(horseCount).fill(null);
-    const result = new Array(horseCount).fill('');
-
-    for (let sira = 1; sira <= horseCount; sira++) {
-      let picked = null;
-      let ruleId = 'SKOR';
-
-      // 1. sırada K1 → K1-8 → K1-6 → diğer kademeler; koşmaz atlar SKOR'da kalır
-      const tiersToTry = sira === 1
-        ? tiers
-        : tiers.filter(t => !t.siraOnly);
-
-      for (const tier of tiersToTry) {
-        const candidates = profiles.filter(p =>
-          !assigned.has(p.index) && this._matchesRequired(p.cond, tier.required)
-        );
-        picked = this._pickCandidate(candidates);
-        if (picked) {
-          ruleId = tier.id;
-          break;
-        }
-      }
-
-      if (!picked) {
-        const remaining = profiles.filter(p => !assigned.has(p.index));
-        picked = this._pickCandidate(remaining);
-        ruleId = picked ? 'SKOR' : null;
-      }
-
-      if (picked) {
-        assigned.add(picked.index);
-        result[sira - 1] = picked.name;
-        meta[sira - 1] = {
-          ruleId,
-          score: picked.score,
-          cond: picked.cond
-        };
-      }
-    }
+    const sorted = [...profiles].sort((a, b) => this._compareByRulePriority(a, b, tiers));
+    const result = sorted.map((p) => p.name);
+    const meta = sorted.map((p) => ({
+      ruleId: this._primaryRuleId(p, tiers),
+      score: p.score,
+      cond: p.cond
+    }));
 
     return { names: result, meta, profiles };
   },

@@ -398,7 +398,7 @@
         <div class="tahminim-rules-sidebar">
             <div class="kural-panel" id="kuralPanel">
                 <div class="kural-panel-title">📐 Kural sırası — sürükleyin veya ▲▼</div>
-                <div class="kural-panel-sub">Yukarıdan aşağıya uygulanır. Sırayı değiştirdiğinizde tahminler <strong>anında</strong> yeniden hesaplanır.</div>
+                <div class="kural-panel-sub">Yukarıdan aşağıya öncelik verilir. Her kuralın koşullarına ne kadar uyuyorsa o kadar üste çıkar — tam eşleşme şart değil. Sırayı değiştirdiğinizde tahminler anında yeniden hesaplanır.</div>
                 <div id="kuralSiraList" class="kural-list"></div>
                 <div class="kural-item kural-item-fixed">SKOR — eşleşme yoksa en yüksek skorlu at (son çare, sabit)</div>
                 <div class="kural-panel-actions">
@@ -420,7 +420,7 @@
 
 <script src="js/utils.js?v=20260822h"></script>
 <script src="js/formula-engine.js?v=20260823c"></script>
-<script src="js/tahmin-engine.js?v=20260824d"></script>
+<script src="js/tahmin-engine.js?v=20260824h"></script>
 <script src="js/sonuc-engine.js?v=20260824c"></script>
 <script src="js/kural-panel.js?v=20260824f"></script>
 <script>
@@ -739,14 +739,18 @@ function runOtomatikAktar() {
     const degisen = applyTahminlerToDom(tahminler, detay, prevTahminler);
     saveTahminToStorage(getTahminlerFromDom());
 
-    let k1Count = 0;
+    const kullanilanKurallar = [];
     for (const raceIdx of Object.keys(detay)) {
-        if (detay[raceIdx]?.[0]?.ruleId === 'K1') k1Count++;
+        for (const m of detay[raceIdx] || []) {
+            if (m?.ruleId && m.ruleId !== 'SKOR') kullanilanKurallar.push(m.ruleId);
+        }
     }
+    const kullanilanOzet = [...new Set(kullanilanKurallar)].slice(0, 4).join(', ') || 'SKOR';
     const ilkKural = ruleTiers[0]?.id || '-';
     updateAktifKuralBanner();
     setStatus('<div class="status status-success">⚡ Tahmin güncellendi — '
-        + Object.keys(tahminler).length + ' koşu | 1. kural: <strong>' + ilkKural + '</strong>'
+        + Object.keys(tahminler).length + ' koşu | öncelik: <strong>' + ilkKural + '</strong>'
+        + ' | kullanılan: <strong>' + kullanilanOzet + '</strong>'
         + (degisen ? ' | <strong>' + degisen + ' sıra değişti</strong>' : ' | sıralama aynı')
         + '</div>');
     updateBasariGosterim();
