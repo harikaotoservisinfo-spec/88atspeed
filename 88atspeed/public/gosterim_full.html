@@ -230,38 +230,56 @@
             box-shadow: inset 0 0 16px rgba(118, 255, 3, 0.5), 0 0 10px rgba(118, 255, 3, 0.35) !important;
         }
 
-        /* TEST3 top-3 + TEST2<TEST3 + TEST1<=TEST2 → fosfor mavi satır yazısı */
+        /* TEST3 top-3 + TEST2<TEST3 + TEST1<=TEST2 → fosfor mavi */
+        .fosfor-mavi-yazi {
+            color: #01579b !important;
+            font-weight: 800 !important;
+            text-shadow: 0 0 8px #00e5ff, 0 0 14px #18ffff, 0 0 4px #0288d1;
+        }
+        tr.fosfor-mavi-satir:not(.guclu-uyari-satir) td:not(.eslesme-yesil):not(.test23-yanip-son) {
+            background: rgba(0, 188, 212, 0.14) !important;
+        }
         tr.fosfor-mavi-satir td:not(.eslesme-yesil):not(.test23-yanip-son),
         tr.fosfor-mavi-satir .col-sticky:not(.eslesme-yesil),
         tr.fosfor-mavi-satir .col-sticky-2:not(.eslesme-yesil) {
-            color: #0277bd !important;
+            color: #01579b !important;
             font-weight: 700 !important;
             text-shadow: 0 0 8px #00e5ff, 0 0 14px #18ffff, 0 0 4px #01579b;
+        }
+        tr.guclu-uyari-satir.fosfor-mavi-satir td:not(.eslesme-yesil):not(.test23-yanip-son):not(.guclu-sehir-farkli),
+        tr.guclu-uyari-satir.fosfor-mavi-satir .fosfor-mavi-yazi:not(.test23-yanip-son) {
+            color: #84ffff !important;
+            font-weight: 800 !important;
+            text-shadow: 0 0 10px #18ffff, 0 0 18px #00e5ff, 0 0 6px #fff;
         }
         tr.fosfor-mavi-satir td.eslesme-yesil:not(.test23-yanip-son) {
             color: #84ffff !important;
             text-shadow: 0 0 10px #18ffff, 0 0 16px #00e5ff, 0 0 4px #fff;
         }
 
-        /* TEST3−TEST2 en yüksek fark (kurala uyanlar arasında) → TEST2/TEST3 yanıp söner */
+        /* TEST3−TEST2 en yüksek fark → TEST2/TEST3 yanıp söner */
         @keyframes test23-blink {
             0%, 100% {
                 background: linear-gradient(135deg, #01579b 0%, #0277bd 100%) !important;
                 color: #84ffff !important;
                 font-weight: 800 !important;
-                box-shadow: inset 0 0 14px #00e5ff, 0 0 16px #18ffff !important;
+                box-shadow: inset 0 0 14px #00e5ff, 0 0 20px #18ffff !important;
                 text-shadow: 0 0 10px #fff, 0 0 18px #18ffff;
             }
             50% {
                 background: linear-gradient(135deg, #e1f5fe 0%, #b3e5fc 100%) !important;
                 color: #01579b !important;
                 font-weight: 800 !important;
-                box-shadow: inset 0 0 10px #00bcd4, 0 0 20px #fff !important;
+                box-shadow: inset 0 0 10px #00bcd4, 0 0 24px #fff !important;
                 text-shadow: 0 0 8px #0277bd;
             }
         }
-        .test23-yanip-son {
-            animation: test23-blink 1.1s ease-in-out infinite;
+        td.test23-yanip-son,
+        tr.guclu-uyari-satir td.test23-yanip-son,
+        tr.fosfor-mavi-satir td.test23-yanip-son {
+            animation: test23-blink 1s ease-in-out infinite !important;
+            position: relative;
+            z-index: 2;
         }
     </style>
 </head>
@@ -276,7 +294,7 @@
 </div>
 
 <script src="js/utils.js?v=20260822h"></script>
-<script src="js/formula-engine.js?v=20260822o"></script>
+<script src="js/formula-engine.js?v=20260822p"></script>
 <script>
 let currentHesaplamaData = null;
 let currentHesaplamaId = null;

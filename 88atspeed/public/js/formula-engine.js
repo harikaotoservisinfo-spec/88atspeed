@@ -455,6 +455,17 @@ const GosterimEngine = {
         return trends;
     },
 
+    _buildSatirClass({ gucluUyari, maviFosfor, ayniMi, farkBosMu, fark8002BosMu }) {
+        const parts = [];
+        if (gucluUyari) parts.push('guclu-uyari-satir');
+        if (maviFosfor) parts.push('fosfor-mavi-satir');
+        if (!gucluUyari && !maviFosfor) {
+            if (ayniMi) parts.push('fosfor-yesil-satir');
+            else if (farkBosMu && fark8002BosMu) parts.push('pembe-satir');
+        }
+        return parts.join(' ');
+    },
+
     buildRowValues(horse, atKosu, rowIndex, horseIndex, hedefMesafe, trends, enIyiler, hipodromSehir) {
         const gecmisMesafe = atKosu.mesafe;
         const mesafeSayi = parseInt(String(gecmisMesafe).replace(/[^\d]/g, ''), 10);
@@ -544,9 +555,8 @@ const GosterimEngine = {
         return {
             values,
             classes: {
-                satirClass: gucluUyari ? 'guclu-uyari-satir'
-                    : (maviFosfor ? 'fosfor-mavi-satir'
-                    : (ayniMi ? 'fosfor-yesil-satir' : (farkBosMu && fark8002BosMu ? 'pembe-satir' : ''))),
+                satirClass: this._buildSatirClass({ gucluUyari, maviFosfor, ayniMi, farkBosMu, fark8002BosMu }),
+                maviFosforClass: maviFosfor ? 'fosfor-mavi-yazi' : '',
                 test4Class: ayniMi ? 'fosfor-yesil-hucre' : '',
                 test6Class: ayniMi ? 'fosfor-yesil-hucre' : '',
                 test1Class: enIyiler.enIyilerTest1.has(kosuKey) ? 'eslesme-yesil' : '',
@@ -589,14 +599,21 @@ const GosterimEngine = {
             if (classes.test23YanipClass) parts.push(classes.test23YanipClass);
             if (classes.test3Class) parts.push(classes.test3Class);
             else if (classes.kirmiziClass) parts.push(classes.kirmiziClass);
+        } else if (c === COL.TEST5 && classes.yesilClass) {
+            parts.push(classes.yesilClass);
+        } else if (c === COL.FARK && classes.farkClass) {
+            parts.push(classes.farkClass);
+        } else if (c === COL.FARK8002 && classes.fark8002Class) {
+            parts.push(classes.fark8002Class);
+        } else if (c === COL.TEST4 && classes.test4Class) {
+            parts.push(classes.test4Class);
+        } else if (c === COL.TEST6 && classes.test6Class) {
+            parts.push(classes.test6Class);
         }
-        if (parts.length) return parts.join(' ');
-        if (c === COL.TEST5 && classes.yesilClass) return classes.yesilClass;
-        if (c === COL.FARK && classes.farkClass) return classes.farkClass;
-        if (c === COL.FARK8002 && classes.fark8002Class) return classes.fark8002Class;
-        if (c === COL.TEST4 && classes.test4Class) return classes.test4Class;
-        if (c === COL.TEST6 && classes.test6Class) return classes.test6Class;
-        return '';
+        if (classes.maviFosforClass && !parts.includes('test23-yanip-son')) {
+            parts.push(classes.maviFosforClass);
+        }
+        return parts.length ? parts.join(' ') : '';
     },
 
     buildRaceRows(race, options = {}) {
