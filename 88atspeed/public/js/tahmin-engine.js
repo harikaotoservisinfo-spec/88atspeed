@@ -188,10 +188,36 @@ const TahminEngine = {
     return tiers;
   },
 
+  /** Tüm kuralların katalogu (id → kural) */
+  getRuleCatalog() {
+    const catalog = {};
+    for (const tier of this.buildRuleTiers()) {
+      catalog[tier.id] = { ...tier, required: [...tier.required] };
+    }
+    return catalog;
+  },
+
+  getDefaultRuleOrder() {
+    return this.buildRuleTiers().map(t => t.id);
+  },
+
+  /** Kayıtlı sıra + özel kurallardan aktif tier listesi */
+  resolveTiers(config) {
+    const catalog = this.getRuleCatalog();
+    const custom = config?.customRules || {};
+    const merged = { ...catalog, ...custom };
+    const order = config?.order?.length ? config.order : this.getDefaultRuleOrder();
+    const disabled = new Set(config?.disabled || []);
+    return order
+      .filter(id => !disabled.has(id))
+      .map(id => merged[id])
+      .filter(Boolean);
+  },
+
   computeTahminForRace(race, options = {}) {
     const ctx = this.buildContext(race, options);
     const horseCount = ctx.calcRace.horses.length;
-    const tiers = this.buildRuleTiers();
+    const tiers = options.ruleTiers || this.buildRuleTiers();
 
     const profiles = ctx.calcRace.horses.map((h, j) => {
       const cond = this.evaluateHorse(j, ctx);

@@ -235,6 +235,88 @@
             font-size: 13px;
             color: #0d47a1;
         }
+        .kural-panel {
+            margin-top: 24px;
+            padding: 18px 20px 20px;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+        }
+        .kural-panel-title {
+            font-weight: 800;
+            font-size: 15px;
+            color: #1a237e;
+            margin-bottom: 4px;
+        }
+        .kural-panel-sub {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 14px;
+        }
+        .kural-list { display: flex; flex-direction: column; gap: 8px; }
+        .kural-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            background: #f5f7fa;
+            border: 1px solid #e0e6ed;
+            border-radius: var(--radius-md);
+            cursor: grab;
+            transition: box-shadow 0.15s, border-color 0.15s;
+        }
+        .kural-item:hover { border-color: #90caf9; }
+        .kural-item-off { opacity: 0.45; }
+        .kural-item-fixed {
+            cursor: default;
+            background: #eceff1;
+            border-style: dashed;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 13px;
+            color: #546e7a;
+        }
+        .kural-dragging { opacity: 0.5; }
+        .kural-drop-target { border-color: #1565c0; box-shadow: 0 0 0 2px rgba(21,101,192,0.2); }
+        .kural-grip { color: #90a4ae; font-size: 18px; user-select: none; flex-shrink: 0; }
+        .kural-no {
+            width: 28px; height: 28px; border-radius: 6px;
+            background: #1a237e; color: #fff; font-weight: 800; font-size: 12px;
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .kural-info { flex: 1; min-width: 0; }
+        .kural-title { font-weight: 700; font-size: 13px; color: #263238; }
+        .kural-title code { font-size: 11px; font-weight: 600; color: #1565c0; margin-left: 6px; }
+        .kural-conds { font-size: 11px; color: #78909c; margin-top: 3px; line-height: 1.35; }
+        .kural-badge {
+            display: inline-block; font-size: 10px; font-weight: 700;
+            padding: 2px 8px; border-radius: 999px; margin-left: 6px; vertical-align: middle;
+        }
+        .kural-badge-sira { background: #e3f2fd; color: #0d47a1; }
+        .kural-toggle { font-size: 11px; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+        .kural-del-btn {
+            border: none; background: #ffcdd2; color: #c62828;
+            width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-weight: 700; flex-shrink: 0;
+        }
+        .kural-panel-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+        .kural-yeni-form {
+            margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);
+        }
+        .kural-yeni-form h4 { margin: 0 0 10px; font-size: 14px; color: #37474f; }
+        .kural-cond-picker {
+            display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
+        }
+        .kural-cond-chip {
+            font-size: 11px; font-weight: 600; padding: 6px 10px;
+            background: #e3f2fd; border-radius: 999px; cursor: pointer; user-select: none;
+        }
+        .kural-cond-chip input { margin-right: 4px; }
+        .kural-yeni-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        .kural-yeni-row input[type="text"] {
+            flex: 1; min-width: 200px; padding: 8px 12px;
+            border: 1px solid var(--border); border-radius: var(--radius-md);
+        }
     </style>
 </head>
 <body>
@@ -255,6 +337,26 @@
     <div id="basariOzetPanel" class="basari-ozet-panel"></div>
     <div id="arsivPanel" class="arsiv-panel"></div>
     <div id="tahminimResults"><div class="empty">🎯 GÖSTERİM sekmesinde kayıt yükleyin veya buradan kayıt seçin</div></div>
+
+    <div class="kural-panel" id="kuralPanel">
+        <div class="kural-panel-title">📐 Kural sırası — sürükleyerek değiştirin</div>
+        <div class="kural-panel-sub">Yukarıdan aşağıya uygulanır. Sırayı değiştirdiğinizde tahminler ve başarı özeti otomatik güncellenir. Gerçek sonuçlarınız korunur.</div>
+        <div id="kuralSiraList" class="kural-list"></div>
+        <div class="kural-item kural-item-fixed">SKOR — eşleşme yoksa en yüksek skorlu at (son çare, sabit)</div>
+        <div class="kural-panel-actions">
+            <button type="button" id="kuralSiraResetBtn" class="tahminim-btn">↩️ Varsayılana dön</button>
+        </div>
+        <div class="kural-yeni-form">
+            <h4>➕ Yeni özel kural ekle</h4>
+            <div id="kuralCondPicker" class="kural-cond-picker"></div>
+            <div class="kural-yeni-row">
+                <input type="text" id="kuralYeniAd" placeholder="Kural adı (isteğe bağlı)">
+                <label><input type="checkbox" id="kuralYeniSira1"> Sadece 1. sıra</label>
+                <button type="button" id="kuralEkleBtn" class="tahminim-btn tahminim-btn-primary">Ekle ve uygula</button>
+            </div>
+        </div>
+    </div>
+
     <div class="tahmin-hint">
         <strong>Gerçek sıra girişi:</strong> Sıra numarası (<code>7</code>) veya <code>koşmaz</code> yazın.
         Koşmayan atlar başarı hesabına dahil edilmez. Başarı anında hesaplanır; arşive ekleyerek kural performansını izleyin.
@@ -263,8 +365,9 @@
 
 <script src="js/utils.js?v=20260822h"></script>
 <script src="js/formula-engine.js?v=20260823c"></script>
-<script src="js/tahmin-engine.js?v=20260824c"></script>
+<script src="js/tahmin-engine.js?v=20260824d"></script>
 <script src="js/sonuc-engine.js?v=20260824c"></script>
+<script src="js/kural-panel.js?v=20260824d"></script>
 <script>
 let currentKayitId = null;
 let currentKayitMeta = null;
@@ -538,9 +641,11 @@ function runOtomatikAktar() {
         setStatus('<div class="status status-error">❌ Önce kayıt yükleyin</div>');
         return;
     }
+    const ruleTiers = KuralPanel.getActiveTiers();
     const { tahminler, detay } = TahminEngine.computeAllRaces(currentRaceData, {
         programTarih: currentKayitMeta.tarih,
-        hipodromSehir: currentKayitMeta.hipodrom
+        hipodromSehir: currentKayitMeta.hipodrom,
+        ruleTiers
     });
     lastAktarDetay = detay;
     applyTahminlerToDom(tahminler, detay);
@@ -550,9 +655,10 @@ function runOtomatikAktar() {
     for (const raceIdx of Object.keys(detay)) {
         if (detay[raceIdx]?.[0]?.ruleId === 'K1') k1Count++;
     }
-    setStatus('<div class="status status-success">⚡ Otomatik aktarım tamamlandı — '
+    setStatus('<div class="status status-success">⚡ Tahmin güncellendi — '
         + Object.keys(tahminler).length + ' koşu, '
-        + k1Count + ' koşuda 1. sıra K1 (tam kural) eşleşti</div>');
+        + ruleTiers.length + ' aktif kural, '
+        + k1Count + ' koşuda K1 ile 1. sıra</div>');
     updateBasariGosterim();
 }
 
@@ -808,6 +914,11 @@ window.TahminimPage = {
     },
     runOtomatikAktar
 };
+
+KuralPanel.setOnChange(() => {
+    if (currentRaceData && currentKayitMeta) runOtomatikAktar();
+});
+KuralPanel.init();
 </script>
 </body>
 </html>
