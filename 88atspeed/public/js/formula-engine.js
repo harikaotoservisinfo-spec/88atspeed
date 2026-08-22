@@ -382,11 +382,11 @@ const GosterimEngine = {
         return null;
     },
 
-    /** Son 3 koşuda 8002-8001 ortalaması 0'a en yakın 3 at (koşu bazında) */
-    collectSifiraYakin8002Ortalama(race) {
+    _top3SifiraYakin8002(race, sonKosuSayisi) {
         const ortalamalar = [];
         for (let j = 0; j < race.horses.length; j++) {
-            const sonKosular = this._sortKosularNewest(race.horses[j].kosular || []).slice(0, 3);
+            const sonKosular = this._sortKosularNewest(race.horses[j].kosular || [])
+                .slice(0, sonKosuSayisi);
             let toplam = 0;
             let adet = 0;
             for (const atKosu of sonKosular) {
@@ -404,11 +404,19 @@ const GosterimEngine = {
             if (a.absOrt !== b.absOrt) return a.absOrt - b.absOrt;
             return Math.abs(a.ort) - Math.abs(b.ort);
         });
-        const sifiraYakinAtlar = new Set();
+        const set = new Set();
         for (let t = 0; t < Math.min(3, ortalamalar.length); t++) {
-            sifiraYakinAtlar.add(ortalamalar[t].j);
+            set.add(ortalamalar[t].j);
         }
-        return { sifiraYakinAtlar };
+        return set;
+    },
+
+    /** Son 7 koşu → AT İSMİ; son 3 koşu → AT ID (8002-8001 ort. 0'a yakın 3 at) */
+    collectSifiraYakin8002Ortalamalar(race) {
+        return {
+            sifiraYakinAtlarSon7: this._top3SifiraYakin8002(race, 7),
+            sifiraYakinAtlarSon3: this._top3SifiraYakin8002(race, 3)
+        };
     },
 
     /** Koşu içinde SON800-1 ve SON800-2 için en düşük 3 süre */
@@ -619,7 +627,8 @@ const GosterimEngine = {
                     : (gucluUyari ? 'guclu-sehir-farkli' : ''),
                 son800_1Class: this._son800HucreClass(enIyiler.enIyilerSon800_1, kosuKey, sehirEslesme, eslesmeYesil),
                 son800_2Class: this._son800HucreClass(enIyiler.enIyilerSon800_2, kosuKey, sehirEslesme, eslesmeYesil),
-                atIdClass: enIyiler.sifiraYakinAtlar?.has(horseIndex) ? 'at-id-mavi-vurgu' : ''
+                atIsmiClass: enIyiler.sifiraYakinAtlarSon7?.has(horseIndex) ? 'at-ismi-mavi-vurgu' : '',
+                atIdClass: enIyiler.sifiraYakinAtlarSon3?.has(horseIndex) ? 'at-id-mavi-vurgu' : ''
             }
         };
     },
@@ -630,6 +639,7 @@ const GosterimEngine = {
         const parts = [];
         if (c === COL.MESAFE && classes.mesafeClass) parts.push(classes.mesafeClass);
         if (c === COL.SEHIR && classes.sehirClass) parts.push(classes.sehirClass);
+        if (c === COL.AT_ISMI && classes.atIsmiClass) parts.push(classes.atIsmiClass);
         if (c === COL.AT_ID && classes.atIdClass) parts.push(classes.atIdClass);
         if (c === COL.SON800_1 && classes.son800_1Class) parts.push(classes.son800_1Class);
         if (c === COL.SON800_2 && classes.son800_2Class) parts.push(classes.son800_2Class);
@@ -657,7 +667,7 @@ const GosterimEngine = {
         } else if (c === COL.TEST6 && classes.test6Class) {
             parts.push(classes.test6Class);
         }
-        if (classes.maviFosforClass && c !== COL.AT_ID && !parts.includes('test23-yanip-son')) {
+        if (classes.maviFosforClass && c !== COL.AT_ISMI && c !== COL.AT_ID && !parts.includes('test23-yanip-son')) {
             parts.push(classes.maviFosforClass);
         }
         return parts.length ? parts.join(' ') : '';
@@ -675,7 +685,7 @@ const GosterimEngine = {
             ...this.collectTopSon800(calcRace),
             ...this.collectClosestTest12(calcRace, hedefMesafe),
             ...this.collectMaviFosforTest123(calcRace, hedefMesafe, topTests.enIyilerTest3),
-            ...this.collectSifiraYakin8002Ortalama(calcRace)
+            ...this.collectSifiraYakin8002Ortalamalar(calcRace)
         };
         const trends = this.computeHorseTrends(calcRace, hedefMesafe);
         const rows = [];

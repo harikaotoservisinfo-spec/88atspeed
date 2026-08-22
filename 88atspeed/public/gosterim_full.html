@@ -282,6 +282,19 @@
             z-index: 2;
         }
 
+        /* Son 7 koşu 8002-8001 ort. 0'a yakın 3 at — AT İSMİ mavi fosfor yazı */
+        .at-ismi-mavi-vurgu {
+            color: #01579b !important;
+            font-weight: 800 !important;
+            text-shadow: 0 0 8px #00e5ff, 0 0 14px #18ffff, 0 0 4px #0288d1;
+        }
+        tr.guclu-uyari-satir td.at-ismi-mavi-vurgu,
+        tr.fosfor-mavi-satir td.at-ismi-mavi-vurgu,
+        tr.fosfor-yesil-satir td.at-ismi-mavi-vurgu {
+            color: #84ffff !important;
+            text-shadow: 0 0 10px #18ffff, 0 0 18px #00e5ff, 0 0 6px #fff;
+        }
+
         /* Son 3 koşu 8002-8001 ort. 0'a yakın 3 at — AT ID mavi hücre */
         .at-id-mavi-vurgu {
             background: linear-gradient(135deg, #01579b 0%, #0288d1 50%, #03a9f4 100%) !important;
@@ -310,7 +323,7 @@
 </div>
 
 <script src="js/utils.js?v=20260822h"></script>
-<script src="js/formula-engine.js?v=20260822r"></script>
+<script src="js/formula-engine.js?v=20260822s"></script>
 <script>
 let currentHesaplamaData = null;
 let currentHesaplamaId = null;
