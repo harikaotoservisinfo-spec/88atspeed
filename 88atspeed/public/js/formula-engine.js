@@ -159,6 +159,7 @@ const GosterimEngine = {
     COL: {
         AT_ISMI: 1,
         AT_ID: 2,
+        TARIH: 3,
         SEHIR: 4,
         MESAFE: 5,
         SON800_1: 9,
@@ -411,11 +412,12 @@ const GosterimEngine = {
         return set;
     },
 
-    /** Son 7 koşu → AT İSMİ; son 3 koşu → AT ID (8002-8001 ort. 0'a yakın 3 at) */
+    /** Son 7 → AT İSMİ; son 3 → AT ID; son 2 → TARİH (8002-8001 ort. 0'a yakın 3 at) */
     collectSifiraYakin8002Ortalamalar(race) {
         return {
             sifiraYakinAtlarSon7: this._top3SifiraYakin8002(race, 7),
-            sifiraYakinAtlarSon3: this._top3SifiraYakin8002(race, 3)
+            sifiraYakinAtlarSon3: this._top3SifiraYakin8002(race, 3),
+            sifiraYakinAtlarSon2: this._top3SifiraYakin8002(race, 2)
         };
     },
 
@@ -628,7 +630,8 @@ const GosterimEngine = {
                 son800_1Class: this._son800HucreClass(enIyiler.enIyilerSon800_1, kosuKey, sehirEslesme, eslesmeYesil),
                 son800_2Class: this._son800HucreClass(enIyiler.enIyilerSon800_2, kosuKey, sehirEslesme, eslesmeYesil),
                 atIsmiClass: enIyiler.sifiraYakinAtlarSon7?.has(horseIndex) ? 'at-ismi-mavi-vurgu' : '',
-                atIdClass: enIyiler.sifiraYakinAtlarSon3?.has(horseIndex) ? 'at-id-mavi-vurgu' : ''
+                atIdClass: enIyiler.sifiraYakinAtlarSon3?.has(horseIndex) ? 'at-id-mavi-vurgu' : '',
+                tarihClass: enIyiler.sifiraYakinAtlarSon2?.has(horseIndex) ? 'tarih-koyu-mavi-vurgu' : ''
             }
         };
     },
@@ -641,6 +644,7 @@ const GosterimEngine = {
         if (c === COL.SEHIR && classes.sehirClass) parts.push(classes.sehirClass);
         if (c === COL.AT_ISMI && classes.atIsmiClass) parts.push(classes.atIsmiClass);
         if (c === COL.AT_ID && classes.atIdClass) parts.push(classes.atIdClass);
+        if (c === COL.TARIH && classes.tarihClass) parts.push(classes.tarihClass);
         if (c === COL.SON800_1 && classes.son800_1Class) parts.push(classes.son800_1Class);
         if (c === COL.SON800_2 && classes.son800_2Class) parts.push(classes.son800_2Class);
         if (c === COL.TEST1) {
@@ -667,7 +671,7 @@ const GosterimEngine = {
         } else if (c === COL.TEST6 && classes.test6Class) {
             parts.push(classes.test6Class);
         }
-        if (classes.maviFosforClass && c !== COL.AT_ISMI && c !== COL.AT_ID && !parts.includes('test23-yanip-son')) {
+        if (classes.maviFosforClass && c !== COL.AT_ISMI && c !== COL.AT_ID && c !== COL.TARIH && !parts.includes('test23-yanip-son')) {
             parts.push(classes.maviFosforClass);
         }
         return parts.length ? parts.join(' ') : '';

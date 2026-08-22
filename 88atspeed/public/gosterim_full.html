@@ -310,6 +310,22 @@
             color: #fff !important;
             box-shadow: inset 0 0 14px rgba(0, 229, 255, 0.55), 0 0 12px rgba(41, 182, 246, 0.45) !important;
         }
+
+        /* Son 2 koşu 8002-8001 ort. 0'a yakın 3 at — TARİH koyu mavi */
+        .tarih-koyu-mavi-vurgu {
+            color: #0d47a1 !important;
+            font-weight: 800 !important;
+            background: rgba(13, 71, 161, 0.1) !important;
+            text-shadow: 0 0 6px rgba(25, 118, 210, 0.45);
+            box-shadow: inset 0 0 8px rgba(13, 71, 161, 0.15);
+        }
+        tr.guclu-uyari-satir td.tarih-koyu-mavi-vurgu,
+        tr.fosfor-mavi-satir td.tarih-koyu-mavi-vurgu,
+        tr.fosfor-yesil-satir td.tarih-koyu-mavi-vurgu {
+            color: #90caf9 !important;
+            background: rgba(13, 71, 161, 0.35) !important;
+            text-shadow: 0 0 8px rgba(144, 202, 249, 0.8);
+        }
     </style>
 </head>
 <body>
@@ -323,7 +339,7 @@
 </div>
 
 <script src="js/utils.js?v=20260822h"></script>
-<script src="js/formula-engine.js?v=20260822s"></script>
+<script src="js/formula-engine.js?v=20260822t"></script>
 <script>
 let currentHesaplamaData = null;
 let currentHesaplamaId = null;
