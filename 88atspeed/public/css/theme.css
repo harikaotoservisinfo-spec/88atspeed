@@ -511,6 +511,11 @@ tr.guclu-uyari-satir td:not(.eslesme-yesil) {
     font-weight: 700 !important;
     text-shadow: 0 0 8px #00e5ff, 0 0 14px #18ffff;
 }
+.at-ismi-mavi-vurgu {
+    color: #01579b !important;
+    font-weight: 800 !important;
+    text-shadow: 0 0 8px #00e5ff, 0 0 14px #18ffff, 0 0 4px #0288d1;
+}
 .kirmizi-yazi { color: #c62828 !important; font-weight: 800 !important; }
 .yesil-yazi { color: #2e7d32 !important; font-weight: 800 !important; }
 .pembe-hucre { background-color: var(--highlight-pink) !important; color: var(--text-primary) !important; }
