@@ -392,6 +392,38 @@
             left: 104px;
             z-index: 6;
         }
+
+        /* TEST1 ≤ TEST2 ≤ TEST3 artan sıra → koyu mavi kenar */
+        @keyframes test-sirali-koyu-mavi-kenar {
+            0%, 100% {
+                outline-color: #0d47a1;
+                box-shadow: inset 0 0 10px rgba(13, 71, 161, 0.35), 0 0 10px rgba(21, 101, 192, 0.55);
+            }
+            50% {
+                outline-color: #1565c0;
+                box-shadow: inset 0 0 14px rgba(25, 118, 210, 0.5), 0 0 18px rgba(33, 150, 243, 0.75);
+            }
+        }
+        tr.test-sirali-koyu-mavi-kenar-satir td {
+            outline: 2px solid #0d47a1;
+            outline-offset: -2px;
+            animation: test-sirali-koyu-mavi-kenar 1.4s ease-in-out infinite;
+        }
+        tr.test-sirali-koyu-mavi-kenar-satir .col-delete {
+            position: sticky;
+            left: 0;
+            z-index: 7;
+        }
+        tr.test-sirali-koyu-mavi-kenar-satir .col-sticky {
+            position: sticky;
+            left: 52px;
+            z-index: 6;
+        }
+        tr.test-sirali-koyu-mavi-kenar-satir .col-sticky-2 {
+            position: sticky;
+            left: 104px;
+            z-index: 6;
+        }
     </style>
 </head>
 <body>
@@ -405,7 +437,7 @@
 </div>
 
 <script src="js/utils.js?v=20260822h"></script>
-<script src="js/formula-engine.js?v=20260822z"></script>
+<script src="js/formula-engine.js?v=20260823a"></script>
 <script>
 let currentHesaplamaData = null;
 let currentHesaplamaId = null;

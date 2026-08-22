@@ -520,9 +520,10 @@ const GosterimEngine = {
         return trends;
     },
 
-    _buildSatirClass({ gucluUyari, maviFosfor, ayniMi, farkBosMu, fark8002BosMu, fosforKirmiziKenar }) {
+    _buildSatirClass({ gucluUyari, maviFosfor, ayniMi, farkBosMu, fark8002BosMu, fosforKirmiziKenar, testSiraliKoyuMaviKenar }) {
         const parts = [];
         if (fosforKirmiziKenar) parts.push('fosfor-kirmizi-kenar-satir');
+        if (testSiraliKoyuMaviKenar) parts.push('test-sirali-koyu-mavi-kenar-satir');
         if (gucluUyari) parts.push('guclu-uyari-satir');
         if (maviFosfor) parts.push('fosfor-mavi-satir');
         if (!gucluUyari && !maviFosfor) {
@@ -549,6 +550,13 @@ const GosterimEngine = {
         const { test1, test2, test3 } = this._computeTestSalise(atKosu, hedefMesafe);
         if (test1 === null || test2 === null || test3 === null) return false;
         return test1 < test2 && test1 < test3;
+    },
+
+    /** TEST1 ≤ TEST2 ≤ TEST3 (artan sıra) → koyu mavi kenar */
+    _computeTestSiraliKoyuMaviKenar(atKosu, hedefMesafe) {
+        const { test1, test2, test3 } = this._computeTestSalise(atKosu, hedefMesafe);
+        if (test1 === null || test2 === null || test3 === null) return false;
+        return test3 >= test2 && test2 >= test1;
     },
 
     /**
@@ -675,12 +683,14 @@ const GosterimEngine = {
         const tarihVurgu = enIyiler.sifiraYakinAtlarSon2?.has(horseIndex);
         const kombineUyari = atIsmiVurgu && atIdVurgu && tarihVurgu && kirmiziYazi;
         const fosforKirmiziKenar = enIyiler.fosforKirmiziSatirlar?.has(kosuKey);
+        const testSiraliKoyuMaviKenar = this._computeTestSiraliKoyuMaviKenar(atKosu, hedefMesafe);
 
         return {
             values,
             classes: {
                 satirClass: this._buildSatirClass({
-                    gucluUyari, maviFosfor, ayniMi, farkBosMu, fark8002BosMu, fosforKirmiziKenar
+                    gucluUyari, maviFosfor, ayniMi, farkBosMu, fark8002BosMu, fosforKirmiziKenar,
+                    testSiraliKoyuMaviKenar
                 }),
                 maviFosforClass: maviFosfor ? 'fosfor-mavi-yazi' : '',
                 test4Class: ayniMi ? 'fosfor-yesil-hucre' : '',
