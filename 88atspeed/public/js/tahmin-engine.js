@@ -31,6 +31,21 @@ const TahminEngine = {
     test9Vurgu: 'TEST9 vurgulu'
   },
 
+  CONDITION_SHORT: {
+    siraNoMavi: 'SIRA',
+    atIsmiMavi: 'AT',
+    tarihMavi: 'TAR',
+    sonKosuProgramSehir: 'ŞEH',
+    dahaOnceSehirMesafe: 'Ş+M',
+    sehirMesafeBirIki: 'Ş12',
+    son800Top3: '800',
+    test1EnIyi: 'T1',
+    test123Kirmizi: 'T123',
+    sonKosuYesilSatir: 'YEŞ',
+    test12Sari: 'S12',
+    test9Vurgu: 'V9'
+  },
+
   _mesafeEslesme(mesafe, hedefMesafe) {
     const m = parseInt(String(mesafe || '').replace(/\D/g, ''), 10);
     return !isNaN(hedefMesafe) && hedefMesafe > 0 && !isNaN(m) && m === hedefMesafe;
@@ -294,12 +309,14 @@ const TahminEngine = {
   computeAllRaces(races, options = {}) {
     const tahminler = {};
     const detay = {};
+    const profiles = {};
     for (let i = 0; i < races.length; i++) {
-      const { names, meta } = this.computeTahminForRace(races[i], options);
+      const { names, meta, profiles: raceProfiles } = this.computeTahminForRace(races[i], options);
       tahminler[i] = names.map((name, idx) => ({ sira: idx + 1, name: name || '' }));
       detay[i] = meta;
+      profiles[i] = raceProfiles;
     }
-    return { tahminler, detay };
+    return { tahminler, detay, profiles };
   }
 };
 

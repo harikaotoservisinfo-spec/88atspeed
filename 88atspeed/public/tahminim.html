@@ -383,6 +383,130 @@
             flex: 1; min-width: 200px; padding: 8px 12px;
             border: 1px solid var(--border); border-radius: var(--radius-md);
         }
+        .kosul-matris-panel {
+            margin-top: 28px;
+            padding: 20px 22px 24px;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+        }
+        .kosul-matris-panel.empty { display: none; }
+        .kosul-matris-title {
+            font-weight: 800;
+            font-size: 16px;
+            color: #1a237e;
+            margin: 0 0 6px;
+        }
+        .kosul-matris-sub {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 14px;
+            line-height: 1.5;
+        }
+        .kosul-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 16px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .kosul-legend span { display: inline-flex; align-items: center; gap: 5px; }
+        .kosul-legend-box {
+            width: 14px; height: 14px; border-radius: 3px;
+            border: 1px solid rgba(0,0,0,0.12);
+        }
+        .kosul-legend-box.yes { background: #a5d6a7; }
+        .kosul-legend-box.no { background: #eeeeee; }
+        .kosul-legend-box.pri { background: #ce93d8; border-color: #8e24aa; }
+        .kosul-race-block {
+            margin-bottom: 22px;
+            border: 1px solid #e0e6ed;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+        .kosul-race-block:last-child { margin-bottom: 0; }
+        .kosul-race-title {
+            background: linear-gradient(135deg, #37474f 0%, #546e7a 100%);
+            color: #eceff1;
+            padding: 10px 14px;
+            font-weight: 700;
+            font-size: 13px;
+        }
+        .kosul-table-wrap { overflow-x: auto; }
+        .kosul-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            min-width: 900px;
+        }
+        .kosul-table th, .kosul-table td {
+            padding: 6px 5px;
+            border: 1px solid #e0e0e0;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .kosul-table th {
+            background: #f5f7fa;
+            font-weight: 700;
+            font-size: 10px;
+            color: #37474f;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        .kosul-table th.kosul-th-priority {
+            background: #f3e5f5;
+            color: #6a1b9a;
+        }
+        .kosul-table th.kosul-th-rule {
+            background: #e8eaf6;
+            color: #283593;
+            min-width: 44px;
+        }
+        .kosul-table td.kosul-at {
+            text-align: left;
+            font-weight: 700;
+            color: #263238;
+            min-width: 130px;
+            max-width: 180px;
+            white-space: normal;
+            position: sticky;
+            left: 0;
+            background: #fff;
+            z-index: 1;
+            box-shadow: 2px 0 4px rgba(0,0,0,0.04);
+        }
+        .kosul-table td.kosul-sira {
+            font-weight: 800;
+            color: #1a237e;
+            background: #e8eaf6;
+            min-width: 36px;
+            position: sticky;
+            left: 0;
+            z-index: 2;
+        }
+        .kosul-table tr.kosul-row-top3 td.kosul-at { background: #e3f2fd; }
+        .kosul-cell-yes {
+            background: #c8e6c9 !important;
+            color: #1b5e20;
+            font-weight: 800;
+        }
+        .kosul-cell-no { background: #fafafa; color: #bdbdbd; }
+        .kosul-cell-priority-yes {
+            background: #ce93d8 !important;
+            color: #4a148c;
+            font-weight: 800;
+        }
+        .kosul-rule-cell {
+            font-weight: 700;
+            font-size: 10px;
+        }
+        .kosul-rule-full { background: #a5d6a7 !important; color: #1b5e20; }
+        .kosul-rule-partial { background: #fff9c4 !important; color: #f57f17; }
+        .kosul-rule-none { background: #fafafa; color: #bdbdbd; }
+        .kosul-skor-cell { font-weight: 800; background: #e3f2fd !important; color: #0d47a1; }
     </style>
 </head>
 <body>
@@ -434,11 +558,24 @@
             </div>
         </div>
     </div>
+
+    <div id="kosulMatrisPanel" class="kosul-matris-panel empty">
+        <h3 class="kosul-matris-title">📊 Koşul & kural matrisi</h3>
+        <p class="kosul-matris-sub">Her koşuda atların hangi koşulları sağladığını ve aktif kurallara ne kadar uyduğunu görün. Tahmin sırasına göre listelenir.</p>
+        <div class="kosul-legend">
+            <span><i class="kosul-legend-box yes"></i> Koşul var (yeşil)</span>
+            <span><i class="kosul-legend-box no"></i> Koşul yok</span>
+            <span><i class="kosul-legend-box pri"></i> Öncelik kuralının koşulu</span>
+            <span>✓ = tam kural eşleşmesi</span>
+            <span>sarı = kısmi eşleşme (ör. 2/3)</span>
+        </div>
+        <div id="kosulMatrisContent"></div>
+    </div>
 </div>
 
 <script src="js/utils.js?v=20260822h"></script>
 <script src="js/formula-engine.js?v=20260823c"></script>
-<script src="js/tahmin-engine.js?v=20260824i"></script>
+<script src="js/tahmin-engine.js?v=20260824j"></script>
 <script src="js/sonuc-engine.js?v=20260824c"></script>
 <script src="js/kural-panel.js?v=20260824f"></script>
 <script>
@@ -446,6 +583,7 @@ let currentKayitId = null;
 let currentKayitMeta = null;
 let currentRaceData = null;
 let lastAktarDetay = null;
+let lastRaceProfiles = null;
 
 function notifyParentResize() {
     const h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
@@ -766,6 +904,98 @@ function renderArsivPanel() {
     });
 }
 
+function findProfileByName(profiles, horseName) {
+    if (!profiles?.length || !horseName) return null;
+    const norm = SonucEngine.normalizeHorseName(horseName);
+    return profiles.find(p => {
+        const n1 = SonucEngine.normalizeHorseName(p.name);
+        const n2 = SonucEngine.normalizeHorseName(p.name + ' (' + p.no + ')');
+        return n1 === norm || n2 === norm;
+    }) || null;
+}
+
+function renderKosulMatrisi(tahminler, detay, profiles) {
+    const panel = document.getElementById('kosulMatrisPanel');
+    const content = document.getElementById('kosulMatrisContent');
+    if (!panel || !content || !currentRaceData?.length || !tahminler || !profiles) {
+        if (panel) panel.classList.add('empty');
+        return;
+    }
+
+    const tiers = KuralPanel.getActiveTiers();
+    const priorityTier = tiers[0];
+    const priorityKeys = new Set(priorityTier?.required || []);
+    const ruleCols = tiers.slice(0, 8);
+    const condKeys = TahminEngine.CONDITION_KEYS;
+    const condShort = TahminEngine.CONDITION_SHORT;
+    const condLabels = TahminEngine.CONDITION_LABELS;
+
+    let html = '';
+    for (let raceIdx = 0; raceIdx < currentRaceData.length; raceIdx++) {
+        const race = currentRaceData[raceIdx];
+        const raceNo = race.raceNo || (raceIdx + 1);
+        const mesafe = (race.mesafe && race.mesafe !== '?') ? race.mesafe : (race.raceDistance || '?');
+        const pist = race.pist || '';
+        const mesafeGosterim = mesafe !== '?' ? mesafe + (pist ? ' ' + pist : '') : '?';
+        const rows = tahminler[raceIdx] || [];
+        const raceProfiles = profiles[raceIdx] || [];
+
+        html += '<div class="kosul-race-block">';
+        html += '<div class="kosul-race-title">🏁 ' + raceNo + '. KOŞU — ' + mesafeGosterim
+            + ' · öncelik: ' + (priorityTier?.id || '-') + '</div>';
+        html += '<div class="kosul-table-wrap"><table class="kosul-table"><thead><tr>';
+        html += '<th class="kosul-sira">#</th>';
+        html += '<th class="kosul-at">At</th>';
+        for (const key of condKeys) {
+            const isPri = priorityKeys.has(key);
+            html += '<th class="' + (isPri ? 'kosul-th-priority' : '') + '" title="'
+                + AtSpeedUtils.escapeHtml(condLabels[key] || key) + '">'
+                + AtSpeedUtils.escapeHtml(condShort[key] || key) + '</th>';
+        }
+        for (const tier of ruleCols) {
+            html += '<th class="kosul-th-rule" title="' + AtSpeedUtils.escapeHtml(tier.label || tier.id) + '">'
+                + AtSpeedUtils.escapeHtml(tier.id) + '</th>';
+        }
+        html += '<th>SKOR</th></tr></thead><tbody>';
+
+        for (const row of rows) {
+            const profile = findProfileByName(raceProfiles, row.name);
+            if (!profile) continue;
+            const top3 = row.sira <= 3;
+            html += '<tr class="' + (top3 ? 'kosul-row-top3' : '') + '">';
+            html += '<td class="kosul-sira">' + row.sira + '</td>';
+            html += '<td class="kosul-at">' + AtSpeedUtils.escapeHtml(row.name) + '</td>';
+
+            for (const key of condKeys) {
+                const ok = !!profile.cond[key];
+                const isPri = priorityKeys.has(key);
+                let cls = ok ? 'kosul-cell-yes' : 'kosul-cell-no';
+                if (ok && isPri) cls = 'kosul-cell-priority-yes';
+                html += '<td class="' + cls + '" title="' + AtSpeedUtils.escapeHtml(condLabels[key] || key) + '">'
+                    + (ok ? '✓' : '·') + '</td>';
+            }
+
+            for (const tier of ruleCols) {
+                const matched = TahminEngine._matchCount(profile.cond, tier.required);
+                const total = tier.required.length;
+                const full = matched === total && total > 0;
+                const cls = full ? 'kosul-rule-full' : (matched > 0 ? 'kosul-rule-partial' : 'kosul-rule-none');
+                html += '<td class="kosul-rule-cell ' + cls + '">' + matched + '/' + total
+                    + (full ? ' ✓' : '') + '</td>';
+            }
+
+            html += '<td class="kosul-skor-cell">' + profile.score + '/12</td>';
+            html += '</tr>';
+        }
+
+        html += '</tbody></table></div></div>';
+    }
+
+    content.innerHTML = html;
+    panel.classList.remove('empty');
+    notifyParentResize();
+}
+
 function runOtomatikAktar() {
     if (!currentRaceData || !currentKayitMeta) {
         setStatus('<div class="status status-error">❌ Önce kayıt yükleyin</div>');
@@ -773,12 +1003,13 @@ function runOtomatikAktar() {
     }
     const prevTahminler = getTahminlerFromDom();
     const ruleTiers = KuralPanel.getActiveTiers();
-    const { tahminler, detay } = TahminEngine.computeAllRaces(currentRaceData, {
+    const { tahminler, detay, profiles } = TahminEngine.computeAllRaces(currentRaceData, {
         programTarih: currentKayitMeta.tarih,
         hipodromSehir: currentKayitMeta.hipodrom,
         ruleTiers
     });
     lastAktarDetay = detay;
+    lastRaceProfiles = profiles;
     const { degisen, birinciDegisen, kosuDegisen } = applyTahminlerToDom(tahminler, detay, prevTahminler) || { degisen: 0, birinciDegisen: 0, kosuDegisen: 0 };
     saveTahminToStorage(getTahminlerFromDom());
 
@@ -798,6 +1029,7 @@ function runOtomatikAktar() {
         + ' · Her atın altında <strong>★ ' + ilkKural + ' (x/y)</strong> eşleşmesi görünür'
         + '</div>');
     updateBasariGosterim();
+    renderKosulMatrisi(tahminler, detay, profiles);
     notifyParentResize();
 }
 
@@ -821,6 +1053,7 @@ function updateMeta() {
 function buildTahminGrid(data) {
     if (!data || !data.length) {
         document.getElementById('tahminimResults').innerHTML = '<div class="empty">⚠️ Veri bulunamadı</div>';
+        document.getElementById('kosulMatrisPanel')?.classList.add('empty');
         return;
     }
 
