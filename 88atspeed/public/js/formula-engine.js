@@ -162,6 +162,7 @@ const GosterimEngine = {
         TARIH: 3,
         SEHIR: 4,
         MESAFE: 5,
+        AT_SIRA: 6,
         SON800_1: 9,
         SON800_2: 10,
         TEST1: 17, TEST2: 18, TEST3: 19, TEST4: 20, TEST5: 21,
@@ -606,6 +607,10 @@ const GosterimEngine = {
         const gucluUyari = kirmiziYazi && test12Yakin;
         const maviFosfor = enIyiler.maviFosforSatir?.has(kosuKey);
         const test23Yanip = enIyiler.test23YanipSonen?.has(kosuKey);
+        const atIsmiVurgu = enIyiler.sifiraYakinAtlarSon7?.has(horseIndex);
+        const atIdVurgu = enIyiler.sifiraYakinAtlarSon3?.has(horseIndex);
+        const tarihVurgu = enIyiler.sifiraYakinAtlarSon2?.has(horseIndex);
+        const kombineUyari = atIsmiVurgu && atIdVurgu && tarihVurgu && kirmiziYazi;
 
         return {
             values,
@@ -629,9 +634,10 @@ const GosterimEngine = {
                     : (gucluUyari ? 'guclu-sehir-farkli' : ''),
                 son800_1Class: this._son800HucreClass(enIyiler.enIyilerSon800_1, kosuKey, sehirEslesme, eslesmeYesil),
                 son800_2Class: this._son800HucreClass(enIyiler.enIyilerSon800_2, kosuKey, sehirEslesme, eslesmeYesil),
-                atIsmiClass: enIyiler.sifiraYakinAtlarSon7?.has(horseIndex) ? 'at-ismi-mavi-vurgu' : '',
-                atIdClass: enIyiler.sifiraYakinAtlarSon3?.has(horseIndex) ? 'at-id-mavi-vurgu' : '',
-                tarihClass: enIyiler.sifiraYakinAtlarSon2?.has(horseIndex) ? 'tarih-koyu-mavi-vurgu' : ''
+                atIsmiClass: atIsmiVurgu ? 'at-ismi-mavi-vurgu' : '',
+                atIdClass: atIdVurgu ? 'at-id-mavi-vurgu' : '',
+                tarihClass: tarihVurgu ? 'tarih-koyu-mavi-vurgu' : '',
+                atSiraClass: kombineUyari ? 'at-sira-koyu-mavi-vurgu' : ''
             }
         };
     },
@@ -645,6 +651,7 @@ const GosterimEngine = {
         if (c === COL.AT_ISMI && classes.atIsmiClass) parts.push(classes.atIsmiClass);
         if (c === COL.AT_ID && classes.atIdClass) parts.push(classes.atIdClass);
         if (c === COL.TARIH && classes.tarihClass) parts.push(classes.tarihClass);
+        if (c === COL.AT_SIRA && classes.atSiraClass) parts.push(classes.atSiraClass);
         if (c === COL.SON800_1 && classes.son800_1Class) parts.push(classes.son800_1Class);
         if (c === COL.SON800_2 && classes.son800_2Class) parts.push(classes.son800_2Class);
         if (c === COL.TEST1) {
@@ -671,7 +678,7 @@ const GosterimEngine = {
         } else if (c === COL.TEST6 && classes.test6Class) {
             parts.push(classes.test6Class);
         }
-        if (classes.maviFosforClass && c !== COL.AT_ISMI && c !== COL.AT_ID && c !== COL.TARIH && !parts.includes('test23-yanip-son')) {
+        if (classes.maviFosforClass && c !== COL.AT_ISMI && c !== COL.AT_ID && c !== COL.TARIH && c !== COL.AT_SIRA && !parts.includes('test23-yanip-son')) {
             parts.push(classes.maviFosforClass);
         }
         return parts.length ? parts.join(' ') : '';
