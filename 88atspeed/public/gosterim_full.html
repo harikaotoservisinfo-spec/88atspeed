@@ -282,17 +282,20 @@
             z-index: 2;
         }
 
-        /* 8002-8001 ortalaması 0'a en yakın 3 at — AT İSMİ mavi fosfor */
-        .at-ismi-mavi-vurgu {
-            color: #01579b !important;
+        /* Son 3 koşu 8002-8001 ort. 0'a yakın 3 at — AT ID mavi hücre */
+        .at-id-mavi-vurgu {
+            background: linear-gradient(135deg, #01579b 0%, #0288d1 50%, #03a9f4 100%) !important;
+            color: #e1f5fe !important;
             font-weight: 800 !important;
-            text-shadow: 0 0 8px #00e5ff, 0 0 14px #18ffff, 0 0 4px #0288d1;
+            box-shadow: inset 0 0 12px rgba(0, 229, 255, 0.45), 0 0 10px rgba(3, 169, 244, 0.35);
+            text-shadow: 0 0 6px rgba(255, 255, 255, 0.85);
         }
-        tr.guclu-uyari-satir td.at-ismi-mavi-vurgu,
-        tr.fosfor-mavi-satir td.at-ismi-mavi-vurgu,
-        tr.fosfor-yesil-satir td.at-ismi-mavi-vurgu {
-            color: #84ffff !important;
-            text-shadow: 0 0 10px #18ffff, 0 0 18px #00e5ff, 0 0 6px #fff;
+        tr.guclu-uyari-satir td.at-id-mavi-vurgu,
+        tr.fosfor-mavi-satir td.at-id-mavi-vurgu,
+        tr.fosfor-yesil-satir td.at-id-mavi-vurgu {
+            background: linear-gradient(135deg, #0277bd 0%, #039be5 50%, #29b6f6 100%) !important;
+            color: #fff !important;
+            box-shadow: inset 0 0 14px rgba(0, 229, 255, 0.55), 0 0 12px rgba(41, 182, 246, 0.45) !important;
         }
     </style>
 </head>
@@ -307,7 +310,7 @@
 </div>
 
 <script src="js/utils.js?v=20260822h"></script>
-<script src="js/formula-engine.js?v=20260822q"></script>
+<script src="js/formula-engine.js?v=20260822r"></script>
 <script>
 let currentHesaplamaData = null;
 let currentHesaplamaId = null;

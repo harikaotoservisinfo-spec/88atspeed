@@ -511,10 +511,11 @@ tr.guclu-uyari-satir td:not(.eslesme-yesil) {
     font-weight: 700 !important;
     text-shadow: 0 0 8px #00e5ff, 0 0 14px #18ffff;
 }
-.at-ismi-mavi-vurgu {
-    color: #01579b !important;
+.at-id-mavi-vurgu {
+    background: linear-gradient(135deg, #01579b 0%, #0288d1 50%, #03a9f4 100%) !important;
+    color: #e1f5fe !important;
     font-weight: 800 !important;
-    text-shadow: 0 0 8px #00e5ff, 0 0 14px #18ffff, 0 0 4px #0288d1;
+    box-shadow: inset 0 0 12px rgba(0, 229, 255, 0.45), 0 0 10px rgba(3, 169, 244, 0.35);
 }
 .kirmizi-yazi { color: #c62828 !important; font-weight: 800 !important; }
 .yesil-yazi { color: #2e7d32 !important; font-weight: 800 !important; }

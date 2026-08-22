@@ -158,6 +158,7 @@ const FormulaEngine = {
 const GosterimEngine = {
     COL: {
         AT_ISMI: 1,
+        AT_ID: 2,
         SEHIR: 4,
         MESAFE: 5,
         SON800_1: 9,
@@ -381,13 +382,14 @@ const GosterimEngine = {
         return null;
     },
 
-    /** Her atın 8002-8001 ortalaması 0'a en yakın 3 at (koşu bazında) */
+    /** Son 3 koşuda 8002-8001 ortalaması 0'a en yakın 3 at (koşu bazında) */
     collectSifiraYakin8002Ortalama(race) {
         const ortalamalar = [];
         for (let j = 0; j < race.horses.length; j++) {
+            const sonKosular = this._sortKosularNewest(race.horses[j].kosular || []).slice(0, 3);
             let toplam = 0;
             let adet = 0;
-            for (const atKosu of race.horses[j].kosular || []) {
+            for (const atKosu of sonKosular) {
                 const fark = this._computeFark8002_8001(atKosu);
                 if (fark !== null) {
                     toplam += fark;
@@ -617,7 +619,7 @@ const GosterimEngine = {
                     : (gucluUyari ? 'guclu-sehir-farkli' : ''),
                 son800_1Class: this._son800HucreClass(enIyiler.enIyilerSon800_1, kosuKey, sehirEslesme, eslesmeYesil),
                 son800_2Class: this._son800HucreClass(enIyiler.enIyilerSon800_2, kosuKey, sehirEslesme, eslesmeYesil),
-                atIsmiClass: enIyiler.sifiraYakinAtlar?.has(horseIndex) ? 'at-ismi-mavi-vurgu' : ''
+                atIdClass: enIyiler.sifiraYakinAtlar?.has(horseIndex) ? 'at-id-mavi-vurgu' : ''
             }
         };
     },
@@ -628,7 +630,7 @@ const GosterimEngine = {
         const parts = [];
         if (c === COL.MESAFE && classes.mesafeClass) parts.push(classes.mesafeClass);
         if (c === COL.SEHIR && classes.sehirClass) parts.push(classes.sehirClass);
-        if (c === COL.AT_ISMI && classes.atIsmiClass) parts.push(classes.atIsmiClass);
+        if (c === COL.AT_ID && classes.atIdClass) parts.push(classes.atIdClass);
         if (c === COL.SON800_1 && classes.son800_1Class) parts.push(classes.son800_1Class);
         if (c === COL.SON800_2 && classes.son800_2Class) parts.push(classes.son800_2Class);
         if (c === COL.TEST1) {
@@ -655,7 +657,7 @@ const GosterimEngine = {
         } else if (c === COL.TEST6 && classes.test6Class) {
             parts.push(classes.test6Class);
         }
-        if (classes.maviFosforClass && c !== COL.AT_ISMI && !parts.includes('test23-yanip-son')) {
+        if (classes.maviFosforClass && c !== COL.AT_ID && !parts.includes('test23-yanip-son')) {
             parts.push(classes.maviFosforClass);
         }
         return parts.length ? parts.join(' ') : '';
