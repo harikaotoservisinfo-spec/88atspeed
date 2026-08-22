@@ -281,6 +281,19 @@
             position: relative;
             z-index: 2;
         }
+
+        /* 8002-8001 ortalaması 0'a en yakın 3 at — AT İSMİ mavi fosfor */
+        .at-ismi-mavi-vurgu {
+            color: #01579b !important;
+            font-weight: 800 !important;
+            text-shadow: 0 0 8px #00e5ff, 0 0 14px #18ffff, 0 0 4px #0288d1;
+        }
+        tr.guclu-uyari-satir td.at-ismi-mavi-vurgu,
+        tr.fosfor-mavi-satir td.at-ismi-mavi-vurgu,
+        tr.fosfor-yesil-satir td.at-ismi-mavi-vurgu {
+            color: #84ffff !important;
+            text-shadow: 0 0 10px #18ffff, 0 0 18px #00e5ff, 0 0 6px #fff;
+        }
     </style>
 </head>
 <body>
@@ -294,7 +307,7 @@
 </div>
 
 <script src="js/utils.js?v=20260822h"></script>
-<script src="js/formula-engine.js?v=20260822p"></script>
+<script src="js/formula-engine.js?v=20260822q"></script>
 <script>
 let currentHesaplamaData = null;
 let currentHesaplamaId = null;

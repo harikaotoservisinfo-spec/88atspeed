@@ -157,6 +157,7 @@ const FormulaEngine = {
 
 const GosterimEngine = {
     COL: {
+        AT_ISMI: 1,
         SEHIR: 4,
         MESAFE: 5,
         SON800_1: 9,
@@ -366,6 +367,48 @@ const GosterimEngine = {
         return { maviFosforSatir, test23YanipSonen };
     },
 
+    _computeFark8002_8001(atKosu) {
+        let son800_1 = atKosu.son800_bir;
+        let son800_2 = atKosu.son800_iki;
+        if (!son800_2 || son800_2 === '-') son800_2 = son800_1;
+        const son800_1Salise = AtSpeedUtils.dereceToSalise(son800_1);
+        const son800_2Salise = AtSpeedUtils.dereceToSalise(son800_2);
+        const son800_1_sl = son800_1Salise ? son800_1Salise / 800 : null;
+        const son800_2_sl = son800_2Salise ? son800_2Salise / 800 : null;
+        if (son800_2_sl !== null && son800_1_sl !== null) {
+            return son800_2_sl - son800_1_sl;
+        }
+        return null;
+    },
+
+    /** Her atın 8002-8001 ortalaması 0'a en yakın 3 at (koşu bazında) */
+    collectSifiraYakin8002Ortalama(race) {
+        const ortalamalar = [];
+        for (let j = 0; j < race.horses.length; j++) {
+            let toplam = 0;
+            let adet = 0;
+            for (const atKosu of race.horses[j].kosular || []) {
+                const fark = this._computeFark8002_8001(atKosu);
+                if (fark !== null) {
+                    toplam += fark;
+                    adet++;
+                }
+            }
+            if (adet === 0) continue;
+            const ort = toplam / adet;
+            ortalamalar.push({ j, ort, absOrt: Math.abs(ort) });
+        }
+        ortalamalar.sort((a, b) => {
+            if (a.absOrt !== b.absOrt) return a.absOrt - b.absOrt;
+            return Math.abs(a.ort) - Math.abs(b.ort);
+        });
+        const sifiraYakinAtlar = new Set();
+        for (let t = 0; t < Math.min(3, ortalamalar.length); t++) {
+            sifiraYakinAtlar.add(ortalamalar[t].j);
+        }
+        return { sifiraYakinAtlar };
+    },
+
     /** Koşu içinde SON800-1 ve SON800-2 için en düşük 3 süre */
     collectTopSon800(race) {
         const son800_1 = [];
@@ -573,7 +616,8 @@ const GosterimEngine = {
                     ? (gucluUyari ? `${eslesmeYesil} guclu-sehir-eslesme` : eslesmeYesil)
                     : (gucluUyari ? 'guclu-sehir-farkli' : ''),
                 son800_1Class: this._son800HucreClass(enIyiler.enIyilerSon800_1, kosuKey, sehirEslesme, eslesmeYesil),
-                son800_2Class: this._son800HucreClass(enIyiler.enIyilerSon800_2, kosuKey, sehirEslesme, eslesmeYesil)
+                son800_2Class: this._son800HucreClass(enIyiler.enIyilerSon800_2, kosuKey, sehirEslesme, eslesmeYesil),
+                atIsmiClass: enIyiler.sifiraYakinAtlar?.has(horseIndex) ? 'at-ismi-mavi-vurgu' : ''
             }
         };
     },
@@ -584,6 +628,7 @@ const GosterimEngine = {
         const parts = [];
         if (c === COL.MESAFE && classes.mesafeClass) parts.push(classes.mesafeClass);
         if (c === COL.SEHIR && classes.sehirClass) parts.push(classes.sehirClass);
+        if (c === COL.AT_ISMI && classes.atIsmiClass) parts.push(classes.atIsmiClass);
         if (c === COL.SON800_1 && classes.son800_1Class) parts.push(classes.son800_1Class);
         if (c === COL.SON800_2 && classes.son800_2Class) parts.push(classes.son800_2Class);
         if (c === COL.TEST1) {
@@ -610,7 +655,7 @@ const GosterimEngine = {
         } else if (c === COL.TEST6 && classes.test6Class) {
             parts.push(classes.test6Class);
         }
-        if (classes.maviFosforClass && !parts.includes('test23-yanip-son')) {
+        if (classes.maviFosforClass && c !== COL.AT_ISMI && !parts.includes('test23-yanip-son')) {
             parts.push(classes.maviFosforClass);
         }
         return parts.length ? parts.join(' ') : '';
@@ -627,7 +672,8 @@ const GosterimEngine = {
             ...topTests,
             ...this.collectTopSon800(calcRace),
             ...this.collectClosestTest12(calcRace, hedefMesafe),
-            ...this.collectMaviFosforTest123(calcRace, hedefMesafe, topTests.enIyilerTest3)
+            ...this.collectMaviFosforTest123(calcRace, hedefMesafe, topTests.enIyilerTest3),
+            ...this.collectSifiraYakin8002Ortalama(calcRace)
         };
         const trends = this.computeHorseTrends(calcRace, hedefMesafe);
         const rows = [];
