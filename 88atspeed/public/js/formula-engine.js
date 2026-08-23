@@ -980,7 +980,7 @@ const GosterimEngine = {
                 atSiraClass: kombineUyari ? 'at-sira-koyu-mavi-vurgu' : '',
                 siraNoClass: enIyiler.test12YakinAtlar?.has(horseIndex) ? 'sira-no-koyu-mavi-vurgu' : '',
                 test9Class: test9MaviKenarVurgu ? 'mavi-kenar-test9-vurgu' : '',
-                test9YanipClass: test9SiraBirYanip ? 'mavi-yanip-son' : '',
+                test9YanipClass: test9SiraBirYanip ? 'test9-yanip-son-guclu' : '',
                 t1drKirmiziClass: t1drSonKosu ? 'fosfor-kirmizi-yazi' : '',
                 t1drEnIyi2Class: t1drEnIyi2 ? 't1dr-eniyi-yanip-son' : '',
                 t1drT3YesilClass: t1drT3SonKosu ? 'fosfor-yesil-koyu-yazi' : '',
@@ -1042,7 +1042,7 @@ const GosterimEngine = {
             || c === COL.TEST3_ENTEGRE || c === COL.TEST2_MINUS_TEST3
             || c === COL.FARK8002 || c === COL.TEST9;
         if (classes.maviFosforClass && !skipMaviFosfor && !parts.includes('test23-yanip-son')
-            && !parts.includes('mavi-yanip-son')) {
+            && !parts.includes('mavi-yanip-son') && !parts.includes('test9-yanip-son-guclu')) {
             parts.push(classes.maviFosforClass);
         }
         return parts.length ? parts.join(' ') : '';

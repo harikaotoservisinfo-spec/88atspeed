@@ -530,6 +530,61 @@
             z-index: 3;
             letter-spacing: 0.02em;
         }
+
+        /* TEST9 — SIRA=1 kuralından |TEST9| 0'a en yakın 3 at: ekstra belirgin yanıp sönme */
+        @keyframes test9-yanip-son-guclu {
+            0%, 45% {
+                background: linear-gradient(135deg, #000051 0%, #001a7a 35%, #0d47a1 100%) !important;
+                color: #ffffff !important;
+                font-weight: 900 !important;
+                outline: 3px solid #00e5ff !important;
+                outline-offset: -3px;
+                box-shadow:
+                    inset 0 0 24px #00e5ff,
+                    inset 0 0 40px #18ffff,
+                    0 0 28px #00b0ff,
+                    0 0 48px #18ffff,
+                    0 0 64px rgba(0, 229, 255, 0.85) !important;
+                text-shadow:
+                    0 0 14px #ffffff,
+                    0 0 24px #18ffff,
+                    0 0 36px #00e5ff,
+                    0 0 48px #ffffff;
+                transform: scale(1.07);
+                filter: brightness(1.2);
+            }
+            50%, 100% {
+                background: #ffffff !important;
+                color: #000051 !important;
+                outline: 4px solid #0277bd !important;
+                outline-offset: -4px;
+                box-shadow:
+                    inset 0 0 10px rgba(2, 119, 189, 0.35),
+                    0 0 20px #00e5ff,
+                    0 0 40px #18ffff,
+                    0 0 60px rgba(24, 255, 255, 0.9) !important;
+                text-shadow: 0 0 6px rgba(0, 0, 81, 0.5);
+                transform: scale(1.1);
+                filter: brightness(1.35);
+            }
+        }
+        td.test9-yanip-son-guclu,
+        tr.guclu-uyari-satir td.test9-yanip-son-guclu,
+        tr.fosfor-mavi-satir td.test9-yanip-son-guclu,
+        tr.fosfor-yesil-satir td.test9-yanip-son-guclu,
+        tr.fosfor-kirmizi-kenar-satir td.test9-yanip-son-guclu,
+        tr.koyu-mavi-kenar-satir td.test9-yanip-son-guclu,
+        tr.pembe-satir td.test9-yanip-son-guclu {
+            animation: test9-yanip-son-guclu 0.55s step-end infinite !important;
+            position: relative;
+            z-index: 8 !important;
+            letter-spacing: 0.05em;
+            font-size: 1.08em;
+        }
+        td.test9-yanip-son-guclu.mavi-kenar-test9-vurgu {
+            color: inherit !important;
+            text-shadow: inherit;
+        }
     </style>
 </head>
 <body>
@@ -542,8 +597,8 @@
 <div id="gosterimResults" class="results-table"><div class="empty">🏇 HESAPLAMA KAYITLARI butonuna tıklayın</div></div>
 </div>
 
-<script src="js/utils.js?v=20260824v"></script>
-<script src="js/formula-engine.js?v=20260824v"></script>
+<script src="js/utils.js?v=20260824w"></script>
+<script src="js/formula-engine.js?v=20260824w"></script>
 <script>
 let currentHesaplamaData = null;
 let currentHesaplamaId = null;
