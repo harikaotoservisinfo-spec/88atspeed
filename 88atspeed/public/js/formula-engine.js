@@ -742,6 +742,7 @@ const GosterimEngine = {
             test3_salise, test3_entegre_salise
         } = this._computeDrMetrics(atKosu, hedefMesafe);
         const birinciSalise = AtSpeedUtils.dereceToSalise(birinciDerece);
+        const dereceSalise = AtSpeedUtils.dereceToSalise(dereceStr);
         const fark = (birinci_dr_sl !== null && dr_sl !== null) ? birinci_dr_sl - dr_sl : null;
 
         let test2_salise = null;
@@ -754,7 +755,15 @@ const GosterimEngine = {
 
         let test4_salise = null, test5_salise = null, test6_salise = null, test7_salise = null;
         if (test1_salise !== null && test3_salise !== null) test4_salise = test3_salise - test1_salise;
-        if (test1_salise !== null && birinciSalise !== null) test5_salise = test1_salise - birinciSalise;
+        if (birinciSalise !== null) {
+            if (mesafeEslesme && test1_salise !== null) {
+                // Hedef mesafe = satır mesafesi → TEST1 − 1.DERECE
+                test5_salise = test1_salise - birinciSalise;
+            } else if (dereceSalise !== null) {
+                // Farklı mesafe → aynı koşuda AT DERECE − 1.DERECE
+                test5_salise = dereceSalise - birinciSalise;
+            }
+        }
         if (test1_salise !== null && test2_salise !== null) test6_salise = test2_salise - test1_salise;
         if (test1_salise !== null && test2_salise !== null) test7_salise = test1_salise - test2_salise;
 
