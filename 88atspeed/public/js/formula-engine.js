@@ -336,6 +336,56 @@ const GosterimEngine = {
         return { enIyilerTest12Yakin, test12YakinAtlar };
     },
 
+    _computeDrMetrics(atKosu, hedefMesafe) {
+        const gecmisMesafe = atKosu.mesafe;
+        const dereceSalise = AtSpeedUtils.dereceToSalise(atKosu.at_derece);
+        const birinciSalise = AtSpeedUtils.dereceToSalise(atKosu.birinci_derece);
+        const dr_sl = AtSpeedUtils.metreBasiSalise(dereceSalise, gecmisMesafe);
+        const birinci_dr_sl = AtSpeedUtils.metreBasiSalise(birinciSalise, gecmisMesafe);
+        const dr_oran = (dr_sl !== null && birinci_dr_sl !== null && birinci_dr_sl !== 0)
+            ? dr_sl / birinci_dr_sl : null;
+        let test1_salise = null;
+        if (dr_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
+            test1_salise = hedefMesafe * dr_sl;
+        }
+        const test1_entegre_salise = (test1_salise !== null && dr_oran !== null)
+            ? test1_salise * dr_oran : null;
+        return { dr_sl, birinci_dr_sl, dr_oran, test1_salise, test1_entegre_salise };
+    },
+
+    _computeHorseBestDrMetrics(kosular, hedefMesafe) {
+        let t1dr = Infinity;
+        let drOran = Infinity;
+        let test1 = Infinity;
+        for (const atKosu of kosular || []) {
+            const m = this._computeDrMetrics(atKosu, hedefMesafe);
+            if (m.test1_entegre_salise !== null && m.test1_entegre_salise < t1dr) {
+                t1dr = m.test1_entegre_salise;
+            }
+            if (m.dr_oran !== null && m.dr_oran < drOran) drOran = m.dr_oran;
+            if (m.test1_salise !== null && m.test1_salise < test1) test1 = m.test1_salise;
+        }
+        return {
+            t1dr: t1dr === Infinity ? null : t1dr,
+            drOran: drOran === Infinity ? null : drOran,
+            test1: test1 === Infinity ? null : test1
+        };
+    },
+
+    _topHorseIndicesByMetric(calcRace, hedefMesafe, field, limit) {
+        const rows = calcRace.horses.map((h, j) => ({
+            j,
+            val: this._computeHorseBestDrMetrics(h.kosular, hedefMesafe)[field]
+        })).filter(r => r.val !== null);
+        rows.sort((a, b) => {
+            if (a.val !== b.val) return a.val - b.val;
+            return a.j - b.j;
+        });
+        const set = new Set();
+        for (let i = 0; i < Math.min(limit, rows.length); i++) set.add(rows[i].j);
+        return { best: rows.length ? rows[0].j : -1, top: set };
+    },
+
     _computeTestSalise(atKosu, hedefMesafe) {
         const gecmisMesafe = atKosu.mesafe;
         const dereceSalise = AtSpeedUtils.dereceToSalise(atKosu.at_derece);
@@ -640,28 +690,22 @@ const GosterimEngine = {
         let son800_2 = atKosu.son800_iki;
         if (!son800_2 || son800_2 === '-') son800_2 = son800_1;
 
-        const dereceSalise = AtSpeedUtils.dereceToSalise(dereceStr);
-        const birinciSalise = AtSpeedUtils.dereceToSalise(birinciDerece);
         const son800_1Salise = AtSpeedUtils.dereceToSalise(son800_1);
         const son800_2Salise = AtSpeedUtils.dereceToSalise(son800_2);
-
-        const dr_sl = AtSpeedUtils.metreBasiSalise(dereceSalise, gecmisMesafe);
-        const birinci_dr_sl = AtSpeedUtils.metreBasiSalise(birinciSalise, gecmisMesafe);
         const son800_1_sl = son800_1Salise ? son800_1Salise / 800 : null;
         const son800_2_sl = son800_2Salise ? son800_2Salise / 800 : null;
-        const fark = (birinci_dr_sl !== null && dr_sl !== null) ? birinci_dr_sl - dr_sl : null;
-        const dr_oran = (dr_sl !== null && birinci_dr_sl !== null && birinci_dr_sl !== 0)
-            ? dr_sl / birinci_dr_sl : null;
         const fark_8002_8001 = (son800_2_sl !== null && son800_1_sl !== null)
             ? son800_2_sl - son800_1_sl : null;
 
-        let test1_salise = null, test2_salise = null, test3_salise = null;
-        if (dr_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) test1_salise = hedefMesafe * dr_sl;
+        const {
+            dr_sl, birinci_dr_sl, dr_oran, test1_salise, test1_entegre_salise
+        } = this._computeDrMetrics(atKosu, hedefMesafe);
+        const birinciSalise = AtSpeedUtils.dereceToSalise(birinciDerece);
+        const fark = (birinci_dr_sl !== null && dr_sl !== null) ? birinci_dr_sl - dr_sl : null;
+
+        let test2_salise = null, test3_salise = null;
         if (son800_1_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) test2_salise = hedefMesafe * son800_1_sl;
         if (son800_2_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) test3_salise = hedefMesafe * son800_2_sl;
-
-        const test1_entegre_salise = (test1_salise !== null && dr_oran !== null)
-            ? test1_salise * dr_oran : null;
 
         let kirmiziYazi = false;
         if (test1_salise !== null && test2_salise !== null && test3_salise !== null) {

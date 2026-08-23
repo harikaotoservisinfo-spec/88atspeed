@@ -1,5 +1,26 @@
 /* 88ATSPEED - TAHMİNİM otomatik aktarma motoru */
 const TahminEngine = {
+  METRIC_KEYS: [
+    't1drEnIyi',
+    't1drTop3',
+    'drOranEnIyi',
+    'drOranTop3'
+  ],
+
+  METRIC_LABELS: {
+    t1drEnIyi: 'T1×DR en iyi',
+    t1drTop3: 'T1×DR top 3',
+    drOranEnIyi: 'DR/1DR en iyi',
+    drOranTop3: 'DR/1DR top 3'
+  },
+
+  METRIC_SHORT: {
+    t1drEnIyi: 'T1DR',
+    t1drTop3: 'T1T3',
+    drOranEnIyi: 'DR1',
+    drOranTop3: 'DR3'
+  },
+
   /** Öncelik sırası (1. sıra kuralı = hepsi) */
   CONDITION_KEYS: [
     'siraNoMavi',
@@ -75,13 +96,21 @@ const TahminEngine = {
   buildContext(race, options = {}) {
     const GE = GosterimEngine;
     const { calcRace, hedefMesafe, enIyiler, trends } = GE.buildEnIyilerBundle(race, options);
+    const t1drLeaders = GE._topHorseIndicesByMetric(calcRace, hedefMesafe, 't1dr', 3);
+    const drOranLeaders = GE._topHorseIndicesByMetric(calcRace, hedefMesafe, 'drOran', 3);
     return {
       calcRace,
       hedefMesafe,
       hipodromSehir: options.hipodromSehir || null,
       enIyiler,
       trends,
-      bestTest1Horse: this._computeBestTest1Horse(calcRace, hedefMesafe)
+      bestTest1Horse: this._computeBestTest1Horse(calcRace, hedefMesafe),
+      drLeaders: {
+        bestT1dr: t1drLeaders.best,
+        top3T1dr: t1drLeaders.top,
+        bestDrOran: drOranLeaders.best,
+        top3DrOran: drOranLeaders.top
+      }
     };
   },
 
@@ -90,7 +119,7 @@ const TahminEngine = {
     const horse = ctx.calcRace.horses[horseIndex];
     const kosular = horse.kosular || [];
     const sonKosu = GE._sortKosularNewest(kosular)[0] || null;
-    const { enIyiler, hedefMesafe, hipodromSehir, bestTest1Horse } = ctx;
+    const { enIyiler, hedefMesafe, hipodromSehir, bestTest1Horse, drLeaders } = ctx;
     const kosuKey = (k) => GE._kosuKey(horseIndex, k);
     const sehirMesafe = (k) =>
       GE._sehirEslesme(k.sehir, hipodromSehir) && this._mesafeEslesme(k.mesafe, hedefMesafe);
@@ -104,6 +133,10 @@ const TahminEngine = {
       sehirMesafeBirIki: kosular.some(k => sehirMesafe(k) && this._siraBirIki(k.sira)),
       son800Top3: kosular.some(k => enIyiler.enIyilerSon800_1?.has(kosuKey(k))),
       test1EnIyi: bestTest1Horse === horseIndex,
+      t1drEnIyi: drLeaders.bestT1dr === horseIndex,
+      t1drTop3: drLeaders.top3T1dr.has(horseIndex),
+      drOranEnIyi: drLeaders.bestDrOran === horseIndex,
+      drOranTop3: drLeaders.top3DrOran.has(horseIndex),
       test123Kirmizi: kosular.some(k => GE._computeKirmiziYazi(k, hedefMesafe)),
       sonKosuYesilSatir: !!(sonKosu && GE._isFosforYesilKosu(sonKosu, hedefMesafe)),
       test12Sari: kosular.some(k => enIyiler.enIyilerTest12Yakin?.has(kosuKey(k))),
@@ -154,6 +187,19 @@ const TahminEngine = {
     return noA - noB;
   },
 
+  _compareProfiles(a, b, tiers) {
+    const at1 = a.t1dr ?? Infinity;
+    const bt1 = b.t1dr ?? Infinity;
+    if (at1 !== bt1) return at1 - bt1;
+    const adr = a.drOran ?? Infinity;
+    const bdr = b.drOran ?? Infinity;
+    if (adr !== bdr) return adr - bdr;
+    const at = a.test1 ?? Infinity;
+    const bt = b.test1 ?? Infinity;
+    if (at !== bt) return at - bt;
+    return this._compareByRulePriority(a, b, tiers);
+  },
+
   _primaryRuleId(profile, tiers) {
     for (const tier of tiers) {
       if (this._matchRatio(profile.cond, tier.required) > 0) return tier.id;
@@ -176,6 +222,33 @@ const TahminEngine = {
   buildRuleTiers() {
     const keys = this.CONDITION_KEYS;
     const tiers = [];
+
+    tiers.push({
+      id: 'K-T1DR',
+      label: 'T1×DR en iyi (düşük = iyi)',
+      required: ['t1drEnIyi'],
+      siraOnly: 1
+    });
+    tiers.push({
+      id: 'K-DR1DR',
+      label: 'DR/1DR en iyi (düşük = iyi)',
+      required: ['drOranEnIyi']
+    });
+    tiers.push({
+      id: 'K-TEST1M',
+      label: 'TEST1 en iyi (metrik)',
+      required: ['test1EnIyi']
+    });
+    tiers.push({
+      id: 'K-T1DR3',
+      label: 'T1×DR top 3',
+      required: ['t1drTop3']
+    });
+    tiers.push({
+      id: 'K-DR1DR3',
+      label: 'DR/1DR top 3',
+      required: ['drOranTop3']
+    });
 
     tiers.push({
       id: 'K1',
@@ -283,6 +356,7 @@ const TahminEngine = {
     const profiles = ctx.calcRace.horses.map((h, j) => {
       const cond = this.evaluateHorse(j, ctx);
       const score = this.CONDITION_KEYS.filter(k => cond[k]).length;
+      const metrics = GosterimEngine._computeHorseBestDrMetrics(h.kosular, ctx.hedefMesafe);
       const t9 = ctx.trends.test7Farki[j];
       return {
         index: j,
@@ -290,17 +364,23 @@ const TahminEngine = {
         no: h.no,
         cond,
         score,
+        t1dr: metrics.t1dr,
+        drOran: metrics.drOran,
+        test1: metrics.test1,
         test9Abs: t9 === null || t9 === undefined ? Infinity : Math.abs(t9)
       };
     });
 
-    const sorted = [...profiles].sort((a, b) => this._compareByRulePriority(a, b, tiers));
+    const sorted = [...profiles].sort((a, b) => this._compareProfiles(a, b, tiers));
     const result = sorted.map((p) => p.name);
     const meta = sorted.map((p) => ({
       ...this._priorityMeta(p, tiers),
       ruleId: this._primaryRuleId(p, tiers),
       score: p.score,
-      cond: p.cond
+      cond: p.cond,
+      t1dr: p.t1dr !== null ? AtSpeedUtils.saliseToDerece(p.t1dr) : null,
+      drOran: p.drOran !== null ? p.drOran.toFixed(4) : null,
+      test1Val: p.test1 !== null ? AtSpeedUtils.saliseToDerece(p.test1) : null
     }));
 
     return { names: result, meta, profiles };

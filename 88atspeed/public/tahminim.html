@@ -465,19 +465,6 @@
             color: #283593;
             min-width: 44px;
         }
-        .kosul-table td.kosul-at {
-            text-align: left;
-            font-weight: 700;
-            color: #263238;
-            min-width: 130px;
-            max-width: 180px;
-            white-space: normal;
-            position: sticky;
-            left: 0;
-            background: #fff;
-            z-index: 1;
-            box-shadow: 2px 0 4px rgba(0,0,0,0.04);
-        }
         .kosul-table td.kosul-sira {
             font-weight: 800;
             color: #1a237e;
@@ -486,6 +473,19 @@
             position: sticky;
             left: 0;
             z-index: 2;
+        }
+        .kosul-table td.kosul-at {
+            text-align: left;
+            font-weight: 700;
+            color: #263238;
+            min-width: 130px;
+            max-width: 180px;
+            white-space: normal;
+            position: sticky;
+            left: 36px;
+            background: #fff;
+            z-index: 2;
+            box-shadow: 2px 0 4px rgba(0,0,0,0.04);
         }
         .kosul-table tr.kosul-row-top3 td.kosul-at { background: #e3f2fd; }
         .kosul-cell-yes {
@@ -507,6 +507,12 @@
         .kosul-rule-partial { background: #fff9c4 !important; color: #f57f17; }
         .kosul-rule-none { background: #fafafa; color: #bdbdbd; }
         .kosul-skor-cell { font-weight: 800; background: #e3f2fd !important; color: #0d47a1; }
+        .kosul-th-metric, .kosul-metric-cell {
+            background: #fff3e0 !important;
+            color: #e65100;
+            font-weight: 700;
+            min-width: 72px;
+        }
     </style>
 </head>
 <body>
@@ -540,7 +546,7 @@
         <div class="tahminim-rules-sidebar">
             <div class="kural-panel" id="kuralPanel">
                 <div class="kural-panel-title">📐 Kural sırası — sürükleyin veya ▲▼</div>
-                <div class="kural-panel-sub">Listenin <strong>1. kuralı</strong> birincil sıralama anahtarıdır. Her atın altında <strong>★ KURAL (x/y)</strong> o kuraldaki eşleşmeyi gösterir. 1. at aynı kalabilir; 2–10. sıralar değişir.</div>
+                <div class="kural-panel-sub">Sıralama önceliği: <strong>T1×DR → DR/1DR → TEST1</strong> (düşük = iyi), ardından kural listesi. Listenin <strong>1. kuralı</strong> etiket ve matriste vurgulanır.</div>
                 <div id="kuralSiraList" class="kural-list"></div>
                 <div class="kural-item kural-item-fixed">SKOR — eşleşme yoksa en yüksek skorlu at (son çare, sabit)</div>
                 <div class="kural-panel-actions">
@@ -574,8 +580,8 @@
 </div>
 
 <script src="js/utils.js?v=20260822h"></script>
-<script src="js/formula-engine.js?v=20260823c"></script>
-<script src="js/tahmin-engine.js?v=20260824j"></script>
+<script src="js/formula-engine.js?v=20260824m"></script>
+<script src="js/tahmin-engine.js?v=20260824m"></script>
 <script src="js/sonuc-engine.js?v=20260824c"></script>
 <script src="js/kural-panel.js?v=20260824f"></script>
 <script>
@@ -600,8 +606,8 @@ function updateAktifKuralBanner() {
         banner.classList.remove('visible');
         return;
     }
-    const ilk3 = tiers.slice(0, 5).map((t, i) => (i + 1) + '. <strong>' + t.id + '</strong>').join(' → ');
-    banner.innerHTML = '⚡ Aktif kural sırası: ' + ilk3 + (tiers.length > 5 ? ' → …' : '') + ' → SKOR';
+    const ilk3 = 'T1×DR → DR/1DR → TEST1 → ' + tiers.slice(0, 4).map((t, i) => (i + 1) + '. <strong>' + t.id + '</strong>').join(' → ');
+    banner.innerHTML = '⚡ Sıralama: ' + ilk3 + (tiers.length > 4 ? ' → …' : '') + ' → SKOR';
     banner.classList.add('visible');
     notifyParentResize();
 }
@@ -685,7 +691,7 @@ function applyTahminlerToDom(tahminler, detay, prevTahminler) {
         let kosuIcindeDegisen = 0;
 
         const badge = card.querySelector('.tahmin-race-priority-badge');
-        if (badge) badge.textContent = 'öncelik: ' + priorityRuleId;
+        if (badge) badge.textContent = 'öncelik: T1×DR → DR/1DR → TEST1';
 
         card.classList.remove('race-order-changed');
         card.querySelectorAll('.tahmin-row').forEach(rowEl => {
@@ -721,7 +727,12 @@ function applyTahminlerToDom(tahminler, detay, prevTahminler) {
                 const pId = m.priorityRuleId || priorityRuleId;
                 const pMatch = m.priorityMatched != null ? m.priorityMatched : 0;
                 const pTotal = m.priorityTotal || 0;
-                tag.textContent = '★ ' + pId + ' (' + pMatch + '/' + pTotal + ') · skor ' + m.score + '/12';
+                const metricParts = [];
+                if (m.t1dr) metricParts.push('T1×DR ' + m.t1dr);
+                if (m.drOran) metricParts.push('DR/1DR ' + m.drOran);
+                if (m.test1Val) metricParts.push('TEST1 ' + m.test1Val);
+                const metricText = metricParts.length ? metricParts.join(' · ') + ' · ' : '';
+                tag.textContent = metricText + '★ ' + pId + ' (' + pMatch + '/' + pTotal + ') · skor ' + m.score + '/12';
                 cell.appendChild(tag);
             }
         });
@@ -942,10 +953,22 @@ function renderKosulMatrisi(tahminler, detay, profiles) {
 
         html += '<div class="kosul-race-block">';
         html += '<div class="kosul-race-title">🏁 ' + raceNo + '. KOŞU — ' + mesafeGosterim
-            + ' · öncelik: ' + (priorityTier?.id || '-') + '</div>';
+            + ' · öncelik: T1×DR → DR/1DR → TEST1</div>';
         html += '<div class="kosul-table-wrap"><table class="kosul-table"><thead><tr>';
         html += '<th class="kosul-sira">#</th>';
         html += '<th class="kosul-at">At</th>';
+        html += '<th class="kosul-th-metric" title="TEST1 × DR/1DR (düşük = iyi)">T1×DR</th>';
+        html += '<th class="kosul-th-metric" title="DR/SL ÷ 1DR/SL (düşük = iyi)">DR/1DR</th>';
+        html += '<th class="kosul-th-metric" title="TEST1 (düşük = iyi)">TEST1</th>';
+        const metricKeys = TahminEngine.METRIC_KEYS;
+        const metricShort = TahminEngine.METRIC_SHORT;
+        const metricLabels = TahminEngine.METRIC_LABELS;
+        for (const key of metricKeys) {
+            const isPri = priorityKeys.has(key);
+            html += '<th class="' + (isPri ? 'kosul-th-priority' : '') + '" title="'
+                + AtSpeedUtils.escapeHtml(metricLabels[key] || key) + '">'
+                + AtSpeedUtils.escapeHtml(metricShort[key] || key) + '</th>';
+        }
         for (const key of condKeys) {
             const isPri = priorityKeys.has(key);
             html += '<th class="' + (isPri ? 'kosul-th-priority' : '') + '" title="'
@@ -965,6 +988,19 @@ function renderKosulMatrisi(tahminler, detay, profiles) {
             html += '<tr class="' + (top3 ? 'kosul-row-top3' : '') + '">';
             html += '<td class="kosul-sira">' + row.sira + '</td>';
             html += '<td class="kosul-at">' + AtSpeedUtils.escapeHtml(row.name) + '</td>';
+            const det = detay?.[raceIdx]?.[row.sira - 1] || {};
+            html += '<td class="kosul-metric-cell">' + AtSpeedUtils.escapeHtml(det.t1dr || '-') + '</td>';
+            html += '<td class="kosul-metric-cell">' + AtSpeedUtils.escapeHtml(det.drOran || '-') + '</td>';
+            html += '<td class="kosul-metric-cell">' + AtSpeedUtils.escapeHtml(det.test1Val || '-') + '</td>';
+
+            for (const key of metricKeys) {
+                const ok = !!profile.cond[key];
+                const isPri = priorityKeys.has(key);
+                let cls = ok ? 'kosul-cell-yes' : 'kosul-cell-no';
+                if (ok && isPri) cls = 'kosul-cell-priority-yes';
+                html += '<td class="' + cls + '" title="' + AtSpeedUtils.escapeHtml(metricLabels[key] || key) + '">'
+                    + (ok ? '✓' : '·') + '</td>';
+            }
 
             for (const key of condKeys) {
                 const ok = !!profile.cond[key];
@@ -1017,16 +1053,17 @@ function runOtomatikAktar() {
     updateAktifKuralBanner();
     let degisimMsg;
     if (!degisen) {
-        degisimMsg = ' | <strong>sıralama aynı</strong> — bu kural atlar arasında fark yaratmıyor';
+        degisimMsg = ' | <strong>sıralama aynı</strong>';
     } else if (!birinciDegisen) {
         degisimMsg = ' | <strong>' + degisen + ' sıra değişti</strong> (' + kosuDegisen + ' koşu) · 1. at aynı kaldı';
     } else {
         degisimMsg = ' | <strong>' + degisen + ' sıra değişti</strong> (' + kosuDegisen + ' koşu, 1. at dahil)';
     }
     setStatus('<div class="status status-success">⚡ Tahmin güncellendi — '
-        + Object.keys(tahminler).length + ' koşu | 1. öncelik: <strong>' + ilkKural + '</strong>'
+        + Object.keys(tahminler).length + ' koşu | öncelik: <strong>T1×DR → DR/1DR → TEST1</strong>'
+        + ' · kural etiketi: <strong>' + ilkKural + '</strong>'
         + degisimMsg
-        + ' · Her atın altında <strong>★ ' + ilkKural + ' (x/y)</strong> eşleşmesi görünür'
+        + ' · Her atın altında metrik + <strong>★ ' + ilkKural + ' (x/y)</strong> görünür'
         + '</div>');
     updateBasariGosterim();
     renderKosulMatrisi(tahminler, detay, profiles);
