@@ -322,6 +322,19 @@
             text-shadow: 0 0 8px #ff5252, 0 0 12px #ff1744, 0 0 4px #d50000;
         }
 
+        /* T1×DR-T3 — son koşu koyu fosfor yeşil yazı */
+        .fosfor-yesil-koyu-yazi {
+            color: #1b5e20 !important;
+            font-weight: 800 !important;
+            text-shadow: 0 0 6px #76ff03, 0 0 10px #00c853, 0 0 3px #2e7d32;
+        }
+        tr.fosfor-mavi-satir td.fosfor-yesil-koyu-yazi,
+        tr.fosfor-yesil-satir td.fosfor-yesil-koyu-yazi,
+        tr.guclu-uyari-satir td.fosfor-yesil-koyu-yazi {
+            color: #004d40 !important;
+            text-shadow: 0 0 8px #69f0ae, 0 0 14px #00e676, 0 0 4px #1b5e20;
+        }
+
         /* Son 7 koşu 8002-8001 ort. 0'a yakın 3 at — AT İSMİ mavi fosfor yazı */
         .at-ismi-mavi-vurgu {
             color: #01579b !important;
@@ -485,7 +498,7 @@
 </div>
 
 <script src="js/utils.js?v=20260822h"></script>
-<script src="js/formula-engine.js?v=20260824n"></script>
+<script src="js/formula-engine.js?v=20260824o"></script>
 <script>
 let currentHesaplamaData = null;
 let currentHesaplamaId = null;
@@ -513,18 +526,19 @@ const GOSTERIM_HEADERS = [
     { col: 16, label: '8002/SL', type: 'number' },
     { col: 17, label: '8002-8001', type: 'number' },
     { col: 18, label: 'T1×DR', type: 'string', title: 'TEST1 × DR/1DR — birinci farkı entegre TEST1' },
-    { col: 19, label: 'TEST1', type: 'string' },
-    { col: 20, label: 'TEST2', type: 'string' },
-    { col: 21, label: 'TEST3', type: 'string' },
-    { col: 22, label: 'TEST4', type: 'number' },
-    { col: 23, label: 'TEST5', type: 'number' },
-    { col: 24, label: 'TEST6', type: 'number' },
-    { col: 25, label: 'TEST7', type: 'number' },
-    { col: 26, label: 'TEST8', type: 'number' },
-    { col: 27, label: 'TEST9', type: 'number' },
-    { col: 28, label: 'İLK FARK', type: 'number' },
-    { col: 29, label: 'SON FARK', type: 'number' },
-    { col: 30, label: 'FARKLARIN FARKI', type: 'number' }
+    { col: 19, label: 'T1×DR-T3', type: 'string', title: 'TEST3 × DR/1DR — birinci farkı entegre TEST3' },
+    { col: 20, label: 'TEST1', type: 'string' },
+    { col: 21, label: 'TEST2', type: 'string' },
+    { col: 22, label: 'TEST3', type: 'string' },
+    { col: 23, label: 'TEST4', type: 'number' },
+    { col: 24, label: 'TEST5', type: 'number' },
+    { col: 25, label: 'TEST6', type: 'number' },
+    { col: 26, label: 'TEST7', type: 'number' },
+    { col: 27, label: 'TEST8', type: 'number' },
+    { col: 28, label: 'TEST9', type: 'number' },
+    { col: 29, label: 'İLK FARK', type: 'number' },
+    { col: 30, label: 'SON FARK', type: 'number' },
+    { col: 31, label: 'FARKLARIN FARKI', type: 'number' }
 ];
 
 function headerStickyClass(h) {

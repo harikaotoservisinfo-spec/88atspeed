@@ -170,8 +170,9 @@ const GosterimEngine = {
         DR1_SL: 12,
         DR_ORAN: 13,
         TEST1_ENTEGRE: 18,
-        TEST1: 19, TEST2: 20, TEST3: 21, TEST4: 22, TEST5: 23,
-        TEST6: 24, TEST7: 25, TEST8: 26, TEST9: 27, FARK: 14, FARK8002: 17
+        TEST3_ENTEGRE: 19,
+        TEST1: 20, TEST2: 21, TEST3: 22, TEST4: 23, TEST5: 24,
+        TEST6: 25, TEST7: 26, TEST8: 27, TEST9: 28, FARK: 14, FARK8002: 17
     },
 
     _normalizeSehir(sehir) {
@@ -348,9 +349,22 @@ const GosterimEngine = {
         if (dr_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
             test1_salise = hedefMesafe * dr_sl;
         }
+        let son800_2 = atKosu.son800_iki;
+        if (!son800_2 || son800_2 === '-') son800_2 = atKosu.son800_bir;
+        const son800_2Salise = AtSpeedUtils.dereceToSalise(son800_2);
+        const son800_2_sl = son800_2Salise ? son800_2Salise / 800 : null;
+        let test3_salise = null;
+        if (son800_2_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
+            test3_salise = hedefMesafe * son800_2_sl;
+        }
         const test1_entegre_salise = (test1_salise !== null && dr_oran !== null)
             ? test1_salise * dr_oran : null;
-        return { dr_sl, birinci_dr_sl, dr_oran, test1_salise, test1_entegre_salise };
+        const test3_entegre_salise = (test3_salise !== null && dr_oran !== null)
+            ? test3_salise * dr_oran : null;
+        return {
+            dr_sl, birinci_dr_sl, dr_oran, test1_salise, test1_entegre_salise,
+            test3_salise, test3_entegre_salise
+        };
     },
 
     _computeHorseBestDrMetrics(kosular, hedefMesafe) {
@@ -724,14 +738,14 @@ const GosterimEngine = {
             ? son800_2_sl - son800_1_sl : null;
 
         const {
-            dr_sl, birinci_dr_sl, dr_oran, test1_salise, test1_entegre_salise
+            dr_sl, birinci_dr_sl, dr_oran, test1_salise, test1_entegre_salise,
+            test3_salise, test3_entegre_salise
         } = this._computeDrMetrics(atKosu, hedefMesafe);
         const birinciSalise = AtSpeedUtils.dereceToSalise(birinciDerece);
         const fark = (birinci_dr_sl !== null && dr_sl !== null) ? birinci_dr_sl - dr_sl : null;
 
-        let test2_salise = null, test3_salise = null;
+        let test2_salise = null;
         if (son800_1_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) test2_salise = hedefMesafe * son800_1_sl;
-        if (son800_2_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) test3_salise = hedefMesafe * son800_2_sl;
 
         let kirmiziYazi = false;
         if (test1_salise !== null && test2_salise !== null && test3_salise !== null) {
@@ -769,6 +783,7 @@ const GosterimEngine = {
             son800_2_sl !== null ? son800_2_sl.toFixed(4) : '-',
             fark_8002_8001 !== null ? (fark_8002_8001 > 0 ? '+' : '') + fark_8002_8001.toFixed(4) : '-',
             test1_entegre_salise !== null ? AtSpeedUtils.saliseToDerece(test1_entegre_salise) : '-',
+            test3_entegre_salise !== null ? AtSpeedUtils.saliseToDerece(test3_entegre_salise) : '-',
             test1_salise !== null ? AtSpeedUtils.saliseToDerece(test1_salise) : '-',
             test2_salise !== null ? AtSpeedUtils.saliseToDerece(test2_salise) : '-',
             test3_salise !== null ? AtSpeedUtils.saliseToDerece(test3_salise) : '-',
@@ -801,6 +816,7 @@ const GosterimEngine = {
             && enIyiler.maviKenarTest9VurguAtlar?.has(horseIndex);
         const isSonKosu = rowIndex === 0;
         const t1drSonKosu = isSonKosu && test1_entegre_salise !== null;
+        const t1drT3SonKosu = isSonKosu && test3_entegre_salise !== null;
         const t1drEnIyi2 = enIyiler.enIyilerSonKosuT1drTop2?.has(kosuKey);
 
         return {
@@ -835,7 +851,8 @@ const GosterimEngine = {
                 siraNoClass: enIyiler.test12YakinAtlar?.has(horseIndex) ? 'sira-no-koyu-mavi-vurgu' : '',
                 test9Class: test9MaviKenarVurgu ? 'mavi-kenar-test9-vurgu' : '',
                 t1drKirmiziClass: t1drSonKosu ? 'fosfor-kirmizi-yazi' : '',
-                t1drEnIyi2Class: t1drEnIyi2 ? 't1dr-eniyi-yanip-son' : ''
+                t1drEnIyi2Class: t1drEnIyi2 ? 't1dr-eniyi-yanip-son' : '',
+                t1drT3YesilClass: t1drT3SonKosu ? 'fosfor-yesil-koyu-yazi' : ''
             }
         };
     },
@@ -881,8 +898,13 @@ const GosterimEngine = {
         } else if (c === COL.TEST1_ENTEGRE) {
             if (classes.t1drEnIyi2Class) parts.push(classes.t1drEnIyi2Class);
             if (classes.t1drKirmiziClass) parts.push(classes.t1drKirmiziClass);
+        } else if (c === COL.TEST3_ENTEGRE) {
+            if (classes.t1drT3YesilClass) parts.push(classes.t1drT3YesilClass);
         }
-        if (classes.maviFosforClass && c !== COL.SIRA_NO && c !== COL.AT_ISMI && c !== COL.AT_ID && c !== COL.TARIH && c !== COL.AT_SIRA && c !== COL.TEST1_ENTEGRE && !parts.includes('test23-yanip-son')) {
+        const skipMaviFosfor = c === COL.SIRA_NO || c === COL.AT_ISMI || c === COL.AT_ID
+            || c === COL.TARIH || c === COL.AT_SIRA || c === COL.TEST1_ENTEGRE
+            || c === COL.TEST3_ENTEGRE;
+        if (classes.maviFosforClass && !skipMaviFosfor && !parts.includes('test23-yanip-son')) {
             parts.push(classes.maviFosforClass);
         }
         return parts.length ? parts.join(' ') : '';
