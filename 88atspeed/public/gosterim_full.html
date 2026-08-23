@@ -282,6 +282,46 @@
             z-index: 2;
         }
 
+        /* T1×DR — son koşu fosfor kırmızı yazı */
+        .fosfor-kirmizi-yazi {
+            color: #ff1744 !important;
+            font-weight: 800 !important;
+            text-shadow: 0 0 6px #ff5252, 0 0 10px #ff1744, 0 0 3px #d50000;
+        }
+        tr.fosfor-mavi-satir td.fosfor-kirmizi-yazi,
+        tr.fosfor-yesil-satir td.fosfor-kirmizi-yazi,
+        tr.guclu-uyari-satir td.fosfor-kirmizi-yazi {
+            color: #ff1744 !important;
+            text-shadow: 0 0 8px #ff5252, 0 0 14px #ff1744, 0 0 4px #d50000;
+        }
+
+        /* T1×DR — son koşularda en iyi 2: fosfor yeşil yanıp sönen hücre */
+        @keyframes t1dr-yesil-yanip {
+            0%, 100% {
+                background: #c5f77d !important;
+                color: #1b5e20 !important;
+                box-shadow: inset 0 0 8px rgba(118, 255, 3, 0.45), 0 0 6px rgba(118, 255, 3, 0.25);
+            }
+            50% {
+                background: #76ff03 !important;
+                color: #004d40 !important;
+                box-shadow: inset 0 0 14px rgba(118, 255, 3, 0.75), 0 0 12px rgba(118, 255, 3, 0.45);
+            }
+        }
+        td.t1dr-eniyi-yanip-son,
+        tr.fosfor-mavi-satir td.t1dr-eniyi-yanip-son,
+        tr.fosfor-yesil-satir td.t1dr-eniyi-yanip-son,
+        tr.guclu-uyari-satir td.t1dr-eniyi-yanip-son {
+            animation: t1dr-yesil-yanip 1.1s ease-in-out infinite !important;
+            font-weight: 800 !important;
+            position: relative;
+            z-index: 2;
+        }
+        td.t1dr-eniyi-yanip-son.fosfor-kirmizi-yazi {
+            color: #b71c1c !important;
+            text-shadow: 0 0 8px #ff5252, 0 0 12px #ff1744, 0 0 4px #d50000;
+        }
+
         /* Son 7 koşu 8002-8001 ort. 0'a yakın 3 at — AT İSMİ mavi fosfor yazı */
         .at-ismi-mavi-vurgu {
             color: #01579b !important;
@@ -445,7 +485,7 @@
 </div>
 
 <script src="js/utils.js?v=20260822h"></script>
-<script src="js/formula-engine.js?v=20260824l"></script>
+<script src="js/formula-engine.js?v=20260824n"></script>
 <script>
 let currentHesaplamaData = null;
 let currentHesaplamaId = null;

@@ -677,6 +677,32 @@ const GosterimEngine = {
         return { fosforKirmiziSatirlar };
     },
 
+    /** Her atın son koşusundaki T1×DR — en düşük 2 değer */
+    collectSonKosuT1drTop2(calcRace, hedefMesafe) {
+        const candidates = [];
+        for (let j = 0; j < calcRace.horses.length; j++) {
+            const horse = calcRace.horses[j];
+            const sonKosu = this._sortKosularNewest(horse.kosular || [])[0];
+            if (!sonKosu) continue;
+            const { test1_entegre_salise } = this._computeDrMetrics(sonKosu, hedefMesafe);
+            if (test1_entegre_salise === null) continue;
+            candidates.push({
+                j,
+                kosuKey: this._kosuKey(j, sonKosu),
+                val: test1_entegre_salise
+            });
+        }
+        candidates.sort((a, b) => {
+            if (a.val !== b.val) return a.val - b.val;
+            return a.j - b.j;
+        });
+        const enIyilerSonKosuT1drTop2 = new Set();
+        for (let i = 0; i < Math.min(2, candidates.length); i++) {
+            enIyilerSonKosuT1drTop2.add(candidates[i].kosuKey);
+        }
+        return { enIyilerSonKosuT1drTop2 };
+    },
+
     buildRowValues(horse, atKosu, rowIndex, horseIndex, hedefMesafe, trends, enIyiler, hipodromSehir) {
         const gecmisMesafe = atKosu.mesafe;
         const mesafeSayi = parseInt(String(gecmisMesafe).replace(/[^\d]/g, ''), 10);
@@ -773,6 +799,9 @@ const GosterimEngine = {
         const koyuMaviKenar = testSiraliKoyuMaviKenar || son800_1KoyuMaviKenar;
         const test9MaviKenarVurgu = koyuMaviKenar
             && enIyiler.maviKenarTest9VurguAtlar?.has(horseIndex);
+        const isSonKosu = rowIndex === 0;
+        const t1drSonKosu = isSonKosu && test1_entegre_salise !== null;
+        const t1drEnIyi2 = enIyiler.enIyilerSonKosuT1drTop2?.has(kosuKey);
 
         return {
             values,
@@ -804,7 +833,9 @@ const GosterimEngine = {
                 tarihClass: tarihVurgu ? 'tarih-koyu-mavi-vurgu' : '',
                 atSiraClass: kombineUyari ? 'at-sira-koyu-mavi-vurgu' : '',
                 siraNoClass: enIyiler.test12YakinAtlar?.has(horseIndex) ? 'sira-no-koyu-mavi-vurgu' : '',
-                test9Class: test9MaviKenarVurgu ? 'mavi-kenar-test9-vurgu' : ''
+                test9Class: test9MaviKenarVurgu ? 'mavi-kenar-test9-vurgu' : '',
+                t1drKirmiziClass: t1drSonKosu ? 'fosfor-kirmizi-yazi' : '',
+                t1drEnIyi2Class: t1drEnIyi2 ? 't1dr-eniyi-yanip-son' : ''
             }
         };
     },
@@ -847,8 +878,11 @@ const GosterimEngine = {
             parts.push(classes.test6Class);
         } else if (c === COL.TEST9 && classes.test9Class) {
             parts.push(classes.test9Class);
+        } else if (c === COL.TEST1_ENTEGRE) {
+            if (classes.t1drEnIyi2Class) parts.push(classes.t1drEnIyi2Class);
+            if (classes.t1drKirmiziClass) parts.push(classes.t1drKirmiziClass);
         }
-        if (classes.maviFosforClass && c !== COL.SIRA_NO && c !== COL.AT_ISMI && c !== COL.AT_ID && c !== COL.TARIH && c !== COL.AT_SIRA && !parts.includes('test23-yanip-son')) {
+        if (classes.maviFosforClass && c !== COL.SIRA_NO && c !== COL.AT_ISMI && c !== COL.AT_ID && c !== COL.TARIH && c !== COL.AT_SIRA && c !== COL.TEST1_ENTEGRE && !parts.includes('test23-yanip-son')) {
             parts.push(classes.maviFosforClass);
         }
         return parts.length ? parts.join(' ') : '';
@@ -873,6 +907,7 @@ const GosterimEngine = {
             calcRace, hedefMesafe, enIyiler
         );
         enIyiler.fosforKirmiziSatirlar = fosforKirmiziSatirlar;
+        Object.assign(enIyiler, this.collectSonKosuT1drTop2(calcRace, hedefMesafe));
         const trends = this.computeHorseTrends(calcRace, hedefMesafe);
         const { maviKenarTest9VurguAtlar } = this.collectMaviKenarTest9YakinAtlar(
             calcRace, hedefMesafe, trends, enIyiler
@@ -926,6 +961,7 @@ const GosterimEngine = {
             calcRace, hedefMesafe, enIyiler
         );
         enIyiler.fosforKirmiziSatirlar = fosforKirmiziSatirlar;
+        Object.assign(enIyiler, this.collectSonKosuT1drTop2(calcRace, hedefMesafe));
         const trends = this.computeHorseTrends(calcRace, hedefMesafe);
         const { maviKenarTest9VurguAtlar } = this.collectMaviKenarTest9YakinAtlar(
             calcRace, hedefMesafe, trends, enIyiler
