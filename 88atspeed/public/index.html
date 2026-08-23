@@ -22,7 +22,7 @@
                 <span class="logo-at">AT</span>
                 <span class="logo-speed">SPEED</span>
             </div>
-            <div class="subtitle">7 SEKMELİ PROFESYONEL ANALİZ PLATFORMU</div>
+            <div class="subtitle">7 SEKMELİ PROFESYONEL ANALİZ PLATFORMU <span id="appVersion" style="font-size:11px;opacity:0.7;margin-left:8px"></span></div>
         </div>
         
         <div class="global-controls">
@@ -59,8 +59,8 @@
         <div id="tab-hesaplama" class="tab-content active"><div class="info-box">📊 HESAPLAMA - GETİR butonuna tıklayın</div></div>
         <div id="tab-yonetim" class="tab-content tab-content-iframe"><iframe id="yonetimFrame" src="yonetim.html?v=20260821c" title="Yönetim"></iframe></div>
         <div id="tab-karsilastirma" class="tab-content tab-content-iframe"><iframe id="karsilastirmaFrame" src="karsilastirma.html?v=20260821c" title="Karşılaştırma"></iframe></div>
-        <div id="tab-gosterim" class="tab-content tab-content-gosterim"><iframe id="gosterimFrame" src="gosterim_full.html?v=20260824l" title="Gösterim"></iframe></div>
-        <div id="tab-tahminim" class="tab-content tab-content-tahminim"><iframe id="tahminimFrame" src="tahminim.html?v=20260824m" title="Tahminim"></iframe></div>
+        <div id="tab-gosterim" class="tab-content tab-content-gosterim"><iframe id="gosterimFrame" src="gosterim_full.html?v=20260824n" title="Gösterim"></iframe></div>
+        <div id="tab-tahminim" class="tab-content tab-content-tahminim"><iframe id="tahminimFrame" src="tahminim.html?v=20260824n" title="Tahminim"></iframe></div>
     </div>
 
     <script>
@@ -83,6 +83,21 @@
         
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('tarihSelect').value = today;
+
+        fetch('/VERSION.txt?v=' + Date.now())
+            .then(r => r.ok ? r.text() : '')
+            .then(t => {
+                if (!t) return;
+                const el = document.getElementById('appVersion');
+                const branch = (t.match(/branch=(.+)/) || [])[1] || '';
+                const commit = (t.match(/commit=(.+)/) || [])[1] || '';
+                if (el && commit) {
+                    const shortBranch = branch.split('/').pop() || branch;
+                    el.textContent = 'v' + commit + (shortBranch ? ' · ' + shortBranch : '');
+                    el.title = t.trim();
+                }
+            })
+            .catch(() => {});
         
         document.getElementById('tarihSelect').addEventListener('change', function() { loadHipodromlar(); this.blur(); });
         document.getElementById('getirBtn').onclick = fetchProgram;

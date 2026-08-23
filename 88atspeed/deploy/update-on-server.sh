@@ -3,7 +3,7 @@
 set -euo pipefail
 
 APP_DIR="/var/www/88atspeed"
-BRANCH="${1:-cursor/fix-birinci-son800-c2e4}"
+BRANCH="${1:-cursor/tahmin-metric-sort-c2e4}"
 REPO="https://github.com/harikaotoservisinfo-spec/88atspeed.git"
 TMP="/tmp/88atspeed-deploy-$$"
 
@@ -11,6 +11,18 @@ echo "=== 88ATSPEED güncelleme (branch: $BRANCH) ==="
 
 rm -rf "$TMP"
 git clone --depth 1 -b "$BRANCH" "$REPO" "$TMP"
+
+COMMIT_SHA="$(git -C "$TMP" rev-parse --short HEAD)"
+COMMIT_MSG="$(git -C "$TMP" log -1 --pretty=%s)"
+echo "Kaynak commit: $COMMIT_SHA — $COMMIT_MSG"
+
+mkdir -p "$TMP/88atspeed/public"
+cat > "$TMP/88atspeed/public/VERSION.txt" <<EOF
+branch=$BRANCH
+commit=$COMMIT_SHA
+message=$COMMIT_MSG
+deployed=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+EOF
 
 rsync -av --delete \
   --exclude node_modules \
@@ -26,4 +38,6 @@ npm rebuild sqlite3
 pm2 restart 88atspeed
 
 echo "✅ Güncelleme tamamlandı"
+echo "📦 Branch: $BRANCH | Commit: $COMMIT_SHA"
+echo "🔍 Doğrulama: curl -s http://127.0.0.1:3023/VERSION.txt"
 pm2 status 88atspeed
