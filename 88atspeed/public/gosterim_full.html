@@ -98,55 +98,11 @@
 <div id="gosterimResults" class="results-table"><div class="empty">🏇 HESAPLAMA KAYITLARI butonuna tıklayın</div></div>
 </div>
 
+<script src="/js/utils.js"></script>
 <script>
 let currentHesaplamaData = null;
 let currentHesaplamaId = null;
-let currentSort = { column: null, direction: 'asc' };
-
-function dereceToSalise(derece) {
-    if (!derece || derece === '-' || derece === 'Derecesiz') return null;
-    try {
-        let s = derece.toString().trim().replace(/:/g, '.');
-        let parts = s.split('.');
-        if (parts.length === 3) {
-            return (parseInt(parts[0]) * 60 * 100) + (parseInt(parts[1]) * 100) + parseInt(parts[2]);
-        } else if (parts.length === 2) {
-            return (parseInt(parts[0]) * 100) + parseInt(parts[1]);
-        } else if (parts.length === 1) {
-            return parseInt(parts[0]) * 100;
-        }
-    } catch(e) { return null; }
-    return null;
-}
-
-function saliseToDerece(salise) {
-    if (!salise) return '-';
-    try {
-        let salise_int = Math.floor(Math.abs(salise));
-        let dk = Math.floor(salise_int / 6000);
-        let kalan = salise_int % 6000;
-        let sn = Math.floor(kalan / 100);
-        let sl = kalan % 100;
-        if (dk > 0) return `${dk}.${sn.toString().padStart(2,'0')}.${sl.toString().padStart(2,'0')}`;
-        else return `${sn.toString().padStart(2,'0')}.${sl.toString().padStart(2,'0')}`;
-    } catch(e) { return '-'; }
-}
-
-function saliseToFarkFormat(salise) {
-    if (salise === null || salise === undefined) return '-';
-    let abs_salise = Math.floor(Math.abs(parseInt(salise)));
-    let sn = Math.floor(abs_salise / 100);
-    let sl = abs_salise % 100;
-    let sign = salise >= 0 ? '+' : '-';
-    return `${sign}${sn.toString().padStart(2,'0')}.${sl.toString().padStart(2,'0')}`;
-}
-
-function metreBasiSalise(salise, mesafe) {
-    if (salise && mesafe && mesafe !== '-' && mesafe !== 'Derecesiz') {
-        return salise / parseInt(mesafe);
-    }
-    return null;
-}
+let raceSortStates = {};
 
 document.getElementById('kayitlariGetirBtn').onclick = async () => {
     const statusDiv = document.getElementById('gosterimStatus');
@@ -207,44 +163,33 @@ async function loadKayit(id) {
         currentHesaplamaId = id;
         
         displayResults(currentHesaplamaData);
-        statusDiv.innerHTML = '<div class="status status-success">✅ Kayıt yüklendi! (ID: ' + id + ')</div>';
+        
+        let eksikTotal = 0, eksikCount = 0;
+        for (const race of currentHesaplamaData) {
+            for (const horse of race.horses || []) {
+                for (const k of horse.kosular || []) {
+                    eksikTotal++;
+                    if (!k.birinci_derece || k.birinci_derece === '-' || !k.son800_bir || k.son800_bir === '-') {
+                        eksikCount++;
+                    }
+                }
+            }
+        }
+        
+        let statusHtml = '<div class="status status-success">✅ Kayıt yüklendi! (ID: ' + id + ')</div>';
+        if (eksikCount > 0) {
+            statusHtml += '<div class="status status-error">⚠️ Bu kayıtta <strong>' + eksikCount + '/' + eksikTotal + '</strong> koşuda birinci derece veya Son800 eksik — TEST2–TEST9 ve FARK sütunları boş kalır.<br>➡️ Ana sayfada <strong>GETİR → DETAY YENİLE → KAYDET</strong> yapın (yeni kayıt oluşturun).</div>';
+        }
+        statusDiv.innerHTML = statusHtml;
         
     } catch (error) {
         statusDiv.innerHTML = '<div class="status status-error">❌ Yükleme hatası: ' + error.message + '</div>';
     }
 }
 
-function parseNumberFromText(text) {
-    if (!text || text === '-') return null;
-    let cleaned = text.toString().replace(/[^0-9.-]/g, '');
-    let num = parseFloat(cleaned);
-    return isNaN(num) ? null : num;
-}
-
+function parseNumberFromText(text) { return AtSpeedUtils.parseNumberFromText(text); }
 function sortTableData(rowsData, columnIndex, type, direction) {
-    return rowsData.sort((a, b) => {
-        let valA = a.values[columnIndex];
-        let valB = b.values[columnIndex];
-        
-        if (type === 'number') {
-            let numA = parseNumberFromText(valA);
-            let numB = parseNumberFromText(valB);
-            if (numA === null && numB === null) return 0;
-            if (numA === null) return -1;
-            if (numB === null) return 1;
-            return direction === 'asc' ? numA - numB : numB - numA;
-        } else if (type === 'date') {
-            let dateA = new Date(valA.split('.').reverse().join('-'));
-            let dateB = new Date(valB.split('.').reverse().join('-'));
-            if (isNaN(dateA)) dateA = new Date(0);
-            if (isNaN(dateB)) dateB = new Date(0);
-            return direction === 'asc' ? dateA - dateB : dateB - dateA;
-        } else {
-            valA = valA.toLowerCase();
-            valB = valB.toLowerCase();
-            return direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
-        }
-    });
+    return AtSpeedUtils.sortTableData(rowsData, columnIndex, type, direction);
 }
 
 function displayResults(data) {
@@ -272,8 +217,8 @@ function displayResults(data) {
                 const atKosu = kosular[idx];
                 const gecmisMesafe = atKosu.mesafe;
                 const dereceStr = atKosu.at_derece;
-                const dereceSalise = dereceToSalise(dereceStr);
-                const dr_sl = metreBasiSalise(dereceSalise, gecmisMesafe);
+                const dereceSalise = AtSpeedUtils.dereceToSalise(dereceStr);
+                const dr_sl = AtSpeedUtils.metreBasiSalise(dereceSalise, gecmisMesafe);
                 
                 let test1Val = null;
                 if (dr_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
@@ -284,7 +229,7 @@ function displayResults(data) {
                 }
                 
                 let son800_1 = atKosu.son800_bir;
-                const son800_1Salise = dereceToSalise(son800_1);
+                const son800_1Salise = AtSpeedUtils.dereceToSalise(son800_1);
                 const son800_1_sl = son800_1Salise ? son800_1Salise / 800 : null;
                 let test2Val = null;
                 if (son800_1_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
@@ -334,10 +279,10 @@ function displayResults(data) {
                 const gecmisMesafe = atKosu.mesafe;
                 const dereceStr = atKosu.at_derece;
                 const birinciDerece = atKosu.birinci_derece;
-                const dereceSalise = dereceToSalise(dereceStr);
-                const birinciSalise = dereceToSalise(birinciDerece);
-                const dr_sl = metreBasiSalise(dereceSalise, gecmisMesafe);
-                const birinci_dr_sl = metreBasiSalise(birinciSalise, gecmisMesafe);
+                const dereceSalise = AtSpeedUtils.dereceToSalise(dereceStr);
+                const birinciSalise = AtSpeedUtils.dereceToSalise(birinciDerece);
+                const dr_sl = AtSpeedUtils.metreBasiSalise(dereceSalise, gecmisMesafe);
+                const birinci_dr_sl = AtSpeedUtils.metreBasiSalise(birinciSalise, gecmisMesafe);
                 
                 let test1_salise = null;
                 if (dr_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
@@ -346,7 +291,7 @@ function displayResults(data) {
                 
                 let son800_2 = atKosu.son800_iki;
                 if (!son800_2 || son800_2 === '-') son800_2 = atKosu.son800_bir;
-                const son800_2Salise = dereceToSalise(son800_2);
+                const son800_2Salise = AtSpeedUtils.dereceToSalise(son800_2);
                 const son800_2_sl = son800_2Salise ? son800_2Salise / 800 : null;
                 let test3_salise = null;
                 if (son800_2_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
@@ -361,7 +306,7 @@ function displayResults(data) {
                 }
                 
                 let son800_1 = atKosu.son800_bir;
-                const son800_1Salise = dereceToSalise(son800_1);
+                const son800_1Salise = AtSpeedUtils.dereceToSalise(son800_1);
                 const son800_1_sl = son800_1Salise ? son800_1Salise / 800 : null;
                 let test2_salise = null;
                 if (son800_1_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
@@ -439,13 +384,13 @@ function displayResults(data) {
                 let son800_2 = atKosu.son800_iki;
                 if (!son800_2 || son800_2 === '-') son800_2 = son800_1;
                 
-                const dereceSalise = dereceToSalise(dereceStr);
-                const birinciSalise = dereceToSalise(birinciDerece);
-                const son800_1Salise = dereceToSalise(son800_1);
-                const son800_2Salise = dereceToSalise(son800_2);
+                const dereceSalise = AtSpeedUtils.dereceToSalise(dereceStr);
+                const birinciSalise = AtSpeedUtils.dereceToSalise(birinciDerece);
+                const son800_1Salise = AtSpeedUtils.dereceToSalise(son800_1);
+                const son800_2Salise = AtSpeedUtils.dereceToSalise(son800_2);
                 
-                const dr_sl = metreBasiSalise(dereceSalise, gecmisMesafe);
-                const birinci_dr_sl = metreBasiSalise(birinciSalise, gecmisMesafe);
+                const dr_sl = AtSpeedUtils.metreBasiSalise(dereceSalise, gecmisMesafe);
+                const birinci_dr_sl = AtSpeedUtils.metreBasiSalise(birinciSalise, gecmisMesafe);
                 const son800_1_sl = son800_1Salise ? son800_1Salise / 800 : null;
                 const son800_2_sl = son800_2Salise ? son800_2Salise / 800 : null;
                 
@@ -512,15 +457,15 @@ function displayResults(data) {
                     son800_1_sl ? son800_1_sl.toFixed(4) : '-',
                     son800_2_sl ? son800_2_sl.toFixed(4) : '-',
                     fark_8002_8001 ? (fark_8002_8001 > 0 ? '+' : '') + fark_8002_8001.toFixed(4) : '-',
-                    test1_salise ? saliseToDerece(test1_salise) : '-',
-                    test2_salise ? saliseToDerece(test2_salise) : '-',
-                    test3_salise ? saliseToDerece(test3_salise) : '-',
-                    test4_salise ? saliseToFarkFormat(test4_salise) : '-',
-                    saliseToFarkFormat(test5_salise),
-                    test6_salise ? saliseToFarkFormat(test6_salise) : '-',
-                    test7_salise ? saliseToFarkFormat(test7_salise) : '-',
-                    test8Deger !== null ? saliseToFarkFormat(test8Deger) : '-',
-                    test9Deger !== null ? saliseToFarkFormat(test9Deger) : '-',
+                    test1_salise ? AtSpeedUtils.saliseToDerece(test1_salise) : '-',
+                    test2_salise ? AtSpeedUtils.saliseToDerece(test2_salise) : '-',
+                    test3_salise ? AtSpeedUtils.saliseToDerece(test3_salise) : '-',
+                    test4_salise ? AtSpeedUtils.saliseToFarkFormat(test4_salise) : '-',
+                    AtSpeedUtils.saliseToFarkFormat(test5_salise),
+                    test6_salise ? AtSpeedUtils.saliseToFarkFormat(test6_salise) : '-',
+                    test7_salise ? AtSpeedUtils.saliseToFarkFormat(test7_salise) : '-',
+                    test8Deger !== null ? AtSpeedUtils.saliseToFarkFormat(test8Deger) : '-',
+                    test9Deger !== null ? AtSpeedUtils.saliseToFarkFormat(test9Deger) : '-',
                     ilkFarkDeger !== null ? (ilkFarkDeger > 0 ? '+' : '') + ilkFarkDeger.toFixed(4) : '-',
                     sonFarkDeger !== null ? (sonFarkDeger > 0 ? '+' : '') + sonFarkDeger.toFixed(4) : '-',
                     farklarinFarkiDeger !== null ? (farklarinFarkiDeger > 0 ? '+' : '') + farklarinFarkiDeger.toFixed(4) : '-'
@@ -552,17 +497,11 @@ function displayResults(data) {
             }
         }
         
-        if (currentSort.column !== null && currentSort.direction) {
-            let columnIndex = currentSort.column;
-            let type = 'string';
-            if (columnIndex === 0 || columnIndex === 3 || columnIndex === 6 || columnIndex >= 11) {
-                type = 'number';
-            } else if (columnIndex === 2) {
-                type = 'number';
-            } else if (columnIndex === 4) {
-                type = 'date';
-            }
-            raceRowsData = sortTableData(raceRowsData, columnIndex, type, currentSort.direction);
+        const sortState = raceSortStates[i] || { column: null, direction: 'asc' };
+        if (sortState.column !== null && sortState.direction) {
+            const columnIndex = parseInt(sortState.column);
+            const type = AtSpeedUtils.getSortType(columnIndex);
+            raceRowsData = sortTableData(raceRowsData, columnIndex, type, sortState.direction);
         }
         
         let raceHtml = `<div class="race-card">`;
@@ -609,16 +548,16 @@ function displayResults(data) {
             raceHtml += `<tr class="${cls.satirClass}">`;
             for (let c = 0; c < vals.length; c++) {
                 let cellClass = '';
-                if (c === 16) cellClass = cls.test1Class;
-                else if (c === 17) cellClass = cls.test2Class;
-                else if (c === 19 && cls.test4Class) cellClass = cls.test4Class;
-                else if (c === 21 && cls.test6Class) cellClass = cls.test6Class;
-                else if (c === 16 || c === 17 || c === 18) cellClass = cls.kirmiziClass;
-                else if (c === 20) cellClass = cls.yesilClass;
+                if (c === 17) cellClass = cls.test1Class;
+                else if (c === 18) cellClass = cls.test2Class;
+                else if (c === 20 && cls.test4Class) cellClass = cls.test4Class;
+                else if (c === 22 && cls.test6Class) cellClass = cls.test6Class;
+                else if (c === 17 || c === 18 || c === 19) cellClass = cls.kirmiziClass;
+                else if (c === 21) cellClass = cls.yesilClass;
                 if (c === 13 && cls.farkClass) cellClass = cls.farkClass;
                 if (c === 16 && cls.fark8002Class) cellClass = cls.fark8002Class;
                 
-                raceHtml += `<td class="${cellClass}">${vals[c]}<\/td>`;
+                raceHtml += `<td class="${cellClass}">${AtSpeedUtils.escapeHtml(vals[c])}<\/td>`;
             }
             raceHtml += `<\/tr>`;
         }
@@ -629,39 +568,31 @@ function displayResults(data) {
     
     document.getElementById('gosterimResults').innerHTML = html;
     
-    document.querySelectorAll('.race-card table').forEach(table => {
+    document.querySelectorAll('.race-card table').forEach((table, raceIdx) => {
         const headers = table.querySelectorAll('th');
-        headers.forEach((th, idx) => {
+        headers.forEach((th) => {
             th.style.cursor = 'pointer';
             th.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const column = th.getAttribute('data-column');
-                const type = th.getAttribute('data-type');
                 if (!column) return;
-                
-                if (currentSort.column === column) {
-                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                const sortState = raceSortStates[raceIdx] || { column: null, direction: 'asc' };
+                if (sortState.column === column) {
+                    sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
                 } else {
-                    currentSort.column = column;
-                    currentSort.direction = 'asc';
+                    sortState.column = column;
+                    sortState.direction = 'asc';
                 }
-                
-                headers.forEach(h => {
-                    h.classList.remove('sort-asc', 'sort-desc');
-                });
-                th.classList.add(currentSort.direction === 'asc' ? 'sort-asc' : 'sort-desc');
-                
+                raceSortStates[raceIdx] = sortState;
                 displayResults(currentHesaplamaData);
             });
         });
     });
 }
 
-function escapeHtml(s) {
-    if (!s) return '-';
-    return String(s).replace(/[&<>]/g, function(m) {
-        return m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;';
-    });
+const kayitFromUrl = new URLSearchParams(window.location.search).get('kayit');
+if (kayitFromUrl) {
+    loadKayit(kayitFromUrl);
 }
 </script>
 </body>

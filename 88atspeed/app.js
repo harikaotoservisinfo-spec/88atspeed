@@ -3,15 +3,57 @@ const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const sqlite3 = require('sqlite3').verbose();
 const app = express();
-const PORT = 3023;
+const PORT = process.env.PORT || 3023;
+const HOST = process.env.HOST || '0.0.0.0';
+const API_USER = process.env.API_USER || '';
+const API_PASS = process.env.API_PASS || '';
 
-// Stealth plugin ile bot tespitini engelle
+app.set('trust proxy', 1);
 puppeteer.use(StealthPlugin());
 
 let browser = null;
-
-// SQLite Veritabanı Bağlantısı
 const db = new sqlite3.Database('atlar.db');
+
+function safeJsonParse(str, fallback = null) {
+    try { return JSON.parse(str); } catch (_) { return fallback; }
+}
+
+function requireAuth(req, res, next) {
+    if (!API_USER || !API_PASS) return next();
+    const auth = req.headers.authorization;
+    if (!auth || !auth.startsWith('Basic ')) {
+        res.setHeader('WWW-Authenticate', 'Basic realm="88ATSPEED"');
+        return res.status(401).json({ success: false, error: 'Kimlik doğrulama gerekli' });
+    }
+    const [user, pass] = Buffer.from(auth.slice(6), 'base64').toString().split(':');
+    if (user === API_USER && pass === API_PASS) return next();
+    res.setHeader('WWW-Authenticate', 'Basic realm="88ATSPEED"');
+    return res.status(401).json({ success: false, error: 'Geçersiz kimlik bilgileri' });
+}
+
+const APP_VERSION = '2026.08.20-scraper-v3';
+
+async function setupPage(page) {
+    await page.setViewport({ width: 1920, height: 1080 });
+}
+
+async function withPage(fn) {
+    const browserInstance = await getBrowserInstance();
+    const page = await browserInstance.newPage();
+    try {
+        await setupPage(page);
+        return await fn(page);
+    } finally {
+        await page.close().catch(() => {});
+    }
+}
+
+async function shutdown() {
+    if (browser) { await browser.close().catch(() => {}); browser = null; }
+    db.close();
+    console.log('\n👋 Program kapatıldı.');
+    process.exit(0);
+}
 
 // Tabloları oluştur (yoksa)
 db.run(`CREATE TABLE IF NOT EXISTS at_verileri (
@@ -76,12 +118,8 @@ app.use(express.static('public'));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type');
-    next();
-});
+app.get('/api/health', (req, res) => res.json({ success: true, status: 'ok', version: APP_VERSION }));
+app.use('/api', requireAuth);
 
 // Gerçek tarayıcı headers
 const getBrowserHeaders = () => ({
@@ -96,49 +134,246 @@ const getBrowserHeaders = () => ({
 
 async function getBrowserInstance() {
     if (browser) return browser;
-    browser = await puppeteer.launch({
+    const launchOptions = {
         headless: true,
-        executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--window-size=1920,1080'
+        ]
+    };
+    const chromePaths = [
+        process.env.CHROME_PATH,
+        '/usr/bin/google-chrome',
+        '/usr/bin/google-chrome-stable',
+        '/usr/bin/chromium-browser',
+        '/usr/bin/chromium',
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+    ].filter(Boolean);
+    for (const chromePath of chromePaths) {
+        try {
+            const fs = require('fs');
+            if (fs.existsSync(chromePath)) {
+                launchOptions.executablePath = chromePath;
+                break;
+            }
+        } catch (_) {}
+    }
+    browser = await puppeteer.launch(launchOptions);
     return browser;
 }
 
-async function gotoWithHeaders(page, url) {
-    await page.setExtraHTTPHeaders(getBrowserHeaders());
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await new Promise(r => setTimeout(r, 2000));
+function normalizeHorseName(name) {
+    if (!name) return '';
+    return name
+        .split('(')[0]
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLocaleUpperCase('tr-TR')
+        .replace(/İ/g, 'I');
 }
 
-// API 1: Hipodromları getir
+async function gotoWithHeaders(page, url, options = {}) {
+    const waitMs = options.waitMs ?? 2000;
+    const waitUntil = options.waitUntil ?? 'domcontentloaded';
+    await page.setExtraHTTPHeaders(getBrowserHeaders());
+    await page.goto(url, { waitUntil, timeout: options.timeout ?? 60000 });
+    if (options.waitSelector) {
+        try {
+            await page.waitForSelector(options.waitSelector, { timeout: options.selectorTimeout ?? 20000 });
+        } catch (_) {}
+    }
+    if (waitMs > 0) {
+        await new Promise(r => setTimeout(r, waitMs));
+    }
+}
+
+async function waitForRaceResults(page, atIsmi) {
+    const normalized = normalizeHorseName(atIsmi);
+    try {
+        await page.waitForFunction((horseName) => {
+            const tables = document.querySelectorAll('table');
+            for (const tablo of tables) {
+                const rows = tablo.querySelectorAll('tbody tr');
+                for (const row of rows) {
+                    const nameCell = row.querySelector('td:nth-child(3)');
+                    const dereceCell = row.querySelector('td:nth-child(10)');
+                    if (!nameCell || !dereceCell) continue;
+                    const cellName = nameCell.innerText.split('(')[0].trim().toLocaleUpperCase('tr-TR').replace(/İ/g, 'I');
+                    if (horseName && cellName.includes(horseName)) {
+                        return !!dereceCell.innerText.trim();
+                    }
+                }
+                if (!horseName) {
+                    for (const row of rows) {
+                        const siraCell = row.querySelector('td:nth-child(2)');
+                        const dereceCell = row.querySelector('td:nth-child(10)');
+                        if (siraCell?.innerText.trim() === '1' && dereceCell?.innerText.trim()) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }, { timeout: 12000 }, normalized);
+    } catch (_) {}
+}
+
+async function scrollToHashAnchor(page) {
+    try {
+        await page.evaluate(() => {
+            if (!location.hash) return;
+            const target = document.querySelector(location.hash);
+            if (target) target.scrollIntoView({ block: 'start' });
+        });
+        await new Promise(r => setTimeout(r, 500));
+    } catch (_) {}
+}
+
+async function fetchKosuDetay(page, kosu, atIsmi) {
+    let lastDetay = { birinciDerece: '-', atDerece: kosu.at_derece_ana_tablo, son800Bir: '-', son800Iki: '-' };
+    const waitSteps = [3500, 5500];
+
+    for (let attempt = 0; attempt < waitSteps.length; attempt++) {
+        try {
+            await gotoWithHeaders(page, kosu.tarihLink, {
+                waitUntil: 'domcontentloaded',
+                waitMs: waitSteps[attempt],
+                waitSelector: 'table tbody tr',
+                selectorTimeout: 10000,
+                timeout: 30000
+            });
+            await scrollToHashAnchor(page);
+            await waitForRaceResults(page, atIsmi);
+
+            const detay = await page.evaluate((horseName) => {
+                const normalize = (value) => (value || '')
+                    .split('(')[0]
+                    .replace(/\s+/g, ' ')
+                    .trim()
+                    .toLocaleUpperCase('tr-TR')
+                    .replace(/İ/g, 'I');
+
+                const target = normalize(horseName);
+                const tables = document.querySelectorAll('table');
+                let birinciDerece = null;
+                let atDereceDetay = null;
+                let atTabloIndex = -1;
+
+                for (let t = 0; t < tables.length; t++) {
+                    const rows = tables[t].querySelectorAll('tbody tr');
+                    for (const row of rows) {
+                        const siraCell = row.querySelector('td:nth-child(2)');
+                        const nameCell = row.querySelector('td:nth-child(3)');
+                        const dereceCell = row.querySelector('td:nth-child(10)');
+                        if (!dereceCell) continue;
+
+                        if (siraCell && siraCell.innerText.trim() === '1' && !birinciDerece) {
+                            birinciDerece = dereceCell.innerText.trim();
+                        }
+
+                        if (target && nameCell) {
+                            const cellName = normalize(nameCell.innerText);
+                            if (cellName.includes(target) || target.includes(cellName)) {
+                                atDereceDetay = dereceCell.innerText.trim();
+                                atTabloIndex = t;
+                            }
+                        }
+                    }
+                    if (atTabloIndex !== -1) break;
+                }
+
+                if (atTabloIndex === -1) {
+                    for (let t = 0; t < tables.length; t++) {
+                        const rows = tables[t].querySelectorAll('tbody tr');
+                        for (const row of rows) {
+                            const siraCell = row.querySelector('td:nth-child(2)');
+                            const dereceCell = row.querySelector('td:nth-child(10)');
+                            if (siraCell?.innerText.trim() === '1' && dereceCell?.innerText.trim()) {
+                                birinciDerece = dereceCell.innerText.trim();
+                                break;
+                            }
+                        }
+                        if (birinciDerece) break;
+                    }
+                } else {
+                    const tablo = tables[atTabloIndex];
+                    const rows = tablo.querySelectorAll('tbody tr');
+                    for (const row of rows) {
+                        const siraCell = row.querySelector('td:nth-child(2)');
+                        const dereceCell = row.querySelector('td:nth-child(10)');
+                        if (siraCell?.innerText.trim() === '1' && dereceCell) {
+                            birinciDerece = dereceCell.innerText.trim();
+                            break;
+                        }
+                    }
+                }
+
+                const bodyText = document.body.innerText || '';
+                let son800 = null;
+                const son800Index = bodyText.indexOf('Son 800');
+                if (son800Index !== -1) {
+                    const son800Text = bodyText.substring(son800Index, son800Index + 120);
+                    let match = son800Text.match(/Son\s*800\s*:?\s*(\d+[\.\:]\d+[\.\:]\d+)\s*[\-\–]\s*(\d+[\.\:]\d+[\.\:]\d+)/i);
+                    if (match) {
+                        son800 = match[1] + '|' + match[2];
+                    } else {
+                        const matchTek = son800Text.match(/Son\s*800\s*:?\s*(\d+[\.\:]\d+[\.\:]\d+)/i);
+                        if (matchTek) son800 = matchTek[1] + '|';
+                    }
+                }
+
+                return { birinciDerece, atDereceDetay, son800 };
+            }, atIsmi);
+
+            let birinciDerece = detay.birinciDerece || '-';
+            let atDerece = kosu.at_derece_ana_tablo;
+            if (detay.atDereceDetay && detay.atDereceDetay !== '-') {
+                atDerece = detay.atDereceDetay;
+            }
+            let son800Bir = '-';
+            let son800Iki = '-';
+            if (detay.son800 && detay.son800 !== '-') {
+                const parts = detay.son800.split('|');
+                son800Bir = parts[0] || '-';
+                son800Iki = parts[1] || '-';
+            }
+
+            const hasDetail = birinciDerece !== '-' || son800Bir !== '-' || (detay.atDereceDetay && detay.atDereceDetay !== '-');
+            lastDetay = { birinciDerece, atDerece, son800Bir, son800Iki };
+            if (hasDetail) return lastDetay;
+        } catch (err) {
+            console.error(`Koşu detay deneme ${attempt + 1} hatası:`, err.message);
+        }
+        await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+    }
+
+    return lastDetay;
+}
+
 app.get('/api/hipodromlar', async (req, res) => {
     const tarih = req.query.tarih;
     console.log('📡 Hipodrom isteği - Tarih:', tarih);
-    
     try {
-        const browserInstance = await getBrowserInstance();
-        const page = await browserInstance.newPage();
-        const url = `https://www.tjk.org/TR/YarisSever/Info/Page/GunlukYarisProgrami?QueryParameter_Tarih=${tarih}&Era=today`;
-        await gotoWithHeaders(page, url);
-        
-        const hipodromlar = await page.evaluate(() => {
-            const tabs = document.querySelectorAll('ul.gunluk-tabs > li > a');
-            const result = [];
-            for (let i = 0; i < tabs.length; i++) {
-                const tab = tabs[i];
-                const id = tab.getAttribute('data-sehir-id');
-                let name = tab.innerText.trim();
-                name = name.replace(/\(\d+\.\s*Y\.G\.\)/, '').trim();
-                if (id && name) {
-                    result.push({ id: id, name: name });
+        const hipodromlar = await withPage(async (page) => {
+            const url = `https://www.tjk.org/TR/YarisSever/Info/Page/GunlukYarisProgrami?QueryParameter_Tarih=${tarih}&Era=today`;
+            await gotoWithHeaders(page, url);
+            return page.evaluate(() => {
+                const tabs = document.querySelectorAll('ul.gunluk-tabs > li > a');
+                const result = [];
+                for (let i = 0; i < tabs.length; i++) {
+                    const tab = tabs[i];
+                    const id = tab.getAttribute('data-sehir-id');
+                    let name = tab.innerText.trim();
+                    name = name.replace(/\(\d+\.\s*Y\.G\.\)/, '').trim();
+                    if (id && name) result.push({ id, name });
                 }
-            }
-            return result;
+                return result;
+            });
         });
-        
-        await page.close();
-        res.json({ success: true, hipodromlar: hipodromlar });
-        
+        res.json({ success: true, hipodromlar });
     } catch (error) {
         console.error('Hipodrom hatası:', error.message);
         res.json({ success: false, error: error.message, hipodromlar: [] });
@@ -154,113 +389,68 @@ app.get('/api/yaris-programi', async (req, res) => {
     console.log('📡 Yarış programı isteği - Şehir:', sehirId, sehirAdi, 'Tarih:', tarih);
     
     try {
-        const browserInstance = await getBrowserInstance();
-        const page = await browserInstance.newPage();
-        const url = `https://www.tjk.org/TR/YarisSever/Info/Sehir/GunlukYarisProgrami?SehirId=${sehirId}&QueryParameter_Tarih=${tarih}&SehirAdi=${encodeURIComponent(sehirAdi)}&Era=today`;
-        await gotoWithHeaders(page, url);
-        
-        // Tüm sayfa metnini al
-        const pageText = await page.evaluate(() => document.body.innerText);
-        
-        // Koşu bloklarını ayır
-        const kosuBloklari = pageText.split(/\n(?=\d+\.\s*Koşu\s+\d+\.\d+)/);
-        const mesafeler = {};
-        
-        for (let blok of kosuBloklari) {
-            // Koşu numarasını bul
-            const kosuMatch = blok.match(/^(\d+)\.\s*Koşu\s+\d+\.\d+/);
-            if (!kosuMatch) continue;
-            
-            const kosuNo = parseInt(kosuMatch[1]);
-            
-            // Mesafeyi bul (Çim, Kum, Sentetik)
-            let mesafe = null;
-            let pist = null;
-            
-            const match = blok.match(/(\d{3,4})\s*(Çim|Kum|Sentetik)/);
-            if (match) {
-                mesafe = match[1];
-                pist = match[2];
+        const result = await withPage(async (page) => {
+            const url = `https://www.tjk.org/TR/YarisSever/Info/Sehir/GunlukYarisProgrami?SehirId=${sehirId}&QueryParameter_Tarih=${tarih}&SehirAdi=${encodeURIComponent(sehirAdi)}&Era=today`;
+            await gotoWithHeaders(page, url);
+            const pageText = await page.evaluate(() => document.body.innerText);
+            const kosuBloklari = pageText.split(/\n(?=\d+\.\s*Koşu\s+\d+\.\d+)/);
+            const mesafeler = {};
+            for (let blok of kosuBloklari) {
+                const kosuMatch = blok.match(/^(\d+)\.\s*Koşu\s+\d+\.\d+/);
+                if (!kosuMatch) continue;
+                const kosuNo = parseInt(kosuMatch[1]);
+                const match = blok.match(/(\d{3,4})\s*(Çim|Kum|Sentetik)/);
+                mesafeler[kosuNo] = match
+                    ? { mesafe: match[1], pist: match[2] }
+                    : { mesafe: '?', pist: '?' };
             }
-            
-            if (mesafe) {
-                mesafeler[kosuNo] = { mesafe: mesafe, pist: pist };
-                console.log(`✅ Koşu ${kosuNo}: ${mesafe} ${pist}`);
-            } else {
-                mesafeler[kosuNo] = { mesafe: '?', pist: '?' };
-                console.log(`❌ Koşu ${kosuNo}: bulunamadı`);
-            }
-        }
-        
-        const yarisProgrami = await page.evaluate((mesafeler) => {
-            const races = [];
-            const tables = document.querySelectorAll('table.tablesorter');
-            
-            for (let idx = 0; idx < tables.length; idx++) {
-                const table = tables[idx];
-                const horses = [];
-                const rows = table.querySelectorAll('tbody tr');
-                
-                for (let j = 0; j < rows.length; j++) {
-                    const row = rows[j];
-                    const cells = row.querySelectorAll('td');
-                    if (cells.length < 5) continue;
-                    
-                    const horseNo = cells[1]?.innerText?.trim();
-                    if (!horseNo || !/^\d+$/.test(horseNo)) continue;
-                    
-                    const link = cells[2]?.querySelector('a');
-                    let atId = '';
-                    let horseName = '';
-                    
-                    if (link) {
-                        horseName = link.innerText?.trim() || '';
-                        const href = link.getAttribute('href');
-                        if (href) {
-                            const match = href.match(/AtId=(\d+)/);
-                            if (match) atId = match[1];
+            const yarisProgrami = await page.evaluate((mesafeler) => {
+                const races = [];
+                const tables = document.querySelectorAll('table.tablesorter');
+                for (let idx = 0; idx < tables.length; idx++) {
+                    const table = tables[idx];
+                    const horses = [];
+                    const rows = table.querySelectorAll('tbody tr');
+                    for (let j = 0; j < rows.length; j++) {
+                        const row = rows[j];
+                        const cells = row.querySelectorAll('td');
+                        if (cells.length < 5) continue;
+                        const horseNo = cells[1]?.innerText?.trim();
+                        if (!horseNo || !/^\d+$/.test(horseNo)) continue;
+                        const link = cells[2]?.querySelector('a');
+                        let atId = '', horseName = '';
+                        if (link) {
+                            horseName = link.innerText?.trim() || '';
+                            const href = link.getAttribute('href');
+                            const m = href?.match(/AtId=(\d+)/);
+                            if (m) atId = m[1];
+                        } else {
+                            horseName = cells[2]?.innerText?.trim() || '';
                         }
-                    } else {
-                        horseName = cells[2]?.innerText?.trim() || '';
+                        if (horseName && horseName !== 'At İsmi') {
+                            horses.push({ no: horseNo, name: horseName, atId });
+                        }
                     }
-                    
-                    if (horseName && horseName !== 'At İsmi') {
-                        horses.push({
-                            no: horseNo,
-                            name: horseName,
-                            atId: atId
+                    if (horses.length > 0) {
+                        const raceNo = (races.length + 1).toString();
+                        races.push({
+                            raceNo, horseCount: horses.length, horses,
+                            mesafe: mesafeler[raceNo]?.mesafe || '?',
+                            pist: mesafeler[raceNo]?.pist || '?'
                         });
                     }
                 }
-                
-                if (horses.length > 0) {
-                    const raceNo = (races.length + 1).toString();
-                    races.push({
-                        raceNo: raceNo,
-                        horseCount: horses.length,
-                        horses: horses,
-                        mesafe: mesafeler[raceNo]?.mesafe || '?',
-                        pist: mesafeler[raceNo]?.pist || '?'
-                    });
-                }
-            }
-            return races;
-        }, mesafeler);
-        
-        await page.close();
-        
-        const totalHorses = yarisProgrami.reduce((s, r) => s + r.horses.length, 0);
-        
-        res.json({
-            success: true,
-            data: yarisProgrami,
-            totalRaces: yarisProgrami.length,
-            totalHorses: totalHorses,
-            hipodrom: sehirAdi,
-            tarih: tarih,
-            mesafeler: mesafeler
+                return races;
+            }, mesafeler);
+            return { yarisProgrami, mesafeler };
         });
-        
+
+        const totalHorses = result.yarisProgrami.reduce((s, r) => s + r.horses.length, 0);
+        res.json({
+            success: true, data: result.yarisProgrami,
+            totalRaces: result.yarisProgrami.length, totalHorses,
+            hipodrom: sehirAdi, tarih, mesafeler: result.mesafeler
+        });
     } catch (error) {
         console.error('Yarış programı hatası:', error.message);
         res.json({ success: false, error: error.message });
@@ -270,6 +460,7 @@ app.get('/api/yaris-programi', async (req, res) => {
 // API 3: Atın TÜM VERİLERİNİ getir (DÜZELTİLMİŞ)
 app.get('/api/at-tum-veriler', async (req, res) => {
     const atId = req.query.id;
+    const adiParam = req.query.adi || '';
     
     console.log('📡 At tüm veriler isteği - ID:', atId);
     
@@ -278,29 +469,26 @@ app.get('/api/at-tum-veriler', async (req, res) => {
     }
     
     try {
-        const browserInstance = await getBrowserInstance();
-        const page = await browserInstance.newPage();
-        
-        // Önce ana sayfaya git (session oluşması için)
-        await gotoWithHeaders(page, 'https://www.tjk.org/');
-        
-        // Sonra at sayfasına git
-        const atUrl = `https://www.tjk.org/TR/YarisSever/Query/ConnectedPage/AtKosuBilgileri?QueryParameter_AtId=${atId}`;
-        await gotoWithHeaders(page, atUrl);
-        
-        // Sayfa içeriğini kontrol et (SADECE gerçek hata mesajlarını kontrol et)
-        const pageContent = await page.evaluate(() => document.body.innerText);
-        if (pageContent.includes("bulunamadı") || pageContent.includes("hata")) {
-            console.log(`⚠️ At ID ${atId} için sayfaya erişilemedi`);
-            await page.close();
-            return res.json({ success: true, atAdi: "Erişim Engellendi", atId: atId, kosular: [] });
-        }
-        
-        let atIsmi = await page.evaluate(() => {
-            const isimElement = document.querySelector("h2.tableTitle");
-            return isimElement ? isimElement.innerText.trim() : "Bilinmeyen At";
-        });
-        
+        const result = await withPage(async (page) => {
+            await gotoWithHeaders(page, 'https://www.tjk.org/');
+            const atUrl = `https://www.tjk.org/TR/YarisSever/Query/ConnectedPage/AtKosuBilgileri?QueryParameter_AtId=${atId}`;
+            await gotoWithHeaders(page, atUrl);
+
+            const pageOk = await page.evaluate(() => {
+                const title = document.querySelector('h2.tableTitle');
+                if (!title) return false;
+                const text = title.innerText.trim().toLowerCase();
+                return text && !text.includes('bulunamadı');
+            });
+            if (!pageOk) {
+                return { blocked: true, atAdi: 'Erişim Engellendi', kosular: [] };
+            }
+
+            const atIsmi = await page.evaluate(() => {
+                const el = document.querySelector('h2.tableTitle');
+                return el ? el.innerText.trim() : 'Bilinmeyen At';
+            });
+            const atIsmiFinal = adiParam || atIsmi;
         // DÜZELTİLMİŞ: Koşu detaylarının olduğu ikinci tabloyu al (index 1)
         const kosular = await page.evaluate(() => {
             // Sayfadaki tüm tabloları bul
@@ -350,107 +538,29 @@ app.get('/api/at-tum-veriler', async (req, res) => {
         
         for (let i = 0; i < son7Kosu.length; i++) {
             const kosu = son7Kosu[i];
-            let birinciDerece = "-";
-            let atDerece = kosu.at_derece_ana_tablo;
-            let son800Bir = "-";
-            let son800Iki = "-";
-            
-            try {
-                await gotoWithHeaders(page, kosu.tarihLink);
-                
-                const detay = await page.evaluate((atIsmi) => {
-                    const tables = document.querySelectorAll("table");
-                    let atTabloIndex = -1;
-                    
-                    for (let t = 0; t < tables.length; t++) {
-                        const rows = tables[t].querySelectorAll("tbody tr");
-                        for (let row of rows) {
-                            const atIsimCell = row.querySelector("td:nth-child(3)");
-                            if (atIsimCell && atIsimCell.innerText.trim().toUpperCase().includes(atIsmi.toUpperCase())) {
-                                atTabloIndex = t;
-                                break;
-                            }
-                        }
-                        if (atTabloIndex !== -1) break;
-                    }
-                    
-                    let birinciDerece = null;
-                    let atDereceDetay = null;
-                    let son800 = null;
-                    
-                    if (atTabloIndex !== -1) {
-                        const tablo = tables[atTabloIndex];
-                        const rows = tablo.querySelectorAll("tbody tr");
-                        
-                        for (let row of rows) {
-                            const siraCell = row.querySelector("td:nth-child(2)");
-                            const dereceCell = row.querySelector("td:nth-child(10)");
-                            
-                            if (siraCell && siraCell.innerText.trim() === "1") {
-                                if (dereceCell) {
-                                    birinciDerece = dereceCell.innerText.trim();
-                                }
-                            }
-                            
-                            const atIsimCell = row.querySelector("td:nth-child(3)");
-                            if (atIsimCell && atIsimCell.innerText.trim().toUpperCase().includes(atIsmi.toUpperCase())) {
-                                if (dereceCell) {
-                                    atDereceDetay = dereceCell.innerText.trim();
-                                }
-                            }
-                        }
-                    }
-                    
-                    const bodyText = document.body.innerText;
-                    const son800Index = bodyText.indexOf("Son 800");
-                    if (son800Index !== -1) {
-                        const son800Text = bodyText.substring(son800Index, son800Index + 100);
-                        let match = son800Text.match(/(\d+[\.\:]\d+[\.\:]\d+)\s*[\-\–]\s*(\d+[\.\:]\d+[\.\:]\d+)/);
-                        if (match) {
-                            son800 = match[1] + "|" + match[2];
-                        } else {
-                            const matchTek = son800Text.match(/(\d+[\.\:]\d+[\.\:]\d+)/);
-                            if (matchTek) {
-                                son800 = matchTek[1] + "|";
-                            }
-                        }
-                    }
-                    
-                    return { birinciDerece, atDereceDetay, son800 };
-                }, atIsmi);
-                
-                birinciDerece = detay.birinciDerece || "-";
-                if (detay.atDereceDetay && detay.atDereceDetay !== "-") {
-                    atDerece = detay.atDereceDetay;
-                }
-                
-                if (detay.son800 && detay.son800 !== "-") {
-                    const parts = detay.son800.split("|");
-                    son800Bir = parts[0] || "-";
-                    son800Iki = parts[1] || "-";
-                }
-                
-            } catch (err) {
-                console.error(err.message);
-            }
+            const detay = await fetchKosuDetay(page, kosu, atIsmiFinal);
             
             sonuclar.push({
                 tarih: kosu.tarih,
                 sehir: kosu.sehir,
                 mesafe: kosu.mesafe,
                 sira: kosu.sira,
-                at_derece: atDerece,
-                birinci_derece: birinciDerece,
-                son800_bir: son800Bir,
-                son800_iki: son800Iki
+                at_derece: detay.atDerece,
+                birinci_derece: detay.birinciDerece,
+                son800_bir: detay.son800Bir,
+                son800_iki: detay.son800Iki
             });
             
-            await new Promise(r => setTimeout(r, 500));
+            await new Promise(r => setTimeout(r, 400));
         }
-        
-        await page.close();
-        res.json({ success: true, atAdi: atIsmi, atId: atId, kosular: sonuclar });
-        
+
+            return { blocked: false, atAdi: atIsmiFinal, kosular: sonuclar };
+        });
+
+        if (result.blocked) {
+            return res.json({ success: true, atAdi: result.atAdi, atId, kosular: [] });
+        }
+        res.json({ success: true, atAdi: result.atAdi, atId, kosular: result.kosular });
     } catch (error) {
         console.error('At tüm veriler hatası:', error.message);
         res.json({ success: false, error: error.message });
@@ -470,64 +580,42 @@ app.get('/api/karsilastirma-sonuclari', async (req, res) => {
     }
     
     try {
-        const browserInstance = await getBrowserInstance();
-        const page = await browserInstance.newPage();
-        const url = `https://www.tjk.org/TR/YarisSever/Info/Sehir/GunlukYarisSonuclari?SehirId=${sehirId}&QueryParameter_Tarih=${tarih}&SehirAdi=${encodeURIComponent(sehirAdi)}&Era=lastWeek`;
-        await gotoWithHeaders(page, url);
-        
-        const sonuclar = await page.evaluate(() => {
-            const tables = document.querySelectorAll("table.tablesorter");
-            const raceResults = [];
-            
-            for (let t = 0; t < tables.length; t++) {
-                const table = tables[t];
-                const rows = table.querySelectorAll("tbody tr");
-                const horses = [];
-                
-                for (let row of rows) {
-                    const siraCell = row.querySelector("td:nth-child(2)");
-                    const sira = siraCell ? siraCell.innerText.trim() : null;
-                    
-                    if (!sira || isNaN(parseInt(sira))) continue;
-                    
-                    const atIsimCell = row.querySelector("td:nth-child(3)");
-                    let atIsmi = atIsimCell ? atIsimCell.innerText.trim() : null;
-                    let atId = "-";
-                    
-                    const atLink = atIsimCell ? atIsimCell.querySelector("a") : null;
-                    if (atLink && atLink.href) {
-                        const match = atLink.href.match(/QueryParameter_AtId=(\d+)/);
-                        if (match) atId = match[1];
-                        if (atLink.innerText.trim()) atIsmi = atLink.innerText.trim();
+        const sonuclar = await withPage(async (page) => {
+            const url = `https://www.tjk.org/TR/YarisSever/Info/Sehir/GunlukYarisSonuclari?SehirId=${sehirId}&QueryParameter_Tarih=${tarih}&SehirAdi=${encodeURIComponent(sehirAdi)}&Era=lastWeek`;
+            await gotoWithHeaders(page, url);
+            return page.evaluate(() => {
+                const tables = document.querySelectorAll('table.tablesorter');
+                const raceResults = [];
+                for (let t = 0; t < tables.length; t++) {
+                    const table = tables[t];
+                    const rows = table.querySelectorAll('tbody tr');
+                    const horses = [];
+                    for (let row of rows) {
+                        const siraCell = row.querySelector('td:nth-child(2)');
+                        const sira = siraCell ? siraCell.innerText.trim() : null;
+                        if (!sira || isNaN(parseInt(sira))) continue;
+                        const atIsimCell = row.querySelector('td:nth-child(3)');
+                        let atIsmi = atIsimCell ? atIsimCell.innerText.trim() : null;
+                        let atId = '-';
+                        const atLink = atIsimCell ? atIsimCell.querySelector('a') : null;
+                        if (atLink?.href) {
+                            const m = atLink.href.match(/QueryParameter_AtId=(\d+)/);
+                            if (m) atId = m[1];
+                            if (atLink.innerText.trim()) atIsmi = atLink.innerText.trim();
+                        }
+                        if (sira && atIsmi) horses.push({ sira, atIsmi, atId });
                     }
-                    
-                    if (sira && atIsmi) {
-                        horses.push({ sira: sira, atIsmi: atIsmi, atId: atId });
+                    if (horses.length > 0) {
+                        raceResults.push({
+                            raceNo: (raceResults.length + 1).toString(),
+                            horseCount: horses.length, horses
+                        });
                     }
                 }
-                
-                if (horses.length > 0) {
-                    raceResults.push({
-                        raceNo: (raceResults.length + 1).toString(),
-                        horseCount: horses.length,
-                        horses: horses
-                    });
-                }
-            }
-            
-            return raceResults;
+                return raceResults;
+            });
         });
-        
-        await page.close();
-        
-        res.json({
-            success: true,
-            data: sonuclar,
-            totalRaces: sonuclar.length,
-            hipodrom: sehirAdi,
-            tarih: tarih
-        });
-        
+        res.json({ success: true, data: sonuclar, totalRaces: sonuclar.length, hipodrom: sehirAdi, tarih });
     } catch (error) {
         console.error('Karşılaştırma hatası:', error.message);
         res.json({ success: false, error: error.message });
@@ -569,7 +657,7 @@ app.get('/api/kayit/:id', (req, res) => {
         if (err) {
             res.json({ success: false, error: err.message });
         } else if (row) {
-            row.veri = JSON.parse(row.veri);
+            row.veri = safeJsonParse(row.veri, []);
             res.json({ success: true, kayit: row });
         } else {
             res.json({ success: false, error: 'Kayıt bulunamadı' });
@@ -613,7 +701,7 @@ app.get('/api/hesaplama-kayit/:id', (req, res) => {
         if (err) {
             res.json({ success: false, error: err.message });
         } else if (row) {
-            row.veri = JSON.parse(row.veri);
+            row.veri = safeJsonParse(row.veri, []);
             res.json({ success: true, kayit: row });
         } else {
             res.json({ success: false, error: 'Kayıt bulunamadı' });
@@ -657,8 +745,8 @@ app.get('/api/karsilastirma-kayit/:id', (req, res) => {
         if (err) {
             res.json({ success: false, error: err.message });
         } else if (row) {
-            row.siralama_veri = JSON.parse(row.siralama_veri);
-            row.hesaplamalar = JSON.parse(row.hesaplamalar);
+            row.siralama_veri = safeJsonParse(row.siralama_veri, []);
+            row.hesaplamalar = safeJsonParse(row.hesaplamalar, {});
             res.json({ success: true, kayit: row });
         } else {
             res.json({ success: false, error: 'Kayıt bulunamadı' });
@@ -702,8 +790,8 @@ app.get('/api/yonetim-calisma/:id', (req, res) => {
         if (err) {
             res.json({ success: false, error: err.message });
         } else if (row) {
-            row.tablo_veri = JSON.parse(row.tablo_veri);
-            row.hesaplamalar = JSON.parse(row.hesaplamalar);
+            row.tablo_veri = safeJsonParse(row.tablo_veri, []);
+            row.hesaplamalar = safeJsonParse(row.hesaplamalar, {});
             res.json({ success: true, calisma: row });
         } else {
             res.json({ success: false, error: 'Çalışma bulunamadı' });
@@ -716,9 +804,12 @@ app.get('/api/yonetim-calisma/:id', (req, res) => {
 app.post('/api/yonetim-calisma-kaydet-v2', (req, res) => {
     const veri = req.body;
     console.log('💾 YÖNETİM çalışması v2 kayıt isteği - Ad:', veri.ad);
-    
+    const hesaplamalarData = JSON.stringify({
+        formulas: safeJsonParse(veri.hesaplamalar, veri.hesaplamalar) || {},
+        cellValues: veri.cellValues || {}
+    });
     const sql = `INSERT INTO yonetim_calismalari_v2 (ad, aciklama, karsilastirma_kayit_id, hesaplama_kayit_id, tablo_veri, sutun_yapisi, hesaplamalar) VALUES (?, ?, ?, ?, ?, ?, ?)`;
-    const params = [veri.ad, veri.aciklama, veri.karsilastirma_kayit_id, veri.hesaplama_kayit_id, JSON.stringify(veri.tablo_veri), veri.sutun_yapisi, veri.hesaplamalar];
+    const params = [veri.ad, veri.aciklama, veri.karsilastirma_kayit_id, veri.hesaplama_kayit_id, JSON.stringify(veri.tablo_veri), veri.sutun_yapisi, hesaplamalarData];
     
     db.run(sql, params, function(err) {
         if (err) {
@@ -747,14 +838,32 @@ app.get('/api/yonetim-calisma-v2/:id', (req, res) => {
         if (err) {
             res.json({ success: false, error: err.message });
         } else if (row) {
-            row.tablo_veri = JSON.parse(row.tablo_veri);
-            row.hesaplamalar = JSON.parse(row.hesaplamalar);
+            row.tablo_veri = safeJsonParse(row.tablo_veri, []);
+            const hesapData = safeJsonParse(row.hesaplamalar, {});
+            row.hesaplamalar = hesapData.formulas || hesapData;
+            row.cellValues = hesapData.cellValues || {};
             res.json({ success: true, calisma: row });
         } else {
             res.json({ success: false, error: 'Çalışma bulunamadı' });
         }
     });
 });
+
+// ==================== KAYIT SİLME API'leri ====================
+
+function makeDeleteHandler(table) {
+    return (req, res) => {
+        db.run(`DELETE FROM ${table} WHERE id = ?`, [req.params.id], function(err) {
+            if (err) return res.json({ success: false, error: err.message });
+            if (this.changes === 0) return res.json({ success: false, error: 'Kayıt bulunamadı' });
+            res.json({ success: true, deleted: this.changes });
+        });
+    };
+}
+
+app.delete('/api/hesaplama-kayit/:id', makeDeleteHandler('hesaplama_kayitlari'));
+app.delete('/api/karsilastirma-kayit/:id', makeDeleteHandler('karsilastirma_kayitlari'));
+app.delete('/api/yonetim-calisma-v2/:id', makeDeleteHandler('yonetim_calismalari_v2'));
 
 // ==================== EXCEL EXPORT API ====================
 const XLSX = require('xlsx');
@@ -785,20 +894,16 @@ app.post('/api/excel-export', (req, res) => {
 
 // ==================== PROSES KAPATMA ====================
 
-process.on('SIGINT', async () => {
-    if (browser) await browser.close();
-    db.close();
-    console.log('\n👋 Program kapatıldı. Veritabanı kapatıldı.');
-    process.exit();
-});
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
 
 // ==================== SUNUCU BAŞLAT ====================
 
-app.listen(PORT, async () => {
+app.listen(PORT, HOST, async () => {
     console.log(`\n✅ 88ATSPEED Sunucusu çalışıyor:`);
-    console.log(`📍 http://localhost:${PORT}`);
+    console.log(`📍 http://${HOST}:${PORT}`);
     console.log(`💾 SQLite veritabanı hazır: atlar.db`);
-    console.log(`🐎 API\'ler aktif!\n`);
+    console.log(`🐎 API'ler aktif!\n`);
     console.log(`🔒 Stealth plugin ile 403 engeli aşıldı.\n`);
 });
 
