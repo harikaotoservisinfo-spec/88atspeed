@@ -198,6 +198,47 @@ const GosterimEngine = {
         return `${j}_${atKosu.tarih || ''}_${atKosu.at_derece || ''}`;
     },
 
+    /** Bitiş sırası (SIRA sütunu) = 1 olan tüm koşular */
+    _isAtSiraBir(atKosu) {
+        const sira = parseInt(String(atKosu?.sira ?? '').replace(/[^\d]/g, ''), 10);
+        return sira === 1;
+    },
+
+    _iterAtSiraBirKosular(calcRace) {
+        const items = [];
+        for (let j = 0; j < calcRace.horses.length; j++) {
+            const horse = calcRace.horses[j];
+            for (const atKosu of horse.kosular || []) {
+                if (!this._isAtSiraBir(atKosu)) continue;
+                items.push({ j, horse, atKosu, kosuKey: this._kosuKey(j, atKosu) });
+            }
+        }
+        return items;
+    },
+
+    _computeFark8002Sl(atKosu) {
+        const son800_1Salise = AtSpeedUtils.dereceToSalise(atKosu.son800_bir);
+        const son800_1_sl = son800_1Salise ? son800_1Salise / 800 : null;
+        let son800_2 = atKosu.son800_iki;
+        if (!son800_2 || son800_2 === '-') son800_2 = atKosu.son800_bir;
+        const son800_2Salise = AtSpeedUtils.dereceToSalise(son800_2);
+        const son800_2_sl = son800_2Salise ? son800_2Salise / 800 : null;
+        if (son800_2_sl === null || son800_1_sl === null) return null;
+        return son800_2_sl - son800_1_sl;
+    },
+
+    _computeTest2MinusTest3Salise(atKosu, hedefMesafe) {
+        const son800_1Salise = AtSpeedUtils.dereceToSalise(atKosu.son800_bir);
+        const son800_1_sl = son800_1Salise ? son800_1Salise / 800 : null;
+        let test2_salise = null;
+        if (son800_1_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
+            test2_salise = hedefMesafe * son800_1_sl;
+        }
+        const { test3_salise } = this._computeDrMetrics(atKosu, hedefMesafe);
+        if (test2_salise === null || test3_salise === null) return null;
+        return test2_salise - test3_salise;
+    },
+
     kosuEquals(k, ref) {
         if (!k || !ref) return false;
         return (k.tarih || '') === (ref.tarih || '')
@@ -755,6 +796,50 @@ const GosterimEngine = {
         return { enNegatifTest2MinusTest3 };
     },
 
+    /** Bitiş sırası=1 koşular: pozitif 8002-8001 en yüksek 3 → mavi yanıp sönen */
+    collectSiraBirTop3PozitifFark8002(calcRace) {
+        const candidates = [];
+        for (const { j, kosuKey, atKosu } of this._iterAtSiraBirKosular(calcRace)) {
+            const val = this._computeFark8002Sl(atKosu);
+            if (val === null || val <= 0) continue;
+            candidates.push({ j, kosuKey, val });
+        }
+        candidates.sort((a, b) => (b.val !== a.val ? b.val - a.val : a.j - b.j));
+        const siraBirTop3Fark8002Yanip = new Set();
+        for (let i = 0; i < Math.min(3, candidates.length); i++) {
+            siraBirTop3Fark8002Yanip.add(candidates[i].kosuKey);
+        }
+        return { siraBirTop3Fark8002Yanip };
+    },
+
+    /**
+     * Bitiş sırası=1 koşularda T2−T3 negatif en yüksek 5 → |TEST9| 0'a en yakın 3 at
+     * TEST9 hücresi mavi yanıp sönen
+     */
+    collectSiraBirTop5T2m3Test9Yakin(calcRace, hedefMesafe, trends) {
+        const negatifler = [];
+        for (const { j, kosuKey, atKosu } of this._iterAtSiraBirKosular(calcRace)) {
+            const val = this._computeTest2MinusTest3Salise(atKosu, hedefMesafe);
+            if (val === null || val >= 0) continue;
+            negatifler.push({ j, kosuKey, val });
+        }
+        const siraBirTest9YanipSonen = new Set();
+        if (!negatifler.length) return { siraBirTest9YanipSonen };
+        negatifler.sort((a, b) => (a.val !== b.val ? a.val - b.val : a.j - b.j));
+        const top5 = negatifler.slice(0, 5);
+        const test9Aday = [];
+        for (const item of top5) {
+            const test9 = trends.test7Farki[item.j];
+            if (test9 === null || test9 === undefined) continue;
+            test9Aday.push({ j: item.j, abs: Math.abs(test9) });
+        }
+        test9Aday.sort((a, b) => (a.abs !== b.abs ? a.abs - b.abs : a.j - b.j));
+        for (let i = 0; i < Math.min(3, test9Aday.length); i++) {
+            siraBirTest9YanipSonen.add(test9Aday[i].j);
+        }
+        return { siraBirTest9YanipSonen };
+    },
+
     buildRowValues(horse, atKosu, rowIndex, horseIndex, hedefMesafe, trends, enIyiler, hipodromSehir) {
         const gecmisMesafe = atKosu.mesafe;
         const mesafeSayi = parseInt(String(gecmisMesafe).replace(/[^\d]/g, ''), 10);
@@ -866,6 +951,8 @@ const GosterimEngine = {
         const t1drT3SonKosu = isSonKosu && test3_entegre_salise !== null;
         const t1drEnIyi2 = enIyiler.enIyilerSonKosuT1drTop2?.has(kosuKey);
         const test2m3EnNegatif = enIyiler.enNegatifTest2MinusTest3?.has(kosuKey);
+        const fark8002Yanip = enIyiler.siraBirTop3Fark8002Yanip?.has(kosuKey);
+        const test9SiraBirYanip = enIyiler.siraBirTest9YanipSonen?.has(horseIndex);
 
         return {
             values,
@@ -886,6 +973,7 @@ const GosterimEngine = {
                 yesilClass: yesilYazi ? 'yesil-yazi' : '',
                 farkClass: farkBosMu && !fark8002BosMu ? 'pembe-hucre' : '',
                 fark8002Class: !farkBosMu && fark8002BosMu ? 'pembe-hucre' : '',
+                fark8002YanipClass: fark8002Yanip ? 'mavi-yanip-son' : '',
                 mesafeClass: mesafeEslesme ? eslesmeYesil : '',
                 sehirClass: sehirEslesme
                     ? (gucluUyari ? `${eslesmeYesil} guclu-sehir-eslesme` : eslesmeYesil)
@@ -898,6 +986,7 @@ const GosterimEngine = {
                 atSiraClass: kombineUyari ? 'at-sira-koyu-mavi-vurgu' : '',
                 siraNoClass: enIyiler.test12YakinAtlar?.has(horseIndex) ? 'sira-no-koyu-mavi-vurgu' : '',
                 test9Class: test9MaviKenarVurgu ? 'mavi-kenar-test9-vurgu' : '',
+                test9YanipClass: test9SiraBirYanip ? 'mavi-yanip-son' : '',
                 t1drKirmiziClass: t1drSonKosu ? 'fosfor-kirmizi-yazi' : '',
                 t1drEnIyi2Class: t1drEnIyi2 ? 't1dr-eniyi-yanip-son' : '',
                 t1drT3YesilClass: t1drT3SonKosu ? 'fosfor-yesil-koyu-yazi' : '',
@@ -938,14 +1027,16 @@ const GosterimEngine = {
             parts.push(classes.yesilClass);
         } else if (c === COL.FARK && classes.farkClass) {
             parts.push(classes.farkClass);
-        } else if (c === COL.FARK8002 && classes.fark8002Class) {
-            parts.push(classes.fark8002Class);
+        } else if (c === COL.FARK8002) {
+            if (classes.fark8002YanipClass) parts.push(classes.fark8002YanipClass);
+            else if (classes.fark8002Class) parts.push(classes.fark8002Class);
         } else if (c === COL.TEST4 && classes.test4Class) {
             parts.push(classes.test4Class);
         } else if (c === COL.TEST6 && classes.test6Class) {
             parts.push(classes.test6Class);
-        } else if (c === COL.TEST9 && classes.test9Class) {
-            parts.push(classes.test9Class);
+        } else if (c === COL.TEST9) {
+            if (classes.test9YanipClass) parts.push(classes.test9YanipClass);
+            if (classes.test9Class) parts.push(classes.test9Class);
         } else if (c === COL.TEST1_ENTEGRE) {
             if (classes.t1drEnIyi2Class) parts.push(classes.t1drEnIyi2Class);
             if (classes.t1drKirmiziClass) parts.push(classes.t1drKirmiziClass);
@@ -954,8 +1045,10 @@ const GosterimEngine = {
         }
         const skipMaviFosfor = c === COL.SIRA_NO || c === COL.AT_ISMI || c === COL.AT_ID
             || c === COL.TARIH || c === COL.AT_SIRA || c === COL.TEST1_ENTEGRE
-            || c === COL.TEST3_ENTEGRE || c === COL.TEST2_MINUS_TEST3;
-        if (classes.maviFosforClass && !skipMaviFosfor && !parts.includes('test23-yanip-son')) {
+            || c === COL.TEST3_ENTEGRE || c === COL.TEST2_MINUS_TEST3
+            || c === COL.FARK8002 || c === COL.TEST9;
+        if (classes.maviFosforClass && !skipMaviFosfor && !parts.includes('test23-yanip-son')
+            && !parts.includes('mavi-yanip-son')) {
             parts.push(classes.maviFosforClass);
         }
         return parts.length ? parts.join(' ') : '';
@@ -983,6 +1076,8 @@ const GosterimEngine = {
         Object.assign(enIyiler, this.collectSonKosuT1drTop2(calcRace, hedefMesafe));
         Object.assign(enIyiler, this.collectEnNegatifTest2MinusTest3(calcRace, hedefMesafe));
         const trends = this.computeHorseTrends(calcRace, hedefMesafe);
+        Object.assign(enIyiler, this.collectSiraBirTop3PozitifFark8002(calcRace));
+        Object.assign(enIyiler, this.collectSiraBirTop5T2m3Test9Yakin(calcRace, hedefMesafe, trends));
         const { maviKenarTest9VurguAtlar } = this.collectMaviKenarTest9YakinAtlar(
             calcRace, hedefMesafe, trends, enIyiler
         );
@@ -1038,6 +1133,8 @@ const GosterimEngine = {
         Object.assign(enIyiler, this.collectSonKosuT1drTop2(calcRace, hedefMesafe));
         Object.assign(enIyiler, this.collectEnNegatifTest2MinusTest3(calcRace, hedefMesafe));
         const trends = this.computeHorseTrends(calcRace, hedefMesafe);
+        Object.assign(enIyiler, this.collectSiraBirTop3PozitifFark8002(calcRace));
+        Object.assign(enIyiler, this.collectSiraBirTop5T2m3Test9Yakin(calcRace, hedefMesafe, trends));
         const { maviKenarTest9VurguAtlar } = this.collectMaviKenarTest9YakinAtlar(
             calcRace, hedefMesafe, trends, enIyiler
         );
