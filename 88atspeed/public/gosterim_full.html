@@ -497,8 +497,8 @@
 <div id="gosterimResults" class="results-table"><div class="empty">🏇 HESAPLAMA KAYITLARI butonuna tıklayın</div></div>
 </div>
 
-<script src="js/utils.js?v=20260822h"></script>
-<script src="js/formula-engine.js?v=20260824r"></script>
+<script src="js/utils.js?v=20260824s"></script>
+<script src="js/formula-engine.js?v=20260824s"></script>
 <script>
 let currentHesaplamaData = null;
 let currentHesaplamaId = null;
@@ -530,15 +530,16 @@ const GOSTERIM_HEADERS = [
     { col: 20, label: 'TEST1', type: 'string' },
     { col: 21, label: 'TEST2', type: 'string' },
     { col: 22, label: 'TEST3', type: 'string' },
-    { col: 23, label: 'TEST4', type: 'number' },
-    { col: 24, label: 'TEST5', type: 'number', title: 'T1×DR − T1×DR-T3 (TEST1−TEST3 entegre farkı)' },
-    { col: 25, label: 'TEST6', type: 'number' },
-    { col: 26, label: 'TEST7', type: 'number' },
-    { col: 27, label: 'TEST8', type: 'number' },
-    { col: 28, label: 'TEST9', type: 'number' },
-    { col: 29, label: 'İLK FARK', type: 'number' },
-    { col: 30, label: 'SON FARK', type: 'number' },
-    { col: 31, label: 'FARKLARIN FARKI', type: 'number' }
+    { col: 23, label: 'T2−T3', type: 'number', title: 'TEST2 − TEST3 (negatif en yüksek → yeşil vurgu)' },
+    { col: 24, label: 'TEST4', type: 'number' },
+    { col: 25, label: 'TEST5', type: 'number', title: 'T1×DR − T1×DR-T3 (TEST1−TEST3 entegre farkı)' },
+    { col: 26, label: 'TEST6', type: 'number' },
+    { col: 27, label: 'TEST7', type: 'number' },
+    { col: 28, label: 'TEST8', type: 'number' },
+    { col: 29, label: 'TEST9', type: 'number' },
+    { col: 30, label: 'İLK FARK', type: 'number' },
+    { col: 31, label: 'SON FARK', type: 'number' },
+    { col: 32, label: 'FARKLARIN FARKI', type: 'number' }
 ];
 
 function headerStickyClass(h) {

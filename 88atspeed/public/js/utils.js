@@ -83,8 +83,8 @@ const AtSpeedUtils = {
             6: 'number',   // bitiş SIRA
             11: 'number', 12: 'number', 13: 'number', 14: 'number',
             15: 'number', 16: 'number',
-            21: 'number', 22: 'number', 23: 'number', 24: 'number',
-            25: 'number', 26: 'number', 27: 'number', 28: 'number', 29: 'number'
+            21: 'number', 22: 'number', 23: 'number', 24: 'number', 25: 'number',
+            26: 'number', 27: 'number', 28: 'number', 29: 'number', 30: 'number'
         };
         return types[col] || 'string';
     },
