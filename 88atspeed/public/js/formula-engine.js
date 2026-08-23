@@ -198,20 +198,14 @@ const GosterimEngine = {
         return `${j}_${atKosu.tarih || ''}_${atKosu.at_derece || ''}`;
     },
 
-    /** Bitiş sırası (SIRA sütunu) = 1 olan tüm koşular */
-    _isAtSiraBir(atKosu) {
-        const sira = parseInt(String(atKosu?.sira ?? '').replace(/[^\d]/g, ''), 10);
-        return sira === 1;
-    },
-
-    _iterAtSiraBirKosular(calcRace) {
+    /** Sol SIRA sütunu (at isminden önce) = 1 → atın en yeni koşusu */
+    _iterGosterimSiraBirKosular(calcRace) {
         const items = [];
         for (let j = 0; j < calcRace.horses.length; j++) {
             const horse = calcRace.horses[j];
-            for (const atKosu of horse.kosular || []) {
-                if (!this._isAtSiraBir(atKosu)) continue;
-                items.push({ j, horse, atKosu, kosuKey: this._kosuKey(j, atKosu) });
-            }
+            const atKosu = this._sortKosularNewest(horse.kosular || [])[0];
+            if (!atKosu) continue;
+            items.push({ j, horse, atKosu, kosuKey: this._kosuKey(j, atKosu) });
         }
         return items;
     },
@@ -796,10 +790,10 @@ const GosterimEngine = {
         return { enNegatifTest2MinusTest3 };
     },
 
-    /** Bitiş sırası=1 koşular: pozitif 8002-8001 en yüksek 3 → mavi yanıp sönen */
+    /** Görünüm SIRA=1 (en yeni koşu): pozitif 8002-8001 en yüksek 3 → mavi yanıp sönen */
     collectSiraBirTop3PozitifFark8002(calcRace) {
         const candidates = [];
-        for (const { j, kosuKey, atKosu } of this._iterAtSiraBirKosular(calcRace)) {
+        for (const { j, kosuKey, atKosu } of this._iterGosterimSiraBirKosular(calcRace)) {
             const val = this._computeFark8002Sl(atKosu);
             if (val === null || val <= 0) continue;
             candidates.push({ j, kosuKey, val });
@@ -813,12 +807,12 @@ const GosterimEngine = {
     },
 
     /**
-     * Bitiş sırası=1 koşularda T2−T3 negatif en yüksek 5 → |TEST9| 0'a en yakın 3 at
+     * Görünüm SIRA=1 (en yeni koşu): T2−T3 negatif en yüksek 5 → |TEST9| 0'a en yakın 3 at
      * TEST9 hücresi mavi yanıp sönen
      */
     collectSiraBirTop5T2m3Test9Yakin(calcRace, hedefMesafe, trends) {
         const negatifler = [];
-        for (const { j, kosuKey, atKosu } of this._iterAtSiraBirKosular(calcRace)) {
+        for (const { j, kosuKey, atKosu } of this._iterGosterimSiraBirKosular(calcRace)) {
             const val = this._computeTest2MinusTest3Salise(atKosu, hedefMesafe);
             if (val === null || val >= 0) continue;
             negatifler.push({ j, kosuKey, val });
