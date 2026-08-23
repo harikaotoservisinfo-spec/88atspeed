@@ -755,19 +755,17 @@ const GosterimEngine = {
 
         let test4_salise = null, test5_salise = null, test6_salise = null, test7_salise = null;
         if (test1_salise !== null && test3_salise !== null) test4_salise = test3_salise - test1_salise;
-        if (birinciSalise !== null) {
-            if (mesafeEslesme && test1_salise !== null) {
-                // Hedef mesafe = satır mesafesi → TEST1 − 1.DERECE
-                test5_salise = test1_salise - birinciSalise;
-            } else if (dereceSalise !== null) {
-                // Farklı mesafe → aynı koşuda AT DERECE − 1.DERECE
-                test5_salise = dereceSalise - birinciSalise;
-            }
+        // TEST5: hedef mesafede TEST1 − birincinin hedef projeksiyonu (1DR/SL × hedef)
+        // Yalnızca şehir+mesafe eşleşen satırlarda göster
+        if (mesafeEslesme && sehirEslesme && test1_salise !== null && birinci_dr_sl !== null
+            && !isNaN(hedefMesafe) && hedefMesafe > 0) {
+            const birinciHedefSalise = hedefMesafe * birinci_dr_sl;
+            test5_salise = test1_salise - birinciHedefSalise;
         }
         if (test1_salise !== null && test2_salise !== null) test6_salise = test2_salise - test1_salise;
         if (test1_salise !== null && test2_salise !== null) test7_salise = test1_salise - test2_salise;
 
-        let yesilYazi = test5_salise !== null && (test5_salise / 100) < 1;
+        let yesilYazi = test5_salise !== null && Math.abs(test5_salise) < 100;
         let ayniMi = test4_salise !== null && test6_salise !== null && test4_salise === test6_salise;
         const kosuKey = this._kosuKey(horseIndex, atKosu);
 
