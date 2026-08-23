@@ -166,8 +166,11 @@ const GosterimEngine = {
         AT_SIRA: 6,
         SON800_1: 9,
         SON800_2: 10,
-        TEST1: 17, TEST2: 18, TEST3: 19, TEST4: 20, TEST5: 21,
-        TEST6: 22, TEST7: 23, TEST8: 24, TEST9: 25, FARK: 13, FARK8002: 16
+        DR_SL: 11,
+        DR1_SL: 12,
+        DR_ORAN: 13,
+        TEST1: 18, TEST2: 19, TEST3: 20, TEST4: 21, TEST5: 22,
+        TEST6: 23, TEST7: 24, TEST8: 25, TEST9: 26, FARK: 14, FARK8002: 17
     },
 
     _normalizeSehir(sehir) {
@@ -646,6 +649,8 @@ const GosterimEngine = {
         const son800_1_sl = son800_1Salise ? son800_1Salise / 800 : null;
         const son800_2_sl = son800_2Salise ? son800_2Salise / 800 : null;
         const fark = (birinci_dr_sl !== null && dr_sl !== null) ? birinci_dr_sl - dr_sl : null;
+        const dr_oran = (dr_sl !== null && birinci_dr_sl !== null && birinci_dr_sl !== 0)
+            ? dr_sl / birinci_dr_sl : null;
         const fark_8002_8001 = (son800_2_sl !== null && son800_1_sl !== null)
             ? son800_2_sl - son800_1_sl : null;
 
@@ -684,6 +689,7 @@ const GosterimEngine = {
             son800_2 || '-',
             dr_sl !== null ? dr_sl.toFixed(4) : '-',
             birinci_dr_sl !== null ? birinci_dr_sl.toFixed(4) : '-',
+            dr_oran !== null ? dr_oran.toFixed(4) : '-',
             gosterimFark !== null ? (gosterimFark > 0 ? '+' : '') + gosterimFark.toFixed(4) : '-',
             son800_1_sl !== null ? son800_1_sl.toFixed(4) : '-',
             son800_2_sl !== null ? son800_2_sl.toFixed(4) : '-',

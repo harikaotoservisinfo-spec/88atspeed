@@ -445,7 +445,7 @@
 </div>
 
 <script src="js/utils.js?v=20260822h"></script>
-<script src="js/formula-engine.js?v=20260823c"></script>
+<script src="js/formula-engine.js?v=20260824k"></script>
 <script>
 let currentHesaplamaData = null;
 let currentHesaplamaId = null;
@@ -467,22 +467,23 @@ const GOSTERIM_HEADERS = [
     { col: 10, label: 'SON800-2', type: 'string' },
     { col: 11, label: 'DR/SL', type: 'number' },
     { col: 12, label: '1DR/SL', type: 'number' },
-    { col: 13, label: 'FARK', type: 'number' },
-    { col: 14, label: '8001/SL', type: 'number' },
-    { col: 15, label: '8002/SL', type: 'number' },
-    { col: 16, label: '8002-8001', type: 'number' },
-    { col: 17, label: 'TEST1', type: 'string' },
-    { col: 18, label: 'TEST2', type: 'string' },
-    { col: 19, label: 'TEST3', type: 'string' },
-    { col: 20, label: 'TEST4', type: 'number' },
-    { col: 21, label: 'TEST5', type: 'number' },
-    { col: 22, label: 'TEST6', type: 'number' },
-    { col: 23, label: 'TEST7', type: 'number' },
-    { col: 24, label: 'TEST8', type: 'number' },
-    { col: 25, label: 'TEST9', type: 'number' },
-    { col: 26, label: 'İLK FARK', type: 'number' },
-    { col: 27, label: 'SON FARK', type: 'number' },
-    { col: 28, label: 'FARKLARIN FARKI', type: 'number' }
+    { col: 13, label: 'DR/1DR', type: 'number', title: '(DR/SL) ÷ (1DR/SL)' },
+    { col: 14, label: 'FARK', type: 'number' },
+    { col: 15, label: '8001/SL', type: 'number' },
+    { col: 16, label: '8002/SL', type: 'number' },
+    { col: 17, label: '8002-8001', type: 'number' },
+    { col: 18, label: 'TEST1', type: 'string' },
+    { col: 19, label: 'TEST2', type: 'string' },
+    { col: 20, label: 'TEST3', type: 'string' },
+    { col: 21, label: 'TEST4', type: 'number' },
+    { col: 22, label: 'TEST5', type: 'number' },
+    { col: 23, label: 'TEST6', type: 'number' },
+    { col: 24, label: 'TEST7', type: 'number' },
+    { col: 25, label: 'TEST8', type: 'number' },
+    { col: 26, label: 'TEST9', type: 'number' },
+    { col: 27, label: 'İLK FARK', type: 'number' },
+    { col: 28, label: 'SON FARK', type: 'number' },
+    { col: 29, label: 'FARKLARIN FARKI', type: 'number' }
 ];
 
 function headerStickyClass(h) {
@@ -609,7 +610,8 @@ function displayResults(data) {
             const sortClass = String(currentSort.column) === String(h.col)
                 ? (currentSort.direction === 'asc' ? ' sort-asc' : ' sort-desc')
                 : '';
-            raceHtml += `<th class="${headerStickyClass(h).trim()}${sortClass}" data-column="${h.col}" data-type="${h.type}">${h.label} <span class="sort-icon">▲</span></th>`;
+            raceHtml += `<th class="${headerStickyClass(h).trim()}${sortClass}" data-column="${h.col}" data-type="${h.type}"`
+                + (h.title ? ` title="${AtSpeedUtils.escapeHtml(h.title)}"` : '') + `>${h.label} <span class="sort-icon">▲</span></th>`;
         }
         raceHtml += `</tr></thead><tbody>`;
 
