@@ -169,8 +169,9 @@ const GosterimEngine = {
         DR_SL: 11,
         DR1_SL: 12,
         DR_ORAN: 13,
-        TEST1: 18, TEST2: 19, TEST3: 20, TEST4: 21, TEST5: 22,
-        TEST6: 23, TEST7: 24, TEST8: 25, TEST9: 26, FARK: 14, FARK8002: 17
+        TEST1_ENTEGRE: 18,
+        TEST1: 19, TEST2: 20, TEST3: 21, TEST4: 22, TEST5: 23,
+        TEST6: 24, TEST7: 25, TEST8: 26, TEST9: 27, FARK: 14, FARK8002: 17
     },
 
     _normalizeSehir(sehir) {
@@ -659,6 +660,9 @@ const GosterimEngine = {
         if (son800_1_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) test2_salise = hedefMesafe * son800_1_sl;
         if (son800_2_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) test3_salise = hedefMesafe * son800_2_sl;
 
+        const test1_entegre_salise = (test1_salise !== null && dr_oran !== null)
+            ? test1_salise * dr_oran : null;
+
         let kirmiziYazi = false;
         if (test1_salise !== null && test2_salise !== null && test3_salise !== null) {
             kirmiziYazi = test1_salise < test2_salise && test1_salise < test3_salise;
@@ -694,6 +698,7 @@ const GosterimEngine = {
             son800_1_sl !== null ? son800_1_sl.toFixed(4) : '-',
             son800_2_sl !== null ? son800_2_sl.toFixed(4) : '-',
             fark_8002_8001 !== null ? (fark_8002_8001 > 0 ? '+' : '') + fark_8002_8001.toFixed(4) : '-',
+            test1_entegre_salise !== null ? AtSpeedUtils.saliseToDerece(test1_entegre_salise) : '-',
             test1_salise !== null ? AtSpeedUtils.saliseToDerece(test1_salise) : '-',
             test2_salise !== null ? AtSpeedUtils.saliseToDerece(test2_salise) : '-',
             test3_salise !== null ? AtSpeedUtils.saliseToDerece(test3_salise) : '-',
