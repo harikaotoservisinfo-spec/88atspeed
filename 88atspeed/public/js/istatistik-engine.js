@@ -253,24 +253,26 @@ const IstatistikEngine = {
         return chain;
     },
 
-    /**
-     * Koşudaki SON800 değerlerini derinlik sütunlarında gösterir.
-     * Her derinlik sütununda o derinlikteki en iyi SON800 = %100 (ana derece).
-     * Her hücre: (oDerinliktekiEnİyi / atınSüresi) × 100
-     */
-    computeSon800DepthGrid(race, programTarih, alan = 'bir') {
+    _buildSon800Chains(race, programTarih, alan = 'bir') {
         const horses = race.horses || [];
         const chains = new Map();
         for (const horse of horses) {
             chains.set(this._horseKey(horse), this._kosularSon800Zinciri(horse.kosular, programTarih, alan));
         }
         const maxDepth = Math.max(0, ...[...chains.values()].map(c => c.length));
-        const byHorse = new Map();
-        for (const horse of horses) {
-            byHorse.set(this._horseKey(horse), new Array(maxDepth).fill(null));
-        }
+        return { horses, chains, maxDepth };
+    },
 
-        const anaByDepth = new Array(maxDepth).fill(null);
+    /**
+     * Mevcut SON800 sütunları — derinlik bazlı rakip kıyası.
+     * Her derinlikte en düşük süre %100, diğerleri (min / değer) × 100.
+     */
+    computeSon800DepthGrid(race, programTarih, alan = 'bir') {
+        const { chains, maxDepth } = this._buildSon800Chains(race, programTarih, alan);
+        const byHorse = new Map();
+        for (const key of chains.keys()) {
+            byHorse.set(key, new Array(maxDepth).fill(null));
+        }
 
         for (let d = 0; d < maxDepth; d++) {
             const atDepth = [];
@@ -280,45 +282,68 @@ const IstatistikEngine = {
                 }
             }
             if (!atDepth.length) continue;
-            const anaSalise = Math.min(...atDepth.map(e => e.salise));
-            const anaEntry = atDepth.find(e => e.salise === anaSalise);
-            const anaDerece = anaEntry?.derece || null;
-            anaByDepth[d] = { salise: anaSalise, derece: anaDerece };
+            const minSalise = Math.min(...atDepth.map(e => e.salise));
             const comparedCount = atDepth.length;
             for (const e of atDepth) {
-                if (anaSalise <= 0) continue;
-                const pct = Math.round((anaSalise / e.salise) * 100);
+                if (minSalise <= 0) continue;
+                const pct = Math.round((minSalise / e.salise) * 100);
                 byHorse.get(e.key)[d] = {
                     pct,
                     derece: e.derece,
                     tarih: e.tarih,
                     salise: e.salise,
-                    anaDerece,
-                    anaSalise,
                     comparedCount,
                     depth: d,
-                    isBest: e.salise === anaSalise
+                    isBest: e.salise === minSalise
                 };
             }
         }
+        return { maxDepth, byHorse };
+    },
 
-        let globalAnaSalise = null;
-        let globalAnaDerece = null;
-        for (const a of anaByDepth) {
-            if (!a) continue;
-            if (globalAnaSalise === null || a.salise < globalAnaSalise) {
-                globalAnaSalise = a.salise;
-                globalAnaDerece = a.derece;
+    /**
+     * Yeni ORAN sütunları — koşunun ana SON800 derecesine göre %.
+     * Ana derece = alandaki tüm derinliklerdeki en düşük SON800 (tek referans %100).
+     */
+    computeSon800AnaOranGrid(race, programTarih, alan = 'bir') {
+        const { chains, maxDepth } = this._buildSon800Chains(race, programTarih, alan);
+        const byHorse = new Map();
+        for (const key of chains.keys()) {
+            byHorse.set(key, new Array(maxDepth).fill(null));
+        }
+
+        let anaSalise = null;
+        let anaDerece = null;
+        for (const chain of chains.values()) {
+            for (const item of chain) {
+                if (anaSalise === null || item.salise < anaSalise) {
+                    anaSalise = item.salise;
+                    anaDerece = item.derece;
+                }
             }
         }
 
-        return {
-            maxDepth,
-            anaDerece: globalAnaDerece,
-            anaSalise: globalAnaSalise,
-            anaByDepth,
-            byHorse
-        };
+        if (anaSalise !== null && anaSalise > 0) {
+            for (let d = 0; d < maxDepth; d++) {
+                for (const [key, chain] of chains) {
+                    if (!chain[d]) continue;
+                    const e = chain[d];
+                    const pct = Math.round((anaSalise / e.salise) * 100);
+                    byHorse.get(key)[d] = {
+                        pct,
+                        derece: e.derece,
+                        tarih: e.tarih,
+                        salise: e.salise,
+                        anaDerece,
+                        anaSalise,
+                        depth: d,
+                        isBest: e.salise === anaSalise
+                    };
+                }
+            }
+        }
+
+        return { maxDepth, anaDerece, anaSalise, byHorse };
     },
 
     /** @deprecated computeSon800DepthGrid kullanın */
@@ -343,6 +368,8 @@ const IstatistikEngine = {
         const hedefMesafe = this._hedefMesafe(race);
         const son8001Grid = this.computeSon800DepthGrid(race, programTarih, 'bir');
         const son8002Grid = this.computeSon800DepthGrid(race, programTarih, 'iki');
+        const oran1Grid = this.computeSon800AnaOranGrid(race, programTarih, 'bir');
+        const oran2Grid = this.computeSon800AnaOranGrid(race, programTarih, 'iki');
         const horses = [...(race.horses || [])].sort((a, b) => {
             const na = parseInt(a.no, 10);
             const nb = parseInt(b.no, 10);
@@ -370,6 +397,8 @@ const IstatistikEngine = {
                 sehir,
                 son8001Depths: son8001Grid.byHorse.get(key) || [],
                 son8002Depths: son8002Grid.byHorse.get(key) || [],
+                oran1Depths: oran1Grid.byHorse.get(key) || [],
+                oran2Depths: oran2Grid.byHorse.get(key) || [],
                 ay3,
                 ay1,
                 gun15,
@@ -384,10 +413,10 @@ const IstatistikEngine = {
         return {
             maxDepth1: son8001Grid.maxDepth,
             maxDepth2: son8002Grid.maxDepth,
-            anaDerece1: son8001Grid.anaDerece,
-            anaDerece2: son8002Grid.anaDerece,
-            anaByDepth1: son8001Grid.anaByDepth || [],
-            anaByDepth2: son8002Grid.anaByDepth || [],
+            oranMaxDepth1: oran1Grid.maxDepth,
+            oranMaxDepth2: oran2Grid.maxDepth,
+            oranAnaDerece1: oran1Grid.anaDerece,
+            oranAnaDerece2: oran2Grid.anaDerece,
             rows
         };
     },
