@@ -77,7 +77,7 @@ if (!bozuk?.test123SiraliDepths[0] || bozuk.test123SiraliDepths[0].pct >= 100) {
     process.exit(1);
 }
 
-if (!uyan.test123SiraliAgirlikliOrt || uyan.test123SiraliAgirlikliOrt.pct !== 100) {
+if (!uyan.test123SiraliOrtOzeti?.agirlikli || uyan.test123SiraliOrtOzeti.agirlikli.pct !== 100) {
     console.error('FAIL: weighted avg for qualifier should be 100');
     process.exit(1);
 }

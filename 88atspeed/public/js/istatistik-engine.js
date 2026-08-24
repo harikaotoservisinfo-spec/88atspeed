@@ -1388,11 +1388,11 @@ const IstatistikEngine = {
                 hedefMesafe,
                 sehir,
                 son8001Depths,
-                son8001AgirlikliOrt: this._computeDepthAgirlikliOrtalama(
+                son8001OrtOzeti: this._computeDepthOrtOzeti(
                     son8001Depths, son8001Grid.maxDepth
                 ),
                 son8002Depths,
-                son8002AgirlikliOrt: this._computeDepthAgirlikliOrtalama(
+                son8002OrtOzeti: this._computeDepthOrtOzeti(
                     son8002Depths, son8002Grid.maxDepth
                 ),
                 oran1Depths,
@@ -1408,31 +1408,31 @@ const IstatistikEngine = {
                     fark827Depths, fark827Grid.maxDepth
                 ),
                 son800Dr1Depths: dr1Depths,
-                son800Dr1AgirlikliOrt: this._computeDepthAgirlikliOrtalama(
+                son800Dr1OrtOzeti: this._computeDepthOrtOzeti(
                     dr1Depths, son800Dr1Grid.maxDepth
                 ),
                 son800DrDepths: drDepths,
-                son800DrAgirlikliOrt: this._computeDepthAgirlikliOrtalama(
+                son800DrOrtOzeti: this._computeDepthOrtOzeti(
                     drDepths, son800DrGrid.maxDepth
                 ),
                 test1Depths,
-                test1AgirlikliOrt: this._computeDepthAgirlikliOrtalama(
+                test1OrtOzeti: this._computeDepthOrtOzeti(
                     test1Depths, test1Grid.maxDepth
                 ),
                 test2Depths,
-                test2AgirlikliOrt: this._computeDepthAgirlikliOrtalama(
+                test2OrtOzeti: this._computeDepthOrtOzeti(
                     test2Depths, test2Grid.maxDepth
                 ),
                 test3Depths,
-                test3AgirlikliOrt: this._computeDepthAgirlikliOrtalama(
+                test3OrtOzeti: this._computeDepthOrtOzeti(
                     test3Depths, test3Grid.maxDepth
                 ),
                 test123SiraliDepths,
-                test123SiraliAgirlikliOrt: this._computeDepthAgirlikliOrtalama(
+                test123SiraliOrtOzeti: this._computeDepthOrtOzeti(
                     test123SiraliDepths, test123SiraliGrid.maxDepth
                 ),
                 t1drDepths,
-                t1drAgirlikliOrt: this._computeDepthAgirlikliOrtalama(
+                t1drOrtOzeti: this._computeDepthOrtOzeti(
                     t1drDepths, t1drGrid.maxDepth
                 ),
                 ay3,

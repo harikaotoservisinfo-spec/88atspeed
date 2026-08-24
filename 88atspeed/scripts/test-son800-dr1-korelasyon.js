@@ -56,7 +56,7 @@ if (!best.son800Dr1Depths[1]) {
     process.exit(1);
 }
 
-const ort = best.son800Dr1AgirlikliOrt;
+const ort = best.son800Dr1OrtOzeti?.agirlikli;
 if (!ort || ort.pct === null || ort.depthCount !== 2) {
     console.error('FAIL: weighted average should use 2 depths for best horse');
     process.exit(1);
@@ -67,13 +67,13 @@ if (ort.pct !== 99) {
     process.exit(1);
 }
 
-const s1ort = best.son8001AgirlikliOrt;
+const s1ort = best.son8001OrtOzeti?.agirlikli;
 if (!s1ort || s1ort.pct === null) {
     console.error('FAIL: SON800-1 weighted avg should exist');
     process.exit(1);
 }
 
-const drOrt = best.son800DrAgirlikliOrt;
+const drOrt = best.son800DrOrtOzeti?.agirlikli;
 if (!drOrt || drOrt.pct === null) {
     console.error('FAIL: SON800·DR/SL weighted avg should exist');
     process.exit(1);

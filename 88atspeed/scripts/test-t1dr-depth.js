@@ -45,7 +45,7 @@ if (!slow?.t1drDepths[0] || slow.t1drDepths[0].pct >= 100) {
     process.exit(1);
 }
 
-if (!best.t1drAgirlikliOrt || best.t1drAgirlikliOrt.pct === null) {
+if (!best.t1drOrtOzeti?.agirlikli || best.t1drOrtOzeti.agirlikli.pct === null) {
     console.error('FAIL: weighted average should exist');
     process.exit(1);
 }

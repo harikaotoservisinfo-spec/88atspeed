@@ -36,7 +36,7 @@ console.log('maxDepthTest1:', pkg.maxDepthTest1);
 for (const row of pkg.rows) {
     const depths = row.test1Depths || [];
     const summary = depths.map((c, i) => c ? (i === 0 ? 'SON' : i + 'ÖNCE') + '=' + c.pct : '—').join(', ');
-    console.log(row.name + ':', summary || '—', '| AĞ.ORT:', row.test1AgirlikliOrt?.pct ?? '—');
+    console.log(row.name + ':', summary || '—', '| AĞ.ORT:', row.test1OrtOzeti?.agirlikli?.pct ?? '—');
 }
 
 if (pkg.maxDepthTest1 !== 2) {
@@ -56,7 +56,7 @@ if (!slow?.test1Depths[0] || slow.test1Depths[0].pct >= 100) {
     process.exit(1);
 }
 
-if (!best.test1AgirlikliOrt || best.test1AgirlikliOrt.depthCount !== 2) {
+if (!best.test1OrtOzeti?.agirlikli || best.test1OrtOzeti.agirlikli.depthCount !== 2) {
     console.error('FAIL: TEST1 weighted average should use 2 depths');
     process.exit(1);
 }
