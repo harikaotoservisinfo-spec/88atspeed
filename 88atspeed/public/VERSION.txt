@@ -1,4 +1,4 @@
-branch=cursor/tahmin-metric-sort-c2e4
-commit=dev
-message=local development
-deployed=unknown
+branch=cursor/istatistik-full-grids-c2e4
+commit=pending
+message=feat: İstatistikler tüm eksik GÖSTERİM metrikleri % derinlik gridleri
+deployed=

@@ -410,6 +410,17 @@
             color: #4a148c;
             line-height: 1.5;
         }
+        .istatistik-table th.istat-grp-xtra,
+        .istatistik-table td.istat-grp-xtra { background: #f5f5f5; }
+        .istatistik-table th.istat-grp-xtra-0, .istatistik-table td.istat-grp-xtra-0 { background: #f3e5f5; }
+        .istatistik-table th.istat-grp-xtra-1, .istatistik-table td.istat-grp-xtra-1 { background: #e8eaf6; }
+        .istatistik-table th.istat-grp-xtra-2, .istatistik-table td.istat-grp-xtra-2 { background: #fce4ec; }
+        .istatistik-table th.istat-grp-xtra-3, .istatistik-table td.istat-grp-xtra-3 { background: #e0f7fa; }
+        .istatistik-table th.istat-grp-xtra-4, .istatistik-table td.istat-grp-xtra-4 { background: #fff8e1; }
+        .istatistik-table th.istat-grp-xtra-5, .istatistik-table td.istat-grp-xtra-5 { background: #e8f5e9; }
+        .istatistik-table th.istat-grp-xtra-6, .istatistik-table td.istat-grp-xtra-6 { background: #fff3e0; }
+        .istatistik-table th.istat-grp-xtra-7, .istatistik-table td.istat-grp-xtra-7 { background: #ede7f6; }
+        .istatistik-table tbody tr:hover td.istat-grp-xtra { filter: brightness(0.97); }
     </style>
 </head>
 <body>
@@ -437,6 +448,8 @@
         |sonFark−ilkFark| 0'a en yakın = %100; derinlik kıyası + AĞ. ORT.<br>
         <strong>T8Δ:</strong> GÖSTERİM TEST8 (son TEST4 − ilk TEST4) — her derinlikte
         |TEST8| 0'a en yakın = %100; derinlik kıyası + AĞ. ORT.<br>
+        <strong>Ek gruplar (800Δ·2/3, T9Δ, DR/1DR, TEST4–7, FARK, Ş+M…):</strong>
+        GÖSTERİM ve Tahminim kurallarındaki eksik sütunlar — hepsi derinlik % + AĞ. ORT.1/2/3.<br>
         <strong>T1×DR:</strong> TEST1 × DR/1DR — o gün koşan atlar arasında en düşük T1×DR = %100;
         derinlik kıyası + AĞ. ORT.<br>
         <strong>Son 3 ay / 1 ay / 15 gün:</strong> Program tarihine göre dönem içi koşu sayısının,
@@ -449,10 +462,11 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260825j"></script>
-<script src="js/istatistik-engine.js?v=20260825j"></script>
+<script src="js/utils.js?v=20260825k"></script>
+<script src="js/istatistik-engine.js?v=20260825k"></script>
+<script src="js/istatistik-grids-extra.js?v=20260825k"></script>
 <script>
-const ISTAT_BUILD = '20260825j';
+const ISTAT_BUILD = '20260825k';
 let currentKayitId = null;
 let currentKayitMeta = null;
 let currentRaceData = null;
@@ -694,7 +708,7 @@ function renderT1drDepthCells(depths, maxDepth, ortOzeti) {
         if (d === 0) cls += ' istat-grp-start';
         h += '<td class="' + cls + '">' + formatT1drDepthCell(cell, son800DepthLabel(d)) + '</td>';
     }
-    return appendDepthOrtOzetiCells(h, 'istat-grp-t1dr', 'T1×DR', ortOzeti, true);
+    return appendDepthOrtOzetiCells(h, 'istat-grp-t1dr', 'T1×DR', ortOzeti, false);
 }
 
 function renderSon800DrKorelasyonGroupCells(depths, maxDepth, grpClass, groupLabel, drLabel, ortOzeti, isGrpEnd) {
@@ -854,7 +868,7 @@ function formatT8DepthCell(cell, depthLabel) {
 
 function renderT8DepthCells(depths, maxDepth, ortOzeti) {
     if (maxDepth === 0) {
-        return '<td class="istat-grp-t8d istat-son800-depth istat-grp-start istat-grp-end"><span class="istat-pct istat-pct-none">—</span></td>';
+        return '<td class="istat-grp-t8d istat-son800-depth istat-grp-start"><span class="istat-pct istat-pct-none">—</span></td>';
     }
     let h = '';
     for (let d = 0; d < maxDepth; d++) {
@@ -863,7 +877,80 @@ function renderT8DepthCells(depths, maxDepth, ortOzeti) {
         if (d === 0) cls += ' istat-grp-start';
         h += '<td class="' + cls + '">' + formatT8DepthCell(cell, son800DepthLabel(d)) + '</td>';
     }
-    return appendDepthOrtOzetiCells(h, 'istat-grp-t8d', 'T8Δ', ortOzeti, true);
+    return appendDepthOrtOzetiCells(h, 'istat-grp-t8d', 'T8Δ', ortOzeti, false);
+}
+
+function extraGrpClass(tone) {
+    return 'istat-grp-xtra istat-grp-xtra-' + ((tone || 0) % 8);
+}
+
+function formatGenericDepthCell(cell, depthLabel, label) {
+    if (!cell || cell.pct === null) return '<span class="istat-pct istat-pct-none">—</span>';
+    let title = label + ' · ' + depthLabel;
+    if (cell.tarih) title += ' (' + cell.tarih + ')';
+    if (cell.comparedCount) title += ' | ' + cell.comparedCount + ' at kıyası';
+    title += ' → %' + cell.pct;
+    if (cell.isBest) title += ' (en iyi)';
+    return '<span class="istat-pct ' + pctClass(cell.pct) + '" title="' + title.replace(/"/g, '&quot;') + '">%' + cell.pct + '</span>';
+}
+
+function renderExtraSectionCells(row, section, isGrpEnd) {
+    const maxDepth = section.maxDepth || 0;
+    const grp = extraGrpClass(section.tone);
+    const depths = row[section.depthsKey];
+    const ortOzeti = row[section.ortKey];
+    if (maxDepth === 0) {
+        let cls = grp + ' istat-son800-depth istat-grp-start';
+        if (isGrpEnd) cls += ' istat-grp-end';
+        return '<td class="' + cls + '"><span class="istat-pct istat-pct-none">—</span></td>';
+    }
+    let h = '';
+    for (let d = 0; d < maxDepth; d++) {
+        const cell = depths && depths[d] ? depths[d] : null;
+        let cls = grp + ' istat-son800-depth';
+        if (d === 0) cls += ' istat-grp-start';
+        h += '<td class="' + cls + '">' + formatGenericDepthCell(cell, son800DepthLabel(d), section.label) + '</td>';
+    }
+    return appendDepthOrtOzetiCells(h, grp, section.label, ortOzeti, isGrpEnd);
+}
+
+function appendExtraSectionsHeadRow1(h, extraSections) {
+    if (!extraSections || !extraSections.length) return h;
+    for (let i = 0; i < extraSections.length; i++) {
+        const sec = extraSections[i];
+        const md = sec.maxDepth || 0;
+        const grp = extraGrpClass(sec.tone);
+        const isEnd = i === extraSections.length - 1;
+        if (md > 0) {
+            let cls = 'istat-th-grp ' + grp + ' istat-grp-start';
+            if (isEnd) cls += ' istat-grp-end';
+            h += '<th colspan="' + (md + 4) + '" class="' + cls + '">';
+            h += AtSpeedUtils.escapeHtml(sec.label) + '<small>' + AtSpeedUtils.escapeHtml(sec.sub) + ' + ağ. ort.</small></th>';
+        } else {
+            let cls = 'istat-th-base istat-th-metric ' + grp + ' istat-grp-start';
+            if (isEnd) cls += ' istat-grp-end';
+            h += '<th rowspan="2" class="' + cls + '">' + AtSpeedUtils.escapeHtml(sec.label) + '<small>Veri yok</small></th>';
+        }
+    }
+    return h;
+}
+
+function appendExtraSectionsHeadRow2(h, extraSections) {
+    if (!extraSections || !extraSections.length) return h;
+    for (let i = 0; i < extraSections.length; i++) {
+        const sec = extraSections[i];
+        const md = sec.maxDepth || 0;
+        const grp = extraGrpClass(sec.tone);
+        const isEnd = i === extraSections.length - 1;
+        if (md === 0) continue;
+        for (let d = 0; d < md; d++) {
+            let cls = 'istat-th-metric istat-th-son800-depth ' + grp;
+            if (d === 0) cls += ' istat-grp-start';
+            h += '<th class="' + cls + '">' + son800DepthLabel(d) + '</th>';
+        }
+        h = appendOrtOzetiHeaderCols(h, grp, isEnd);
+    }
+    return h;
 }
 
 function formatGenelIlkPctCell(stat, donemLabel, ilkNo) {
@@ -936,7 +1023,7 @@ function updateMeta() {
     if (hint) hint.textContent = currentKayitMeta.hipodrom;
 }
 
-function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxDepth2, oranAna1, oranAna2, maxDepthFark827, maxDepthFf, maxDepthT8, maxDepthDr1, maxDepthDr, maxDepthTest1, maxDepthTest2, maxDepthTest3, maxDepthTest123Sirali, maxDepthT1dr) {
+function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxDepth2, oranAna1, oranAna2, maxDepthFark827, maxDepthFf, maxDepthT8, maxDepthDr1, maxDepthDr, maxDepthTest1, maxDepthTest2, maxDepthTest3, maxDepthTest123Sirali, maxDepthT1dr, extraSections) {
     const d1 = maxDepth1 || 0;
     const d2 = maxDepth2 || 0;
     const o1 = oranMaxDepth1 || 0;
@@ -1003,10 +1090,10 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
     }
 
     if (t8 > 0) {
-        h += '<th colspan="' + (t8 + 4) + '" class="istat-th-grp istat-grp-t8d istat-grp-start istat-grp-end">';
+        h += '<th colspan="' + (t8 + 4) + '" class="istat-th-grp istat-grp-t8d istat-grp-start">';
         h += 'T8Δ<small>TEST8 |0\'a| yakın = %100 + ağ. ort.</small></th>';
     } else {
-        h += '<th rowspan="2" class="istat-th-base istat-th-metric istat-grp-t8d istat-grp-start istat-grp-end">';
+        h += '<th rowspan="2" class="istat-th-base istat-th-metric istat-grp-t8d istat-grp-start">';
         h += 'T8Δ<small>Veri yok</small></th>';
     }
 
@@ -1062,12 +1149,14 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
     }
 
     if (td > 0) {
-        h += '<th colspan="' + (td + 4) + '" class="istat-th-grp istat-grp-t1dr istat-grp-start istat-grp-end">';
+        h += '<th colspan="' + (td + 4) + '" class="istat-th-grp istat-grp-t1dr istat-grp-start">';
         h += 'T1×DR<small>En iyi T1×DR = %100 + ağ. ort.</small></th>';
     } else {
-        h += '<th rowspan="2" class="istat-th-base istat-th-metric istat-grp-t1dr istat-grp-start istat-grp-end">';
+        h += '<th rowspan="2" class="istat-th-base istat-th-metric istat-grp-t1dr istat-grp-start">';
         h += 'T1×DR<small>Veri yok</small></th>';
     }
+
+    h = appendExtraSectionsHeadRow1(h, extraSections);
 
     h += '<th colspan="3" class="istat-th-grp istat-grp-donem istat-grp-start istat-grp-end">';
     h += 'Dönem İçi Koşu Oranı<small>Son dönemdeki koşu / eski koşu payı</small></th>';
@@ -1144,7 +1233,7 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
         h += '<th class="' + cls + '">' + son800DepthLabel(d) + '</th>';
     }
     if (t8 > 0) {
-        h = appendOrtOzetiHeaderCols(h, 'istat-grp-t8d', true);
+        h = appendOrtOzetiHeaderCols(h, 'istat-grp-t8d', false);
     }
     for (let d = 0; d < dr1; d++) {
         let cls = 'istat-th-metric istat-th-son800-depth istat-grp-son800dr1';
@@ -1203,8 +1292,9 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
         h += '<th class="' + cls + '">' + son800DepthLabel(d) + '</th>';
     }
     if (td > 0) {
-        h = appendOrtOzetiHeaderCols(h, 'istat-grp-t1dr', true);
+        h = appendOrtOzetiHeaderCols(h, 'istat-grp-t1dr', false);
     }
+    h = appendExtraSectionsHeadRow2(h, extraSections);
     h += '<th class="istat-th-metric istat-grp-donem istat-grp-start">SON 3 AY</th>';
     h += '<th class="istat-th-metric istat-grp-donem">SON 1 AY</th>';
     h += '<th class="istat-th-metric istat-grp-donem istat-grp-end">SON 15 GÜN</th>';
@@ -1270,6 +1360,7 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
         const maxDepthFark827 = pkg.maxDepthFark827;
         const maxDepthFf = pkg.maxDepthFf;
         const maxDepthT8 = pkg.maxDepthT8;
+        const extraSections = pkg.extraSections || [];
 
         html += '<div class="istatistik-race-card">';
         html += '<div class="istatistik-race-header">';
@@ -1315,10 +1406,13 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
         if (maxDepthT1dr > 0) {
             html += '<span class="istatistik-race-badge">T1×DR: ' + maxDepthT1dr + ' derinlik</span>';
         }
+        if (extraSections.length > 0) {
+            html += '<span class="istatistik-race-badge">+' + extraSections.length + ' ek grup</span>';
+        }
         html += '</div>';
         html += '<div class="istatistik-table-wrap">';
         html += '<table class="istatistik-table">';
-        html += renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxDepth2, pkg.oranAnaDerece1, pkg.oranAnaDerece2, maxDepthFark827, maxDepthFf, maxDepthT8, maxDepthDr1, maxDepthDr, maxDepthTest1, maxDepthTest2, maxDepthTest3, maxDepthTest123Sirali, maxDepthT1dr);
+        html += renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxDepth2, pkg.oranAnaDerece1, pkg.oranAnaDerece2, maxDepthFark827, maxDepthFf, maxDepthT8, maxDepthDr1, maxDepthDr, maxDepthTest1, maxDepthTest2, maxDepthTest3, maxDepthTest123Sirali, maxDepthT1dr, extraSections);
         html += '<tbody>';
 
         for (const row of rows) {
@@ -1341,6 +1435,9 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
             html += renderTestOzetCells(row);
             html += renderTest123SiraliDepthCells(row.test123SiraliDepths, maxDepthTest123Sirali, row.test123SiraliOrtOzeti);
             html += renderT1drDepthCells(row.t1drDepths, maxDepthT1dr, row.t1drOrtOzeti);
+            for (let si = 0; si < extraSections.length; si++) {
+                html += renderExtraSectionCells(row, extraSections[si], si === extraSections.length - 1);
+            }
             html += '<td class="istat-grp-donem istat-grp-start">' + formatDonemPctCell(row.ay3, 'son 3 ay') + '</td>';
             html += '<td class="istat-grp-donem">' + formatDonemPctCell(row.ay1, 'son 1 ay') + '</td>';
             html += '<td class="istat-grp-donem istat-grp-end">' + formatDonemPctCell(row.gun15, 'son 15 gün') + '</td>';
