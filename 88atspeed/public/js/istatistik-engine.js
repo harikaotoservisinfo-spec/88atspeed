@@ -462,6 +462,116 @@ const IstatistikEngine = {
         return this._buildSon800DrKorelasyonChains(race, programTarih, false);
     },
 
+    /** Geçmiş koşudan TEST1 + TEST2 (hedef mesafeye ölçekli) */
+    _kosuTest12Metrikleri(kosu, hedefMesafe) {
+        if (!kosu || hedefMesafe === null || hedefMesafe <= 0) return null;
+        const gecmisMesafe = kosu.mesafe;
+        const dereceSalise = AtSpeedUtils.dereceToSalise(kosu.at_derece);
+        const drSl = AtSpeedUtils.metreBasiSalise(dereceSalise, gecmisMesafe);
+        const son800Salise = AtSpeedUtils.dereceToSalise(kosu.son800_bir);
+        const son800Sl = son800Salise ? son800Salise / 800 : null;
+        if (drSl === null || drSl <= 0 || son800Sl === null || son800Sl <= 0) return null;
+        const test1 = hedefMesafe * drSl;
+        const test2 = hedefMesafe * son800Sl;
+        if (test1 <= 0 || test2 <= 0) return null;
+        return {
+            test1,
+            test2,
+            atDerece: kosu.at_derece || null,
+            son800Derece: kosu.son800_bir || null,
+            mesafe: this._parseMesafe(gecmisMesafe),
+            tarih: kosu.tarih || null
+        };
+    },
+
+    /** Atın koşularını yeniden eskiye TEST1/TEST2 zinciri (program günü hariç) */
+    _kosularTest12Zinciri(kosular, programTarih, hedefMesafe) {
+        const programNorm = programTarih ? this._normalizeTarih(programTarih) : null;
+        const sorted = [...(kosular || [])]
+            .filter(k => {
+                if (!k?.tarih) return false;
+                if (programNorm && this._normalizeTarih(k.tarih) === programNorm) return false;
+                return true;
+            })
+            .sort((a, b) => {
+                const da = this._parseKosuTarih(a.tarih);
+                const db = this._parseKosuTarih(b.tarih);
+                if (!da && !db) return 0;
+                if (!da) return 1;
+                if (!db) return -1;
+                return db - da;
+            });
+        const chain = [];
+        for (const k of sorted) {
+            const metrik = this._kosuTest12Metrikleri(k, hedefMesafe);
+            if (!metrik) continue;
+            chain.push(metrik);
+        }
+        return chain;
+    },
+
+    _buildTest12Chains(race, programTarih) {
+        const hedefMesafe = this._hedefMesafe(race);
+        const horses = race.horses || [];
+        const chains = new Map();
+        for (const horse of horses) {
+            chains.set(
+                this._horseKey(horse),
+                this._kosularTest12Zinciri(horse.kosular, programTarih, hedefMesafe)
+            );
+        }
+        const maxDepth = Math.max(0, ...[...chains.values()].map(c => c.length));
+        return { horses, chains, maxDepth, hedefMesafe };
+    },
+
+    /**
+     * TEST1 + TEST2 derinlik bazlı rakip kıyası (SON, 1 ÖNCE …).
+     * Her derinlikte en düşük TEST1 ve TEST2 ayrı ayrı %100; birleşik = √(T1%×T2%).
+     */
+    computeTest12DepthGrid(race, programTarih) {
+        const { chains, maxDepth } = this._buildTest12Chains(race, programTarih);
+        const byHorse = new Map();
+        for (const key of chains.keys()) {
+            byHorse.set(key, new Array(maxDepth).fill(null));
+        }
+
+        for (let d = 0; d < maxDepth; d++) {
+            const atDepth = [];
+            for (const [key, chain] of chains) {
+                if (chain[d]) {
+                    atDepth.push({ key, ...chain[d] });
+                }
+            }
+            if (!atDepth.length) continue;
+
+            const minTest1 = Math.min(...atDepth.map(e => e.test1));
+            const minTest2 = Math.min(...atDepth.map(e => e.test2));
+            const comparedCount = atDepth.length;
+
+            for (const e of atDepth) {
+                const test1Pct = Math.round((minTest1 / e.test1) * 100);
+                const test2Pct = Math.round((minTest2 / e.test2) * 100);
+                const pct = Math.round(Math.sqrt(test1Pct * test2Pct));
+                byHorse.get(e.key)[d] = {
+                    pct,
+                    test1Pct,
+                    test2Pct,
+                    test1: e.test1,
+                    test2: e.test2,
+                    atDerece: e.atDerece,
+                    son800Derece: e.son800Derece,
+                    tarih: e.tarih,
+                    mesafe: e.mesafe,
+                    comparedCount,
+                    depth: d,
+                    isBest: e.test1 === minTest1 && e.test2 === minTest2
+                };
+            }
+        }
+
+        return { maxDepth, byHorse };
+    },
+
     /**
      * SON800-1 + DR/SL derinlik bazlı korelasyon (SON, 1 ÖNCE …).
      * useAtDerece=false → 1DR/SL (birinci), true → DR/SL (at derecesi).
@@ -579,6 +689,7 @@ const IstatistikEngine = {
         const oran2Grid = this.computeSon800AnaOranGrid(race, programTarih, 'iki');
         const son800Dr1Grid = this.computeSon800Dr1slKorelasyonGrid(race, programTarih);
         const son800DrGrid = this.computeSon800DrslKorelasyonGrid(race, programTarih);
+        const test12Grid = this.computeTest12DepthGrid(race, programTarih);
         const horses = [...(race.horses || [])].sort((a, b) => {
             const na = parseInt(a.no, 10);
             const nb = parseInt(b.no, 10);
@@ -604,6 +715,7 @@ const IstatistikEngine = {
             const son8002Depths = son8002Grid.byHorse.get(key) || [];
             const oran1Depths = oran1Grid.byHorse.get(key) || [];
             const oran2Depths = oran2Grid.byHorse.get(key) || [];
+            const test12Depths = test12Grid.byHorse.get(key) || [];
             return {
                 no: horse.no,
                 name: horse.name || '-',
@@ -634,6 +746,10 @@ const IstatistikEngine = {
                 son800DrAgirlikliOrt: this._computeDepthAgirlikliOrtalama(
                     drDepths, son800DrGrid.maxDepth
                 ),
+                test12Depths,
+                test12AgirlikliOrt: this._computeDepthAgirlikliOrtalama(
+                    test12Depths, test12Grid.maxDepth
+                ),
                 ay3,
                 ay1,
                 gun15,
@@ -654,6 +770,7 @@ const IstatistikEngine = {
             oranAnaDerece2: oran2Grid.anaDerece,
             maxDepthDr1: son800Dr1Grid.maxDepth,
             maxDepthDr: son800DrGrid.maxDepth,
+            maxDepthTest12: test12Grid.maxDepth,
             rows
         };
     },
