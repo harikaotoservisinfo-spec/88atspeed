@@ -178,6 +178,10 @@
         .istatistik-table td.istat-grp-test1 {
             background: #fce4ec;
         }
+        .istatistik-table th.istat-grp-test2,
+        .istatistik-table td.istat-grp-test2 {
+            background: #e8eaf6;
+        }
         .istatistik-table th.istat-grp-ilk3,
         .istatistik-table td.istat-grp-ilk3 {
             background: #f6fbf6;
@@ -227,6 +231,8 @@
         .istatistik-table th.istat-grp-son800dr.istat-grp-start { border-left-color: #26a69a; }
         .istatistik-table th.istat-grp-test1 { color: #880e4f; }
         .istatistik-table th.istat-grp-test1.istat-grp-start { border-left-color: #ec407a; }
+        .istatistik-table th.istat-grp-test2 { color: #283593; }
+        .istatistik-table th.istat-grp-test2.istat-grp-start { border-left-color: #5c6bc0; }
         .istatistik-table th.istat-grp-ilk3 { color: #1b5e20; }
         .istatistik-table th.istat-grp-ilk3.istat-grp-start { border-left-color: #43a047; }
         .istatistik-table th.istat-grp-ilk2 { color: #2e7d32; }
@@ -247,6 +253,7 @@
         .istatistik-table td.istat-grp-son800dr1.istat-grp-start { border-left-color: #9fa8da; }
         .istatistik-table td.istat-grp-son800dr.istat-grp-start { border-left-color: #80cbc4; }
         .istatistik-table td.istat-grp-test1.istat-grp-start { border-left-color: #f48fb1; }
+        .istatistik-table td.istat-grp-test2.istat-grp-start { border-left-color: #9fa8da; }
         .istatistik-table td.istat-grp-ilk3.istat-grp-start { border-left-color: #a5d6a7; }
         .istatistik-table td.istat-grp-ilk2.istat-grp-start { border-left-color: #81c784; }
         .istatistik-table td.istat-grp-ilk1.istat-grp-start { border-left-color: #aed581; }
@@ -294,6 +301,7 @@
         .istatistik-table tbody tr:hover td.istat-grp-son800dr1 { background: #dce0f5; }
         .istatistik-table tbody tr:hover td.istat-grp-son800dr { background: #d0ece9; }
         .istatistik-table tbody tr:hover td.istat-grp-test1 { background: #f8d7e3; }
+        .istatistik-table tbody tr:hover td.istat-grp-test2 { background: #dce0f5; }
         .istatistik-table tbody tr:hover td.istat-grp-ilk3 { background: #edf7ed; }
         .istatistik-table tbody tr:hover td.istat-grp-ilk2 { background: #e0f0e1; }
         .istatistik-table tbody tr:hover td.istat-grp-ilk1 { background: #e8f2e0; }
@@ -342,8 +350,10 @@
         <strong>AĞ. ORT.</strong> — son koşudan geriye ağırlıklı ortalama (SON en yüksek ağırlık).<br>
         <strong>SON800·1DR/SL:</strong> SON800-1 + birinci derece (1DR/SL) korelasyonu + AĞ. ORT.<br>
         <strong>SON800·DR/SL:</strong> SON800-1 + atın kendi derecesi (DR/SL) korelasyonu + AĞ. ORT.<br>
-        <strong>TEST1:</strong> O gün koşan atlar arasında en iyi TEST1 = %100; her atın geçmiş koşularında
-        (SON, 1 ÖNCE …) TEST1 değeri bu referansa göre yüzde + AĞ. ORT.<br>
+        <strong>TEST1:</strong> O gün koşan atlar arasında en iyi TEST1 (DR/SL×mesafe) = %100;
+        her derinlikte ayrı kıyas + AĞ. ORT.<br>
+        <strong>TEST2:</strong> O gün koşan atlar arasında en iyi TEST2 (SON800-1×mesafe) = %100;
+        her derinlikte ayrı kıyas + AĞ. ORT.<br>
         <strong>Son 3 ay / 1 ay / 15 gün:</strong> Program tarihine göre dönem içi koşu sayısının,
         daha eski koşularla birlikte toplam içindeki yüzdesi.<br>
         <strong>Genel İLK3–İLK1:</strong> Tüm koşularda 1.–3. / 1.–2. / 1. sıra başarı oranları (3 ay / 1 ay / 15 gün).<br>
@@ -352,10 +362,10 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260824w"></script>
-<script src="js/istatistik-engine.js?v=20260824w"></script>
+<script src="js/utils.js?v=20260824x"></script>
+<script src="js/istatistik-engine.js?v=20260824x"></script>
 <script>
-const ISTAT_BUILD = '20260824w';
+const ISTAT_BUILD = '20260824x';
 let currentKayitId = null;
 let currentKayitMeta = null;
 let currentRaceData = null;
@@ -463,7 +473,7 @@ function formatTest1DepthCell(cell, depthLabel) {
 
 function renderTest1DepthCells(depths, maxDepth, agirlikliOrt) {
     if (maxDepth === 0) {
-        return '<td class="istat-grp-test1 istat-son800-depth istat-grp-start istat-grp-end"><span class="istat-pct istat-pct-none">—</span></td>';
+        return '<td class="istat-grp-test1 istat-son800-depth istat-grp-start"><span class="istat-pct istat-pct-none">—</span></td>';
     }
     let h = '';
     for (let d = 0; d < maxDepth; d++) {
@@ -472,7 +482,31 @@ function renderTest1DepthCells(depths, maxDepth, agirlikliOrt) {
         if (d === 0) cls += ' istat-grp-start';
         h += '<td class="' + cls + '">' + formatTest1DepthCell(cell, son800DepthLabel(d)) + '</td>';
     }
-    return appendDepthAvgCell(h, 'istat-grp-test1', agirlikliOrt, 'TEST1', true);
+    return appendDepthAvgCell(h, 'istat-grp-test1', agirlikliOrt, 'TEST1', false);
+}
+
+function formatTest2DepthCell(cell, depthLabel) {
+    if (!cell || cell.pct === null) return '<span class="istat-pct istat-pct-none">—</span>';
+    let title = 'TEST2 · ' + depthLabel + ': ' + (cell.son800Derece || '?');
+    if (cell.tarih) title += ' (' + cell.tarih + ')';
+    if (cell.test2 != null) title += ' | TEST2=' + cell.test2.toFixed(2);
+    title += ' | ' + cell.comparedCount + ' at kıyası → %' + cell.pct;
+    if (cell.isBest) title += ' (en iyi TEST2)';
+    return '<span class="istat-pct ' + pctClass(cell.pct) + '" title="' + title.replace(/"/g, '&quot;') + '">%' + cell.pct + '</span>';
+}
+
+function renderTest2DepthCells(depths, maxDepth, agirlikliOrt) {
+    if (maxDepth === 0) {
+        return '<td class="istat-grp-test2 istat-son800-depth istat-grp-start istat-grp-end"><span class="istat-pct istat-pct-none">—</span></td>';
+    }
+    let h = '';
+    for (let d = 0; d < maxDepth; d++) {
+        const cell = depths && depths[d] ? depths[d] : null;
+        let cls = 'istat-grp-test2 istat-son800-depth';
+        if (d === 0) cls += ' istat-grp-start';
+        h += '<td class="' + cls + '">' + formatTest2DepthCell(cell, son800DepthLabel(d)) + '</td>';
+    }
+    return appendDepthAvgCell(h, 'istat-grp-test2', agirlikliOrt, 'TEST2', true);
 }
 
 function renderSon800DrKorelasyonGroupCells(depths, maxDepth, grpClass, groupLabel, drLabel, agirlikliOrt, isGrpEnd) {
@@ -585,7 +619,7 @@ function updateMeta() {
     if (hint) hint.textContent = currentKayitMeta.hipodrom;
 }
 
-function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxDepth2, oranAna1, oranAna2, maxDepthDr1, maxDepthDr, maxDepthTest1) {
+function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxDepth2, oranAna1, oranAna2, maxDepthDr1, maxDepthDr, maxDepthTest1, maxDepthTest2) {
     const d1 = maxDepth1 || 0;
     const d2 = maxDepth2 || 0;
     const o1 = oranMaxDepth1 || 0;
@@ -593,6 +627,7 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
     const dr1 = maxDepthDr1 || 0;
     const dr = maxDepthDr || 0;
     const t1 = maxDepthTest1 || 0;
+    const t2 = maxDepthTest2 || 0;
     let h = '<thead>';
     h += '<tr>';
     h += '<th rowspan="2" class="istat-th-base istat-sticky-no">#</th>';
@@ -645,11 +680,19 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
     }
 
     if (t1 > 0) {
-        h += '<th colspan="' + (t1 + 1) + '" class="istat-th-grp istat-grp-test1 istat-grp-start istat-grp-end">';
+        h += '<th colspan="' + (t1 + 1) + '" class="istat-th-grp istat-grp-test1 istat-grp-start">';
         h += 'TEST1<small>En iyi TEST1 = %100, derinlik kıyası + ağ. ort.</small></th>';
     } else {
-        h += '<th rowspan="2" class="istat-th-base istat-th-metric istat-grp-test1 istat-grp-start istat-grp-end">';
+        h += '<th rowspan="2" class="istat-th-base istat-th-metric istat-grp-test1 istat-grp-start">';
         h += 'TEST1<small>Veri yok</small></th>';
+    }
+
+    if (t2 > 0) {
+        h += '<th colspan="' + (t2 + 1) + '" class="istat-th-grp istat-grp-test2 istat-grp-start istat-grp-end">';
+        h += 'TEST2<small>En iyi TEST2 = %100, derinlik kıyası + ağ. ort.</small></th>';
+    } else {
+        h += '<th rowspan="2" class="istat-th-base istat-th-metric istat-grp-test2 istat-grp-start istat-grp-end">';
+        h += 'TEST2<small>Veri yok</small></th>';
     }
 
     h += '<th colspan="3" class="istat-th-grp istat-grp-donem istat-grp-start istat-grp-end">';
@@ -721,7 +764,15 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
         h += '<th class="' + cls + '">' + son800DepthLabel(d) + '</th>';
     }
     if (t1 > 0) {
-        h += '<th class="istat-th-metric istat-th-son800-avg istat-grp-test1 istat-grp-end">AĞ. ORT.</th>';
+        h += '<th class="istat-th-metric istat-th-son800-avg istat-grp-test1">AĞ. ORT.</th>';
+    }
+    for (let d = 0; d < t2; d++) {
+        let cls = 'istat-th-metric istat-th-son800-depth istat-grp-test2';
+        if (d === 0) cls += ' istat-grp-start';
+        h += '<th class="' + cls + '">' + son800DepthLabel(d) + '</th>';
+    }
+    if (t2 > 0) {
+        h += '<th class="istat-th-metric istat-th-son800-avg istat-grp-test2 istat-grp-end">AĞ. ORT.</th>';
     }
     h += '<th class="istat-th-metric istat-grp-donem istat-grp-start">SON 3 AY</th>';
     h += '<th class="istat-th-metric istat-grp-donem">SON 1 AY</th>';
@@ -772,6 +823,7 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
         const maxDepthDr1 = pkg.maxDepthDr1;
         const maxDepthDr = pkg.maxDepthDr;
         const maxDepthTest1 = pkg.maxDepthTest1;
+        const maxDepthTest2 = pkg.maxDepthTest2;
 
         html += '<div class="istatistik-race-card">';
         html += '<div class="istatistik-race-header">';
@@ -796,10 +848,13 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
         if (maxDepthTest1 > 0) {
             html += '<span class="istatistik-race-badge">TEST1: ' + maxDepthTest1 + ' derinlik</span>';
         }
+        if (maxDepthTest2 > 0) {
+            html += '<span class="istatistik-race-badge">TEST2: ' + maxDepthTest2 + ' derinlik</span>';
+        }
         html += '</div>';
         html += '<div class="istatistik-table-wrap">';
         html += '<table class="istatistik-table">';
-        html += renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxDepth2, pkg.oranAnaDerece1, pkg.oranAnaDerece2, maxDepthDr1, maxDepthDr, maxDepthTest1);
+        html += renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxDepth2, pkg.oranAnaDerece1, pkg.oranAnaDerece2, maxDepthDr1, maxDepthDr, maxDepthTest1, maxDepthTest2);
         html += '<tbody>';
 
         for (const row of rows) {
@@ -814,6 +869,7 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
             html += renderSon800Dr1KorelasyonCells(row.son800Dr1Depths, maxDepthDr1, row.son800Dr1AgirlikliOrt);
             html += renderSon800DrslKorelasyonCells(row.son800DrDepths, maxDepthDr, row.son800DrAgirlikliOrt);
             html += renderTest1DepthCells(row.test1Depths, maxDepthTest1, row.test1AgirlikliOrt);
+            html += renderTest2DepthCells(row.test2Depths, maxDepthTest2, row.test2AgirlikliOrt);
             html += '<td class="istat-grp-donem istat-grp-start">' + formatDonemPctCell(row.ay3, 'son 3 ay') + '</td>';
             html += '<td class="istat-grp-donem">' + formatDonemPctCell(row.ay1, 'son 1 ay') + '</td>';
             html += '<td class="istat-grp-donem istat-grp-end">' + formatDonemPctCell(row.gun15, 'son 15 gün') + '</td>';

@@ -11,20 +11,20 @@ const race = {
         {
             no: 1, name: 'En iyi TEST1',
             kosular: [
-                { tarih: '20.08.2026', mesafe: '1400', at_derece: '1.24.00' },
-                { tarih: '01.08.2026', mesafe: '1400', at_derece: '1.26.00' }
+                { tarih: '20.08.2026', mesafe: '1400', at_derece: '1.24.00', son800_bir: '0.48.00' },
+                { tarih: '01.08.2026', mesafe: '1400', at_derece: '1.26.00', son800_bir: '0.50.00' }
             ]
         },
         {
             no: 2, name: 'Yavaş TEST1',
             kosular: [
-                { tarih: '18.08.2026', mesafe: '1400', at_derece: '1.28.00' }
+                { tarih: '18.08.2026', mesafe: '1400', at_derece: '1.28.00', son800_bir: '0.48.00' }
             ]
         },
         {
             no: 3, name: 'Orta TEST1',
             kosular: [
-                { tarih: '15.08.2026', mesafe: '1400', at_derece: '1.25.00' }
+                { tarih: '15.08.2026', mesafe: '1400', at_derece: '1.25.00', son800_bir: '0.52.00' }
             ]
         }
     ]
@@ -57,7 +57,18 @@ if (!slow?.test1Depths[0] || slow.test1Depths[0].pct >= 100) {
 }
 
 if (!best.test1AgirlikliOrt || best.test1AgirlikliOrt.depthCount !== 2) {
-    console.error('FAIL: weighted average should use 2 depths');
+    console.error('FAIL: TEST1 weighted average should use 2 depths');
+    process.exit(1);
+}
+
+if (pkg.maxDepthTest2 !== 2) {
+    console.error('FAIL: maxDepthTest2 should be 2');
+    process.exit(1);
+}
+
+const bestT2 = pkg.rows.find(r => r.name === 'En iyi TEST1');
+if (!bestT2?.test2Depths[0] || bestT2.test2Depths[0].pct !== 100) {
+    console.error('FAIL: best horse TEST2 at SON should be 100%');
     process.exit(1);
 }
 
