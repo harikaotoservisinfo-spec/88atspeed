@@ -363,6 +363,109 @@ const IstatistikEngine = {
         return horse.atId != null ? String(horse.atId) : String(horse.no);
     },
 
+    /** Atın son koşusu (program günü hariç, yeniden eskiye) */
+    _sonKosuTam(kosular, programTarih) {
+        const programNorm = programTarih ? this._normalizeTarih(programTarih) : null;
+        const sorted = [...(kosular || [])]
+            .filter(k => {
+                if (!k?.tarih) return false;
+                if (programNorm && this._normalizeTarih(k.tarih) === programNorm) return false;
+                return true;
+            })
+            .sort((a, b) => {
+                const da = this._parseKosuTarih(a.tarih);
+                const db = this._parseKosuTarih(b.tarih);
+                if (!da && !db) return 0;
+                if (!da) return 1;
+                if (!db) return -1;
+                return db - da;
+            });
+        return sorted[0] || null;
+    },
+
+    /** Son koşudan SON800-1 salise + 1DR/SL (birinci_dr_sl) */
+    _sonKosuSon800Dr1slMetrikleri(kosu) {
+        if (!kosu) return null;
+        const son800 = kosu.son800_bir;
+        if (!son800 || son800 === '-') return null;
+        const son800Salise = AtSpeedUtils.dereceToSalise(son800);
+        if (son800Salise === null || son800Salise <= 0) return null;
+
+        const mesafe = this._parseMesafe(kosu.mesafe);
+        const birinciSalise = AtSpeedUtils.dereceToSalise(kosu.birinci_derece);
+        const birinciDrSl = (birinciSalise !== null && mesafe !== null)
+            ? AtSpeedUtils.metreBasiSalise(birinciSalise, mesafe)
+            : null;
+        if (birinciDrSl === null || birinciDrSl <= 0) return null;
+
+        return {
+            son800Salise,
+            son800Derece: son800,
+            birinciDrSl,
+            birinciDerece: kosu.birinci_derece || null,
+            mesafe,
+            tarih: kosu.tarih || null
+        };
+    },
+
+    /**
+     * Son koşuda SON800-1 (hızlı = düşük) + 1DR/SL (düşük = iyi) korelasyonu.
+     * Her metrik rakip kıyasında (min / değer) × 100; birleşik = geometrik ortalama.
+     */
+    computeSon800Dr1slKorelasyon(race, programTarih) {
+        const horses = race.horses || [];
+        const entries = [];
+        const byHorse = new Map();
+
+        for (const horse of horses) {
+            const key = this._horseKey(horse);
+            const sonKosu = this._sonKosuTam(horse.kosular, programTarih);
+            const metrik = this._sonKosuSon800Dr1slMetrikleri(sonKosu);
+            if (!metrik) {
+                byHorse.set(key, null);
+                continue;
+            }
+            entries.push({
+                key,
+                son800Salise: metrik.son800Salise,
+                birinciDrSl: metrik.birinciDrSl,
+                son800Derece: metrik.son800Derece,
+                birinciDerece: metrik.birinciDerece,
+                tarih: metrik.tarih,
+                mesafe: metrik.mesafe
+            });
+        }
+
+        if (!entries.length) {
+            return { byHorse, comparedCount: 0 };
+        }
+
+        const minSon800 = Math.min(...entries.map(e => e.son800Salise));
+        const minDr1sl = Math.min(...entries.map(e => e.birinciDrSl));
+        const comparedCount = entries.length;
+
+        for (const e of entries) {
+            const son800Pct = Math.round((minSon800 / e.son800Salise) * 100);
+            const dr1Pct = Math.round((minDr1sl / e.birinciDrSl) * 100);
+            const pct = Math.round(Math.sqrt(son800Pct * dr1Pct));
+            byHorse.set(e.key, {
+                pct,
+                son800Pct,
+                dr1Pct,
+                son800Derece: e.son800Derece,
+                birinciDerece: e.birinciDerece,
+                son800Salise: e.son800Salise,
+                birinciDrSl: e.birinciDrSl,
+                tarih: e.tarih,
+                mesafe: e.mesafe,
+                comparedCount,
+                isBest: e.son800Salise === minSon800 && e.birinciDrSl === minDr1sl
+            });
+        }
+
+        return { byHorse, comparedCount };
+    },
+
     /** Koşu listesi için tüm istatistik satırları + SON800 derinlik meta */
     buildRaceIstatistikPackage(race, hedefSehir, programTarih) {
         const hedefMesafe = this._hedefMesafe(race);
@@ -370,6 +473,7 @@ const IstatistikEngine = {
         const son8002Grid = this.computeSon800DepthGrid(race, programTarih, 'iki');
         const oran1Grid = this.computeSon800AnaOranGrid(race, programTarih, 'bir');
         const oran2Grid = this.computeSon800AnaOranGrid(race, programTarih, 'iki');
+        const son800Dr1Grid = this.computeSon800Dr1slKorelasyon(race, programTarih);
         const horses = [...(race.horses || [])].sort((a, b) => {
             const na = parseInt(a.no, 10);
             const nb = parseInt(b.no, 10);
@@ -399,6 +503,7 @@ const IstatistikEngine = {
                 son8002Depths: son8002Grid.byHorse.get(key) || [],
                 oran1Depths: oran1Grid.byHorse.get(key) || [],
                 oran2Depths: oran2Grid.byHorse.get(key) || [],
+                son800Dr1Korelasyon: son800Dr1Grid.byHorse.get(key) || null,
                 ay3,
                 ay1,
                 gun15,
@@ -417,6 +522,7 @@ const IstatistikEngine = {
             oranMaxDepth2: oran2Grid.maxDepth,
             oranAnaDerece1: oran1Grid.anaDerece,
             oranAnaDerece2: oran2Grid.anaDerece,
+            son800Dr1ComparedCount: son800Dr1Grid.comparedCount,
             rows
         };
     },
