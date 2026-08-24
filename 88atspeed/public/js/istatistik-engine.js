@@ -1280,8 +1280,8 @@ const IstatistikEngine = {
         };
     },
 
-    /** 800Δ·7 özet: AĞ. ORT. + son 3/2 ort. + üçlü ortalama */
-    _computeFark827OrtOzeti(depths, maxDepth) {
+    /** Derinlik özeti: AĞ. ORT. + son 3/2 ort. + üçünün ortalaması (eksik derinlik = 0 sayılmaz) */
+    _computeDepthOrtOzeti(depths, maxDepth) {
         const agirlikli = this._computeDepthAgirlikliOrtalama(depths, maxDepth);
         const ort1 = this._computeDepthSonNOrtalama(depths, 3);
         const ort2 = this._computeDepthSonNOrtalama(depths, 2);
@@ -1293,6 +1293,11 @@ const IstatistikEngine = {
             ? { pct: Math.round(ort3Vals.reduce((a, b) => a + b, 0) / ort3Vals.length), count: ort3Vals.length }
             : null;
         return { agirlikli, ort1, ort2, ort3 };
+    },
+
+    /** @deprecated _computeDepthOrtOzeti kullanın */
+    _computeFark827OrtOzeti(depths, maxDepth) {
+        return this._computeDepthOrtOzeti(depths, maxDepth);
     },
 
     /** @deprecated _computeDepthAgirlikliOrtalama kullanın */
@@ -1376,15 +1381,15 @@ const IstatistikEngine = {
                     son8002Depths, son8002Grid.maxDepth
                 ),
                 oran1Depths,
-                oran1AgirlikliOrt: this._computeDepthAgirlikliOrtalama(
+                oran1OrtOzeti: this._computeDepthOrtOzeti(
                     oran1Depths, oran1Grid.maxDepth
                 ),
                 oran2Depths,
-                oran2AgirlikliOrt: this._computeDepthAgirlikliOrtalama(
+                oran2OrtOzeti: this._computeDepthOrtOzeti(
                     oran2Depths, oran2Grid.maxDepth
                 ),
                 fark827Depths,
-                fark827OrtOzeti: this._computeFark827OrtOzeti(
+                fark827OrtOzeti: this._computeDepthOrtOzeti(
                     fark827Depths, fark827Grid.maxDepth
                 ),
                 son800Dr1Depths: dr1Depths,
