@@ -142,6 +142,10 @@
         .istatistik-table td.istat-grp-son8001 {
             background: #e0f7fa;
         }
+        .istatistik-table th.istat-grp-son8002,
+        .istatistik-table td.istat-grp-son8002 {
+            background: #b2ebf2;
+        }
         .istatistik-table th.istat-grp-ilk3,
         .istatistik-table td.istat-grp-ilk3 {
             background: #f6fbf6;
@@ -179,6 +183,8 @@
         .istatistik-table th.istat-grp-donem.istat-grp-start { border-left-color: #1976d2; }
         .istatistik-table th.istat-grp-son8001 { color: #006064; }
         .istatistik-table th.istat-grp-son8001.istat-grp-start { border-left-color: #00acc1; }
+        .istatistik-table th.istat-grp-son8002 { color: #00838f; }
+        .istatistik-table th.istat-grp-son8002.istat-grp-start { border-left-color: #26c6da; }
         .istatistik-table th.istat-grp-ilk3 { color: #1b5e20; }
         .istatistik-table th.istat-grp-ilk3.istat-grp-start { border-left-color: #43a047; }
         .istatistik-table th.istat-grp-ilk2 { color: #2e7d32; }
@@ -193,6 +199,7 @@
         .istatistik-table th.istat-grp-sm1.istat-grp-start { border-left-color: #ab47bc; }
         .istatistik-table td.istat-grp-donem.istat-grp-start { border-left-color: #90caf9; }
         .istatistik-table td.istat-grp-son8001.istat-grp-start { border-left-color: #80deea; }
+        .istatistik-table td.istat-grp-son8002.istat-grp-start { border-left-color: #4dd0e1; }
         .istatistik-table td.istat-grp-ilk3.istat-grp-start { border-left-color: #a5d6a7; }
         .istatistik-table td.istat-grp-ilk2.istat-grp-start { border-left-color: #81c784; }
         .istatistik-table td.istat-grp-ilk1.istat-grp-start { border-left-color: #aed581; }
@@ -219,6 +226,7 @@
         .istatistik-table tbody tr:hover { background: #fafafa; }
         .istatistik-table tbody tr:hover td.istat-grp-donem { background: #eaf4ff; }
         .istatistik-table tbody tr:hover td.istat-grp-son8001 { background: #d4f4f7; }
+        .istatistik-table tbody tr:hover td.istat-grp-son8002 { background: #c2eef3; }
         .istatistik-table tbody tr:hover td.istat-grp-ilk3 { background: #edf7ed; }
         .istatistik-table tbody tr:hover td.istat-grp-ilk2 { background: #e0f0e1; }
         .istatistik-table tbody tr:hover td.istat-grp-ilk1 { background: #e8f2e0; }
@@ -262,8 +270,8 @@
     <div class="istatistik-hint">
         <strong>Şehir deneyimi:</strong> Bilinen koşular içinde program hipodromunda
         (<span id="istatistikSehirHint">—</span>) koşma oranı.<br>
-        <strong>SON800-1:</strong> Atın son koşusundaki SON800-1 süresi, aynı koşudaki rakiplerle kıyaslanır;
-        en düşük süre %100, diğerleri orantılı azalır.<br>
+        <strong>SON800-1 / SON800-2:</strong> Atın son koşusundaki SON800-1 ve SON800-2 süreleri,
+        aynı koşudaki rakiplerle kıyaslanır; en düşük süre %100, diğerleri orantılı azalır.<br>
         <strong>Son 3 ay / 1 ay / 15 gün:</strong> Program tarihine göre dönem içi koşu sayısının,
         daha eski koşularla birlikte toplam içindeki yüzdesi.<br>
         <strong>Genel İLK3–İLK1:</strong> Tüm koşularda 1.–3. / 1.–2. / 1. sıra başarı oranları (3 ay / 1 ay / 15 gün).<br>
@@ -273,7 +281,7 @@
 </div>
 
 <script src="js/utils.js?v=20260824w"></script>
-<script src="js/istatistik-engine.js?v=20260824g"></script>
+<script src="js/istatistik-engine.js?v=20260824h"></script>
 <script>
 let currentKayitId = null;
 let currentKayitMeta = null;
@@ -310,9 +318,9 @@ function formatDonemPctCell(stat, donemLabel) {
     return '<span class="istat-pct ' + pctClass(stat.pct) + '" title="' + title + '">%' + stat.pct + '</span>';
 }
 
-function formatSon8001PctCell(stat) {
+function formatSon800PctCell(stat, label) {
     if (stat.pct === null) return '<span class="istat-pct istat-pct-none">—</span>';
-    let title = 'Son koşu SON800-1: ' + (stat.derece || '?');
+    let title = 'Son koşu ' + label + ': ' + (stat.derece || '?');
     if (stat.tarih) title += ' (' + stat.tarih + ')';
     if (stat.minDerece) title += ' | En iyi: ' + stat.minDerece + ' (%100)';
     title += ' | ' + stat.fieldCount + ' at kıyaslandı';
@@ -377,8 +385,10 @@ function renderIstatistikTableHead() {
     h += '<th rowspan="2" class="istat-th-base istat-sticky-no">#</th>';
     h += '<th rowspan="2" class="istat-th-base istat-sticky-at">AT İSMİ</th>';
     h += '<th rowspan="2" class="istat-th-base istat-th-metric">ŞEHİR<br>DENEYİMİ</th>';
-    h += '<th rowspan="2" class="istat-th-base istat-th-metric istat-grp-son8001 istat-grp-start istat-grp-end">';
+    h += '<th rowspan="2" class="istat-th-base istat-th-metric istat-grp-son8001 istat-grp-start">';
     h += 'SON800-1<small>Son koşu rakip kıyası</small></th>';
+    h += '<th rowspan="2" class="istat-th-base istat-th-metric istat-grp-son8002 istat-grp-end">';
+    h += 'SON800-2<small>Son koşu rakip kıyası</small></th>';
     h += '<th colspan="3" class="istat-th-grp istat-grp-donem istat-grp-start istat-grp-end">';
     h += 'Dönem İçi Koşu Oranı<small>Son dönemdeki koşu / eski koşu payı</small></th>';
     h += '<th colspan="3" class="istat-th-grp istat-grp-ilk3 istat-grp-start istat-grp-end">';
@@ -452,7 +462,8 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
             html += '<td class="istat-no istat-sticky-no">' + AtSpeedUtils.escapeHtml(String(row.no || '-')) + '</td>';
             html += '<td class="istat-at istat-sticky-at">' + AtSpeedUtils.escapeHtml(row.name) + '</td>';
             html += '<td>' + formatSehirPctCell(row.sehir) + '</td>';
-            html += '<td class="istat-grp-son8001 istat-grp-start istat-grp-end">' + formatSon8001PctCell(row.son8001) + '</td>';
+            html += '<td class="istat-grp-son8001 istat-grp-start">' + formatSon800PctCell(row.son8001, 'SON800-1') + '</td>';
+            html += '<td class="istat-grp-son8002 istat-grp-end">' + formatSon800PctCell(row.son8002, 'SON800-2') + '</td>';
             html += '<td class="istat-grp-donem istat-grp-start">' + formatDonemPctCell(row.ay3, 'son 3 ay') + '</td>';
             html += '<td class="istat-grp-donem">' + formatDonemPctCell(row.ay1, 'son 1 ay') + '</td>';
             html += '<td class="istat-grp-donem istat-grp-end">' + formatDonemPctCell(row.gun15, 'son 15 gün') + '</td>';

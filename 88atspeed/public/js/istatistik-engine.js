@@ -213,8 +213,17 @@ const IstatistikEngine = {
         return { pct: r.pct, top3: r.hit, notTop3: r.miss, total: r.total };
     },
 
-    /** Atın son geçerli koşusundaki SON800-1 salise değeri */
-    _sonKosuSon8001(kosular, programTarih) {
+    /** Atın son geçerli koşusundaki SON800-1/2 salise değeri */
+    _sonKosuSon800Derece(k, alan) {
+        if (alan === 'iki') {
+            let v = k.son800_iki;
+            if (!v || v === '-') v = k.son800_bir;
+            return v;
+        }
+        return k.son800_bir;
+    },
+
+    _sonKosuSon800(kosular, programTarih, alan = 'bir') {
         const programNorm = programTarih ? this._normalizeTarih(programTarih) : null;
         const sorted = [...(kosular || [])]
             .filter(k => {
@@ -231,22 +240,28 @@ const IstatistikEngine = {
                 return db - da;
             });
         for (const k of sorted) {
-            const salise = AtSpeedUtils.dereceToSalise(k.son800_bir);
+            const derece = this._sonKosuSon800Derece(k, alan);
+            const salise = AtSpeedUtils.dereceToSalise(derece);
             if (salise !== null) {
-                return { salise, derece: k.son800_bir, tarih: k.tarih };
+                return { salise, derece, tarih: k.tarih };
             }
         }
         return { salise: null, derece: null, tarih: null };
     },
 
+    /** @deprecated _sonKosuSon800(kosular, programTarih, 'bir') kullanın */
+    _sonKosuSon8001(kosular, programTarih) {
+        return this._sonKosuSon800(kosular, programTarih, 'bir');
+    },
+
     /**
-     * Koşudaki rakiplerin son koşu SON800-1 değerlerini kıyaslar.
+     * Koşudaki rakiplerin son koşu SON800-1/2 değerlerini kıyaslar.
      * En düşük (en iyi) süre %100; diğerleri (min / değer) × 100.
      */
-    computeSon8001RaceKiyaslama(race, programTarih) {
+    computeSon800RaceKiyaslama(race, programTarih, alan = 'bir') {
         const horses = race.horses || [];
         const entries = horses.map(horse => {
-            const son = this._sonKosuSon8001(horse.kosular, programTarih);
+            const son = this._sonKosuSon800(horse.kosular, programTarih, alan);
             return { atId: horse.atId, no: horse.no, ...son };
         });
         const valid = entries.filter(e => e.salise !== null);
@@ -273,6 +288,22 @@ const IstatistikEngine = {
         return byKey;
     },
 
+    /** @deprecated computeSon800RaceKiyaslama(race, programTarih, 'bir') kullanın */
+    computeSon8001RaceKiyaslama(race, programTarih) {
+        return this.computeSon800RaceKiyaslama(race, programTarih, 'bir');
+    },
+
+    computeSon8002RaceKiyaslama(race, programTarih) {
+        return this.computeSon800RaceKiyaslama(race, programTarih, 'iki');
+    },
+
+    _emptySon800Stat() {
+        return {
+            pct: null, salise: null, derece: null, tarih: null,
+            minSalise: null, minDerece: null, fieldCount: 0, isBest: false
+        };
+    },
+
     _horseKey(horse) {
         return horse.atId != null ? String(horse.atId) : String(horse.no);
     },
@@ -280,7 +311,8 @@ const IstatistikEngine = {
     /** Koşu listesi için tüm istatistik satırları */
     buildRaceIstatistikRows(race, hedefSehir, programTarih) {
         const hedefMesafe = this._hedefMesafe(race);
-        const son8001Map = this.computeSon8001RaceKiyaslama(race, programTarih);
+        const son8001Map = this.computeSon800RaceKiyaslama(race, programTarih, 'bir');
+        const son8002Map = this.computeSon800RaceKiyaslama(race, programTarih, 'iki');
         const horses = [...(race.horses || [])].sort((a, b) => {
             const na = parseInt(a.no, 10);
             const nb = parseInt(b.no, 10);
@@ -299,10 +331,8 @@ const IstatistikEngine = {
             const smIlk3 = this._smIlkBundle(kosular, programTarih, hedefSehir, hedefMesafe, 3);
             const smIlk2 = this._smIlkBundle(kosular, programTarih, hedefSehir, hedefMesafe, 2);
             const smIlk1 = this._smIlkBundle(kosular, programTarih, hedefSehir, hedefMesafe, 1);
-            const son8001 = son8001Map.get(this._horseKey(horse)) || {
-                pct: null, salise: null, derece: null, tarih: null,
-                minSalise: null, minDerece: null, fieldCount: 0, isBest: false
-            };
+            const son8001 = son8001Map.get(this._horseKey(horse)) || this._emptySon800Stat();
+            const son8002 = son8002Map.get(this._horseKey(horse)) || this._emptySon800Stat();
             return {
                 no: horse.no,
                 name: horse.name || '-',
@@ -310,6 +340,7 @@ const IstatistikEngine = {
                 hedefMesafe,
                 sehir,
                 son8001,
+                son8002,
                 ay3,
                 ay1,
                 gun15,
