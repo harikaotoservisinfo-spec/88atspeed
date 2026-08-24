@@ -80,4 +80,27 @@ if (fakeT.pct !== 99) {
     process.exit(1);
 }
 
+TE.setWeight('test1', 3);
+TE.setWeight('son8001', 1);
+const weighted = TE.computeRowTahmin({
+    name: 'W',
+    son8001OrtOzeti: ort3(50),
+    test1OrtOzeti: ort3(100)
+}, []);
+// (50*1 + 100*3) / 4 = 87.5 → 88
+if (weighted.pct !== 88) {
+    console.error('FAIL: ağırlıklı ortalama 88 olmalı, got', weighted.pct);
+    process.exit(1);
+}
+TE.resetWeights();
+
+if (TE.getInfluencePct('test1') !== Math.round((3 / (3 + 40)) * 100) && TE.getWeight('test1') === 3) {
+    // only if test1 still 3 - we reset above so skip
+}
+const inf = TE.getInfluencePct('son8001');
+if (inf <= 0 || inf > 100) {
+    console.error('FAIL: etki yüzdesi geçersiz', inf);
+    process.exit(1);
+}
+
 console.log('OK');

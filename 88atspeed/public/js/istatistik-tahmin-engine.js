@@ -1,26 +1,98 @@
 /**
- * İstatistikler — tüm derinlik gruplarının AĞ. ORT.3 birleşik tahmin skoru
- * istatistik-grids-extra.js sonrası yüklenir.
+ * İstatistikler — ağırlıklı AĞ. ORT.3 bileşik tahmin skoru
  */
 const IstatistikTahminEngine = {
+    WEIGHT_STORAGE_KEY: '88atspeed-istat-metric-weights',
+    DEFAULT_WEIGHT: 1,
+    MIN_WEIGHT: 0,
+    MAX_WEIGHT: 20,
+
     CORE_ORT_KEYS: [
-        { key: 'son8001OrtOzeti', label: 'SON800-1' },
-        { key: 'son8002OrtOzeti', label: 'SON800-2' },
-        { key: 'oran1OrtOzeti', label: '800-1 ORAN' },
-        { key: 'oran2OrtOzeti', label: '800-2 ORAN' },
-        { key: 'fark827OrtOzeti', label: '800Δ·7' },
-        { key: 'ffOrtOzeti', label: 'FFΔ' },
-        { key: 'test8OrtOzeti', label: 'T8Δ' },
-        { key: 'son800Dr1OrtOzeti', label: 'SON800·1DR' },
-        { key: 'son800DrOrtOzeti', label: 'SON800·DR' },
-        { key: 'test1OrtOzeti', label: 'TEST1' },
-        { key: 'test2OrtOzeti', label: 'TEST2' },
-        { key: 'test3OrtOzeti', label: 'TEST3' },
-        { key: 'test123SiraliOrtOzeti', label: 'TEST·SIRA' },
-        { key: 't1drOrtOzeti', label: 'T1×DR' }
+        { key: 'son8001OrtOzeti', label: 'SON800-1', weightId: 'son8001' },
+        { key: 'son8002OrtOzeti', label: 'SON800-2', weightId: 'son8002' },
+        { key: 'oran1OrtOzeti', label: '800-1 ORAN', weightId: 'oran1' },
+        { key: 'oran2OrtOzeti', label: '800-2 ORAN', weightId: 'oran2' },
+        { key: 'fark827OrtOzeti', label: '800Δ·7', weightId: 'fark827' },
+        { key: 'ffOrtOzeti', label: 'FFΔ', weightId: 'ff' },
+        { key: 'test8OrtOzeti', label: 'T8Δ', weightId: 't8' },
+        { key: 'son800Dr1OrtOzeti', label: 'SON800·1DR', weightId: 'son800dr1' },
+        { key: 'son800DrOrtOzeti', label: 'SON800·DR', weightId: 'son800dr' },
+        { key: 'test1OrtOzeti', label: 'TEST1', weightId: 'test1' },
+        { key: 'test2OrtOzeti', label: 'TEST2', weightId: 'test2' },
+        { key: 'test3OrtOzeti', label: 'TEST3', weightId: 'test3' },
+        { key: 'test123SiraliOrtOzeti', label: 'TEST·SIRA', weightId: 'testsira' },
+        { key: 't1drOrtOzeti', label: 'T1×DR', weightId: 't1dr' }
     ],
 
-    /** ort3 yoksa agirlikli → ort2 → ort1 sırasıyla dene */
+    _weightsCache: null,
+
+    _allWeightIds(extraSections) {
+        const ids = this.CORE_ORT_KEYS.map(d => d.weightId);
+        for (const sec of extraSections || []) {
+            if (sec.id) ids.push(sec.id);
+        }
+        return ids;
+    },
+
+    _loadWeights() {
+        if (this._weightsCache) return this._weightsCache;
+        try {
+            const raw = localStorage.getItem(this.WEIGHT_STORAGE_KEY);
+            this._weightsCache = raw ? JSON.parse(raw) : {};
+        } catch (_) {
+            this._weightsCache = {};
+        }
+        return this._weightsCache;
+    },
+
+    _saveWeights() {
+        try {
+            localStorage.setItem(this.WEIGHT_STORAGE_KEY, JSON.stringify(this._weightsCache || {}));
+        } catch (_) {}
+    },
+
+    getWeights() {
+        return { ...this._loadWeights() };
+    },
+
+    getWeight(weightId) {
+        const w = this._loadWeights()[weightId];
+        return w != null ? w : this.DEFAULT_WEIGHT;
+    },
+
+    setWeight(weightId, value) {
+        const v = Math.max(this.MIN_WEIGHT, Math.min(this.MAX_WEIGHT, Math.round(Number(value) || 0)));
+        this._loadWeights();
+        this._weightsCache[weightId] = v;
+        this._saveWeights();
+        return v;
+    },
+
+    adjustWeight(weightId, delta) {
+        return this.setWeight(weightId, this.getWeight(weightId) + delta);
+    },
+
+    resetWeights() {
+        this._weightsCache = {};
+        this._saveWeights();
+    },
+
+    /** TAHMİN formülündeki toplam ağırlık payı */
+    getTotalWeightSum(extraSections) {
+        const ids = this._allWeightIds(extraSections);
+        let sum = 0;
+        for (const id of ids) sum += this.getWeight(id);
+        return sum;
+    },
+
+    /** Metriğin TAHMİN içindeki etki yüzdesi (tüm gruplar toplamına göre) */
+    getInfluencePct(weightId, extraSections) {
+        const total = this.getTotalWeightSum(extraSections);
+        const w = this.getWeight(weightId);
+        if (total <= 0 || w <= 0) return 0;
+        return Math.round((w / total) * 100);
+    },
+
     _ortPct(oz) {
         if (!oz) return null;
         if (oz.ort3?.pct != null) return oz.ort3.pct;
@@ -30,41 +102,65 @@ const IstatistikTahminEngine = {
         return null;
     },
 
-    /** Tek at için tüm gruplardan AĞ. ORT.3 ortalaması */
-    computeRowTahmin(row, extraSections) {
+    computeRowTahmin(row, extraSections, weights) {
+        weights = weights || this.getWeights();
         const terms = [];
+
         for (const def of this.CORE_ORT_KEYS) {
             const pct = this._ortPct(row[def.key]);
-            if (pct != null) terms.push({ label: def.label, pct, source: 'core' });
+            const weight = weights[def.weightId] ?? this.DEFAULT_WEIGHT;
+            if (pct != null && weight > 0) {
+                terms.push({
+                    weightId: def.weightId,
+                    label: def.label,
+                    pct,
+                    weight,
+                    source: 'core'
+                });
+            }
         }
         for (const sec of extraSections || []) {
             const pct = this._ortPct(row[sec.ortKey]);
-            if (pct != null) terms.push({ label: sec.label, pct, source: 'extra' });
+            const weight = weights[sec.id] ?? this.DEFAULT_WEIGHT;
+            if (pct != null && weight > 0) {
+                terms.push({
+                    weightId: sec.id,
+                    label: sec.label,
+                    pct,
+                    weight,
+                    source: 'extra'
+                });
+            }
         }
+
         if (!terms.length) {
-            return { pct: null, rank: null, metricCount: 0, terms: [], topTerms: [] };
+            return { pct: null, rank: null, metricCount: 0, weightSum: 0, terms: [], topTerms: [] };
         }
-        let sum = 0;
-        for (const t of terms) sum += t.pct;
-        const pct = Math.round(sum / terms.length);
-        const topTerms = [...terms].sort((a, b) => b.pct - a.pct).slice(0, 8);
-        return { pct, metricCount: terms.length, terms, topTerms };
+
+        let weightedSum = 0;
+        let weightSum = 0;
+        for (const t of terms) {
+            weightedSum += t.pct * t.weight;
+            weightSum += t.weight;
+        }
+        const pct = Math.round(weightedSum / weightSum);
+        const topTerms = [...terms].sort((a, b) => (b.pct * b.weight) - (a.pct * a.weight)).slice(0, 8);
+        return { pct, metricCount: terms.length, weightSum, terms, topTerms };
     },
 
-    /** Koşu satırlarını skora göre sırala; row.tahmin doldur */
-    attachRaceTahmin(pkg) {
+    attachRaceTahmin(pkg, weights) {
         const extraSections = pkg.extraSections || [];
         const scored = pkg.rows.map(row => ({
             row,
-            tahmin: this.computeRowTahmin(row, extraSections)
+            tahmin: this.computeRowTahmin(row, extraSections, weights)
         }));
         scored.sort((a, b) => {
             const pa = a.tahmin.pct ?? -1;
             const pb = b.tahmin.pct ?? -1;
             if (pb !== pa) return pb - pa;
-            const ma = a.tahmin.metricCount;
-            const mb = b.tahmin.metricCount;
-            if (mb !== ma) return mb - ma;
+            const wa = a.tahmin.weightSum;
+            const wb = b.tahmin.weightSum;
+            if (wb !== wa) return wb - wa;
             return (a.row.no || 0) - (b.row.no || 0);
         });
         for (let i = 0; i < scored.length; i++) {
@@ -79,10 +175,6 @@ const IstatistikTahminEngine = {
         return pkg;
     },
 
-    /**
-     * Gerçek sıra ile kalibrasyon analizi (kayıt sonucu girildiğinde).
-     * actualOrder: [{ name, finish }] finish 1 = birinci
-     */
     analyzeCalibration(pkg, actualOrder) {
         if (!actualOrder?.length) return null;
         const byName = new Map();
@@ -101,13 +193,11 @@ const IstatistikTahminEngine = {
         const winnerRow = winner
             ? pkg.rows.find(r => String(r.name).toUpperCase().trim() === String(winner.name).toUpperCase().trim())
             : null;
-        const compositeRank = winnerRow?.tahmin?.rank ?? null;
-        const metricsWhereWinnerFirst = perMetric.filter(m => m.winnerRank === 1).map(m => m.label);
         return {
             winner: winner?.name || null,
-            compositeRank,
+            compositeRank: winnerRow?.tahmin?.rank ?? null,
             compositePct: winnerRow?.tahmin?.pct ?? null,
-            metricsWhereWinnerFirst,
+            metricsWhereWinnerFirst: perMetric.filter(m => m.winnerRank === 1).map(m => m.label),
             perMetric: perMetric.sort((a, b) => (a.winnerRank || 99) - (b.winnerRank || 99))
         };
     },
