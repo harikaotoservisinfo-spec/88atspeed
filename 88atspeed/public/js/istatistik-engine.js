@@ -1280,18 +1280,33 @@ const IstatistikEngine = {
         };
     },
 
-    /** Derinlik özeti: AĞ. ORT. + son 3/2 ort. + üçünün ortalaması (eksik derinlik = 0 sayılmaz) */
+    /** AĞ. ORT.3 — AĞ. ORT.2 (ağırlık 4) > AĞ. ORT.1 (2) > AĞ. ORT. (1) */
+    _computeDepthOrt3Agirlikli(agirlikli, ort1, ort2) {
+        const terms = [];
+        if (ort2?.pct != null) terms.push({ pct: ort2.pct, weight: 4, label: 'AĞ. ORT.2' });
+        if (ort1?.pct != null) terms.push({ pct: ort1.pct, weight: 2, label: 'AĞ. ORT.1' });
+        if (agirlikli?.pct != null) terms.push({ pct: agirlikli.pct, weight: 1, label: 'AĞ. ORT.' });
+        if (!terms.length) return null;
+        let weightedSum = 0;
+        let weightSum = 0;
+        for (const t of terms) {
+            weightedSum += t.pct * t.weight;
+            weightSum += t.weight;
+        }
+        return {
+            pct: Math.round(weightedSum / weightSum),
+            count: terms.length,
+            weightSum,
+            parts: terms
+        };
+    },
+
+    /** Derinlik özeti: AĞ. ORT. + son 3/2 ort. + ağırlıklı AĞ. ORT.3 (eksik derinlik = 0 sayılmaz) */
     _computeDepthOrtOzeti(depths, maxDepth) {
         const agirlikli = this._computeDepthAgirlikliOrtalama(depths, maxDepth);
         const ort1 = this._computeDepthSonNOrtalama(depths, 3);
         const ort2 = this._computeDepthSonNOrtalama(depths, 2);
-        const ort3Vals = [];
-        if (agirlikli?.pct != null) ort3Vals.push(agirlikli.pct);
-        if (ort1?.pct != null) ort3Vals.push(ort1.pct);
-        if (ort2?.pct != null) ort3Vals.push(ort2.pct);
-        const ort3 = ort3Vals.length
-            ? { pct: Math.round(ort3Vals.reduce((a, b) => a + b, 0) / ort3Vals.length), count: ort3Vals.length }
-            : null;
+        const ort3 = this._computeDepthOrt3Agirlikli(agirlikli, ort1, ort2);
         return { agirlikli, ort1, ort2, ort3 };
     },
 

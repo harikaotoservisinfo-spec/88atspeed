@@ -65,7 +65,9 @@ const oz = dengeli.fark827OrtOzeti;
 const depths = dengeli.fark827Depths;
 const expectedOrt1 = Math.round((depths[0].pct + depths[1].pct + depths[2].pct) / 3);
 const expectedOrt2 = Math.round((depths[0].pct + depths[1].pct) / 2);
-const expectedOrt3 = Math.round((oz.agirlikli.pct + expectedOrt1 + expectedOrt2) / 3);
+const expectedOrt3 = Math.round(
+    (oz.agirlikli.pct * 1 + expectedOrt1 * 2 + expectedOrt2 * 4) / (1 + 2 + 4)
+);
 
 if (oz.ort1?.pct !== expectedOrt1) {
     console.error('FAIL: AĞ. ORT.1 expected', expectedOrt1, 'got', oz.ort1?.pct);
