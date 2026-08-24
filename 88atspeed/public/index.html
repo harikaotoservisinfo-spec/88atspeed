@@ -54,6 +54,7 @@
             <div class="tab-btn" data-tab="karsilastirma">🆚 KARŞILAŞTIRMA</div>
             <div class="tab-btn" data-tab="gosterim">👁️ GÖSTERİM</div>
             <div class="tab-btn" data-tab="tahminim">🎯 TAHMİNİM</div>
+            <div class="tab-btn" data-tab="istatistikler">📈 İSTATİSTİKLER</div>
         </div>
         
         <div id="tab-hesaplama" class="tab-content active"><div class="info-box">📊 HESAPLAMA - GETİR butonuna tıklayın</div></div>
@@ -61,6 +62,7 @@
         <div id="tab-karsilastirma" class="tab-content tab-content-iframe"><iframe id="karsilastirmaFrame" src="karsilastirma.html?v=20260821c" title="Karşılaştırma"></iframe></div>
         <div id="tab-gosterim" class="tab-content tab-content-gosterim"><iframe id="gosterimFrame" src="gosterim_full.html?v=20260824r" title="Gösterim"></iframe></div>
         <div id="tab-tahminim" class="tab-content tab-content-tahminim"><iframe id="tahminimFrame" src="tahminim.html?v=20260824n" title="Tahminim"></iframe></div>
+        <div id="tab-istatistikler" class="tab-content tab-content-istatistikler"><iframe id="istatistiklerFrame" src="istatistikler.html?v=20260824a" title="İstatistikler"></iframe></div>
     </div>
 
     <script>
@@ -111,6 +113,14 @@
             if (frame?.contentWindow) {
                 frame.contentWindow.postMessage({ type: '88atspeed-kayit-loaded', kayit }, '*');
             }
+            broadcastKayitToIstatistikler(kayit);
+        }
+
+        function broadcastKayitToIstatistikler(kayit) {
+            const frame = document.getElementById('istatistiklerFrame');
+            if (frame?.contentWindow) {
+                frame.contentWindow.postMessage({ type: '88atspeed-kayit-loaded', kayit }, '*');
+            }
         }
 
         window.addEventListener('message', (e) => {
@@ -118,6 +128,12 @@
                 const frame = document.getElementById('tahminimFrame');
                 if (frame && e.data.height) {
                     frame.style.height = Math.max(800, e.data.height + 24) + 'px';
+                }
+            }
+            if (e.data?.type === '88atspeed-iframe-resize' && e.data.frame === 'istatistikler') {
+                const frame = document.getElementById('istatistiklerFrame');
+                if (frame && e.data.height) {
+                    frame.style.height = Math.max(600, e.data.height + 24) + 'px';
                 }
             }
             if (e.data?.type === '88atspeed-kayit-loaded' && e.data.kayit) {
@@ -157,6 +173,15 @@
                         frame.src = 'tahminim.html?v=' + Date.now();
                         frame.onload = () => {
                             if (lastGosterimKayit) broadcastKayitToTahminim(lastGosterimKayit);
+                        };
+                    }
+                }
+                if (tabId === 'istatistikler') {
+                    const frame = document.getElementById('istatistiklerFrame');
+                    if (frame) {
+                        frame.src = 'istatistikler.html?v=' + Date.now();
+                        frame.onload = () => {
+                            if (lastGosterimKayit) broadcastKayitToIstatistikler(lastGosterimKayit);
                         };
                     }
                 }

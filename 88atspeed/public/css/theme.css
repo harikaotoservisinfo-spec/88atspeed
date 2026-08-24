@@ -217,7 +217,8 @@ textarea { height: auto; min-height: 80px; }
     overflow: hidden;
 }
 
-.tab-content-tahminim {
+.tab-content-tahminim,
+.tab-content-istatistikler {
     background: var(--bg-page);
     padding: 0;
     overflow: visible;
@@ -232,7 +233,8 @@ textarea { height: auto; min-height: 80px; }
     background: var(--bg-page);
 }
 
-.tab-content-tahminim iframe {
+.tab-content-tahminim iframe,
+.tab-content-istatistikler iframe {
     display: block;
     width: 100%;
     min-height: 800px;
