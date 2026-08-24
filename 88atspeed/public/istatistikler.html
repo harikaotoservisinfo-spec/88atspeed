@@ -230,6 +230,12 @@
             min-width: 88px;
             white-space: nowrap;
         }
+        .istatistik-table th.istat-th-son800-depth,
+        .istatistik-table td.istat-son800-depth {
+            min-width: 58px;
+            max-width: 72px;
+            font-size: 12px;
+        }
         .istatistik-table td.istat-no {
             width: 36px;
             font-weight: 800;
@@ -283,9 +289,8 @@
     <div class="istatistik-hint">
         <strong>Şehir deneyimi:</strong> Bilinen koşular içinde program hipodromunda
         (<span id="istatistikSehirHint">—</span>) koşma oranı.<br>
-        <strong>SON800-1 / SON800-2:</strong> Son koşudan geriye her derinlikte (1. koşu, 2. koşu …)
-        rakiplerle SON800 kıyası yapılır; her derinlikte en düşük %100. Sütundaki değer bu
-        derinlik yüzdelerinin ortalamasıdır.<br>
+        <strong>SON800-1 / SON800-2:</strong> Her geçmiş koşu derinliği için ayrı sütun (SON, 1 ÖNCE, 2 ÖNCE …).
+        Aynı derinlikteki rakipler kıyaslanır; en düşük SON800 o derinlikte %100.<br>
         <strong>Son 3 ay / 1 ay / 15 gün:</strong> Program tarihine göre dönem içi koşu sayısının,
         daha eski koşularla birlikte toplam içindeki yüzdesi.<br>
         <strong>Genel İLK3–İLK1:</strong> Tüm koşularda 1.–3. / 1.–2. / 1. sıra başarı oranları (3 ay / 1 ay / 15 gün).<br>
@@ -294,10 +299,10 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260824k"></script>
-<script src="js/istatistik-engine.js?v=20260824k"></script>
+<script src="js/utils.js?v=20260824m"></script>
+<script src="js/istatistik-engine.js?v=20260824m"></script>
 <script>
-const ISTAT_BUILD = '20260824k';
+const ISTAT_BUILD = '20260824m';
 let currentKayitId = null;
 let currentKayitMeta = null;
 let currentRaceData = null;
@@ -333,16 +338,33 @@ function formatDonemPctCell(stat, donemLabel) {
     return '<span class="istat-pct ' + pctClass(stat.pct) + '" title="' + title + '">%' + stat.pct + '</span>';
 }
 
-function formatSon800PctCell(stat, label) {
-    if (stat.pct === null) return '<span class="istat-pct istat-pct-none">—</span>';
-    let title = label + ' sıralı kıyas ort.: %' + stat.pct;
-    if (stat.kosuCount) title += ' (' + stat.kosuCount + ' derinlik)';
-    if (stat.depthPcts?.length) {
-        title += ' | ' + stat.depthPcts.map((p, i) => (i + 1) + '.koşu→%' + p).join(', ');
+function son800DepthLabel(d) {
+    if (d === 0) return 'SON';
+    return d + ' ÖNCE';
+}
+
+function formatSon800DepthCell(cell, label, depthLabel) {
+    if (!cell || cell.pct === null) return '<span class="istat-pct istat-pct-none">—</span>';
+    let title = label + ' · ' + depthLabel + ': ' + (cell.derece || '?');
+    if (cell.tarih) title += ' (' + cell.tarih + ')';
+    title += ' | ' + cell.comparedCount + ' at kıyası → %' + cell.pct;
+    if (cell.isBest) title += ' (en iyi)';
+    return '<span class="istat-pct ' + pctClass(cell.pct) + '" title="' + title.replace(/"/g, '&quot;') + '">%' + cell.pct + '</span>';
+}
+
+function renderSon800DepthCells(depths, maxDepth, grpClass, label) {
+    if (maxDepth === 0) {
+        return '<td class="' + grpClass + ' istat-son800-depth istat-grp-start istat-grp-end"><span class="istat-pct istat-pct-none">—</span></td>';
     }
-    if (stat.derece) title += ' | Son koşu: ' + stat.derece;
-    title += ' | ' + stat.fieldCount + ' at kıyaslandı';
-    return '<span class="istat-pct ' + pctClass(stat.pct) + '" title="' + title.replace(/"/g, '&quot;') + '">%' + stat.pct + '</span>';
+    let h = '';
+    for (let d = 0; d < maxDepth; d++) {
+        const cell = depths && depths[d] ? depths[d] : null;
+        let cls = grpClass + ' istat-son800-depth';
+        if (d === 0) cls += ' istat-grp-start';
+        if (d === maxDepth - 1) cls += ' istat-grp-end';
+        h += '<td class="' + cls + '">' + formatSon800DepthCell(cell, label, son800DepthLabel(d)) + '</td>';
+    }
+    return h;
 }
 
 function formatGenelIlkPctCell(stat, donemLabel, ilkNo) {
@@ -397,16 +419,28 @@ function updateMeta() {
     if (hint) hint.textContent = currentKayitMeta.hipodrom;
 }
 
-function renderIstatistikTableHead() {
+function renderIstatistikTableHead(maxDepth1, maxDepth2) {
+    const d1 = maxDepth1 || 0;
+    const d2 = maxDepth2 || 0;
     let h = '<thead>';
     h += '<tr>';
     h += '<th rowspan="2" class="istat-th-base istat-sticky-no">#</th>';
     h += '<th rowspan="2" class="istat-th-base istat-sticky-at">AT İSMİ</th>';
     h += '<th rowspan="2" class="istat-th-base istat-th-metric">ŞEHİR<br>DENEYİMİ</th>';
-    h += '<th rowspan="2" class="istat-th-base istat-th-metric istat-grp-son8001 istat-grp-start">';
-    h += 'SON800-1<br><small>Koşu koşu geri kıyas</small></th>';
-    h += '<th rowspan="2" class="istat-th-base istat-th-metric istat-grp-son8002 istat-grp-end">';
-    h += 'SON800-2<br><small>Koşu koşu geri kıyas</small></th>';
+    if (d1 > 0) {
+        h += '<th colspan="' + d1 + '" class="istat-th-grp istat-grp-son8001 istat-grp-start' + (d2 === 0 ? ' istat-grp-end' : '') + '">';
+        h += 'SON800-1<small>Derinlik bazlı rakip kıyası</small></th>';
+    } else {
+        h += '<th rowspan="2" class="istat-th-base istat-th-metric istat-grp-son8001 istat-grp-start' + (d2 === 0 ? ' istat-grp-end' : '') + '">';
+        h += 'SON800-1<small>Veri yok</small></th>';
+    }
+    if (d2 > 0) {
+        h += '<th colspan="' + d2 + '" class="istat-th-grp istat-grp-son8002 istat-grp-start istat-grp-end">';
+        h += 'SON800-2<small>Derinlik bazlı rakip kıyası</small></th>';
+    } else {
+        h += '<th rowspan="2" class="istat-th-base istat-th-metric istat-grp-son8002 istat-grp-start istat-grp-end">';
+        h += 'SON800-2<small>Veri yok</small></th>';
+    }
     h += '<th colspan="3" class="istat-th-grp istat-grp-donem istat-grp-start istat-grp-end">';
     h += 'Dönem İçi Koşu Oranı<small>Son dönemdeki koşu / eski koşu payı</small></th>';
     h += '<th colspan="3" class="istat-th-grp istat-grp-ilk3 istat-grp-start istat-grp-end">';
@@ -422,6 +456,18 @@ function renderIstatistikTableHead() {
     h += '<th colspan="3" class="istat-th-grp istat-grp-sm1 istat-grp-start">';
     h += 'Şehir + Mesafe İlk 1<small>Bu hipodrom ve mesafede birincilik</small></th>';
     h += '</tr><tr>';
+    for (let d = 0; d < d1; d++) {
+        let cls = 'istat-th-metric istat-th-son800-depth istat-grp-son8001';
+        if (d === 0) cls += ' istat-grp-start';
+        if (d === d1 - 1 && d2 === 0) cls += ' istat-grp-end';
+        h += '<th class="' + cls + '">' + son800DepthLabel(d) + '</th>';
+    }
+    for (let d = 0; d < d2; d++) {
+        let cls = 'istat-th-metric istat-th-son800-depth istat-grp-son8002';
+        if (d === 0) cls += ' istat-grp-start';
+        if (d === d2 - 1) cls += ' istat-grp-end';
+        h += '<th class="' + cls + '">' + son800DepthLabel(d) + '</th>';
+    }
     h += '<th class="istat-th-metric istat-grp-donem istat-grp-start">SON 3 AY</th>';
     h += '<th class="istat-th-metric istat-grp-donem">SON 1 AY</th>';
     h += '<th class="istat-th-metric istat-grp-donem istat-grp-end">SON 15 GÜN</th>';
@@ -462,17 +508,23 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
         const pist = race.pist || '';
         const mesafeGosterim = mesafe !== '?' ? mesafe + (pist ? ' ' + pist : '') : '?';
         const hedefMesafe = IstatistikEngine._hedefMesafe(race);
-        const rows = IstatistikEngine.buildRaceIstatistikRows(race, hedefSehir, programTarih);
+        const pkg = IstatistikEngine.buildRaceIstatistikPackage(race, hedefSehir, programTarih);
+        const rows = pkg.rows;
+        const maxDepth1 = pkg.maxDepth1;
+        const maxDepth2 = pkg.maxDepth2;
 
         html += '<div class="istatistik-race-card">';
         html += '<div class="istatistik-race-header">';
         html += '<span>🏁 ' + raceNo + '. KOŞU</span>';
         html += '<span class="istatistik-race-badge">' + rows.length + ' AT</span>';
         html += '<span class="istatistik-race-badge">' + AtSpeedUtils.escapeHtml(mesafeGosterim) + '</span>';
+        if (maxDepth1 > 0 || maxDepth2 > 0) {
+            html += '<span class="istatistik-race-badge">SON800 derinlik: ' + maxDepth1 + '/' + maxDepth2 + '</span>';
+        }
         html += '</div>';
         html += '<div class="istatistik-table-wrap">';
         html += '<table class="istatistik-table">';
-        html += renderIstatistikTableHead();
+        html += renderIstatistikTableHead(maxDepth1, maxDepth2);
         html += '<tbody>';
 
         for (const row of rows) {
@@ -480,8 +532,8 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
             html += '<td class="istat-no istat-sticky-no">' + AtSpeedUtils.escapeHtml(String(row.no || '-')) + '</td>';
             html += '<td class="istat-at istat-sticky-at">' + AtSpeedUtils.escapeHtml(row.name) + '</td>';
             html += '<td>' + formatSehirPctCell(row.sehir) + '</td>';
-            html += '<td class="istat-grp-son8001 istat-grp-start">' + formatSon800PctCell(row.son8001, 'SON800-1') + '</td>';
-            html += '<td class="istat-grp-son8002 istat-grp-end">' + formatSon800PctCell(row.son8002, 'SON800-2') + '</td>';
+            html += renderSon800DepthCells(row.son8001Depths, maxDepth1, 'istat-grp-son8001', 'SON800-1');
+            html += renderSon800DepthCells(row.son8002Depths, maxDepth2, 'istat-grp-son8002', 'SON800-2');
             html += '<td class="istat-grp-donem istat-grp-start">' + formatDonemPctCell(row.ay3, 'son 3 ay') + '</td>';
             html += '<td class="istat-grp-donem">' + formatDonemPctCell(row.ay1, 'son 1 ay') + '</td>';
             html += '<td class="istat-grp-donem istat-grp-end">' + formatDonemPctCell(row.gun15, 'son 15 gün') + '</td>';
