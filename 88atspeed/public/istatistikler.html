@@ -194,9 +194,10 @@ function formatIlk3PctCell(stat, donemLabel) {
 function formatSehirMesafeIlk3PctCell(stat, donemLabel, hedefSehir, hedefMesafe) {
     if (stat.pct === null) return '<span class="istat-pct istat-pct-none">—</span>';
     const mesafeTxt = hedefMesafe !== null ? hedefMesafe + 'm' : '?';
-    const title = donemLabel + ' — ' + hedefSehir + ' / ' + mesafeTxt + ': '
-        + stat.top3 + '/' + stat.total + ' koşuda ilk 3 (' + stat.notTop3 + ' koşu ilk 3 dışı)';
-    return '<span class="istat-pct ' + pctClass(stat.pct) + '" title="' + AtSpeedUtils.escapeHtml(title) + '">%' + stat.pct + '</span>';
+    const title = (donemLabel + ' — ' + hedefSehir + ' / ' + mesafeTxt + ': '
+        + stat.top3 + '/' + stat.total + ' koşuda ilk 3 (' + stat.notTop3 + ' koşu ilk 3 dışı)')
+        .replace(/"/g, '&quot;');
+    return '<span class="istat-pct ' + pctClass(stat.pct) + '" title="' + title + '">%' + stat.pct + '</span>';
 }
 
 function updateMeta() {
