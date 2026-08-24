@@ -99,7 +99,23 @@ if (TE.getInfluence(TE.slotId('test2', 'd0')) !== TE.DEFAULT_INFLUENCE) {
     process.exit(1);
 }
 
-// %100 ek etki: sadece tam %100 hücrelere bonus
+if (TE.getInfluence(TE.slotId('test3', 'd0')) !== 5) {
+    console.error('FAIL: TEST3 varsayılan etki 5 olmalı, got', TE.getInfluence(TE.slotId('test3', 'd0')));
+    process.exit(1);
+}
+
+// Otomatik %100 ×2 (turuncu bonus olmadan)
+const slotAuto = TE.depthSlotId('test2', 0);
+const influencesAuto = {};
+influencesAuto[slotAuto] = 1;
+const tAuto100 = TE.computeRowTahmin({ test2Depths: [{ pct: 100 }] }, [], influencesAuto);
+const tAuto80 = TE.computeRowTahmin({ test2Depths: [{ pct: 80 }] }, [], influencesAuto);
+if (tAuto100.terms[0].weight !== 2 || tAuto80.terms[0].weight !== 1) {
+    console.error('FAIL: otomatik %100×2 ağırlık', tAuto100.terms[0].weight, tAuto80.terms[0].weight);
+    process.exit(1);
+}
+
+// %100 ek etki (turuncu): otomatik ×2 üzerine eklenir
 const slot = TE.depthSlotId('testsira', 0);
 const influences3 = {};
 influences3[slot] = 1;
@@ -110,7 +126,7 @@ if (t100.pct !== 100 || t80.pct !== 80) {
     console.error('FAIL: %100 bonus skor', t100.pct, t80.pct);
     process.exit(1);
 }
-if (t100.terms[0].weight !== 11 || t80.terms[0].weight !== 1) {
+if (t100.terms[0].weight !== 12 || t80.terms[0].weight !== 1) {
     console.error('FAIL: %100 bonus ağırlık', t100.terms[0].weight, t80.terms[0].weight);
     process.exit(1);
 }

@@ -10,6 +10,7 @@ const IstatistikTahminEngine = {
     ],
     DEFAULT_INFLUENCE: 1,
     DEFAULT_PERFECT100_INFLUENCE: 0,
+    PERFECT100_AUTO_MULTIPLIER: 2,
     MIN_INFLUENCE: 0,
     MAX_INFLUENCE: 100,
     INFLUENCE_STEP: 1,
@@ -34,7 +35,7 @@ const IstatistikTahminEngine = {
         { id: 'son800dr', depthsKey: 'son800DrDepths', ortKey: 'son800DrOrtOzeti', label: 'SON800·DR' },
         { id: 'test1', depthsKey: 'test1Depths', ortKey: 'test1OrtOzeti', label: 'TEST1', defaultInfluence: 2 },
         { id: 'test2', depthsKey: 'test2Depths', ortKey: 'test2OrtOzeti', label: 'TEST2' },
-        { id: 'test3', depthsKey: 'test3Depths', ortKey: 'test3OrtOzeti', label: 'TEST3' },
+        { id: 'test3', depthsKey: 'test3Depths', ortKey: 'test3OrtOzeti', label: 'TEST3', defaultInfluence: 5 },
         { id: 'testsira', depthsKey: 'test123SiraliDepths', ortKey: 'test123SiraliOrtOzeti', label: 'TEST·SIRA' },
         { id: 't1dr', depthsKey: 't1drDepths', ortKey: 't1drOrtOzeti', label: 'T1×DR' }
     ],
@@ -292,9 +293,12 @@ const IstatistikTahminEngine = {
         const p100Boost = pct === 100
             ? this._resolvePerfect100Influence(influences, weightId)
             : 0;
-        const weight = baseWeight + p100Boost;
+        const effectiveBase = pct === 100
+            ? baseWeight * this.PERFECT100_AUTO_MULTIPLIER
+            : baseWeight;
+        const weight = effectiveBase + p100Boost;
         if (weight <= 0) return;
-        terms.push({ weightId, label, pct, weight, baseWeight, p100Boost });
+        terms.push({ weightId, label, pct, weight, baseWeight, effectiveBase, p100Boost });
     },
 
     _collectGroupTerms(groupId, label, depths, ortOzeti, influences, terms, depthLabels) {
