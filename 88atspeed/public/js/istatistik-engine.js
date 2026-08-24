@@ -254,9 +254,9 @@ const IstatistikEngine = {
     },
 
     /**
-     * Koşudaki rakiplerin SON800 değerlerini derinlik bazında kıyaslar.
-     * Her derinlik = ayrı sütun (son koşu, 1 önceki, 2 önceki …).
-     * @returns {{ maxDepth: number, byHorse: Map<string, Array<object|null>> }}
+     * Koşudaki SON800 değerlerini derinlik sütunlarında gösterir.
+     * Her derinlik sütununda o derinlikteki en iyi SON800 = %100 (ana derece).
+     * Her hücre: (oDerinliktekiEnİyi / atınSüresi) × 100
      */
     computeSon800DepthGrid(race, programTarih, alan = 'bir') {
         const horses = race.horses || [];
@@ -270,6 +270,8 @@ const IstatistikEngine = {
             byHorse.set(this._horseKey(horse), new Array(maxDepth).fill(null));
         }
 
+        const anaByDepth = new Array(maxDepth).fill(null);
+
         for (let d = 0; d < maxDepth; d++) {
             const atDepth = [];
             for (const [key, chain] of chains) {
@@ -278,23 +280,45 @@ const IstatistikEngine = {
                 }
             }
             if (!atDepth.length) continue;
-            const minSalise = Math.min(...atDepth.map(e => e.salise));
+            const anaSalise = Math.min(...atDepth.map(e => e.salise));
+            const anaEntry = atDepth.find(e => e.salise === anaSalise);
+            const anaDerece = anaEntry?.derece || null;
+            anaByDepth[d] = { salise: anaSalise, derece: anaDerece };
             const comparedCount = atDepth.length;
             for (const e of atDepth) {
-                if (minSalise <= 0) continue;
-                const pct = Math.round((minSalise / e.salise) * 100);
+                if (anaSalise <= 0) continue;
+                const pct = Math.round((anaSalise / e.salise) * 100);
                 byHorse.get(e.key)[d] = {
                     pct,
                     derece: e.derece,
                     tarih: e.tarih,
                     salise: e.salise,
+                    anaDerece,
+                    anaSalise,
                     comparedCount,
                     depth: d,
-                    isBest: e.salise === minSalise
+                    isBest: e.salise === anaSalise
                 };
             }
         }
-        return { maxDepth, byHorse };
+
+        let globalAnaSalise = null;
+        let globalAnaDerece = null;
+        for (const a of anaByDepth) {
+            if (!a) continue;
+            if (globalAnaSalise === null || a.salise < globalAnaSalise) {
+                globalAnaSalise = a.salise;
+                globalAnaDerece = a.derece;
+            }
+        }
+
+        return {
+            maxDepth,
+            anaDerece: globalAnaDerece,
+            anaSalise: globalAnaSalise,
+            anaByDepth,
+            byHorse
+        };
     },
 
     /** @deprecated computeSon800DepthGrid kullanın */
@@ -360,6 +384,10 @@ const IstatistikEngine = {
         return {
             maxDepth1: son8001Grid.maxDepth,
             maxDepth2: son8002Grid.maxDepth,
+            anaDerece1: son8001Grid.anaDerece,
+            anaDerece2: son8002Grid.anaDerece,
+            anaByDepth1: son8001Grid.anaByDepth || [],
+            anaByDepth2: son8002Grid.anaByDepth || [],
             rows
         };
     },
