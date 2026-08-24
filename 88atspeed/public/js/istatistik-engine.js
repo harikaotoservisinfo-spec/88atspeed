@@ -492,6 +492,38 @@ const IstatistikEngine = {
         return { maxDepth, byHorse };
     },
 
+    /**
+     * SON800·1DR/SL ağırlıklı ortalama — SON en yüksek ağırlık, geriye gidildikçe azalır.
+     * Ağırlık(depth d) = maxDepth - d; eksik derinlikler hesaba katılmaz.
+     */
+    _computeSon800Dr1AgirlikliOrtalama(depths, maxDepth) {
+        if (!maxDepth || !depths?.length) return null;
+        let weightedSum = 0;
+        let weightSum = 0;
+        const parts = [];
+        for (let d = 0; d < maxDepth; d++) {
+            const cell = depths[d];
+            if (!cell || cell.pct === null || cell.pct === undefined) continue;
+            const weight = maxDepth - d;
+            weightedSum += cell.pct * weight;
+            weightSum += weight;
+            parts.push({
+                depth: d,
+                pct: cell.pct,
+                weight,
+                tarih: cell.tarih || null
+            });
+        }
+        if (weightSum === 0) return null;
+        return {
+            pct: Math.round(weightedSum / weightSum),
+            depthCount: parts.length,
+            maxDepth,
+            weightSum,
+            parts
+        };
+    },
+
     /** @deprecated computeSon800Dr1slKorelasyonGrid kullanın */
     computeSon800Dr1slKorelasyon(race, programTarih) {
         const grid = this.computeSon800Dr1slKorelasyonGrid(race, programTarih);
@@ -531,6 +563,7 @@ const IstatistikEngine = {
             const smIlk3 = this._smIlkBundle(kosular, programTarih, hedefSehir, hedefMesafe, 3);
             const smIlk2 = this._smIlkBundle(kosular, programTarih, hedefSehir, hedefMesafe, 2);
             const smIlk1 = this._smIlkBundle(kosular, programTarih, hedefSehir, hedefMesafe, 1);
+            const dr1Depths = son800Dr1Grid.byHorse.get(key) || [];
             return {
                 no: horse.no,
                 name: horse.name || '-',
@@ -541,7 +574,10 @@ const IstatistikEngine = {
                 son8002Depths: son8002Grid.byHorse.get(key) || [],
                 oran1Depths: oran1Grid.byHorse.get(key) || [],
                 oran2Depths: oran2Grid.byHorse.get(key) || [],
-                son800Dr1Depths: son800Dr1Grid.byHorse.get(key) || [],
+                son800Dr1Depths: dr1Depths,
+                son800Dr1AgirlikliOrt: this._computeSon800Dr1AgirlikliOrtalama(
+                    dr1Depths, son800Dr1Grid.maxDepth
+                ),
                 ay3,
                 ay1,
                 gun15,
