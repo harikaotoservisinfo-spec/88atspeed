@@ -33,10 +33,10 @@
             font-size: 14px;
             font-weight: 500;
         }
-        .istatistik-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-            gap: 16px;
+        .istatistik-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
         }
         .istatistik-race-card {
             background: var(--bg-card);
@@ -44,6 +44,10 @@
             border-radius: var(--radius-lg);
             overflow: hidden;
             box-shadow: var(--shadow-sm);
+            width: 100%;
+        }
+        .istatistik-table-wrap {
+            overflow-x: auto;
         }
         .istatistik-race-header {
             padding: 12px 16px;
@@ -86,6 +90,10 @@
             font-weight: 700;
             color: #263238;
         }
+        .istatistik-table th.istat-th-metric {
+            min-width: 88px;
+            white-space: nowrap;
+        }
         .istatistik-table td.istat-no {
             width: 36px;
             font-weight: 800;
@@ -127,14 +135,16 @@
     <div id="istatistikMeta" class="istatistik-meta" style="display:none;"></div>
     <div id="istatistikResults"><div class="empty">📊 GÖSTERİM sekmesinde kayıt yükleyin veya buradan kayıt seçin</div></div>
     <div class="istatistik-hint">
-        <strong>Şehir deneyimi:</strong> Her atın bilinen geçmiş koşularına göre, program hipodromunda
-        (<span id="istatistikSehirHint">—</span>) daha önce koşup koşmadığı yüzde olarak gösterilir.
-        Örnek: <code>%75</code> = 4 koşudan 3'ü bu şehirde.
+        <strong>Şehir deneyimi:</strong> Bilinen koşular içinde program hipodromunda
+        (<span id="istatistikSehirHint">—</span>) koşma oranı.<br>
+        <strong>Son 3 ay / 1 ay / 15 gün:</strong> Program tarihine göre dönem içi koşu sayısının,
+        daha eski koşularla birlikte toplam içindeki yüzdesi.
+        Örnek: <code>%40</code> = 5 koşudan 2'si son 3 ay içinde, 3'ü daha eski.
     </div>
 </div>
 
 <script src="js/utils.js?v=20260824w"></script>
-<script src="js/istatistik-engine.js?v=20260824a"></script>
+<script src="js/istatistik-engine.js?v=20260824b"></script>
 <script>
 let currentKayitId = null;
 let currentKayitMeta = null;
@@ -159,9 +169,15 @@ function pctClass(pct) {
     return 'istat-pct-high';
 }
 
-function formatPctCell(stat) {
+function formatSehirPctCell(stat) {
     if (stat.pct === null) return '<span class="istat-pct istat-pct-none">—</span>';
     const title = stat.inCity + '/' + stat.total + ' koşu bu şehirde';
+    return '<span class="istat-pct ' + pctClass(stat.pct) + '" title="' + title + '">%' + stat.pct + '</span>';
+}
+
+function formatDonemPctCell(stat, donemLabel) {
+    if (stat.pct === null) return '<span class="istat-pct istat-pct-none">—</span>';
+    const title = stat.recent + ' koşu ' + donemLabel + ' içinde, ' + stat.older + ' koşu daha eski (toplam ' + stat.total + ')';
     return '<span class="istat-pct ' + pctClass(stat.pct) + '" title="' + title + '">%' + stat.pct + '</span>';
 }
 
@@ -181,21 +197,21 @@ function updateMeta() {
     if (hint) hint.textContent = currentKayitMeta.hipodrom;
 }
 
-function buildIstatistikGrid(data, hedefSehir) {
+function buildIstatistikGrid(data, hedefSehir, programTarih) {
     if (!data || !data.length) {
         document.getElementById('istatistikResults').innerHTML = '<div class="empty">⚠️ Veri bulunamadı</div>';
         notifyParentResize();
         return;
     }
 
-    let html = '<div class="istatistik-grid">';
+    let html = '<div class="istatistik-stack">';
     for (let i = 0; i < data.length; i++) {
         const race = data[i];
         const raceNo = race.raceNo || (i + 1);
         const mesafe = (race.mesafe && race.mesafe !== '?') ? race.mesafe : (race.raceDistance || '?');
         const pist = race.pist || '';
         const mesafeGosterim = mesafe !== '?' ? mesafe + (pist ? ' ' + pist : '') : '?';
-        const rows = IstatistikEngine.buildRaceSehirRows(race, hedefSehir);
+        const rows = IstatistikEngine.buildRaceIstatistikRows(race, hedefSehir, programTarih);
 
         html += '<div class="istatistik-race-card">';
         html += '<div class="istatistik-race-header">';
@@ -203,19 +219,27 @@ function buildIstatistikGrid(data, hedefSehir) {
         html += '<span class="istatistik-race-badge">' + rows.length + ' AT</span>';
         html += '<span class="istatistik-race-badge">' + AtSpeedUtils.escapeHtml(mesafeGosterim) + '</span>';
         html += '</div>';
+        html += '<div class="istatistik-table-wrap">';
         html += '<table class="istatistik-table"><thead><tr>';
-        html += '<th>#</th><th>AT İSMİ</th><th>ŞEHİR DENEYİMİ</th>';
+        html += '<th>#</th><th>AT İSMİ</th>';
+        html += '<th class="istat-th-metric">ŞEHİR DENEYİMİ</th>';
+        html += '<th class="istat-th-metric">SON 3 AY</th>';
+        html += '<th class="istat-th-metric">SON 1 AY</th>';
+        html += '<th class="istat-th-metric">SON 15 GÜN</th>';
         html += '</tr></thead><tbody>';
 
         for (const row of rows) {
             html += '<tr>';
             html += '<td class="istat-no">' + AtSpeedUtils.escapeHtml(String(row.no || '-')) + '</td>';
             html += '<td class="istat-at">' + AtSpeedUtils.escapeHtml(row.name) + '</td>';
-            html += '<td>' + formatPctCell(row) + '</td>';
+            html += '<td>' + formatSehirPctCell(row.sehir) + '</td>';
+            html += '<td>' + formatDonemPctCell(row.ay3, 'son 3 ay') + '</td>';
+            html += '<td>' + formatDonemPctCell(row.ay1, 'son 1 ay') + '</td>';
+            html += '<td>' + formatDonemPctCell(row.gun15, 'son 15 gün') + '</td>';
             html += '</tr>';
         }
 
-        html += '</tbody></table></div>';
+        html += '</tbody></table></div></div>';
     }
     html += '</div>';
     document.getElementById('istatistikResults').innerHTML = html;
@@ -231,7 +255,7 @@ function onKayitLoaded(kayit) {
     };
     currentRaceData = kayit.veri;
     updateMeta();
-    buildIstatistikGrid(currentRaceData, currentKayitMeta.hipodrom);
+    buildIstatistikGrid(currentRaceData, currentKayitMeta.hipodrom, currentKayitMeta.tarih);
     setStatus('<div class="status status-success">✅ Kayıt yüklendi</div>');
 }
 
