@@ -9,9 +9,11 @@ const IstatistikTahminEngine = {
         '88atspeed-istat-metric-weights'
     ],
     DEFAULT_INFLUENCE: 1,
+    DEFAULT_PERFECT100_INFLUENCE: 0,
     MIN_INFLUENCE: 0,
     MAX_INFLUENCE: 100,
     INFLUENCE_STEP: 1,
+    PERFECT100_SUFFIX: ':p100',
 
     ORT_SLOTS: [
         { key: 'agirlikli', slot: 'ort0', short: 'AĞ.ORT' },
@@ -149,6 +151,19 @@ const IstatistikTahminEngine = {
         return this.slotId(groupId, 'd' + depth);
     },
 
+    perfect100SlotId(baseSlotId) {
+        return baseSlotId + this.PERFECT100_SUFFIX;
+    },
+
+    isPerfect100SlotId(weightId) {
+        return String(weightId).endsWith(this.PERFECT100_SUFFIX);
+    },
+
+    baseSlotIdFromPerfect100(weightId) {
+        if (!this.isPerfect100SlotId(weightId)) return weightId;
+        return String(weightId).slice(0, -this.PERFECT100_SUFFIX.length);
+    },
+
     _loadInfluences() {
         if (this._influenceCache) return this._influenceCache;
         try {
@@ -183,8 +198,16 @@ const IstatistikTahminEngine = {
     },
 
     getInfluence(weightId) {
+        if (this.isPerfect100SlotId(weightId)) {
+            return this.getPerfect100Influence(this.baseSlotIdFromPerfect100(weightId));
+        }
         const v = this._loadInfluences()[weightId];
         return v != null ? v : this.DEFAULT_INFLUENCE;
+    },
+
+    getPerfect100Influence(baseSlotId) {
+        const v = this._loadInfluences()[this.perfect100SlotId(baseSlotId)];
+        return v != null ? v : this.DEFAULT_PERFECT100_INFLUENCE;
     },
 
     getWeight(weightId) {
@@ -196,12 +219,26 @@ const IstatistikTahminEngine = {
     },
 
     setInfluence(weightId, value) {
+        if (this.isPerfect100SlotId(weightId)) {
+            return this.setPerfect100Influence(this.baseSlotIdFromPerfect100(weightId), value);
+        }
         const v = Math.max(
             this.MIN_INFLUENCE,
             Math.min(this.MAX_INFLUENCE, Math.round(Number(value) || 0))
         );
         this._loadInfluences();
         this._influenceCache[weightId] = v;
+        this._saveInfluences();
+        return v;
+    },
+
+    setPerfect100Influence(baseSlotId, value) {
+        const v = Math.max(
+            this.MIN_INFLUENCE,
+            Math.min(this.MAX_INFLUENCE, Math.round(Number(value) || 0))
+        );
+        this._loadInfluences();
+        this._influenceCache[this.perfect100SlotId(baseSlotId)] = v;
         this._saveInfluences();
         return v;
     },
@@ -223,9 +260,13 @@ const IstatistikTahminEngine = {
 
     _pushTerm(terms, influences, weightId, label, pct) {
         if (pct == null) return;
-        const weight = influences[weightId] ?? this.DEFAULT_INFLUENCE;
+        const baseWeight = influences[weightId] ?? this.DEFAULT_INFLUENCE;
+        const p100Boost = pct === 100
+            ? (influences[this.perfect100SlotId(weightId)] ?? this.DEFAULT_PERFECT100_INFLUENCE)
+            : 0;
+        const weight = baseWeight + p100Boost;
         if (weight <= 0) return;
-        terms.push({ weightId, label, pct, weight });
+        terms.push({ weightId, label, pct, weight, baseWeight, p100Boost });
     },
 
     _collectGroupTerms(groupId, label, depths, ortOzeti, influences, terms, depthLabels) {

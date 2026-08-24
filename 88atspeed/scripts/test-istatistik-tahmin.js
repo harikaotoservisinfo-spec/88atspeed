@@ -84,9 +84,9 @@ const row2 = {
     gun15: { pct: 20 }
 };
 const t2 = TE.computeRowTahmin(row2, [], influences2);
-// (80*10 + 60*5 + 40*1 + 20*1) / (10+5+1+1) = 1040/17 = 61.18 -> 61
-if (t2.pct !== 61) {
-    console.error('FAIL: şehir+dönem skor beklenen 61, got', t2.pct, t2.terms.length);
+// (80*10 + 60*5 + 40*1 + 20*1) / (10+5+1+1) = 1160/17 = 68.24 -> 68
+if (t2.pct !== 68) {
+    console.error('FAIL: şehir+dönem skor beklenen 68, got', t2.pct, t2.terms.length);
     process.exit(1);
 }
 
@@ -94,6 +94,23 @@ if (TE.getInfluence(TE.slotId('test1', 'd0')) !== TE.DEFAULT_INFLUENCE) {
     console.error('FAIL: varsayılan etki', TE.DEFAULT_INFLUENCE);
     process.exit(1);
 }
+
+// %100 ek etki: sadece tam %100 hücrelere bonus
+const slot = TE.depthSlotId('testsira', 0);
+const influences3 = {};
+influences3[slot] = 1;
+influences3[TE.perfect100SlotId(slot)] = 10;
+const t100 = TE.computeRowTahmin({ test123SiraliDepths: [{ pct: 100 }] }, [], influences3);
+const t80 = TE.computeRowTahmin({ test123SiraliDepths: [{ pct: 80 }] }, [], influences3);
+if (t100.pct !== 100 || t80.pct !== 80) {
+    console.error('FAIL: %100 bonus skor', t100.pct, t80.pct);
+    process.exit(1);
+}
+if (t100.terms[0].weight !== 11 || t80.terms[0].weight !== 1) {
+    console.error('FAIL: %100 bonus ağırlık', t100.terms[0].weight, t80.terms[0].weight);
+    process.exit(1);
+}
+TE.resetWeights();
 
 console.log('Sütun bazlı tahmin:', t.pct + '%', '|', t.metricCount, 'terim');
 console.log('OK');

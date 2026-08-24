@@ -550,6 +550,24 @@
             min-width: 22px;
             font-size: 9px;
         }
+        .istat-metric-weight-p100 {
+            margin-top: 2px;
+            background: rgba(230, 81, 0, 0.12);
+            border-color: rgba(230, 81, 0, 0.35);
+        }
+        .istat-metric-weight-p100 .istat-w-btn {
+            border-color: #ffb74d;
+            color: #e65100;
+        }
+        .istat-metric-weight-p100 .istat-w-btn:hover { background: #fff3e0; }
+        .istat-metric-weight-p100 .istat-w-etki { color: #e65100; }
+        .istat-w-p100-tag {
+            font-size: 8px;
+            font-weight: 900;
+            line-height: 1;
+            color: #e65100;
+        }
+        .istat-th-col-weight { min-width: 58px; }
     </style>
 </head>
 <body>
@@ -557,7 +575,7 @@
     <div class="istatistik-controls">
         <button type="button" id="kayitSenkronBtn" class="istatistik-btn">🔄 GÖSTERİM kaydını kullan</button>
         <button type="button" id="kayitlariGetirBtn" class="istatistik-btn istatistik-btn-primary">📋 Kayıt listesinden seç</button>
-        <button type="button" id="tahminAgirlikSifirlaBtn" class="istatistik-btn" title="Tüm sütun etkilerini varsayılana (%1) döndür">↺ Etki sıfırla</button>
+        <button type="button" id="tahminAgirlikSifirlaBtn" class="istatistik-btn" title="Tüm genel ve %100 ek etkilerini varsayılana sıfırla">↺ Etki sıfırla</button>
         <span id="istatistikBuild" class="istatistik-build" title="Yüklü sürüm"></span>
     </div>
     <div id="kayitListesi" class="kayit-listesi" style="display:none;"></div>
@@ -581,8 +599,9 @@
         <strong>Ek gruplar (800Δ·2/3, T9Δ, DR/1DR, TEST4–7, FARK, Ş+M…):</strong>
         GÖSTERİM ve Tahminim kurallarındaki eksik sütunlar — hepsi derinlik % + AĞ. ORT.1/2/3.<br>
         <strong>TAHMİN:</strong> Şehir deneyimi, dönem/ilk-oran sütunları ve tüm derinlik + AĞ. ORT.*
-        sütunlarında <strong>+/−</strong> ile etki %1 adımlarla ayarlanır;
-        <strong>%0</strong> = o sütun TAHMİN'den çıkar. Varsayılan %1. Tarayıcıda saklanır.<br>
+        sütunlarında üstteki <strong>+/−</strong> genel etki, alttaki turuncu <strong>%100</strong> yalnızca
+        o sütunda tam %100 olan hücrelere ek etki verir (diğer değerler sabit kalır). %1 adım; varsayılan genel %1,
+        %100 ek %0. Tarayıcıda saklanır.<br>
         <strong>T1×DR:</strong> TEST1 × DR/1DR — o gün koşan atlar arasında en düşük T1×DR = %100;
         derinlik kıyası + AĞ. ORT.<br>
         <strong>Son 3 ay / 1 ay / 15 gün:</strong> Program tarihine göre dönem içi koşu sayısının,
@@ -595,12 +614,12 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260825q"></script>
-<script src="js/istatistik-engine.js?v=20260825q"></script>
-<script src="js/istatistik-grids-extra.js?v=20260825q"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260825q"></script>
+<script src="js/utils.js?v=20260825r"></script>
+<script src="js/istatistik-engine.js?v=20260825r"></script>
+<script src="js/istatistik-grids-extra.js?v=20260825r"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260825r"></script>
 <script>
-const ISTAT_BUILD = '20260825q';
+const ISTAT_BUILD = '20260825r';
 let istatRaceCache = [];
 let currentKayitId = null;
 let currentKayitMeta = null;
@@ -656,22 +675,33 @@ function renderTahminCell(tahmin, horseCount, horseNo) {
     return '<td class="' + cls + '"' + attrs + ' title="' + title.replace(/"/g, '&quot;') + '">' + inner + '</td>';
 }
 
-function renderMetricWeightBar(weightId, compact) {
+function renderMetricWeightBar(weightId, compact, kind) {
     const TE = IstatistikTahminEngine;
-    const etki = TE.getInfluence(weightId);
+    const isP100 = kind === 'p100';
+    const etki = isP100
+        ? TE.getPerfect100Influence(TE.baseSlotIdFromPerfect100(weightId))
+        : TE.getInfluence(weightId);
     const off = etki === 0 ? ' istat-metric-weight-off' : '';
-    const cls = compact ? 'istat-metric-weight-compact' : 'istat-metric-weight';
-    return '<div class="' + cls + off + '" data-weight-id="' + weightId + '">'
-        + '<button type="button" class="istat-w-btn" data-w-action="dec" title="Etkiyi %1 azalt">−</button>'
-        + '<span class="istat-w-etki" title="TAHMİN etki %">%' + etki + '</span>'
-        + '<button type="button" class="istat-w-btn" data-w-action="inc" title="Etkiyi %1 artır">+</button>'
-        + '</div>';
+    let cls = compact ? 'istat-metric-weight-compact' : 'istat-metric-weight';
+    if (isP100) cls += ' istat-metric-weight-p100';
+    const title = isP100
+        ? 'Sadece %100 hücrelere ek TAHMİN etkisi'
+        : 'TAHMİN genel etki %';
+    let inner = '<button type="button" class="istat-w-btn" data-w-action="dec" title="Etkiyi %1 azalt">−</button>';
+    if (isP100) inner += '<span class="istat-w-p100-tag">100</span>';
+    inner += '<span class="istat-w-etki" title="' + title + '">%' + etki + '</span>';
+    inner += '<button type="button" class="istat-w-btn" data-w-action="inc" title="Etkiyi %1 artır">+</button>';
+    return '<div class="' + cls + off + '" data-weight-id="' + weightId + '" data-weight-kind="' + (kind || 'base') + '">'
+        + inner + '</div>';
 }
 
 function appendColHeaderWithWeight(h, cls, groupId, slot, label) {
-    const wId = IstatistikTahminEngine.slotId(groupId, slot);
+    const TE = IstatistikTahminEngine;
+    const wId = TE.slotId(groupId, slot);
+    const p100Id = TE.perfect100SlotId(wId);
     h += '<th class="' + cls + ' istat-th-col-weight">';
-    h += renderMetricWeightBar(wId, true);
+    h += renderMetricWeightBar(wId, true, 'base');
+    h += renderMetricWeightBar(p100Id, true, 'p100');
     h += '<div class="istat-col-label">' + label + '</div></th>';
     return h;
 }
@@ -713,7 +743,11 @@ function refreshAllTahmin() {
     document.querySelectorAll('.istat-metric-weight, .istat-metric-weight-compact').forEach(el => {
         const id = el.dataset.weightId;
         if (!id) return;
-        const etki = TE.getInfluence(id);
+        const kind = el.dataset.weightKind || 'base';
+        const TE = IstatistikTahminEngine;
+        const etki = kind === 'p100'
+            ? TE.getPerfect100Influence(TE.baseSlotIdFromPerfect100(id))
+            : TE.getInfluence(id);
         const etkiEl = el.querySelector('.istat-w-etki');
         if (etkiEl) etkiEl.textContent = '%' + etki;
         el.classList.toggle('istat-metric-weight-off', etki === 0);
