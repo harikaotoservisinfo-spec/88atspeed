@@ -59,9 +59,9 @@ const row = {
     kirmiziOrtOzeti: { ort3: { pct: 80 } }
 };
 const t = TE.computeRowTahmin(row, pkg.extraSections, influences);
-// (100*10 + 50*1 + 80*5) / (10+1+5) default 1 for d1 = (1000+50+400)/16 = 90.625 -> 91
-if (t.pct !== 91) {
-    console.error('FAIL: sütun bazlı skor beklenen ~91, got', t.pct, t.terms.length, 'terms');
+// (100*20 + 50*1 + 80*5) / (20+1+5) — d0 %100 otomatik ×2 etki = 2450/26 → 94
+if (t.pct !== 94) {
+    console.error('FAIL: sütun bazlı skor beklenen ~94, got', t.pct, t.terms.length, 'terms');
     process.exit(1);
 }
 
@@ -90,8 +90,8 @@ if (t2.pct !== 68) {
     process.exit(1);
 }
 
-if (TE.getInfluence(TE.slotId('test1', 'd0')) !== 2) {
-    console.error('FAIL: TEST1 varsayılan etki 2 olmalı, got', TE.getInfluence(TE.slotId('test1', 'd0')));
+if (TE.getInfluence(TE.slotId('test1', 'd0')) !== 20) {
+    console.error('FAIL: TEST1 varsayılan etki 20 olmalı, got', TE.getInfluence(TE.slotId('test1', 'd0')));
     process.exit(1);
 }
 if (TE.getInfluence(TE.slotId('test2', 'd0')) !== TE.DEFAULT_INFLUENCE) {

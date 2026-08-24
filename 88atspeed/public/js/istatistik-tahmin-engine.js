@@ -33,7 +33,7 @@ const IstatistikTahminEngine = {
         { id: 't8', depthsKey: 'test8Depths', ortKey: 'test8OrtOzeti', label: 'T8Δ' },
         { id: 'son800dr1', depthsKey: 'son800Dr1Depths', ortKey: 'son800Dr1OrtOzeti', label: 'SON800·1DR' },
         { id: 'son800dr', depthsKey: 'son800DrDepths', ortKey: 'son800DrOrtOzeti', label: 'SON800·DR' },
-        { id: 'test1', depthsKey: 'test1Depths', ortKey: 'test1OrtOzeti', label: 'TEST1', defaultInfluence: 2 },
+        { id: 'test1', depthsKey: 'test1Depths', ortKey: 'test1OrtOzeti', label: 'TEST1', defaultInfluence: 20 },
         { id: 'test2', depthsKey: 'test2Depths', ortKey: 'test2OrtOzeti', label: 'TEST2' },
         { id: 'test3', depthsKey: 'test3Depths', ortKey: 'test3OrtOzeti', label: 'TEST3', defaultInfluence: 5 },
         { id: 'testsira', depthsKey: 'test123SiraliDepths', ortKey: 'test123SiraliOrtOzeti', label: 'TEST·SIRA' },

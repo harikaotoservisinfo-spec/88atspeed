@@ -589,7 +589,7 @@
         Derinlik sütunlarının sonunda <strong>AĞ. ORT.</strong> ağırlıklı;
         <strong>AĞ. ORT.1</strong> son 3 derinlik; <strong>AĞ. ORT.2</strong> son 2 derinlik;
         <strong>AĞ. ORT.3</strong> ağırlıklı özet (ORT.2×4 + ORT.1×2 + ORT.×1, eksik derinlik 0 sayılmaz).<br>
-        <strong>TEST1:</strong> En iyi TEST1 = %100 derinlik kıyası + AĞ. ORT.; TAHMİN'de varsayılan sütun etkisi diğer grupların <strong>2 katı</strong> (%2).<br>
+        <strong>TEST1:</strong> En iyi TEST1 = %100 derinlik kıyası + AĞ. ORT.; TAHMİN'de varsayılan sütun etkisi diğer grupların <strong>20 katı</strong> (%20).<br>
         <strong>TEST·SIRA:</strong> TEST3≥TEST2≥TEST1 kuralı — tam uyan %100; diğerleri yakınlığa göre
         derinlik kıyası + AĞ. ORT.<br>
         <strong>FFΔ:</strong> GÖSTERİM FARKLARIN FARKI — her derinlikte o noktadan geriye
@@ -601,7 +601,7 @@
         <strong>TAHMİN:</strong> Şehir deneyimi, dönem/ilk-oran sütunları ve tüm derinlik + AĞ. ORT.*
         sütunlarında üstteki <strong>+/−</strong> genel etki, alttaki turuncu <strong>%100</strong> yalnızca
         o sütunda tam %100 olan hücrelere ek etki verir. Tam <strong>%100</strong> hücrelerin genel etkisi
-        otomatik <strong>×2</strong> sayılır. TEST1 varsayılan ×2, TEST3 varsayılan ×5. %1 adım.<br>
+        otomatik <strong>×2</strong> sayılır. TEST1 varsayılan ×20, TEST3 varsayılan ×5. %1 adım.<br>
         <strong>T1×DR:</strong> TEST1 × DR/1DR — o gün koşan atlar arasında en düşük T1×DR = %100;
         derinlik kıyası + AĞ. ORT.<br>
         <strong>Son 3 ay / 1 ay / 15 gün:</strong> Program tarihine göre dönem içi koşu sayısının,
@@ -614,12 +614,12 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260825t"></script>
-<script src="js/istatistik-engine.js?v=20260825t"></script>
-<script src="js/istatistik-grids-extra.js?v=20260825t"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260825t"></script>
+<script src="js/utils.js?v=20260825u"></script>
+<script src="js/istatistik-engine.js?v=20260825u"></script>
+<script src="js/istatistik-grids-extra.js?v=20260825u"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260825u"></script>
 <script>
-const ISTAT_BUILD = '20260825t';
+const ISTAT_BUILD = '20260825u';
 let istatRaceCache = [];
 let currentKayitId = null;
 let currentKayitMeta = null;
@@ -1489,7 +1489,7 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
     if (t1 > 0) {
         h = appendMetricGroupThColspan(h, {
             colspan: t1 + 4, grpClass: 'istat-grp-test1',
-            label: 'TEST1', subtitle: 'En iyi TEST1 = %100, derinlik kıyası + ağ. ort. (TAHMİN varsayılan etki ×2)'
+            label: 'TEST1', subtitle: 'En iyi TEST1 = %100, derinlik kıyası + ağ. ort. (TAHMİN varsayılan etki ×20)'
         });
     } else {
         h = appendMetricGroupThRowspan(h, {
