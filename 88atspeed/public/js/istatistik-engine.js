@@ -223,50 +223,63 @@ const IstatistikEngine = {
         return k.son800_bir;
     },
 
-    _sonKosuSon800(kosular, programTarih, alan = 'bir') {
+    /** Atın tüm geçerli koşularındaki SON800-1/2 ortalama salise değeri */
+    _tumKosularSon800Ortalama(kosular, programTarih, alan = 'bir') {
         const programNorm = programTarih ? this._normalizeTarih(programTarih) : null;
-        const sorted = [...(kosular || [])]
-            .filter(k => {
-                if (!k?.tarih) return false;
-                if (programNorm && this._normalizeTarih(k.tarih) === programNorm) return false;
-                return true;
-            })
-            .sort((a, b) => {
-                const da = this._parseKosuTarih(a.tarih);
-                const db = this._parseKosuTarih(b.tarih);
-                if (!da && !db) return 0;
-                if (!da) return 1;
-                if (!db) return -1;
-                return db - da;
-            });
-        for (const k of sorted) {
+        const saliseler = [];
+        let bestSalise = null;
+        let bestDerece = null;
+        for (const k of kosular || []) {
+            if (!k?.tarih) continue;
+            if (programNorm && this._normalizeTarih(k.tarih) === programNorm) continue;
             const derece = this._sonKosuSon800Derece(k, alan);
             const salise = AtSpeedUtils.dereceToSalise(derece);
-            if (salise !== null) {
-                return { salise, derece, tarih: k.tarih };
+            if (salise === null) continue;
+            saliseler.push(salise);
+            if (bestSalise === null || salise < bestSalise) {
+                bestSalise = salise;
+                bestDerece = derece;
             }
         }
-        return { salise: null, derece: null, tarih: null };
+        if (saliseler.length === 0) {
+            return {
+                salise: null, avgSalise: null, derece: null, avgDerece: null,
+                bestSalise: null, bestDerece: null, kosuCount: 0
+            };
+        }
+        const sum = saliseler.reduce((a, b) => a + b, 0);
+        const avgSalise = Math.round(sum / saliseler.length);
+        const avgDerece = AtSpeedUtils.saliseToDerece(avgSalise);
+        return {
+            salise: avgSalise,
+            avgSalise,
+            derece: avgDerece,
+            avgDerece,
+            bestSalise,
+            bestDerece,
+            kosuCount: saliseler.length
+        };
     },
 
-    /** @deprecated _sonKosuSon800(kosular, programTarih, 'bir') kullanın */
-    _sonKosuSon8001(kosular, programTarih) {
-        return this._sonKosuSon800(kosular, programTarih, 'bir');
+    /** @deprecated _tumKosularSon800Ortalama kullanın */
+    _sonKosuSon800(kosular, programTarih, alan = 'bir') {
+        return this._tumKosularSon800Ortalama(kosular, programTarih, alan);
     },
 
     /**
-     * Koşudaki rakiplerin son koşu SON800-1/2 değerlerini kıyaslar.
-     * En düşük (en iyi) süre %100; diğerleri (min / değer) × 100.
+     * Koşudaki rakiplerin tüm yarışlarındaki SON800-1/2 ortalamalarını kıyaslar.
+     * En düşük ortalama %100; diğerleri (min / değer) × 100.
      */
     computeSon800RaceKiyaslama(race, programTarih, alan = 'bir') {
         const horses = race.horses || [];
         const entries = horses.map(horse => {
-            const son = this._sonKosuSon800(horse.kosular, programTarih, alan);
-            return { atId: horse.atId, no: horse.no, ...son };
+            const agg = this._tumKosularSon800Ortalama(horse.kosular, programTarih, alan);
+            return { atId: horse.atId, no: horse.no, ...agg };
         });
         const valid = entries.filter(e => e.salise !== null);
         const minSalise = valid.length ? Math.min(...valid.map(e => e.salise)) : null;
-        const minDerece = valid.find(e => e.salise === minSalise)?.derece || null;
+        const minEntry = valid.find(e => e.salise === minSalise);
+        const minDerece = minEntry?.avgDerece || minEntry?.derece || null;
         const byKey = new Map();
         for (const e of entries) {
             let pct = null;
@@ -277,8 +290,10 @@ const IstatistikEngine = {
             byKey.set(key, {
                 pct,
                 salise: e.salise,
-                derece: e.derece,
-                tarih: e.tarih,
+                derece: e.avgDerece || e.derece,
+                avgDerece: e.avgDerece || e.derece,
+                bestDerece: e.bestDerece,
+                kosuCount: e.kosuCount,
                 minSalise,
                 minDerece,
                 fieldCount: valid.length,
@@ -299,8 +314,8 @@ const IstatistikEngine = {
 
     _emptySon800Stat() {
         return {
-            pct: null, salise: null, derece: null, tarih: null,
-            minSalise: null, minDerece: null, fieldCount: 0, isBest: false
+            pct: null, salise: null, derece: null, avgDerece: null, bestDerece: null,
+            kosuCount: 0, minSalise: null, minDerece: null, fieldCount: 0, isBest: false
         };
     },
 
