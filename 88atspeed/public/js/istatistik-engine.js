@@ -762,6 +762,136 @@ const IstatistikEngine = {
         return { maxDepth, byHorse };
     },
 
+    /** TEST1≤TEST2≤TEST3 (T3≥T2≥T1) kural skoru — GÖSTERİM koyu mavi kenar ile aynı */
+    _computeTest123SiraliSkor(test1, test2, test3) {
+        if (test1 === null || test2 === null || test3 === null) return null;
+        if (test1 <= 0 || test2 <= 0 || test3 <= 0) return null;
+        const qualifies = test3 >= test2 && test2 >= test1;
+        const score12 = test2 >= test1 ? 100 : Math.round((test2 / test1) * 100);
+        const score23 = test3 >= test2 ? 100 : Math.round((test3 / test2) * 100);
+        const rulePct = Math.round(Math.sqrt(score12 * score23));
+        return {
+            test1,
+            test2,
+            test3,
+            qualifies,
+            score12,
+            score23,
+            rulePct,
+            violation12: Math.max(0, test1 - test2),
+            violation23: Math.max(0, test2 - test3)
+        };
+    },
+
+    /** Geçmiş koşudan TEST1+TEST2+TEST3 sıralı kural metrikleri */
+    _kosuTest123SiraliMetrikleri(kosu, hedefMesafe) {
+        const t1 = this._kosuTest1Metrikleri(kosu, hedefMesafe);
+        const t2 = this._kosuTest2Metrikleri(kosu, hedefMesafe);
+        const t3 = this._kosuTest3Metrikleri(kosu, hedefMesafe);
+        if (!t1 || !t2 || !t3) return null;
+        const skor = this._computeTest123SiraliSkor(t1.test1, t2.test2, t3.test3);
+        if (!skor) return null;
+        return {
+            ...skor,
+            atDerece: t1.atDerece,
+            son800Bir: t2.son800Derece,
+            son800Iki: t3.usedSon8002 ? t3.son800Derece : null,
+            son800Derece: t3.son800Derece,
+            usedSon8002: t3.usedSon8002,
+            mesafe: t1.mesafe,
+            tarih: t1.tarih || t2.tarih || t3.tarih
+        };
+    },
+
+    _kosularTest123SiraliZinciri(kosular, programTarih, hedefMesafe) {
+        const programNorm = programTarih ? this._normalizeTarih(programTarih) : null;
+        const sorted = [...(kosular || [])]
+            .filter(k => {
+                if (!k?.tarih) return false;
+                if (programNorm && this._normalizeTarih(k.tarih) === programNorm) return false;
+                return true;
+            })
+            .sort((a, b) => {
+                const da = this._parseKosuTarih(a.tarih);
+                const db = this._parseKosuTarih(b.tarih);
+                if (!da && !db) return 0;
+                if (!da) return 1;
+                if (!db) return -1;
+                return db - da;
+            });
+        const chain = [];
+        for (const k of sorted) {
+            const metrik = this._kosuTest123SiraliMetrikleri(k, hedefMesafe);
+            if (!metrik) continue;
+            chain.push(metrik);
+        }
+        return chain;
+    },
+
+    _buildTest123SiraliChains(race, programTarih) {
+        const hedefMesafe = this._hedefMesafe(race);
+        const horses = race.horses || [];
+        const chains = new Map();
+        for (const horse of horses) {
+            chains.set(
+                this._horseKey(horse),
+                this._kosularTest123SiraliZinciri(horse.kosular, programTarih, hedefMesafe)
+            );
+        }
+        const maxDepth = Math.max(0, ...[...chains.values()].map(c => c.length));
+        return { horses, chains, maxDepth, hedefMesafe };
+    },
+
+    /**
+     * TEST3≥TEST2≥TEST1 derinlik bazlı rakip kıyası (SON, 1 ÖNCE …).
+     * Kuralı tam sağlayan = %100 skor; diğerleri yakınlığa göre alan içi %.
+     */
+    computeTest123SiraliDepthGrid(race, programTarih) {
+        const { chains, maxDepth } = this._buildTest123SiraliChains(race, programTarih);
+        const byHorse = new Map();
+        for (const key of chains.keys()) {
+            byHorse.set(key, new Array(maxDepth).fill(null));
+        }
+
+        for (let d = 0; d < maxDepth; d++) {
+            const atDepth = [];
+            for (const [key, chain] of chains) {
+                if (chain[d]) {
+                    atDepth.push({ key, ...chain[d] });
+                }
+            }
+            if (!atDepth.length) continue;
+
+            const bestRulePct = Math.max(...atDepth.map(e => e.rulePct));
+            const comparedCount = atDepth.length;
+
+            for (const e of atDepth) {
+                const pct = bestRulePct > 0
+                    ? Math.round((e.rulePct / bestRulePct) * 100)
+                    : null;
+                byHorse.get(e.key)[d] = {
+                    pct,
+                    rulePct: e.rulePct,
+                    score12: e.score12,
+                    score23: e.score23,
+                    test1: e.test1,
+                    test2: e.test2,
+                    test3: e.test3,
+                    qualifies: e.qualifies,
+                    atDerece: e.atDerece,
+                    son800Derece: e.son800Derece,
+                    tarih: e.tarih,
+                    mesafe: e.mesafe,
+                    comparedCount,
+                    depth: d,
+                    isBest: e.rulePct === bestRulePct
+                };
+            }
+        }
+
+        return { maxDepth, byHorse };
+    },
+
     /** @deprecated computeTest1DepthGrid kullanın */
     computeTest12DepthGrid(race, programTarih) {
         return this.computeTest1DepthGrid(race, programTarih);
@@ -887,6 +1017,7 @@ const IstatistikEngine = {
         const test1Grid = this.computeTest1DepthGrid(race, programTarih);
         const test2Grid = this.computeTest2DepthGrid(race, programTarih);
         const test3Grid = this.computeTest3DepthGrid(race, programTarih);
+        const test123SiraliGrid = this.computeTest123SiraliDepthGrid(race, programTarih);
         const horses = [...(race.horses || [])].sort((a, b) => {
             const na = parseInt(a.no, 10);
             const nb = parseInt(b.no, 10);
@@ -915,6 +1046,7 @@ const IstatistikEngine = {
             const test1Depths = test1Grid.byHorse.get(key) || [];
             const test2Depths = test2Grid.byHorse.get(key) || [];
             const test3Depths = test3Grid.byHorse.get(key) || [];
+            const test123SiraliDepths = test123SiraliGrid.byHorse.get(key) || [];
             return {
                 no: horse.no,
                 name: horse.name || '-',
@@ -957,6 +1089,10 @@ const IstatistikEngine = {
                 test3AgirlikliOrt: this._computeDepthAgirlikliOrtalama(
                     test3Depths, test3Grid.maxDepth
                 ),
+                test123SiraliDepths,
+                test123SiraliAgirlikliOrt: this._computeDepthAgirlikliOrtalama(
+                    test123SiraliDepths, test123SiraliGrid.maxDepth
+                ),
                 ay3,
                 ay1,
                 gun15,
@@ -980,6 +1116,7 @@ const IstatistikEngine = {
             maxDepthTest1: test1Grid.maxDepth,
             maxDepthTest2: test2Grid.maxDepth,
             maxDepthTest3: test3Grid.maxDepth,
+            maxDepthTest123Sirali: test123SiraliGrid.maxDepth,
             rows
         };
     },
