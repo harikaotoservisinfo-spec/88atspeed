@@ -37,6 +37,94 @@ const IstatistikTahminEngine = {
         { id: 't1dr', depthsKey: 't1drDepths', ortKey: 't1drOrtOzeti', label: 'T1×DR' }
     ],
 
+    /** Şehir, dönem ve ilk-oran sütunları (derinlik grid değil) */
+    SIMPLE_COLUMN_GROUPS: [
+        {
+            id: 'sehir', grpClass: 'istat-grp-sehir', label: 'ŞEHİR DENEY.',
+            columns: [{ slot: 'c0', short: 'ŞEHİR', getPct: row => row.sehir?.pct ?? null }]
+        },
+        {
+            id: 'donem', grpClass: 'istat-grp-donem', label: 'DÖNEM',
+            columns: [
+                { slot: 'ay3', short: 'SON 3 AY', getPct: row => row.ay3?.pct ?? null },
+                { slot: 'ay1', short: 'SON 1 AY', getPct: row => row.ay1?.pct ?? null },
+                { slot: 'gun15', short: 'SON 15 GÜN', getPct: row => row.gun15?.pct ?? null }
+            ]
+        },
+        {
+            id: 'genelIlk3', grpClass: 'istat-grp-ilk3', label: 'GENEL İLK3',
+            columns: [
+                { slot: 'ay3', short: '3 AY İLK3', getPct: row => row.genelIlk3?.ay3?.pct ?? null },
+                { slot: 'ay1', short: '1 AY İLK3', getPct: row => row.genelIlk3?.ay1?.pct ?? null },
+                { slot: 'gun15', short: '15G İLK3', getPct: row => row.genelIlk3?.gun15?.pct ?? null }
+            ]
+        },
+        {
+            id: 'genelIlk2', grpClass: 'istat-grp-ilk2', label: 'GENEL İLK2',
+            columns: [
+                { slot: 'ay3', short: '3 AY İLK2', getPct: row => row.genelIlk2?.ay3?.pct ?? null },
+                { slot: 'ay1', short: '1 AY İLK2', getPct: row => row.genelIlk2?.ay1?.pct ?? null },
+                { slot: 'gun15', short: '15G İLK2', getPct: row => row.genelIlk2?.gun15?.pct ?? null }
+            ]
+        },
+        {
+            id: 'genelIlk1', grpClass: 'istat-grp-ilk1', label: 'GENEL İLK1',
+            columns: [
+                { slot: 'ay3', short: '3 AY İLK1', getPct: row => row.genelIlk1?.ay3?.pct ?? null },
+                { slot: 'ay1', short: '1 AY İLK1', getPct: row => row.genelIlk1?.ay1?.pct ?? null },
+                { slot: 'gun15', short: '15G İLK1', getPct: row => row.genelIlk1?.gun15?.pct ?? null }
+            ]
+        },
+        {
+            id: 'smIlk3', grpClass: 'istat-grp-sm3', label: 'Ş/M İLK3',
+            columns: [
+                { slot: 'ay3', short: '3AY Ş/MİLK3', getPct: row => row.smIlk3?.ay3?.pct ?? null },
+                { slot: 'ay1', short: '1AY Ş/MİLK3', getPct: row => row.smIlk3?.ay1?.pct ?? null },
+                { slot: 'gun15', short: '15G Ş/MİLK3', getPct: row => row.smIlk3?.gun15?.pct ?? null }
+            ]
+        },
+        {
+            id: 'smIlk2', grpClass: 'istat-grp-sm2', label: 'Ş/M İLK2',
+            columns: [
+                { slot: 'ay3', short: '3AY Ş/MİLK2', getPct: row => row.smIlk2?.ay3?.pct ?? null },
+                { slot: 'ay1', short: '1AY Ş/MİLK2', getPct: row => row.smIlk2?.ay1?.pct ?? null },
+                { slot: 'gun15', short: '15G Ş/MİLK2', getPct: row => row.smIlk2?.gun15?.pct ?? null }
+            ]
+        },
+        {
+            id: 'smIlk1', grpClass: 'istat-grp-sm1', label: 'Ş/M İLK1',
+            columns: [
+                { slot: 'ay3', short: '3AY Ş/MİLK1', getPct: row => row.smIlk1?.ay3?.pct ?? null },
+                { slot: 'ay1', short: '1AY Ş/MİLK1', getPct: row => row.smIlk1?.ay1?.pct ?? null },
+                { slot: 'gun15', short: '15G Ş/MİLK1', getPct: row => row.smIlk1?.gun15?.pct ?? null }
+            ]
+        },
+        {
+            id: 'mesafeIlk3', grpClass: 'istat-grp-mf3', label: 'MES İLK3',
+            columns: [
+                { slot: 'ay3', short: '3AY MESİLK3', getPct: row => row.mesafeIlk3?.ay3?.pct ?? null },
+                { slot: 'ay1', short: '1AY MESİLK3', getPct: row => row.mesafeIlk3?.ay1?.pct ?? null },
+                { slot: 'gun15', short: '15G MESİLK3', getPct: row => row.mesafeIlk3?.gun15?.pct ?? null }
+            ]
+        },
+        {
+            id: 'mesafeIlk2', grpClass: 'istat-grp-mf2', label: 'MES İLK2',
+            columns: [
+                { slot: 'ay3', short: '3AY MESİLK2', getPct: row => row.mesafeIlk2?.ay3?.pct ?? null },
+                { slot: 'ay1', short: '1AY MESİLK2', getPct: row => row.mesafeIlk2?.ay1?.pct ?? null },
+                { slot: 'gun15', short: '15G MESİLK2', getPct: row => row.mesafeIlk2?.gun15?.pct ?? null }
+            ]
+        },
+        {
+            id: 'mesafeIlk1', grpClass: 'istat-grp-mf1', label: 'MES İLK1',
+            columns: [
+                { slot: 'ay3', short: '3AY MESİLK1', getPct: row => row.mesafeIlk1?.ay3?.pct ?? null },
+                { slot: 'ay1', short: '1AY MESİLK1', getPct: row => row.mesafeIlk1?.ay1?.pct ?? null },
+                { slot: 'gun15', short: '15G MESİLK1', getPct: row => row.mesafeIlk1?.gun15?.pct ?? null }
+            ]
+        }
+    ],
+
     /** Geriye uyumluluk */
     CORE_ORT_KEYS: null,
 
@@ -165,11 +253,25 @@ const IstatistikTahminEngine = {
         }
     },
 
+    _collectSimpleColumnTerms(row, influences, terms) {
+        for (const g of this.SIMPLE_COLUMN_GROUPS) {
+            for (const col of g.columns) {
+                this._pushTerm(
+                    terms, influences,
+                    this.slotId(g.id, col.slot),
+                    g.label + ' · ' + col.short,
+                    col.getPct(row)
+                );
+            }
+        }
+    },
+
     computeRowTahmin(row, extraSections, influences) {
         this._initCompat();
         influences = influences || this.getInfluences();
         const terms = [];
 
+        this._collectSimpleColumnTerms(row, influences, terms);
         for (const g of this.CORE_GROUPS) {
             this._collectGroupTerms(
                 g.id, g.label,

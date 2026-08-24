@@ -580,7 +580,8 @@
         |TEST8| 0'a en yakın = %100; derinlik kıyası + AĞ. ORT.<br>
         <strong>Ek gruplar (800Δ·2/3, T9Δ, DR/1DR, TEST4–7, FARK, Ş+M…):</strong>
         GÖSTERİM ve Tahminim kurallarındaki eksik sütunlar — hepsi derinlik % + AĞ. ORT.1/2/3.<br>
-        <strong>TAHMİN:</strong> Her sütunda (SON, 1 ÖNCE … AĞ. ORT.3) <strong>+/−</strong> ile etki %1 adımlarla ayarlanır;
+        <strong>TAHMİN:</strong> Şehir deneyimi, dönem/ilk-oran sütunları ve tüm derinlik + AĞ. ORT.*
+        sütunlarında <strong>+/−</strong> ile etki %1 adımlarla ayarlanır;
         <strong>%0</strong> = o sütun TAHMİN'den çıkar. Varsayılan %1. Tarayıcıda saklanır.<br>
         <strong>T1×DR:</strong> TEST1 × DR/1DR — o gün koşan atlar arasında en düşük T1×DR = %100;
         derinlik kıyası + AĞ. ORT.<br>
@@ -594,12 +595,12 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260825p"></script>
-<script src="js/istatistik-engine.js?v=20260825p"></script>
-<script src="js/istatistik-grids-extra.js?v=20260825p"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260825p"></script>
+<script src="js/utils.js?v=20260825q"></script>
+<script src="js/istatistik-engine.js?v=20260825q"></script>
+<script src="js/istatistik-grids-extra.js?v=20260825q"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260825q"></script>
 <script>
-const ISTAT_BUILD = '20260825p';
+const ISTAT_BUILD = '20260825q';
 let istatRaceCache = [];
 let currentKayitId = null;
 let currentKayitMeta = null;
@@ -842,6 +843,25 @@ function formatTest1DepthCell(cell, depthLabel) {
     title += ' | ' + cell.comparedCount + ' at kıyası → %' + cell.pct;
     if (cell.isBest) title += ' (en iyi TEST1)';
     return '<span class="istat-pct ' + pctClass(cell.pct) + '" title="' + title.replace(/"/g, '&quot;') + '">%' + cell.pct + '</span>';
+}
+
+function appendSimpleGroupHeaderCols(h, grpClass, group, isGrpEnd) {
+    for (let i = 0; i < group.columns.length; i++) {
+        let cls = 'istat-th-metric ' + grpClass;
+        if (i === 0) cls += ' istat-grp-start';
+        if (i === group.columns.length - 1 && isGrpEnd) cls += ' istat-grp-end';
+        const col = group.columns[i];
+        h = appendColHeaderWithWeight(h, cls, group.id, col.slot, col.short);
+    }
+    return h;
+}
+
+function appendSimpleSectionsHeadRow2(h) {
+    const groups = IstatistikTahminEngine.SIMPLE_COLUMN_GROUPS;
+    for (let i = 1; i < groups.length; i++) {
+        h = appendSimpleGroupHeaderCols(h, groups[i].grpClass, groups[i], i === groups.length - 1);
+    }
+    return h;
 }
 
 function appendOrtOzetiHeaderCols(h, grpClass, groupId, isGrpEnd) {
@@ -1322,7 +1342,8 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
     h += '<th rowspan="2" class="istat-th-base istat-sticky-no">#</th>';
     h += '<th rowspan="2" class="istat-th-base istat-sticky-at">AT İSMİ</th>';
     h += '<th rowspan="2" class="istat-th-base istat-sticky-tahmin">TAHMİN<small>Sütun ağırlıklı bileşik skor</small></th>';
-    h += '<th rowspan="2" class="istat-th-base istat-th-metric">ŞEHİR<br>DENEYİMİ</th>';
+    h += '<th class="istat-th-grp istat-grp-sehir istat-grp-start istat-grp-end">';
+    h += 'ŞEHİR DENEYİMİ<small>Program hipodromunda koşma oranı</small></th>';
 
     if (d1 > 0) {
         h = appendMetricGroupThColspan(h, {
@@ -1517,6 +1538,7 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
     h += '<th colspan="3" class="istat-th-grp istat-grp-mf1 istat-grp-start">';
     h += 'Genel Mesafe İlk 1<small>Bu mesafede (tüm şehirler) birincilik</small></th>';
     h += '</tr><tr>';
+    h = appendSimpleGroupHeaderCols(h, IstatistikTahminEngine.SIMPLE_COLUMN_GROUPS[0].grpClass, IstatistikTahminEngine.SIMPLE_COLUMN_GROUPS[0], false);
     if (d1 > 0) {
         h = appendDepthHeaderCols(h, 'istat-grp-son8001', 'son8001', d1);
         h = appendOrtOzetiHeaderCols(h, 'istat-grp-son8001', 'son8001', true);
@@ -1577,36 +1599,7 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
         h = appendOrtOzetiHeaderCols(h, 'istat-grp-t1dr', 't1dr', false);
     }
     h = appendExtraSectionsHeadRow2(h, extraSections);
-    h += '<th class="istat-th-metric istat-grp-donem istat-grp-start">SON 3 AY</th>';
-    h += '<th class="istat-th-metric istat-grp-donem">SON 1 AY</th>';
-    h += '<th class="istat-th-metric istat-grp-donem istat-grp-end">SON 15 GÜN</th>';
-    h += '<th class="istat-th-metric istat-grp-ilk3 istat-grp-start">3 AY İLK3</th>';
-    h += '<th class="istat-th-metric istat-grp-ilk3">1 AY İLK3</th>';
-    h += '<th class="istat-th-metric istat-grp-ilk3 istat-grp-end">15G İLK3</th>';
-    h += '<th class="istat-th-metric istat-grp-ilk2 istat-grp-start">3 AY İLK2</th>';
-    h += '<th class="istat-th-metric istat-grp-ilk2">1 AY İLK2</th>';
-    h += '<th class="istat-th-metric istat-grp-ilk2 istat-grp-end">15G İLK2</th>';
-    h += '<th class="istat-th-metric istat-grp-ilk1 istat-grp-start">3 AY İLK1</th>';
-    h += '<th class="istat-th-metric istat-grp-ilk1">1 AY İLK1</th>';
-    h += '<th class="istat-th-metric istat-grp-ilk1 istat-grp-end">15G İLK1</th>';
-    h += '<th class="istat-th-metric istat-grp-sm3 istat-grp-start">3AY Ş/MİLK3</th>';
-    h += '<th class="istat-th-metric istat-grp-sm3">1AY Ş/MİLK3</th>';
-    h += '<th class="istat-th-metric istat-grp-sm3 istat-grp-end">15G Ş/MİLK3</th>';
-    h += '<th class="istat-th-metric istat-grp-sm2 istat-grp-start">3AY Ş/MİLK2</th>';
-    h += '<th class="istat-th-metric istat-grp-sm2">1AY Ş/MİLK2</th>';
-    h += '<th class="istat-th-metric istat-grp-sm2 istat-grp-end">15G Ş/MİLK2</th>';
-    h += '<th class="istat-th-metric istat-grp-sm1 istat-grp-start">3AY Ş/MİLK1</th>';
-    h += '<th class="istat-th-metric istat-grp-sm1">1AY Ş/MİLK1</th>';
-    h += '<th class="istat-th-metric istat-grp-sm1 istat-grp-end">15G Ş/MİLK1</th>';
-    h += '<th class="istat-th-metric istat-grp-mf3 istat-grp-start">3AY MESİLK3</th>';
-    h += '<th class="istat-th-metric istat-grp-mf3">1AY MESİLK3</th>';
-    h += '<th class="istat-th-metric istat-grp-mf3 istat-grp-end">15G MESİLK3</th>';
-    h += '<th class="istat-th-metric istat-grp-mf2 istat-grp-start">3AY MESİLK2</th>';
-    h += '<th class="istat-th-metric istat-grp-mf2">1AY MESİLK2</th>';
-    h += '<th class="istat-th-metric istat-grp-mf2 istat-grp-end">15G MESİLK2</th>';
-    h += '<th class="istat-th-metric istat-grp-mf1 istat-grp-start">3AY MESİLK1</th>';
-    h += '<th class="istat-th-metric istat-grp-mf1">1AY MESİLK1</th>';
-    h += '<th class="istat-th-metric istat-grp-mf1">15G MESİLK1</th>';
+    h = appendSimpleSectionsHeadRow2(h);
     h += '</tr></thead>';
     return h;
 }
@@ -1711,7 +1704,7 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
             html += '<td class="istat-no istat-sticky-no">' + AtSpeedUtils.escapeHtml(String(row.no || '-')) + '</td>';
             html += '<td class="istat-at istat-sticky-at">' + AtSpeedUtils.escapeHtml(row.name) + '</td>';
             html += renderTahminCell(row.tahmin, rows.length, row.no);
-            html += '<td>' + formatSehirPctCell(row.sehir) + '</td>';
+            html += '<td class="istat-grp-sehir istat-grp-start istat-grp-end">' + formatSehirPctCell(row.sehir) + '</td>';
             html += renderSon800DepthCells(row.son8001Depths, maxDepth1, 'istat-grp-son8001', 'SON800-1', row.son8001OrtOzeti);
             html += renderSon800DepthCells(row.son8002Depths, maxDepth2, 'istat-grp-son8002', 'SON800-2', row.son8002OrtOzeti);
             html += renderSon800OranCells(row.oran1Depths, oranMaxDepth1, 'istat-grp-son800oran1', '800-1 ORAN', pkg.oranAnaDerece1, row.oran1OrtOzeti, true);

@@ -72,6 +72,24 @@ if (TE.adjustInfluence(TE.slotId('kirmizi', 'ort3'), -1) !== 4) {
 }
 TE.resetWeights();
 
+// Şehir deneyimi + dönem sütunları
+const influences2 = {};
+influences2[TE.slotId('sehir', 'c0')] = 10;
+influences2[TE.slotId('donem', 'ay3')] = 5;
+const row2 = {
+    name: 'Y',
+    sehir: { pct: 80 },
+    ay3: { pct: 60 },
+    ay1: { pct: 40 },
+    gun15: { pct: 20 }
+};
+const t2 = TE.computeRowTahmin(row2, [], influences2);
+// (80*10 + 60*5 + 40*1 + 20*1) / (10+5+1+1) = 1040/17 = 61.18 -> 61
+if (t2.pct !== 61) {
+    console.error('FAIL: şehir+dönem skor beklenen 61, got', t2.pct, t2.terms.length);
+    process.exit(1);
+}
+
 if (TE.getInfluence(TE.slotId('test1', 'd0')) !== TE.DEFAULT_INFLUENCE) {
     console.error('FAIL: varsayılan etki', TE.DEFAULT_INFLUENCE);
     process.exit(1);
