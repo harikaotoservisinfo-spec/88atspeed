@@ -67,4 +67,10 @@ if (ort.pct !== 99) {
     process.exit(1);
 }
 
+const s1ort = best.son8001AgirlikliOrt;
+if (!s1ort || s1ort.pct === null) {
+    console.error('FAIL: SON800-1 weighted avg should exist');
+    process.exit(1);
+}
+
 console.log('OK');

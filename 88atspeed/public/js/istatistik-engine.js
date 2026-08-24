@@ -493,10 +493,10 @@ const IstatistikEngine = {
     },
 
     /**
-     * SON800·1DR/SL ağırlıklı ortalama — SON en yüksek ağırlık, geriye gidildikçe azalır.
+     * Derinlik dizisi ağırlıklı ortalama — SON en yüksek ağırlık, geriye gidildikçe azalır.
      * Ağırlık(depth d) = maxDepth - d; eksik derinlikler hesaba katılmaz.
      */
-    _computeSon800Dr1AgirlikliOrtalama(depths, maxDepth) {
+    _computeDepthAgirlikliOrtalama(depths, maxDepth) {
         if (!maxDepth || !depths?.length) return null;
         let weightedSum = 0;
         let weightSum = 0;
@@ -522,6 +522,11 @@ const IstatistikEngine = {
             weightSum,
             parts
         };
+    },
+
+    /** @deprecated _computeDepthAgirlikliOrtalama kullanın */
+    _computeSon800Dr1AgirlikliOrtalama(depths, maxDepth) {
+        return this._computeDepthAgirlikliOrtalama(depths, maxDepth);
     },
 
     /** @deprecated computeSon800Dr1slKorelasyonGrid kullanın */
@@ -564,18 +569,34 @@ const IstatistikEngine = {
             const smIlk2 = this._smIlkBundle(kosular, programTarih, hedefSehir, hedefMesafe, 2);
             const smIlk1 = this._smIlkBundle(kosular, programTarih, hedefSehir, hedefMesafe, 1);
             const dr1Depths = son800Dr1Grid.byHorse.get(key) || [];
+            const son8001Depths = son8001Grid.byHorse.get(key) || [];
+            const son8002Depths = son8002Grid.byHorse.get(key) || [];
+            const oran1Depths = oran1Grid.byHorse.get(key) || [];
+            const oran2Depths = oran2Grid.byHorse.get(key) || [];
             return {
                 no: horse.no,
                 name: horse.name || '-',
                 atId: horse.atId,
                 hedefMesafe,
                 sehir,
-                son8001Depths: son8001Grid.byHorse.get(key) || [],
-                son8002Depths: son8002Grid.byHorse.get(key) || [],
-                oran1Depths: oran1Grid.byHorse.get(key) || [],
-                oran2Depths: oran2Grid.byHorse.get(key) || [],
+                son8001Depths,
+                son8001AgirlikliOrt: this._computeDepthAgirlikliOrtalama(
+                    son8001Depths, son8001Grid.maxDepth
+                ),
+                son8002Depths,
+                son8002AgirlikliOrt: this._computeDepthAgirlikliOrtalama(
+                    son8002Depths, son8002Grid.maxDepth
+                ),
+                oran1Depths,
+                oran1AgirlikliOrt: this._computeDepthAgirlikliOrtalama(
+                    oran1Depths, oran1Grid.maxDepth
+                ),
+                oran2Depths,
+                oran2AgirlikliOrt: this._computeDepthAgirlikliOrtalama(
+                    oran2Depths, oran2Grid.maxDepth
+                ),
                 son800Dr1Depths: dr1Depths,
-                son800Dr1AgirlikliOrt: this._computeSon800Dr1AgirlikliOrtalama(
+                son800Dr1AgirlikliOrt: this._computeDepthAgirlikliOrtalama(
                     dr1Depths, son800Dr1Grid.maxDepth
                 ),
                 ay3,
