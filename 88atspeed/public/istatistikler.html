@@ -48,6 +48,35 @@
         }
         .istatistik-table-wrap {
             overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .istatistik-table .istat-sticky-no,
+        .istatistik-table .istat-sticky-at {
+            position: sticky;
+            z-index: 5;
+            background: #fff;
+        }
+        .istatistik-table thead .istat-sticky-no,
+        .istatistik-table thead .istat-sticky-at {
+            z-index: 15;
+            background: #ede7f6;
+        }
+        .istatistik-table .istat-sticky-no {
+            left: 0;
+            min-width: 40px;
+            width: 40px;
+        }
+        .istatistik-table .istat-sticky-at {
+            left: 40px;
+            min-width: 130px;
+            max-width: 200px;
+            text-align: left;
+            white-space: nowrap;
+            box-shadow: 4px 0 10px -4px rgba(0, 0, 0, 0.18);
+        }
+        .istatistik-table tbody tr:hover .istat-sticky-no,
+        .istatistik-table tbody tr:hover .istat-sticky-at {
+            background: #fafafa;
         }
         .istatistik-race-header {
             padding: 12px 16px;
@@ -300,8 +329,8 @@ function updateMeta() {
 function renderIstatistikTableHead() {
     let h = '<thead>';
     h += '<tr>';
-    h += '<th rowspan="2" class="istat-th-base">#</th>';
-    h += '<th rowspan="2" class="istat-th-base">AT İSMİ</th>';
+    h += '<th rowspan="2" class="istat-th-base istat-sticky-no">#</th>';
+    h += '<th rowspan="2" class="istat-th-base istat-sticky-at">AT İSMİ</th>';
     h += '<th rowspan="2" class="istat-th-base istat-th-metric">ŞEHİR<br>DENEYİMİ</th>';
     h += '<th colspan="3" class="istat-th-grp istat-grp-donem istat-grp-start istat-grp-end">';
     h += 'Dönem İçi Koşu Oranı<small>Son dönemdeki koşu / eski koşu payı</small></th>';
@@ -363,8 +392,8 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
 
         for (const row of rows) {
             html += '<tr>';
-            html += '<td class="istat-no">' + AtSpeedUtils.escapeHtml(String(row.no || '-')) + '</td>';
-            html += '<td class="istat-at">' + AtSpeedUtils.escapeHtml(row.name) + '</td>';
+            html += '<td class="istat-no istat-sticky-no">' + AtSpeedUtils.escapeHtml(String(row.no || '-')) + '</td>';
+            html += '<td class="istat-at istat-sticky-at">' + AtSpeedUtils.escapeHtml(row.name) + '</td>';
             html += '<td>' + formatSehirPctCell(row.sehir) + '</td>';
             html += '<td class="istat-grp-donem istat-grp-start">' + formatDonemPctCell(row.ay3, 'son 3 ay') + '</td>';
             html += '<td class="istat-grp-donem">' + formatDonemPctCell(row.ay1, 'son 1 ay') + '</td>';
