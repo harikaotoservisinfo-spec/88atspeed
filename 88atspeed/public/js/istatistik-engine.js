@@ -49,6 +49,23 @@ const IstatistikEngine = {
         return a === b || a.includes(b) || b.includes(a);
     },
 
+    _parseMesafe(mesafe) {
+        if (mesafe === null || mesafe === undefined || mesafe === '-' || mesafe === '?') return null;
+        const n = parseInt(String(mesafe).replace(/[^\d]/g, ''), 10);
+        return isNaN(n) || n <= 0 ? null : n;
+    },
+
+    _mesafeEslesme(atKosuMesafe, hedefMesafe) {
+        const a = this._parseMesafe(atKosuMesafe);
+        if (a === null || hedefMesafe === null) return false;
+        return a === hedefMesafe;
+    },
+
+    _hedefMesafe(race) {
+        const m = (race.mesafe && race.mesafe !== '?') ? race.mesafe : (race.raceDistance || '?');
+        return this._parseMesafe(m);
+    },
+
     /**
      * Atın bilinen koşularında hedef şehirde yarışma oranı.
      * @returns {{ pct: number|null, total: number, inCity: number }}
@@ -129,8 +146,40 @@ const IstatistikEngine = {
         };
     },
 
+    /**
+     * Dönem + şehir + mesafe eşleşen koşularda ilk 3 başarısı.
+     * Koşunun yapılacağı şehir ve mesafedeki geçmiş performans.
+     */
+    computeSehirMesafeDonemIlk3Basari(kosular, programTarih, hedefSehir, hedefMesafe, period) {
+        const ref = this._parseKosuTarih(programTarih);
+        if (!ref || !hedefSehir || hedefMesafe === null) {
+            return { pct: null, top3: 0, notTop3: 0, total: 0 };
+        }
+        const cutoff = this._subtractPeriod(ref, period);
+        const programNorm = this._normalizeTarih(programTarih);
+        let top3 = 0;
+        let total = 0;
+        for (const k of kosular || []) {
+            if (!this._kosuDonemIcinde(k, ref, cutoff, programNorm)) continue;
+            if (!this._sehirEslesme(k.sehir, hedefSehir)) continue;
+            if (!this._mesafeEslesme(k.mesafe, hedefMesafe)) continue;
+            const sira = this._parseSira(k.sira);
+            if (sira === null) continue;
+            total++;
+            if (sira <= 3) top3++;
+        }
+        if (total === 0) return { pct: null, top3, notTop3: 0, total };
+        return {
+            pct: Math.round((top3 / total) * 100),
+            top3,
+            notTop3: total - top3,
+            total
+        };
+    },
+
     /** Koşu listesi için tüm istatistik satırları */
     buildRaceIstatistikRows(race, hedefSehir, programTarih) {
+        const hedefMesafe = this._hedefMesafe(race);
         const horses = [...(race.horses || [])].sort((a, b) => {
             const na = parseInt(a.no, 10);
             const nb = parseInt(b.no, 10);
@@ -146,17 +195,30 @@ const IstatistikEngine = {
             const ay3Ilk3 = this.computeDonemIlk3Basari(kosular, programTarih, { months: 3 });
             const ay1Ilk3 = this.computeDonemIlk3Basari(kosular, programTarih, { months: 1 });
             const gun15Ilk3 = this.computeDonemIlk3Basari(kosular, programTarih, { days: 15 });
+            const smAy3Ilk3 = this.computeSehirMesafeDonemIlk3Basari(
+                kosular, programTarih, hedefSehir, hedefMesafe, { months: 3 }
+            );
+            const smAy1Ilk3 = this.computeSehirMesafeDonemIlk3Basari(
+                kosular, programTarih, hedefSehir, hedefMesafe, { months: 1 }
+            );
+            const smGun15Ilk3 = this.computeSehirMesafeDonemIlk3Basari(
+                kosular, programTarih, hedefSehir, hedefMesafe, { days: 15 }
+            );
             return {
                 no: horse.no,
                 name: horse.name || '-',
                 atId: horse.atId,
+                hedefMesafe,
                 sehir,
                 ay3,
                 ay1,
                 gun15,
                 ay3Ilk3,
                 ay1Ilk3,
-                gun15Ilk3
+                gun15Ilk3,
+                smAy3Ilk3,
+                smAy1Ilk3,
+                smGun15Ilk3
             };
         });
     }

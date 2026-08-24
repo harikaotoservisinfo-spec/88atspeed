@@ -140,12 +140,14 @@
         <strong>Son 3 ay / 1 ay / 15 gün:</strong> Program tarihine göre dönem içi koşu sayısının,
         daha eski koşularla birlikte toplam içindeki yüzdesi.<br>
         <strong>İLK3 sütunları:</strong> İlgili dönemde koşulan yarışlarda ilk 3'e girme oranı
-        (1.–3. sıra). Örnek: <code>%60</code> = 5 koşudan 3'ünde ilk 3.
+        (1.–3. sıra).<br>
+        <strong>Ş/M İLK3:</strong> Aynı şehir + koşu mesafesindeki geçmiş koşularda ilk 3 oranı
+        (3 ay / 1 ay / 15 gün).
     </div>
 </div>
 
 <script src="js/utils.js?v=20260824w"></script>
-<script src="js/istatistik-engine.js?v=20260824c"></script>
+<script src="js/istatistik-engine.js?v=20260824d"></script>
 <script>
 let currentKayitId = null;
 let currentKayitMeta = null;
@@ -189,6 +191,14 @@ function formatIlk3PctCell(stat, donemLabel) {
     return '<span class="istat-pct ' + pctClass(stat.pct) + '" title="' + title + '">%' + stat.pct + '</span>';
 }
 
+function formatSehirMesafeIlk3PctCell(stat, donemLabel, hedefSehir, hedefMesafe) {
+    if (stat.pct === null) return '<span class="istat-pct istat-pct-none">—</span>';
+    const mesafeTxt = hedefMesafe !== null ? hedefMesafe + 'm' : '?';
+    const title = donemLabel + ' — ' + hedefSehir + ' / ' + mesafeTxt + ': '
+        + stat.top3 + '/' + stat.total + ' koşuda ilk 3 (' + stat.notTop3 + ' koşu ilk 3 dışı)';
+    return '<span class="istat-pct ' + pctClass(stat.pct) + '" title="' + AtSpeedUtils.escapeHtml(title) + '">%' + stat.pct + '</span>';
+}
+
 function updateMeta() {
     const el = document.getElementById('istatistikMeta');
     const hint = document.getElementById('istatistikSehirHint');
@@ -219,6 +229,7 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
         const mesafe = (race.mesafe && race.mesafe !== '?') ? race.mesafe : (race.raceDistance || '?');
         const pist = race.pist || '';
         const mesafeGosterim = mesafe !== '?' ? mesafe + (pist ? ' ' + pist : '') : '?';
+        const hedefMesafe = IstatistikEngine._hedefMesafe(race);
         const rows = IstatistikEngine.buildRaceIstatistikRows(race, hedefSehir, programTarih);
 
         html += '<div class="istatistik-race-card">';
@@ -237,6 +248,9 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
         html += '<th class="istat-th-metric">3 AY İLK3</th>';
         html += '<th class="istat-th-metric">1 AY İLK3</th>';
         html += '<th class="istat-th-metric">15G İLK3</th>';
+        html += '<th class="istat-th-metric" title="Şehir+mesafe eşleşmesi">3AY Ş/MİLK3</th>';
+        html += '<th class="istat-th-metric" title="Şehir+mesafe eşleşmesi">1AY Ş/MİLK3</th>';
+        html += '<th class="istat-th-metric" title="Şehir+mesafe eşleşmesi">15G Ş/MİLK3</th>';
         html += '</tr></thead><tbody>';
 
         for (const row of rows) {
@@ -250,6 +264,9 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
             html += '<td>' + formatIlk3PctCell(row.ay3Ilk3, 'Son 3 ay') + '</td>';
             html += '<td>' + formatIlk3PctCell(row.ay1Ilk3, 'Son 1 ay') + '</td>';
             html += '<td>' + formatIlk3PctCell(row.gun15Ilk3, 'Son 15 gün') + '</td>';
+            html += '<td>' + formatSehirMesafeIlk3PctCell(row.smAy3Ilk3, 'Son 3 ay', hedefSehir, hedefMesafe) + '</td>';
+            html += '<td>' + formatSehirMesafeIlk3PctCell(row.smAy1Ilk3, 'Son 1 ay', hedefSehir, hedefMesafe) + '</td>';
+            html += '<td>' + formatSehirMesafeIlk3PctCell(row.smGun15Ilk3, 'Son 15 gün', hedefSehir, hedefMesafe) + '</td>';
             html += '</tr>';
         }
 
