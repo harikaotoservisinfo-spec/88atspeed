@@ -390,6 +390,120 @@ const IstatistikEngine = {
         return { maxDepth, anaDerece, anaSalise, byHorse };
     },
 
+    /** FARK 8002-8001 = SON800_2/SL − SON800_1/SL (GÖSTERİM ile aynı) */
+    _computeFark8002_8001(kosu) {
+        let son800_1 = kosu.son800_bir;
+        let son800_2 = kosu.son800_iki;
+        if (!son800_2 || son800_2 === '-') son800_2 = son800_1;
+        const son800_1Salise = AtSpeedUtils.dereceToSalise(son800_1);
+        const son800_2Salise = AtSpeedUtils.dereceToSalise(son800_2);
+        const son800_1_sl = son800_1Salise ? son800_1Salise / 800 : null;
+        const son800_2_sl = son800_2Salise ? son800_2Salise / 800 : null;
+        if (son800_2_sl !== null && son800_1_sl !== null) {
+            return son800_2_sl - son800_1_sl;
+        }
+        return null;
+    },
+
+    _kosularYenidenEskiye(kosular, programTarih) {
+        const programNorm = programTarih ? this._normalizeTarih(programTarih) : null;
+        return [...(kosular || [])]
+            .filter(k => {
+                if (!k?.tarih) return false;
+                if (programNorm && this._normalizeTarih(k.tarih) === programNorm) return false;
+                return true;
+            })
+            .sort((a, b) => {
+                const da = this._parseKosuTarih(a.tarih);
+                const db = this._parseKosuTarih(b.tarih);
+                if (!da && !db) return 0;
+                if (!da) return 1;
+                if (!db) return -1;
+                return db - da;
+            });
+    },
+
+    /** Derinlik d'den geriye son 7 koşuda FARK 8002-8001 ortalaması */
+    _fark8002OrtAtDepth(sortedKosular, depth, windowSize = 7) {
+        const window = sortedKosular.slice(depth, depth + windowSize);
+        if (!window.length) return null;
+        let toplam = 0;
+        let adet = 0;
+        for (const k of window) {
+            const fark = this._computeFark8002_8001(k);
+            if (fark !== null) {
+                toplam += fark;
+                adet++;
+            }
+        }
+        if (adet === 0) return null;
+        const ort = toplam / adet;
+        return {
+            ort,
+            absOrt: Math.abs(ort),
+            adet,
+            tarih: sortedKosular[depth]?.tarih || null
+        };
+    },
+
+    _buildFark8002OrtChains(race, programTarih) {
+        const horses = race.horses || [];
+        const chains = new Map();
+        for (const horse of horses) {
+            const sorted = this._kosularYenidenEskiye(horse.kosular, programTarih);
+            const chain = [];
+            for (let d = 0; d < sorted.length; d++) {
+                chain[d] = this._fark8002OrtAtDepth(sorted, d, 7);
+            }
+            chains.set(this._horseKey(horse), chain);
+        }
+        const maxDepth = Math.max(0, ...[...chains.values()].map(c => c.length));
+        return { chains, maxDepth };
+    },
+
+    /**
+     * 800Δ·7 derinlik kıyası — GÖSTERİM AT İSMİ mavi fosfor kuralı.
+     * Her derinlikte son 7 koşu FARK 8002-8001 ort.; |ort| 0'a en yakın = %100.
+     */
+    computeFark8002OrtDepthGrid(race, programTarih) {
+        const { chains, maxDepth } = this._buildFark8002OrtChains(race, programTarih);
+        const byHorse = new Map();
+        for (const key of chains.keys()) {
+            byHorse.set(key, new Array(maxDepth).fill(null));
+        }
+
+        for (let d = 0; d < maxDepth; d++) {
+            const atDepth = [];
+            for (const [key, chain] of chains) {
+                if (chain[d]) {
+                    atDepth.push({ key, ...chain[d] });
+                }
+            }
+            if (!atDepth.length) continue;
+
+            const minAbsOrt = Math.min(...atDepth.map(e => e.absOrt));
+            const comparedCount = atDepth.length;
+
+            for (const e of atDepth) {
+                const pct = e.absOrt === 0
+                    ? 100
+                    : Math.round((minAbsOrt / e.absOrt) * 100);
+                byHorse.get(e.key)[d] = {
+                    pct,
+                    ort: e.ort,
+                    absOrt: e.absOrt,
+                    adet: e.adet,
+                    tarih: e.tarih,
+                    comparedCount,
+                    depth: d,
+                    isBest: e.absOrt === minAbsOrt
+                };
+            }
+        }
+
+        return { maxDepth, byHorse };
+    },
+
     /** @deprecated computeSon800DepthGrid kullanın */
     computeSon800RaceKiyaslama(race, programTarih, alan = 'bir') {
         return this.computeSon800DepthGrid(race, programTarih, alan);
@@ -1168,6 +1282,7 @@ const IstatistikEngine = {
         const son8002Grid = this.computeSon800DepthGrid(race, programTarih, 'iki');
         const oran1Grid = this.computeSon800AnaOranGrid(race, programTarih, 'bir');
         const oran2Grid = this.computeSon800AnaOranGrid(race, programTarih, 'iki');
+        const fark827Grid = this.computeFark8002OrtDepthGrid(race, programTarih);
         const son800Dr1Grid = this.computeSon800Dr1slKorelasyonGrid(race, programTarih);
         const son800DrGrid = this.computeSon800DrslKorelasyonGrid(race, programTarih);
         const test1Grid = this.computeTest1DepthGrid(race, programTarih);
@@ -1203,6 +1318,7 @@ const IstatistikEngine = {
             const son8002Depths = son8002Grid.byHorse.get(key) || [];
             const oran1Depths = oran1Grid.byHorse.get(key) || [];
             const oran2Depths = oran2Grid.byHorse.get(key) || [];
+            const fark827Depths = fark827Grid.byHorse.get(key) || [];
             const test1Depths = test1Grid.byHorse.get(key) || [];
             const test2Depths = test2Grid.byHorse.get(key) || [];
             const test3Depths = test3Grid.byHorse.get(key) || [];
@@ -1229,6 +1345,10 @@ const IstatistikEngine = {
                 oran2Depths,
                 oran2AgirlikliOrt: this._computeDepthAgirlikliOrtalama(
                     oran2Depths, oran2Grid.maxDepth
+                ),
+                fark827Depths,
+                fark827AgirlikliOrt: this._computeDepthAgirlikliOrtalama(
+                    fark827Depths, fark827Grid.maxDepth
                 ),
                 son800Dr1Depths: dr1Depths,
                 son800Dr1AgirlikliOrt: this._computeDepthAgirlikliOrtalama(
@@ -1279,6 +1399,7 @@ const IstatistikEngine = {
             oranMaxDepth2: oran2Grid.maxDepth,
             oranAnaDerece1: oran1Grid.anaDerece,
             oranAnaDerece2: oran2Grid.anaDerece,
+            maxDepthFark827: fark827Grid.maxDepth,
             maxDepthDr1: son800Dr1Grid.maxDepth,
             maxDepthDr: son800DrGrid.maxDepth,
             maxDepthTest1: test1Grid.maxDepth,
