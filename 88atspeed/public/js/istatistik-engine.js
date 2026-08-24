@@ -147,17 +147,16 @@ const IstatistikEngine = {
     },
 
     /**
-     * Dönem + şehir + mesafe eşleşen koşularda ilk 3 başarısı.
-     * Koşunun yapılacağı şehir ve mesafedeki geçmiş performans.
+     * Dönem + şehir + mesafe eşleşen koşularda ilk N başarısı (N=1,2,3).
      */
-    computeSehirMesafeDonemIlk3Basari(kosular, programTarih, hedefSehir, hedefMesafe, period) {
+    computeSehirMesafeDonemIlkBasari(kosular, programTarih, hedefSehir, hedefMesafe, period, ilkLimit = 3) {
         const ref = this._parseKosuTarih(programTarih);
         if (!ref || !hedefSehir || hedefMesafe === null) {
-            return { pct: null, top3: 0, notTop3: 0, total: 0 };
+            return { pct: null, hit: 0, miss: 0, total: 0, ilkLimit };
         }
         const cutoff = this._subtractPeriod(ref, period);
         const programNorm = this._normalizeTarih(programTarih);
-        let top3 = 0;
+        let hit = 0;
         let total = 0;
         for (const k of kosular || []) {
             if (!this._kosuDonemIcinde(k, ref, cutoff, programNorm)) continue;
@@ -166,15 +165,38 @@ const IstatistikEngine = {
             const sira = this._parseSira(k.sira);
             if (sira === null) continue;
             total++;
-            if (sira <= 3) top3++;
+            if (sira <= ilkLimit) hit++;
         }
-        if (total === 0) return { pct: null, top3, notTop3: 0, total };
+        if (total === 0) return { pct: null, hit, miss: 0, total, ilkLimit };
         return {
-            pct: Math.round((top3 / total) * 100),
-            top3,
-            notTop3: total - top3,
-            total
+            pct: Math.round((hit / total) * 100),
+            hit,
+            miss: total - hit,
+            total,
+            ilkLimit
         };
+    },
+
+    _smIlkBundle(kosular, programTarih, hedefSehir, hedefMesafe, ilkLimit) {
+        return {
+            ay3: this.computeSehirMesafeDonemIlkBasari(
+                kosular, programTarih, hedefSehir, hedefMesafe, { months: 3 }, ilkLimit
+            ),
+            ay1: this.computeSehirMesafeDonemIlkBasari(
+                kosular, programTarih, hedefSehir, hedefMesafe, { months: 1 }, ilkLimit
+            ),
+            gun15: this.computeSehirMesafeDonemIlkBasari(
+                kosular, programTarih, hedefSehir, hedefMesafe, { days: 15 }, ilkLimit
+            )
+        };
+    },
+
+    /** @deprecated computeSehirMesafeDonemIlkBasari kullanın */
+    computeSehirMesafeDonemIlk3Basari(kosular, programTarih, hedefSehir, hedefMesafe, period) {
+        const r = this.computeSehirMesafeDonemIlkBasari(
+            kosular, programTarih, hedefSehir, hedefMesafe, period, 3
+        );
+        return { pct: r.pct, top3: r.hit, notTop3: r.miss, total: r.total };
     },
 
     /** Koşu listesi için tüm istatistik satırları */
@@ -195,15 +217,9 @@ const IstatistikEngine = {
             const ay3Ilk3 = this.computeDonemIlk3Basari(kosular, programTarih, { months: 3 });
             const ay1Ilk3 = this.computeDonemIlk3Basari(kosular, programTarih, { months: 1 });
             const gun15Ilk3 = this.computeDonemIlk3Basari(kosular, programTarih, { days: 15 });
-            const smAy3Ilk3 = this.computeSehirMesafeDonemIlk3Basari(
-                kosular, programTarih, hedefSehir, hedefMesafe, { months: 3 }
-            );
-            const smAy1Ilk3 = this.computeSehirMesafeDonemIlk3Basari(
-                kosular, programTarih, hedefSehir, hedefMesafe, { months: 1 }
-            );
-            const smGun15Ilk3 = this.computeSehirMesafeDonemIlk3Basari(
-                kosular, programTarih, hedefSehir, hedefMesafe, { days: 15 }
-            );
+            const smIlk3 = this._smIlkBundle(kosular, programTarih, hedefSehir, hedefMesafe, 3);
+            const smIlk2 = this._smIlkBundle(kosular, programTarih, hedefSehir, hedefMesafe, 2);
+            const smIlk1 = this._smIlkBundle(kosular, programTarih, hedefSehir, hedefMesafe, 1);
             return {
                 no: horse.no,
                 name: horse.name || '-',
@@ -216,9 +232,9 @@ const IstatistikEngine = {
                 ay3Ilk3,
                 ay1Ilk3,
                 gun15Ilk3,
-                smAy3Ilk3,
-                smAy1Ilk3,
-                smGun15Ilk3
+                smIlk3,
+                smIlk2,
+                smIlk1
             };
         });
     }
