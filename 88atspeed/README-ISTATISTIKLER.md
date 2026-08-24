@@ -18,7 +18,7 @@ Veri kaynağı: GÖSTERİM kayıt senkronu (`postMessage` → `88atspeed-kayit-l
 |-------|-------|
 | Branch | `cursor/istatistikler-tab-c2e4` |
 | PR | [#11 — İstatistikler sekmesi](https://github.com/harikaotoservisinfo-spec/88atspeed/pull/11) |
-| Son build | `20260824q` |
+| Son build | `20260824r` |
 | Deploy komutu | `bash /var/www/88atspeed/deploy/update-on-server.sh cursor/istatistikler-tab-c2e4` |
 
 **Önemli:** Sunucuya SSH cloud agent ortamından çalışmıyor; deploy kullanıcı tarafından sunucuda yapılıyor.
@@ -75,17 +75,11 @@ Tablo render (koşu kartları, sticky # ve AT İSMİ sütunları)
 - Her hücre: `(anaSalise / atSalise) × 100`
 - Aynı derinlik sütun yapısı (SON, 1 ÖNCE …)
 
-### 4. SON800·1DR/SL (mor — **son eklenen**)
-- **Fonksiyon:** `computeSon800Dr1slKorelasyon(race, programTarih)`
-- **Tek sütun**, sadece atın **son koşusu** (program günü hariç)
-- İki metrik birlikte değerlendirilir:
-  - **SON800-1:** hızlı = düşük süre = iyi
-  - **1DR/SL:** düşük = iyi (`birinci_derece` → `metreBasiSalise`)
-- Rakip kıyası (aynı koşudaki atlar):
-  - `son800Pct = (minSon800 / atSon800) × 100`
-  - `dr1Pct = (minDr1sl / atDr1sl) × 100`
-  - **Birleşik skor:** `√(son800Pct × dr1Pct)` (geometrik ortalama)
-- Hücre tooltip: son koşu tarihi, SON800 derecesi, 1DR/SL değeri, alt metrik yüzdeleri
+### 4. SON800·1DR/SL (mor — **derinlik bazlı**)
+- **Fonksiyon:** `computeSon800Dr1slKorelasyonGrid(race, programTarih)`
+- Derinlik sütunları: `SON`, `1 ÖNCE`, `2 ÖNCE` … (atın geçerli koşu sayısı kadar, alandaki max)
+- Her derinlikte aynı koşudan SON800-1 + 1DR/SL birlikte değerlendirilir
+- Rakip kıyası + geometrik ortalama (tek sütun değil, tüm geçmiş koşular)
 
 ### 5. Dönem İçi Koşu Oranı
 - Son 3 ay / 1 ay / 15 gün içindeki koşu oranı.
@@ -112,10 +106,9 @@ computeSon800DepthGrid(race, programTarih, alan)
 // Turuncu ORAN sütunları
 computeSon800AnaOranGrid(race, programTarih, alan)
 
-// Mor korelasyon sütunu
-_sonKosuTam(kosular, programTarih)
-_sonKosuSon800Dr1slMetrikleri(kosu)
-computeSon800Dr1slKorelasyon(race, programTarih)
+// Mor korelasyon sütunları (derinlik bazlı)
+_kosularSon800Dr1slZinciri(kosular, programTarih)
+computeSon800Dr1slKorelasyonGrid(race, programTarih)
 
 // Ana paket — tüm satırlar + meta
 buildRaceIstatistikPackage(race, hedefSehir, programTarih)
@@ -129,7 +122,7 @@ buildRaceIstatistikPackage(race, hedefSehir, programTarih)
 
 **Satır alanları (önemli):**
 - `son8001Depths`, `son8002Depths`, `oran1Depths`, `oran2Depths` (dizi)
-- `son800Dr1Korelasyon` (tek obje veya `null`)
+- `son800Dr1Depths` (dizi)
 
 ---
 
