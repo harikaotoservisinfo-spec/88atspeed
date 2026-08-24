@@ -170,6 +170,10 @@
         .istatistik-table td.istat-grp-son800dr1 {
             background: #e8eaf6;
         }
+        .istatistik-table th.istat-grp-son800dr,
+        .istatistik-table td.istat-grp-son800dr {
+            background: #e0f2f1;
+        }
         .istatistik-table th.istat-grp-ilk3,
         .istatistik-table td.istat-grp-ilk3 {
             background: #f6fbf6;
@@ -215,6 +219,8 @@
         .istatistik-table th.istat-grp-son800oran2.istat-grp-start { border-left-color: #ff9800; }
         .istatistik-table th.istat-grp-son800dr1 { color: #283593; }
         .istatistik-table th.istat-grp-son800dr1.istat-grp-start { border-left-color: #5c6bc0; }
+        .istatistik-table th.istat-grp-son800dr { color: #00695c; }
+        .istatistik-table th.istat-grp-son800dr.istat-grp-start { border-left-color: #26a69a; }
         .istatistik-table th.istat-grp-ilk3 { color: #1b5e20; }
         .istatistik-table th.istat-grp-ilk3.istat-grp-start { border-left-color: #43a047; }
         .istatistik-table th.istat-grp-ilk2 { color: #2e7d32; }
@@ -233,6 +239,7 @@
         .istatistik-table td.istat-grp-son800oran1.istat-grp-start { border-left-color: #ffd54f; }
         .istatistik-table td.istat-grp-son800oran2.istat-grp-start { border-left-color: #ffcc80; }
         .istatistik-table td.istat-grp-son800dr1.istat-grp-start { border-left-color: #9fa8da; }
+        .istatistik-table td.istat-grp-son800dr.istat-grp-start { border-left-color: #80cbc4; }
         .istatistik-table td.istat-grp-ilk3.istat-grp-start { border-left-color: #a5d6a7; }
         .istatistik-table td.istat-grp-ilk2.istat-grp-start { border-left-color: #81c784; }
         .istatistik-table td.istat-grp-ilk1.istat-grp-start { border-left-color: #aed581; }
@@ -278,6 +285,7 @@
         .istatistik-table tbody tr:hover td.istat-grp-son800oran1 { background: #fff3d0; }
         .istatistik-table tbody tr:hover td.istat-grp-son800oran2 { background: #ffe8c8; }
         .istatistik-table tbody tr:hover td.istat-grp-son800dr1 { background: #dce0f5; }
+        .istatistik-table tbody tr:hover td.istat-grp-son800dr { background: #d0ece9; }
         .istatistik-table tbody tr:hover td.istat-grp-ilk3 { background: #edf7ed; }
         .istatistik-table tbody tr:hover td.istat-grp-ilk2 { background: #e0f0e1; }
         .istatistik-table tbody tr:hover td.istat-grp-ilk1 { background: #e8f2e0; }
@@ -324,7 +332,8 @@
         (<span id="istatistikSehirHint">—</span>) koşma oranı.<br>
         <strong>SON800-1 / SON800-2 / 800-1 ORAN / 800-2 ORAN:</strong> Derinlik sütunlarının sonunda
         <strong>AĞ. ORT.</strong> — son koşudan geriye ağırlıklı ortalama (SON en yüksek ağırlık).<br>
-        <strong>SON800·1DR/SL:</strong> Derinlik bazlı korelasyon + <strong>AĞ. ORT.</strong> sütunu.<br>
+        <strong>SON800·1DR/SL:</strong> SON800-1 + birinci derece (1DR/SL) korelasyonu + AĞ. ORT.<br>
+        <strong>SON800·DR/SL:</strong> SON800-1 + atın kendi derecesi (DR/SL) korelasyonu + AĞ. ORT.<br>
         <strong>Son 3 ay / 1 ay / 15 gün:</strong> Program tarihine göre dönem içi koşu sayısının,
         daha eski koşularla birlikte toplam içindeki yüzdesi.<br>
         <strong>Genel İLK3–İLK1:</strong> Tüm koşularda 1.–3. / 1.–2. / 1. sıra başarı oranları (3 ay / 1 ay / 15 gün).<br>
@@ -333,10 +342,10 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260824t"></script>
-<script src="js/istatistik-engine.js?v=20260824t"></script>
+<script src="js/utils.js?v=20260824u"></script>
+<script src="js/istatistik-engine.js?v=20260824u"></script>
 <script>
-const ISTAT_BUILD = '20260824t';
+const ISTAT_BUILD = '20260824u';
 let currentKayitId = null;
 let currentKayitMeta = null;
 let currentRaceData = null;
@@ -396,14 +405,17 @@ function formatSon800OranCell(cell, label, depthLabel, anaDerece) {
     return '<span class="istat-pct ' + pctClass(cell.pct) + '" title="' + title.replace(/"/g, '&quot;') + '">%' + cell.pct + '</span>';
 }
 
-function formatSon800Dr1KorelasyonCell(cell, depthLabel) {
+function formatSon800DrKorelasyonCell(cell, depthLabel, groupLabel, drLabel) {
     if (!cell || cell.pct === null) return '<span class="istat-pct istat-pct-none">—</span>';
-    let title = 'SON800·1DR/SL · ' + depthLabel;
+    const drPct = cell.drPct ?? cell.dr1Pct;
+    const drDerece = cell.drDerece ?? cell.birinciDerece;
+    const drSl = cell.drSl ?? cell.birinciDrSl;
+    let title = groupLabel + ' · ' + depthLabel;
     if (cell.tarih) title += ' (' + cell.tarih + ')';
     title += ' | SON800-1: ' + (cell.son800Derece || '?');
     title += ' (%' + cell.son800Pct + ')';
-    title += ' | 1DR/SL: ' + (cell.birinciDerece || '?');
-    title += ' (' + (cell.birinciDrSl != null ? cell.birinciDrSl.toFixed(4) : '?') + ', %' + cell.dr1Pct + ')';
+    title += ' | ' + drLabel + ': ' + (drDerece || '?');
+    title += ' (' + (drSl != null ? drSl.toFixed(4) : '?') + ', %' + drPct + ')';
     title += ' | ' + cell.comparedCount + ' at kıyası → %' + cell.pct;
     if (cell.isBest) title += ' (her iki metrikte en iyi)';
     return '<span class="istat-pct ' + pctClass(cell.pct) + '" title="' + title.replace(/"/g, '&quot;') + '">%' + cell.pct + '</span>';
@@ -433,20 +445,32 @@ function appendDepthAvgCell(h, grpClass, agirlikliOrt, groupLabel, isGrpEnd) {
     return h + '<td class="' + cls + '">' + formatDepthAgirlikliOrtCell(agirlikliOrt, groupLabel) + '</td>';
 }
 
-function renderSon800Dr1KorelasyonCells(depths, maxDepth, agirlikliOrt) {
+function renderSon800DrKorelasyonGroupCells(depths, maxDepth, grpClass, groupLabel, drLabel, agirlikliOrt, isGrpEnd) {
     if (maxDepth === 0) {
-        return '<td class="istat-grp-son800dr1 istat-son800-depth istat-grp-start istat-grp-end"><span class="istat-pct istat-pct-none">—</span></td>';
+        let cls = grpClass + ' istat-son800-depth istat-grp-start';
+        if (isGrpEnd) cls += ' istat-grp-end';
+        return '<td class="' + cls + '"><span class="istat-pct istat-pct-none">—</span></td>';
     }
     let h = '';
     for (let d = 0; d < maxDepth; d++) {
         const cell = depths && depths[d] ? depths[d] : null;
-        let cls = 'istat-grp-son800dr1 istat-son800-depth';
+        let cls = grpClass + ' istat-son800-depth';
         if (d === 0) cls += ' istat-grp-start';
-        h += '<td class="' + cls + '">' + formatSon800Dr1KorelasyonCell(cell, son800DepthLabel(d)) + '</td>';
+        h += '<td class="' + cls + '">' + formatSon800DrKorelasyonCell(cell, son800DepthLabel(d), groupLabel, drLabel) + '</td>';
     }
-    h += '<td class="istat-grp-son800dr1 istat-son800-avg istat-grp-end">'
-        + formatSon800Dr1AgirlikliOrtCell(agirlikliOrt) + '</td>';
-    return h;
+    return appendDepthAvgCell(h, grpClass, agirlikliOrt, groupLabel, isGrpEnd);
+}
+
+function renderSon800Dr1KorelasyonCells(depths, maxDepth, agirlikliOrt) {
+    return renderSon800DrKorelasyonGroupCells(
+        depths, maxDepth, 'istat-grp-son800dr1', 'SON800·1DR/SL', '1DR/SL', agirlikliOrt, false
+    );
+}
+
+function renderSon800DrslKorelasyonCells(depths, maxDepth, agirlikliOrt) {
+    return renderSon800DrKorelasyonGroupCells(
+        depths, maxDepth, 'istat-grp-son800dr', 'SON800·DR/SL', 'DR/SL', agirlikliOrt, true
+    );
 }
 
 function renderSon800DepthCells(depths, maxDepth, grpClass, label, agirlikliOrt) {
@@ -531,12 +555,13 @@ function updateMeta() {
     if (hint) hint.textContent = currentKayitMeta.hipodrom;
 }
 
-function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxDepth2, oranAna1, oranAna2, maxDepthDr1) {
+function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxDepth2, oranAna1, oranAna2, maxDepthDr1, maxDepthDr) {
     const d1 = maxDepth1 || 0;
     const d2 = maxDepth2 || 0;
     const o1 = oranMaxDepth1 || 0;
     const o2 = oranMaxDepth2 || 0;
     const dr1 = maxDepthDr1 || 0;
+    const dr = maxDepthDr || 0;
     let h = '<thead>';
     h += '<tr>';
     h += '<th rowspan="2" class="istat-th-base istat-sticky-no">#</th>';
@@ -573,11 +598,19 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
     }
 
     if (dr1 > 0) {
-        h += '<th colspan="' + (dr1 + 1) + '" class="istat-th-grp istat-grp-son800dr1 istat-grp-start istat-grp-end">';
-        h += 'SON800·1DR/SL<small>Derinlik bazlı korelasyon + ağırlıklı ort.</small></th>';
+        h += '<th colspan="' + (dr1 + 1) + '" class="istat-th-grp istat-grp-son800dr1 istat-grp-start">';
+        h += 'SON800·1DR/SL<small>1. derece korelasyon + ağ. ort.</small></th>';
     } else {
-        h += '<th rowspan="2" class="istat-th-base istat-th-metric istat-grp-son800dr1 istat-grp-start istat-grp-end">';
+        h += '<th rowspan="2" class="istat-th-base istat-th-metric istat-grp-son800dr1 istat-grp-start">';
         h += 'SON800·1DR/SL<small>Veri yok</small></th>';
+    }
+
+    if (dr > 0) {
+        h += '<th colspan="' + (dr + 1) + '" class="istat-th-grp istat-grp-son800dr istat-grp-start istat-grp-end">';
+        h += 'SON800·DR/SL<small>At derecesi korelasyon + ağ. ort.</small></th>';
+    } else {
+        h += '<th rowspan="2" class="istat-th-base istat-th-metric istat-grp-son800dr istat-grp-start istat-grp-end">';
+        h += 'SON800·DR/SL<small>Veri yok</small></th>';
     }
 
     h += '<th colspan="3" class="istat-th-grp istat-grp-donem istat-grp-start istat-grp-end">';
@@ -633,7 +666,15 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
         h += '<th class="' + cls + '">' + son800DepthLabel(d) + '</th>';
     }
     if (dr1 > 0) {
-        h += '<th class="istat-th-metric istat-th-son800-avg istat-grp-son800dr1 istat-grp-end">AĞ. ORT.</th>';
+        h += '<th class="istat-th-metric istat-th-son800-avg istat-grp-son800dr1">AĞ. ORT.</th>';
+    }
+    for (let d = 0; d < dr; d++) {
+        let cls = 'istat-th-metric istat-th-son800-depth istat-grp-son800dr';
+        if (d === 0) cls += ' istat-grp-start';
+        h += '<th class="' + cls + '">' + son800DepthLabel(d) + '</th>';
+    }
+    if (dr > 0) {
+        h += '<th class="istat-th-metric istat-th-son800-avg istat-grp-son800dr istat-grp-end">AĞ. ORT.</th>';
     }
     h += '<th class="istat-th-metric istat-grp-donem istat-grp-start">SON 3 AY</th>';
     h += '<th class="istat-th-metric istat-grp-donem">SON 1 AY</th>';
@@ -682,6 +723,7 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
         const oranMaxDepth1 = pkg.oranMaxDepth1;
         const oranMaxDepth2 = pkg.oranMaxDepth2;
         const maxDepthDr1 = pkg.maxDepthDr1;
+        const maxDepthDr = pkg.maxDepthDr;
 
         html += '<div class="istatistik-race-card">';
         html += '<div class="istatistik-race-header">';
@@ -700,10 +742,13 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
         if (maxDepthDr1 > 0) {
             html += '<span class="istatistik-race-badge">800·1DR: ' + maxDepthDr1 + ' derinlik</span>';
         }
+        if (maxDepthDr > 0) {
+            html += '<span class="istatistik-race-badge">800·DR: ' + maxDepthDr + ' derinlik</span>';
+        }
         html += '</div>';
         html += '<div class="istatistik-table-wrap">';
         html += '<table class="istatistik-table">';
-        html += renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxDepth2, pkg.oranAnaDerece1, pkg.oranAnaDerece2, maxDepthDr1);
+        html += renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxDepth2, pkg.oranAnaDerece1, pkg.oranAnaDerece2, maxDepthDr1, maxDepthDr);
         html += '<tbody>';
 
         for (const row of rows) {
@@ -716,6 +761,7 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
             html += renderSon800OranCells(row.oran1Depths, oranMaxDepth1, 'istat-grp-son800oran1', '800-1 ORAN', pkg.oranAnaDerece1, row.oran1AgirlikliOrt, true);
             html += renderSon800OranCells(row.oran2Depths, oranMaxDepth2, 'istat-grp-son800oran2', '800-2 ORAN', pkg.oranAnaDerece2, row.oran2AgirlikliOrt, false);
             html += renderSon800Dr1KorelasyonCells(row.son800Dr1Depths, maxDepthDr1, row.son800Dr1AgirlikliOrt);
+            html += renderSon800DrslKorelasyonCells(row.son800DrDepths, maxDepthDr, row.son800DrAgirlikliOrt);
             html += '<td class="istat-grp-donem istat-grp-start">' + formatDonemPctCell(row.ay3, 'son 3 ay') + '</td>';
             html += '<td class="istat-grp-donem">' + formatDonemPctCell(row.ay1, 'son 1 ay') + '</td>';
             html += '<td class="istat-grp-donem istat-grp-end">' + formatDonemPctCell(row.gun15, 'son 15 gün') + '</td>';

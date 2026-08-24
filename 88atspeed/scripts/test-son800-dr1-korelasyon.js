@@ -73,4 +73,14 @@ if (!s1ort || s1ort.pct === null) {
     process.exit(1);
 }
 
+const drOrt = best.son800DrAgirlikliOrt;
+if (!drOrt || drOrt.pct === null) {
+    console.error('FAIL: SON800·DR/SL weighted avg should exist');
+    process.exit(1);
+}
+if (!best.son800DrDepths[0] || best.son800DrDepths[0].drDerece !== '1.25.00') {
+    console.error('FAIL: DR/SL should use at_derece');
+    process.exit(1);
+}
+
 console.log('OK');

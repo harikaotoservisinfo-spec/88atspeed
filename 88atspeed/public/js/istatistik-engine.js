@@ -383,8 +383,8 @@ const IstatistikEngine = {
         return sorted[0] || null;
     },
 
-    /** Son koşudan SON800-1 salise + 1DR/SL (birinci_dr_sl) */
-    _sonKosuSon800Dr1slMetrikleri(kosu) {
+    /** Son koşudan SON800-1 + DR/SL (at veya birinci derece) */
+    _sonKosuSon800DrKorelasyonMetrikleri(kosu, useAtDerece = false) {
         if (!kosu) return null;
         const son800 = kosu.son800_bir;
         if (!son800 || son800 === '-') return null;
@@ -392,24 +392,29 @@ const IstatistikEngine = {
         if (son800Salise === null || son800Salise <= 0) return null;
 
         const mesafe = this._parseMesafe(kosu.mesafe);
-        const birinciSalise = AtSpeedUtils.dereceToSalise(kosu.birinci_derece);
-        const birinciDrSl = (birinciSalise !== null && mesafe !== null)
-            ? AtSpeedUtils.metreBasiSalise(birinciSalise, mesafe)
+        const drDerece = useAtDerece ? kosu.at_derece : kosu.birinci_derece;
+        const drSalise = AtSpeedUtils.dereceToSalise(drDerece);
+        const drSl = (drSalise !== null && mesafe !== null)
+            ? AtSpeedUtils.metreBasiSalise(drSalise, mesafe)
             : null;
-        if (birinciDrSl === null || birinciDrSl <= 0) return null;
+        if (drSl === null || drSl <= 0) return null;
 
         return {
             son800Salise,
             son800Derece: son800,
-            birinciDrSl,
-            birinciDerece: kosu.birinci_derece || null,
+            drSl,
+            drDerece: drDerece || null,
             mesafe,
             tarih: kosu.tarih || null
         };
     },
 
-    /** Atın koşularını yeniden eskiye SON800+1DR/SL korelasyon zinciri */
-    _kosularSon800Dr1slZinciri(kosular, programTarih) {
+    /** @deprecated _sonKosuSon800DrKorelasyonMetrikleri kullanın */
+    _sonKosuSon800Dr1slMetrikleri(kosu) {
+        return this._sonKosuSon800DrKorelasyonMetrikleri(kosu, false);
+    },
+
+    _kosularSon800DrKorelasyonZinciri(kosular, programTarih, useAtDerece = false) {
         const programNorm = programTarih ? this._normalizeTarih(programTarih) : null;
         const sorted = [...(kosular || [])]
             .filter(k => {
@@ -427,29 +432,42 @@ const IstatistikEngine = {
             });
         const chain = [];
         for (const k of sorted) {
-            const metrik = this._sonKosuSon800Dr1slMetrikleri(k);
+            const metrik = this._sonKosuSon800DrKorelasyonMetrikleri(k, useAtDerece);
             if (!metrik) continue;
             chain.push(metrik);
         }
         return chain;
     },
 
-    _buildSon800Dr1slChains(race, programTarih) {
+    /** @deprecated _kosularSon800DrKorelasyonZinciri kullanın */
+    _kosularSon800Dr1slZinciri(kosular, programTarih) {
+        return this._kosularSon800DrKorelasyonZinciri(kosular, programTarih, false);
+    },
+
+    _buildSon800DrKorelasyonChains(race, programTarih, useAtDerece = false) {
         const horses = race.horses || [];
         const chains = new Map();
         for (const horse of horses) {
-            chains.set(this._horseKey(horse), this._kosularSon800Dr1slZinciri(horse.kosular, programTarih));
+            chains.set(
+                this._horseKey(horse),
+                this._kosularSon800DrKorelasyonZinciri(horse.kosular, programTarih, useAtDerece)
+            );
         }
         const maxDepth = Math.max(0, ...[...chains.values()].map(c => c.length));
         return { horses, chains, maxDepth };
     },
 
+    /** @deprecated _buildSon800DrKorelasyonChains kullanın */
+    _buildSon800Dr1slChains(race, programTarih) {
+        return this._buildSon800DrKorelasyonChains(race, programTarih, false);
+    },
+
     /**
-     * SON800-1 + 1DR/SL derinlik bazlı korelasyon (SON, 1 ÖNCE …).
-     * Her derinlikte rakip kıyası; birleşik = geometrik ortalama.
+     * SON800-1 + DR/SL derinlik bazlı korelasyon (SON, 1 ÖNCE …).
+     * useAtDerece=false → 1DR/SL (birinci), true → DR/SL (at derecesi).
      */
-    computeSon800Dr1slKorelasyonGrid(race, programTarih) {
-        const { chains, maxDepth } = this._buildSon800Dr1slChains(race, programTarih);
+    computeSon800DrKorelasyonGrid(race, programTarih, useAtDerece = false) {
+        const { chains, maxDepth } = this._buildSon800DrKorelasyonChains(race, programTarih, useAtDerece);
         const byHorse = new Map();
         for (const key of chains.keys()) {
             byHorse.set(key, new Array(maxDepth).fill(null));
@@ -465,31 +483,42 @@ const IstatistikEngine = {
             if (!atDepth.length) continue;
 
             const minSon800 = Math.min(...atDepth.map(e => e.son800Salise));
-            const minDr1sl = Math.min(...atDepth.map(e => e.birinciDrSl));
+            const minDrSl = Math.min(...atDepth.map(e => e.drSl));
             const comparedCount = atDepth.length;
 
             for (const e of atDepth) {
                 const son800Pct = Math.round((minSon800 / e.son800Salise) * 100);
-                const dr1Pct = Math.round((minDr1sl / e.birinciDrSl) * 100);
-                const pct = Math.round(Math.sqrt(son800Pct * dr1Pct));
+                const drPct = Math.round((minDrSl / e.drSl) * 100);
+                const pct = Math.round(Math.sqrt(son800Pct * drPct));
                 byHorse.get(e.key)[d] = {
                     pct,
                     son800Pct,
-                    dr1Pct,
+                    drPct,
+                    dr1Pct: drPct,
                     son800Derece: e.son800Derece,
-                    birinciDerece: e.birinciDerece,
+                    drDerece: e.drDerece,
+                    birinciDerece: e.drDerece,
                     son800Salise: e.son800Salise,
-                    birinciDrSl: e.birinciDrSl,
+                    drSl: e.drSl,
+                    birinciDrSl: e.drSl,
                     tarih: e.tarih,
                     mesafe: e.mesafe,
                     comparedCount,
                     depth: d,
-                    isBest: e.son800Salise === minSon800 && e.birinciDrSl === minDr1sl
+                    isBest: e.son800Salise === minSon800 && e.drSl === minDrSl
                 };
             }
         }
 
         return { maxDepth, byHorse };
+    },
+
+    computeSon800Dr1slKorelasyonGrid(race, programTarih) {
+        return this.computeSon800DrKorelasyonGrid(race, programTarih, false);
+    },
+
+    computeSon800DrslKorelasyonGrid(race, programTarih) {
+        return this.computeSon800DrKorelasyonGrid(race, programTarih, true);
     },
 
     /**
@@ -549,6 +578,7 @@ const IstatistikEngine = {
         const oran1Grid = this.computeSon800AnaOranGrid(race, programTarih, 'bir');
         const oran2Grid = this.computeSon800AnaOranGrid(race, programTarih, 'iki');
         const son800Dr1Grid = this.computeSon800Dr1slKorelasyonGrid(race, programTarih);
+        const son800DrGrid = this.computeSon800DrslKorelasyonGrid(race, programTarih);
         const horses = [...(race.horses || [])].sort((a, b) => {
             const na = parseInt(a.no, 10);
             const nb = parseInt(b.no, 10);
@@ -569,6 +599,7 @@ const IstatistikEngine = {
             const smIlk2 = this._smIlkBundle(kosular, programTarih, hedefSehir, hedefMesafe, 2);
             const smIlk1 = this._smIlkBundle(kosular, programTarih, hedefSehir, hedefMesafe, 1);
             const dr1Depths = son800Dr1Grid.byHorse.get(key) || [];
+            const drDepths = son800DrGrid.byHorse.get(key) || [];
             const son8001Depths = son8001Grid.byHorse.get(key) || [];
             const son8002Depths = son8002Grid.byHorse.get(key) || [];
             const oran1Depths = oran1Grid.byHorse.get(key) || [];
@@ -599,6 +630,10 @@ const IstatistikEngine = {
                 son800Dr1AgirlikliOrt: this._computeDepthAgirlikliOrtalama(
                     dr1Depths, son800Dr1Grid.maxDepth
                 ),
+                son800DrDepths: drDepths,
+                son800DrAgirlikliOrt: this._computeDepthAgirlikliOrtalama(
+                    drDepths, son800DrGrid.maxDepth
+                ),
                 ay3,
                 ay1,
                 gun15,
@@ -618,6 +653,7 @@ const IstatistikEngine = {
             oranAnaDerece1: oran1Grid.anaDerece,
             oranAnaDerece2: oran2Grid.anaDerece,
             maxDepthDr1: son800Dr1Grid.maxDepth,
+            maxDepthDr: son800DrGrid.maxDepth,
             rows
         };
     },
