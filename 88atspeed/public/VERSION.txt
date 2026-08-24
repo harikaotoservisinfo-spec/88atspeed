@@ -1,4 +1,4 @@
 branch=cursor/istatistik-full-grids-c2e4
-commit=4f869a2
-message=feat: İstatistikler TAHMİN sütunu — tüm gruplar AĞ. ORT.3 bileşik skoru
+commit=pending
+message=feat: metrik ağırlık kontrolleri ve canlı TAHMİN güncelleme
 deployed=
