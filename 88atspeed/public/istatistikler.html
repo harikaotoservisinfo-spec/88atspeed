@@ -138,13 +138,14 @@
         <strong>Şehir deneyimi:</strong> Bilinen koşular içinde program hipodromunda
         (<span id="istatistikSehirHint">—</span>) koşma oranı.<br>
         <strong>Son 3 ay / 1 ay / 15 gün:</strong> Program tarihine göre dönem içi koşu sayısının,
-        daha eski koşularla birlikte toplam içindeki yüzdesi.
-        Örnek: <code>%40</code> = 5 koşudan 2'si son 3 ay içinde, 3'ü daha eski.
+        daha eski koşularla birlikte toplam içindeki yüzdesi.<br>
+        <strong>İLK3 sütunları:</strong> İlgili dönemde koşulan yarışlarda ilk 3'e girme oranı
+        (1.–3. sıra). Örnek: <code>%60</code> = 5 koşudan 3'ünde ilk 3.
     </div>
 </div>
 
 <script src="js/utils.js?v=20260824w"></script>
-<script src="js/istatistik-engine.js?v=20260824b"></script>
+<script src="js/istatistik-engine.js?v=20260824c"></script>
 <script>
 let currentKayitId = null;
 let currentKayitMeta = null;
@@ -178,6 +179,13 @@ function formatSehirPctCell(stat) {
 function formatDonemPctCell(stat, donemLabel) {
     if (stat.pct === null) return '<span class="istat-pct istat-pct-none">—</span>';
     const title = stat.recent + ' koşu ' + donemLabel + ' içinde, ' + stat.older + ' koşu daha eski (toplam ' + stat.total + ')';
+    return '<span class="istat-pct ' + pctClass(stat.pct) + '" title="' + title + '">%' + stat.pct + '</span>';
+}
+
+function formatIlk3PctCell(stat, donemLabel) {
+    if (stat.pct === null) return '<span class="istat-pct istat-pct-none">—</span>';
+    const title = donemLabel + ': ' + stat.top3 + '/' + stat.total + ' koşuda ilk 3 ('
+        + stat.notTop3 + ' koşu ilk 3 dışı)';
     return '<span class="istat-pct ' + pctClass(stat.pct) + '" title="' + title + '">%' + stat.pct + '</span>';
 }
 
@@ -226,6 +234,9 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
         html += '<th class="istat-th-metric">SON 3 AY</th>';
         html += '<th class="istat-th-metric">SON 1 AY</th>';
         html += '<th class="istat-th-metric">SON 15 GÜN</th>';
+        html += '<th class="istat-th-metric">3 AY İLK3</th>';
+        html += '<th class="istat-th-metric">1 AY İLK3</th>';
+        html += '<th class="istat-th-metric">15G İLK3</th>';
         html += '</tr></thead><tbody>';
 
         for (const row of rows) {
@@ -236,6 +247,9 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
             html += '<td>' + formatDonemPctCell(row.ay3, 'son 3 ay') + '</td>';
             html += '<td>' + formatDonemPctCell(row.ay1, 'son 1 ay') + '</td>';
             html += '<td>' + formatDonemPctCell(row.gun15, 'son 15 gün') + '</td>';
+            html += '<td>' + formatIlk3PctCell(row.ay3Ilk3, 'Son 3 ay') + '</td>';
+            html += '<td>' + formatIlk3PctCell(row.ay1Ilk3, 'Son 1 ay') + '</td>';
+            html += '<td>' + formatIlk3PctCell(row.gun15Ilk3, 'Son 15 gün') + '</td>';
             html += '</tr>';
         }
 
