@@ -120,29 +120,43 @@ const IstatistikEngine = {
     },
 
     /**
-     * Dönem içindeki koşularda ilk 3'e girme başarısı.
-     * Yüzde = ilk3 / (dönem içi toplam geçerli sıralı koşu) × 100
+     * Dönem içindeki koşularda ilk N başarısı (tüm koşular).
      */
-    computeDonemIlk3Basari(kosular, programTarih, period) {
+    computeDonemIlkBasari(kosular, programTarih, period, ilkLimit = 3) {
         const ref = this._parseKosuTarih(programTarih);
-        if (!ref) return { pct: null, top3: 0, notTop3: 0, total: 0 };
+        if (!ref) return { pct: null, hit: 0, miss: 0, total: 0, ilkLimit };
         const cutoff = this._subtractPeriod(ref, period);
         const programNorm = this._normalizeTarih(programTarih);
-        let top3 = 0;
+        let hit = 0;
         let total = 0;
         for (const k of kosular || []) {
             if (!this._kosuDonemIcinde(k, ref, cutoff, programNorm)) continue;
             const sira = this._parseSira(k.sira);
             if (sira === null) continue;
             total++;
-            if (sira <= 3) top3++;
+            if (sira <= ilkLimit) hit++;
         }
-        if (total === 0) return { pct: null, top3, notTop3: 0, total };
+        if (total === 0) return { pct: null, hit, miss: 0, total, ilkLimit };
         return {
-            pct: Math.round((top3 / total) * 100),
-            top3,
-            notTop3: total - top3,
-            total
+            pct: Math.round((hit / total) * 100),
+            hit,
+            miss: total - hit,
+            total,
+            ilkLimit
+        };
+    },
+
+    /** @deprecated computeDonemIlkBasari kullanın */
+    computeDonemIlk3Basari(kosular, programTarih, period) {
+        const r = this.computeDonemIlkBasari(kosular, programTarih, period, 3);
+        return { pct: r.pct, top3: r.hit, notTop3: r.miss, total: r.total };
+    },
+
+    _genelIlkBundle(kosular, programTarih, ilkLimit) {
+        return {
+            ay3: this.computeDonemIlkBasari(kosular, programTarih, { months: 3 }, ilkLimit),
+            ay1: this.computeDonemIlkBasari(kosular, programTarih, { months: 1 }, ilkLimit),
+            gun15: this.computeDonemIlkBasari(kosular, programTarih, { days: 15 }, ilkLimit)
         };
     },
 
@@ -214,9 +228,9 @@ const IstatistikEngine = {
             const ay3 = this.computeDonemOrani(kosular, programTarih, { months: 3 });
             const ay1 = this.computeDonemOrani(kosular, programTarih, { months: 1 });
             const gun15 = this.computeDonemOrani(kosular, programTarih, { days: 15 });
-            const ay3Ilk3 = this.computeDonemIlk3Basari(kosular, programTarih, { months: 3 });
-            const ay1Ilk3 = this.computeDonemIlk3Basari(kosular, programTarih, { months: 1 });
-            const gun15Ilk3 = this.computeDonemIlk3Basari(kosular, programTarih, { days: 15 });
+            const genelIlk3 = this._genelIlkBundle(kosular, programTarih, 3);
+            const genelIlk2 = this._genelIlkBundle(kosular, programTarih, 2);
+            const genelIlk1 = this._genelIlkBundle(kosular, programTarih, 1);
             const smIlk3 = this._smIlkBundle(kosular, programTarih, hedefSehir, hedefMesafe, 3);
             const smIlk2 = this._smIlkBundle(kosular, programTarih, hedefSehir, hedefMesafe, 2);
             const smIlk1 = this._smIlkBundle(kosular, programTarih, hedefSehir, hedefMesafe, 1);
@@ -229,9 +243,9 @@ const IstatistikEngine = {
                 ay3,
                 ay1,
                 gun15,
-                ay3Ilk3,
-                ay1Ilk3,
-                gun15Ilk3,
+                genelIlk3,
+                genelIlk2,
+                genelIlk1,
                 smIlk3,
                 smIlk2,
                 smIlk1

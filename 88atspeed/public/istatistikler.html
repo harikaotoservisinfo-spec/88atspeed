@@ -142,6 +142,14 @@
         .istatistik-table td.istat-grp-ilk3 {
             background: #f6fbf6;
         }
+        .istatistik-table th.istat-grp-ilk2,
+        .istatistik-table td.istat-grp-ilk2 {
+            background: #e8f5e9;
+        }
+        .istatistik-table th.istat-grp-ilk1,
+        .istatistik-table td.istat-grp-ilk1 {
+            background: #f1f8e9;
+        }
         .istatistik-table th.istat-grp-sm3,
         .istatistik-table td.istat-grp-sm3 {
             background: #fffaf3;
@@ -167,6 +175,10 @@
         .istatistik-table th.istat-grp-donem.istat-grp-start { border-left-color: #1976d2; }
         .istatistik-table th.istat-grp-ilk3 { color: #1b5e20; }
         .istatistik-table th.istat-grp-ilk3.istat-grp-start { border-left-color: #43a047; }
+        .istatistik-table th.istat-grp-ilk2 { color: #2e7d32; }
+        .istatistik-table th.istat-grp-ilk2.istat-grp-start { border-left-color: #66bb6a; }
+        .istatistik-table th.istat-grp-ilk1 { color: #33691e; }
+        .istatistik-table th.istat-grp-ilk1.istat-grp-start { border-left-color: #7cb342; }
         .istatistik-table th.istat-grp-sm3 { color: #e65100; }
         .istatistik-table th.istat-grp-sm3.istat-grp-start { border-left-color: #fb8c00; }
         .istatistik-table th.istat-grp-sm2 { color: #ad1457; }
@@ -175,6 +187,8 @@
         .istatistik-table th.istat-grp-sm1.istat-grp-start { border-left-color: #ab47bc; }
         .istatistik-table td.istat-grp-donem.istat-grp-start { border-left-color: #90caf9; }
         .istatistik-table td.istat-grp-ilk3.istat-grp-start { border-left-color: #a5d6a7; }
+        .istatistik-table td.istat-grp-ilk2.istat-grp-start { border-left-color: #81c784; }
+        .istatistik-table td.istat-grp-ilk1.istat-grp-start { border-left-color: #aed581; }
         .istatistik-table td.istat-grp-sm3.istat-grp-start { border-left-color: #ffcc80; }
         .istatistik-table td.istat-grp-sm2.istat-grp-start { border-left-color: #f48fb1; }
         .istatistik-table td.istat-grp-sm1.istat-grp-start { border-left-color: #ce93d8; }
@@ -198,6 +212,8 @@
         .istatistik-table tbody tr:hover { background: #fafafa; }
         .istatistik-table tbody tr:hover td.istat-grp-donem { background: #eaf4ff; }
         .istatistik-table tbody tr:hover td.istat-grp-ilk3 { background: #edf7ed; }
+        .istatistik-table tbody tr:hover td.istat-grp-ilk2 { background: #e0f0e1; }
+        .istatistik-table tbody tr:hover td.istat-grp-ilk1 { background: #e8f2e0; }
         .istatistik-table tbody tr:hover td.istat-grp-sm3 { background: #fff5e8; }
         .istatistik-table tbody tr:hover td.istat-grp-sm2 { background: #fde8ef; }
         .istatistik-table tbody tr:hover td.istat-grp-sm1 { background: #f8edf9; }
@@ -240,15 +256,14 @@
         (<span id="istatistikSehirHint">—</span>) koşma oranı.<br>
         <strong>Son 3 ay / 1 ay / 15 gün:</strong> Program tarihine göre dönem içi koşu sayısının,
         daha eski koşularla birlikte toplam içindeki yüzdesi.<br>
-        <strong>İLK3 sütunları:</strong> İlgili dönemde koşulan yarışlarda ilk 3'e girme oranı
-        (1.–3. sıra).<br>
+        <strong>Genel İLK3–İLK1:</strong> Tüm koşularda 1.–3. / 1.–2. / 1. sıra başarı oranları (3 ay / 1 ay / 15 gün).<br>
         <strong>Ş/M İLK3–İLK1:</strong> Aynı şehir + koşu mesafesinde 1.–3. / 1.–2. / 1. sıra oranları
         (3 ay / 1 ay / 15 gün).
     </div>
 </div>
 
 <script src="js/utils.js?v=20260824w"></script>
-<script src="js/istatistik-engine.js?v=20260824e"></script>
+<script src="js/istatistik-engine.js?v=20260824f"></script>
 <script>
 let currentKayitId = null;
 let currentKayitMeta = null;
@@ -285,11 +300,22 @@ function formatDonemPctCell(stat, donemLabel) {
     return '<span class="istat-pct ' + pctClass(stat.pct) + '" title="' + title + '">%' + stat.pct + '</span>';
 }
 
-function formatIlk3PctCell(stat, donemLabel) {
+function formatGenelIlkPctCell(stat, donemLabel, ilkNo) {
     if (stat.pct === null) return '<span class="istat-pct istat-pct-none">—</span>';
-    const title = donemLabel + ': ' + stat.top3 + '/' + stat.total + ' koşuda ilk 3 ('
-        + stat.notTop3 + ' koşu ilk 3 dışı)';
+    const hit = stat.hit ?? stat.top3;
+    const miss = stat.miss ?? stat.notTop3;
+    const ilkLabel = ilkNo === 1 ? '1. sıra' : 'İlk ' + ilkNo;
+    const title = donemLabel + ': ' + hit + '/' + stat.total + ' koşuda ' + ilkLabel
+        + ' (' + miss + ' dışı)';
     return '<span class="istat-pct ' + pctClass(stat.pct) + '" title="' + title + '">%' + stat.pct + '</span>';
+}
+
+function renderGenelIlkCells(bundle, grpClass, ilkNo) {
+    let h = '';
+    h += '<td class="' + grpClass + ' istat-grp-start">' + formatGenelIlkPctCell(bundle.ay3, 'Son 3 ay', ilkNo) + '</td>';
+    h += '<td class="' + grpClass + '">' + formatGenelIlkPctCell(bundle.ay1, 'Son 1 ay', ilkNo) + '</td>';
+    h += '<td class="' + grpClass + ' istat-grp-end">' + formatGenelIlkPctCell(bundle.gun15, 'Son 15 gün', ilkNo) + '</td>';
+    return h;
 }
 
 function formatSehirMesafeIlkPctCell(stat, donemLabel, hedefSehir, hedefMesafe, ilkNo) {
@@ -336,6 +362,10 @@ function renderIstatistikTableHead() {
     h += 'Dönem İçi Koşu Oranı<small>Son dönemdeki koşu / eski koşu payı</small></th>';
     h += '<th colspan="3" class="istat-th-grp istat-grp-ilk3 istat-grp-start istat-grp-end">';
     h += 'Genel İlk 3 Oranı<small>Tüm koşularda 1.–3. sıra başarısı</small></th>';
+    h += '<th colspan="3" class="istat-th-grp istat-grp-ilk2 istat-grp-start istat-grp-end">';
+    h += 'Genel İlk 2 Oranı<small>Tüm koşularda 1.–2. sıra başarısı</small></th>';
+    h += '<th colspan="3" class="istat-th-grp istat-grp-ilk1 istat-grp-start istat-grp-end">';
+    h += 'Genel İlk 1 Oranı<small>Tüm koşularda birincilik başarısı</small></th>';
     h += '<th colspan="3" class="istat-th-grp istat-grp-sm3 istat-grp-start istat-grp-end">';
     h += 'Şehir + Mesafe İlk 3<small>Bu hipodrom ve mesafede 1.–3. sıra</small></th>';
     h += '<th colspan="3" class="istat-th-grp istat-grp-sm2 istat-grp-start istat-grp-end">';
@@ -349,6 +379,12 @@ function renderIstatistikTableHead() {
     h += '<th class="istat-th-metric istat-grp-ilk3 istat-grp-start">3 AY İLK3</th>';
     h += '<th class="istat-th-metric istat-grp-ilk3">1 AY İLK3</th>';
     h += '<th class="istat-th-metric istat-grp-ilk3 istat-grp-end">15G İLK3</th>';
+    h += '<th class="istat-th-metric istat-grp-ilk2 istat-grp-start">3 AY İLK2</th>';
+    h += '<th class="istat-th-metric istat-grp-ilk2">1 AY İLK2</th>';
+    h += '<th class="istat-th-metric istat-grp-ilk2 istat-grp-end">15G İLK2</th>';
+    h += '<th class="istat-th-metric istat-grp-ilk1 istat-grp-start">3 AY İLK1</th>';
+    h += '<th class="istat-th-metric istat-grp-ilk1">1 AY İLK1</th>';
+    h += '<th class="istat-th-metric istat-grp-ilk1 istat-grp-end">15G İLK1</th>';
     h += '<th class="istat-th-metric istat-grp-sm3 istat-grp-start">3AY Ş/MİLK3</th>';
     h += '<th class="istat-th-metric istat-grp-sm3">1AY Ş/MİLK3</th>';
     h += '<th class="istat-th-metric istat-grp-sm3 istat-grp-end">15G Ş/MİLK3</th>';
@@ -398,9 +434,9 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
             html += '<td class="istat-grp-donem istat-grp-start">' + formatDonemPctCell(row.ay3, 'son 3 ay') + '</td>';
             html += '<td class="istat-grp-donem">' + formatDonemPctCell(row.ay1, 'son 1 ay') + '</td>';
             html += '<td class="istat-grp-donem istat-grp-end">' + formatDonemPctCell(row.gun15, 'son 15 gün') + '</td>';
-            html += '<td class="istat-grp-ilk3 istat-grp-start">' + formatIlk3PctCell(row.ay3Ilk3, 'Son 3 ay') + '</td>';
-            html += '<td class="istat-grp-ilk3">' + formatIlk3PctCell(row.ay1Ilk3, 'Son 1 ay') + '</td>';
-            html += '<td class="istat-grp-ilk3 istat-grp-end">' + formatIlk3PctCell(row.gun15Ilk3, 'Son 15 gün') + '</td>';
+            html += renderGenelIlkCells(row.genelIlk3, 'istat-grp-ilk3', 3);
+            html += renderGenelIlkCells(row.genelIlk2, 'istat-grp-ilk2', 2);
+            html += renderGenelIlkCells(row.genelIlk1, 'istat-grp-ilk1', 1);
             html += renderSmIlkCells(row, 'istat-grp-sm3', row.smIlk3, hedefSehir, hedefMesafe, 3);
             html += renderSmIlkCells(row, 'istat-grp-sm2', row.smIlk2, hedefSehir, hedefMesafe, 2);
             html += renderSmIlkCells(row, 'istat-grp-sm1', row.smIlk1, hedefSehir, hedefMesafe, 1);
