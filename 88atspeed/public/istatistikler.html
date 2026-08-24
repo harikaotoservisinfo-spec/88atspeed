@@ -63,13 +63,15 @@
             -webkit-overflow-scrolling: touch;
         }
         .istatistik-table .istat-sticky-no,
-        .istatistik-table .istat-sticky-at {
+        .istatistik-table .istat-sticky-at,
+        .istatistik-table .istat-sticky-tahmin {
             position: sticky;
             z-index: 5;
             background: #fff;
         }
         .istatistik-table thead .istat-sticky-no,
-        .istatistik-table thead .istat-sticky-at {
+        .istatistik-table thead .istat-sticky-at,
+        .istatistik-table thead .istat-sticky-tahmin {
             z-index: 15;
             background: #ede7f6;
         }
@@ -84,10 +86,17 @@
             max-width: 200px;
             text-align: left;
             white-space: nowrap;
+        }
+        .istatistik-table .istat-sticky-tahmin {
+            left: 170px;
+            min-width: 76px;
+            width: 76px;
+            text-align: center;
             box-shadow: 4px 0 10px -4px rgba(0, 0, 0, 0.18);
         }
         .istatistik-table tbody tr:hover .istat-sticky-no,
-        .istatistik-table tbody tr:hover .istat-sticky-at {
+        .istatistik-table tbody tr:hover .istat-sticky-at,
+        .istatistik-table tbody tr:hover .istat-sticky-tahmin {
             background: #fafafa;
         }
         .istatistik-race-header {
@@ -338,6 +347,35 @@
             font-weight: 700;
             color: #263238;
         }
+        .istatistik-table td.istat-tahmin {
+            font-weight: 800;
+            font-size: 12px;
+            line-height: 1.25;
+        }
+        .istatistik-table td.istat-tahmin-rank-1 {
+            background: #e8f5e9;
+            color: #1b5e20;
+        }
+        .istatistik-table td.istat-tahmin-rank-2,
+        .istatistik-table td.istat-tahmin-rank-3 {
+            background: #f1f8e9;
+            color: #33691e;
+        }
+        .istatistik-table td.istat-tahmin-rank-low {
+            background: #fafafa;
+            color: #546e7a;
+        }
+        .istat-tahmin-rank {
+            display: block;
+            font-size: 14px;
+            font-weight: 800;
+        }
+        .istat-tahmin-pct {
+            display: block;
+            font-size: 10px;
+            font-weight: 600;
+            opacity: 0.9;
+        }
         .istatistik-table th.istat-th-metric {
             min-width: 88px;
             white-space: nowrap;
@@ -462,11 +500,12 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260825k"></script>
-<script src="js/istatistik-engine.js?v=20260825k"></script>
-<script src="js/istatistik-grids-extra.js?v=20260825k"></script>
+<script src="js/utils.js?v=20260825l"></script>
+<script src="js/istatistik-engine.js?v=20260825l"></script>
+<script src="js/istatistik-grids-extra.js?v=20260825l"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260825l"></script>
 <script>
-const ISTAT_BUILD = '20260825k';
+const ISTAT_BUILD = '20260825l';
 let currentKayitId = null;
 let currentKayitMeta = null;
 let currentRaceData = null;
@@ -488,6 +527,36 @@ function pctClass(pct) {
     if (pct <= 33) return 'istat-pct-mid';
     if (pct <= 66) return 'istat-pct-good';
     return 'istat-pct-high';
+}
+
+function tahminRankClass(rank, total) {
+    if (rank === 1) return 'istat-tahmin-rank-1';
+    if (rank === 2 || rank === 3) return 'istat-tahmin-rank-' + rank;
+    if (rank != null && total > 0 && rank >= total) return 'istat-tahmin-rank-low';
+    return '';
+}
+
+function formatTahminCell(tahmin, horseCount) {
+    if (!tahmin || tahmin.rank == null || tahmin.pct == null) {
+        return '<span class="istat-pct istat-pct-none">—</span>';
+    }
+    return '<span class="istat-tahmin-rank">' + tahmin.rank + '.</span>'
+        + '<span class="istat-tahmin-pct">%' + tahmin.pct + '</span>';
+}
+
+function renderTahminCell(tahmin, horseCount) {
+    const cls = 'istat-tahmin istat-sticky-tahmin ' + tahminRankClass(tahmin?.rank, horseCount);
+    const inner = formatTahminCell(tahmin, horseCount);
+    if (!tahmin || tahmin.rank == null) {
+        return '<td class="' + cls + '">' + inner + '</td>';
+    }
+    let title = 'TAHMİN · ' + tahmin.rank + '. sıra | Bileşik %' + tahmin.pct;
+    title += ' (' + tahmin.metricCount + ' metrik AĞ. ORT.3 ort.)';
+    if (tahmin.topTerms?.length) {
+        title += ' | ';
+        title += tahmin.topTerms.slice(0, 6).map(t => t.label + ' %' + t.pct).join(' · ');
+    }
+    return '<td class="' + cls + '" title="' + title.replace(/"/g, '&quot;') + '">' + inner + '</td>';
 }
 
 function formatSehirPctCell(stat) {
@@ -1042,6 +1111,7 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
     h += '<tr>';
     h += '<th rowspan="2" class="istat-th-base istat-sticky-no">#</th>';
     h += '<th rowspan="2" class="istat-th-base istat-sticky-at">AT İSMİ</th>';
+    h += '<th rowspan="2" class="istat-th-base istat-sticky-tahmin">TAHMİN<small>Tüm gruplar AĞ. ORT.3 ort.</small></th>';
     h += '<th rowspan="2" class="istat-th-base istat-th-metric">ŞEHİR<br>DENEYİMİ</th>';
 
     if (d1 > 0) {
@@ -1345,6 +1415,7 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
         const mesafeGosterim = mesafe !== '?' ? mesafe + (pist ? ' ' + pist : '') : '?';
         const hedefMesafe = IstatistikEngine._hedefMesafe(race);
         const pkg = IstatistikEngine.buildRaceIstatistikPackage(race, hedefSehir, programTarih);
+        IstatistikTahminEngine.attachRaceTahmin(pkg);
         const rows = pkg.rows;
         const maxDepth1 = pkg.maxDepth1;
         const maxDepth2 = pkg.maxDepth2;
@@ -1409,6 +1480,10 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
         if (extraSections.length > 0) {
             html += '<span class="istatistik-race-badge">+' + extraSections.length + ' ek grup</span>';
         }
+        if (pkg.tahminOzeti?.leader) {
+            html += '<span class="istatistik-race-badge">Tahmin: ' + AtSpeedUtils.escapeHtml(pkg.tahminOzeti.leader)
+                + ' %' + (pkg.tahminOzeti.leaderPct ?? '?') + '</span>';
+        }
         html += '</div>';
         html += '<div class="istatistik-table-wrap">';
         html += '<table class="istatistik-table">';
@@ -1419,6 +1494,7 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
             html += '<tr>';
             html += '<td class="istat-no istat-sticky-no">' + AtSpeedUtils.escapeHtml(String(row.no || '-')) + '</td>';
             html += '<td class="istat-at istat-sticky-at">' + AtSpeedUtils.escapeHtml(row.name) + '</td>';
+            html += renderTahminCell(row.tahmin, rows.length);
             html += '<td>' + formatSehirPctCell(row.sehir) + '</td>';
             html += renderSon800DepthCells(row.son8001Depths, maxDepth1, 'istat-grp-son8001', 'SON800-1', row.son8001OrtOzeti);
             html += renderSon800DepthCells(row.son8002Depths, maxDepth2, 'istat-grp-son8002', 'SON800-2', row.son8002OrtOzeti);
