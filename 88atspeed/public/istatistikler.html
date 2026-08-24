@@ -575,6 +575,19 @@ window.addEventListener('message', (e) => {
 });
 
 window.addEventListener('load', () => {
+    fetch('/VERSION.txt?v=' + Date.now())
+        .then(r => r.ok ? r.text() : '')
+        .then(t => {
+            const el = document.getElementById('istatistikBuild');
+            if (!el) return;
+            const commit = (t.match(/commit=(.+)/) || [])[1] || '?';
+            el.textContent = 'build ' + ISTAT_BUILD + ' · ' + commit.trim();
+            el.title = (t || 'Sürüm bilgisi yok').trim();
+        })
+        .catch(() => {
+            const el = document.getElementById('istatistikBuild');
+            if (el) el.textContent = 'build ' + ISTAT_BUILD;
+        });
     window.parent.postMessage({ type: '88atspeed-request-gosterim-kayit' }, '*');
     notifyParentResize();
 });
