@@ -1,4 +1,4 @@
-/* İstatistik tahmin motoru — bileşik AĞ. ORT.3 sıralaması */
+/* İstatistik tahmin motoru — sütun bazlı etki */
 const fs = require('fs');
 const path = require('path');
 
@@ -11,7 +11,12 @@ const IE = global.IstatistikEngine;
 const TE = global.IstatistikTahminEngine;
 
 function ort3(pct) {
-    return { ort3: { pct }, agirlikli: { pct }, ort1: { pct }, ort2: { pct } };
+    return {
+        ort3: { pct },
+        agirlikli: { pct },
+        ort1: { pct },
+        ort2: { pct }
+    };
 }
 
 function kosu(tarih, atDr, birinciDr, opts = {}) {
@@ -29,79 +34,48 @@ function kosu(tarih, atDr, birinciDr, opts = {}) {
 
 const race = {
     mesafe: '1400',
-    pist: 'Kum',
     horses: [
-        { no: 1, name: 'TUNCER', kosular: [kosu('20.08.2026', '1.36.44', '1.36.10')] },
-        { no: 2, name: 'UZUN TAY', kosular: [kosu('18.08.2026', '1.36.64', '1.36.10')] },
-        { no: 3, name: 'DEMİR NİHAT', kosular: [kosu('17.08.2026', '1.36.76', '1.36.10')] },
-        { no: 4, name: 'KAZANCI', kosular: [kosu('16.08.2026', '1.42.82', '1.36.10')] },
-        { no: 5, name: 'HOLİGAN', kosular: [kosu('15.08.2026', '1.36.73', '1.36.10')] },
-        { no: 6, name: 'NEVERLAND', kosular: [kosu('14.08.2026', '1.36.10', '1.36.10', { sira: '1' })] },
-        { no: 7, name: 'AŞKBAZ', kosular: [kosu('13.08.2026', '1.41.68', '1.36.10')] }
+        { no: 1, name: 'Alpha', kosular: [kosu('20.08.2026', '1.28.00', '1.27.00')] },
+        { no: 2, name: 'Beta', kosular: [kosu('18.08.2026', '1.30.00', '1.27.00')] }
     ]
 };
 
-const pkg = IE.buildRaceIstatistikPackage(race, 'İzmir', '23.08.2026');
+const pkg = IE.buildRaceIstatistikPackage(race, 'İzmir', '24.08.2026');
 TE.attachRaceTahmin(pkg);
 
-if (!pkg.rows.every(r => r.tahmin && r.tahmin.rank != null)) {
-    console.error('FAIL: her at için tahmin.rank olmalı');
+const alpha = pkg.rows.find(r => r.name === 'Alpha');
+if (!alpha?.tahmin?.rank) {
+    console.error('FAIL: tahmin rank eksik');
     process.exit(1);
 }
 
-const ranks = [...pkg.rows].sort((a, b) => a.tahmin.rank - b.tahmin.rank);
-console.log('Sıralama:', ranks.map(r => r.tahmin.rank + '.' + r.name + ' %' + r.tahmin.pct).join(' | '));
-
-// İzmir 1. koşu gerçek sonuç: 1 NEVERLAND, 2 TUNCER, 3 UZUN TAY
-const actual = [
-    { name: 'NEVERLAND', finish: 1 },
-    { name: 'TUNCER', finish: 2 },
-    { name: 'UZUN TAY', finish: 3 },
-    { name: 'HOLİGAN', finish: 4 },
-    { name: 'DEMİR NİHAT', finish: 5 },
-    { name: 'AŞKBAZ', finish: 6 },
-    { name: 'KAZANCI', finish: 7 }
-];
-
-const cal = TE.analyzeCalibration(pkg, actual);
-console.log('Kalibrasyon — kazanan:', cal.winner, '| bileşik sıra:', cal.compositeRank, '| bileşik %:', cal.compositePct);
-console.log('Kazananı 1. yapan metrikler (' + cal.metricsWhereWinnerFirst.length + '):', cal.metricsWhereWinnerFirst.slice(0, 8).join(', '));
-
-// Sentetik: yüksek ort3 → 1. sıra
-const fakeRow = {
-    name: 'FAKE',
-    son8001OrtOzeti: ort3(99),
-    test1OrtOzeti: ort3(99),
-    t1drOrtOzeti: ort3(99)
+// Sütun bazlı: kirmizi SON derinlik + ort3
+const influences = {};
+influences[TE.depthSlotId('kirmizi', 0)] = 10;
+influences[TE.slotId('kirmizi', 'ort3')] = 5;
+const row = {
+    name: 'X',
+    kirmiziDepths: [{ pct: 100 }, { pct: 50 }],
+    kirmiziOrtOzeti: { ort3: { pct: 80 } }
 };
-const fakeT = TE.computeRowTahmin(fakeRow, []);
-if (fakeT.pct !== 99) {
-    console.error('FAIL: sentetik ort3 ortalaması 99 olmalı, got', fakeT.pct);
+const t = TE.computeRowTahmin(row, pkg.extraSections, influences);
+// (100*10 + 50*1 + 80*5) / (10+1+5) default 1 for d1 = (1000+50+400)/16 = 90.625 -> 91
+if (t.pct !== 91) {
+    console.error('FAIL: sütun bazlı skor beklenen ~91, got', t.pct, t.terms.length, 'terms');
     process.exit(1);
 }
 
-TE.setInfluence('test1', 80);
-TE.setInfluence('son8001', 20);
-const weighted = TE.computeRowTahmin({
-    name: 'W',
-    son8001OrtOzeti: ort3(50),
-    test1OrtOzeti: ort3(100)
-}, []);
-// (50*20 + 100*80) / 100 = 90
-if (weighted.pct !== 90) {
-    console.error('FAIL: etki ağırlıklı ortalama 90 olmalı, got', weighted.pct);
-    process.exit(1);
-}
-
-if (TE.adjustInfluence('test1', -1) !== 79) {
-    console.error('FAIL: adjustInfluence -1 adım çalışmalı');
+TE.setInfluence(TE.slotId('kirmizi', 'ort3'), 5);
+if (TE.adjustInfluence(TE.slotId('kirmizi', 'ort3'), -1) !== 4) {
+    console.error('FAIL: adjustInfluence 5->4 olmalı');
     process.exit(1);
 }
 TE.resetWeights();
 
-if (TE.getInfluence('son8001') !== TE.DEFAULT_INFLUENCE) {
-    console.error('FAIL: reset sonrası varsayılan etki', TE.getInfluence('son8001'));
+if (TE.getInfluence(TE.slotId('test1', 'd0')) !== TE.DEFAULT_INFLUENCE) {
+    console.error('FAIL: varsayılan etki', TE.DEFAULT_INFLUENCE);
     process.exit(1);
 }
 
+console.log('Sütun bazlı tahmin:', t.pct + '%', '|', t.metricCount, 'terim');
 console.log('OK');

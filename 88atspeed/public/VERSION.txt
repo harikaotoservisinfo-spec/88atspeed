@@ -1,4 +1,4 @@
 branch=cursor/istatistik-full-grids-c2e4
 commit=pending
-message=feat: metrik ağırlık kontrolleri ve canlı TAHMİN güncelleme
+message=feat: sütun bazlı TAHMİN etki kontrolleri (SON, ÖNCE, AĞ. ORT.*)
 deployed=

@@ -1,40 +1,64 @@
 /**
- * İstatistikler — ağırlıklı AĞ. ORT.3 bileşik tahmin skoru
- * Her metrik için etki % (0–100) doğrudan ayarlanır; +/− ile 1'er adım.
+ * İstatistikler — sütun bazlı ağırlıklı TAHMİN (derinlik + AĞ. ORT.*)
+ * Etki ID: {grupId}:d0..dN, {grupId}:ort0..ort3
  */
 const IstatistikTahminEngine = {
-    INFLUENCE_STORAGE_KEY: '88atspeed-istat-metric-influence',
-    LEGACY_WEIGHT_STORAGE_KEY: '88atspeed-istat-metric-weights',
-    DEFAULT_INFLUENCE: 2,
+    INFLUENCE_STORAGE_KEY: '88atspeed-istat-metric-influence-v2',
+    LEGACY_KEYS: [
+        '88atspeed-istat-metric-influence',
+        '88atspeed-istat-metric-weights'
+    ],
+    DEFAULT_INFLUENCE: 1,
     MIN_INFLUENCE: 0,
     MAX_INFLUENCE: 100,
     INFLUENCE_STEP: 1,
 
-    CORE_ORT_KEYS: [
-        { key: 'son8001OrtOzeti', label: 'SON800-1', weightId: 'son8001' },
-        { key: 'son8002OrtOzeti', label: 'SON800-2', weightId: 'son8002' },
-        { key: 'oran1OrtOzeti', label: '800-1 ORAN', weightId: 'oran1' },
-        { key: 'oran2OrtOzeti', label: '800-2 ORAN', weightId: 'oran2' },
-        { key: 'fark827OrtOzeti', label: '800Δ·7', weightId: 'fark827' },
-        { key: 'ffOrtOzeti', label: 'FFΔ', weightId: 'ff' },
-        { key: 'test8OrtOzeti', label: 'T8Δ', weightId: 't8' },
-        { key: 'son800Dr1OrtOzeti', label: 'SON800·1DR', weightId: 'son800dr1' },
-        { key: 'son800DrOrtOzeti', label: 'SON800·DR', weightId: 'son800dr' },
-        { key: 'test1OrtOzeti', label: 'TEST1', weightId: 'test1' },
-        { key: 'test2OrtOzeti', label: 'TEST2', weightId: 'test2' },
-        { key: 'test3OrtOzeti', label: 'TEST3', weightId: 'test3' },
-        { key: 'test123SiraliOrtOzeti', label: 'TEST·SIRA', weightId: 'testsira' },
-        { key: 't1drOrtOzeti', label: 'T1×DR', weightId: 't1dr' }
+    ORT_SLOTS: [
+        { key: 'agirlikli', slot: 'ort0', short: 'AĞ.ORT' },
+        { key: 'ort1', slot: 'ort1', short: 'AĞ.ORT.1' },
+        { key: 'ort2', slot: 'ort2', short: 'AĞ.ORT.2' },
+        { key: 'ort3', slot: 'ort3', short: 'AĞ.ORT.3' }
     ],
+
+    CORE_GROUPS: [
+        { id: 'son8001', depthsKey: 'son8001Depths', ortKey: 'son8001OrtOzeti', label: 'SON800-1' },
+        { id: 'son8002', depthsKey: 'son8002Depths', ortKey: 'son8002OrtOzeti', label: 'SON800-2' },
+        { id: 'oran1', depthsKey: 'oran1Depths', ortKey: 'oran1OrtOzeti', label: '800-1 ORAN' },
+        { id: 'oran2', depthsKey: 'oran2Depths', ortKey: 'oran2OrtOzeti', label: '800-2 ORAN' },
+        { id: 'fark827', depthsKey: 'fark827Depths', ortKey: 'fark827OrtOzeti', label: '800Δ·7' },
+        { id: 'ff', depthsKey: 'ffDepths', ortKey: 'ffOrtOzeti', label: 'FFΔ' },
+        { id: 't8', depthsKey: 'test8Depths', ortKey: 'test8OrtOzeti', label: 'T8Δ' },
+        { id: 'son800dr1', depthsKey: 'son800Dr1Depths', ortKey: 'son800Dr1OrtOzeti', label: 'SON800·1DR' },
+        { id: 'son800dr', depthsKey: 'son800DrDepths', ortKey: 'son800DrOrtOzeti', label: 'SON800·DR' },
+        { id: 'test1', depthsKey: 'test1Depths', ortKey: 'test1OrtOzeti', label: 'TEST1' },
+        { id: 'test2', depthsKey: 'test2Depths', ortKey: 'test2OrtOzeti', label: 'TEST2' },
+        { id: 'test3', depthsKey: 'test3Depths', ortKey: 'test3OrtOzeti', label: 'TEST3' },
+        { id: 'testsira', depthsKey: 'test123SiraliDepths', ortKey: 'test123SiraliOrtOzeti', label: 'TEST·SIRA' },
+        { id: 't1dr', depthsKey: 't1drDepths', ortKey: 't1drOrtOzeti', label: 'T1×DR' }
+    ],
+
+    /** Geriye uyumluluk */
+    CORE_ORT_KEYS: null,
 
     _influenceCache: null,
 
-    _allWeightIds(extraSections) {
-        const ids = this.CORE_ORT_KEYS.map(d => d.weightId);
-        for (const sec of extraSections || []) {
-            if (sec.id) ids.push(sec.id);
+    _initCompat() {
+        if (!this.CORE_ORT_KEYS) {
+            this.CORE_ORT_KEYS = this.CORE_GROUPS.map(g => ({
+                key: g.ortKey,
+                label: g.label,
+                weightId: g.id,
+                depthsKey: g.depthsKey
+            }));
         }
-        return ids;
+    },
+
+    slotId(groupId, slot) {
+        return groupId + ':' + slot;
+    },
+
+    depthSlotId(groupId, depth) {
+        return this.slotId(groupId, 'd' + depth);
     },
 
     _loadInfluences() {
@@ -56,18 +80,16 @@ const IstatistikTahminEngine = {
         } catch (_) {}
     },
 
-    /** Eski çarpan (0–20) kayıtlarını temizle */
-    _clearLegacyWeights() {
-        try {
-            localStorage.removeItem(this.LEGACY_WEIGHT_STORAGE_KEY);
-        } catch (_) {}
+    _clearLegacy() {
+        for (const k of this.LEGACY_KEYS) {
+            try { localStorage.removeItem(k); } catch (_) {}
+        }
     },
 
     getInfluences() {
         return { ...this._loadInfluences() };
     },
 
-    /** Geriye uyumluluk */
     getWeights() {
         return this.getInfluences();
     },
@@ -77,8 +99,11 @@ const IstatistikTahminEngine = {
         return v != null ? v : this.DEFAULT_INFLUENCE;
     },
 
-    /** Geriye uyumluluk */
     getWeight(weightId) {
+        return this.getInfluence(weightId);
+    },
+
+    getInfluencePct(weightId) {
         return this.getInfluence(weightId);
     },
 
@@ -98,7 +123,6 @@ const IstatistikTahminEngine = {
         return this.setInfluence(weightId, this.getInfluence(weightId) + step);
     },
 
-    /** Geriye uyumluluk */
     adjustWeight(weightId, delta) {
         return this.adjustInfluence(weightId, delta);
     },
@@ -106,52 +130,59 @@ const IstatistikTahminEngine = {
     resetWeights() {
         this._influenceCache = {};
         this._saveInfluences();
-        this._clearLegacyWeights();
+        this._clearLegacy();
     },
 
-    /** Gösterim: doğrudan etki % */
-    getInfluencePct(weightId) {
-        return this.getInfluence(weightId);
+    _pushTerm(terms, influences, weightId, label, pct) {
+        if (pct == null) return;
+        const weight = influences[weightId] ?? this.DEFAULT_INFLUENCE;
+        if (weight <= 0) return;
+        terms.push({ weightId, label, pct, weight });
     },
 
-    _ortPct(oz) {
-        if (!oz) return null;
-        if (oz.ort3?.pct != null) return oz.ort3.pct;
-        if (oz.agirlikli?.pct != null) return oz.agirlikli.pct;
-        if (oz.ort2?.pct != null) return oz.ort2.pct;
-        if (oz.ort1?.pct != null) return oz.ort1.pct;
-        return null;
+    _collectGroupTerms(groupId, label, depths, ortOzeti, influences, terms, depthLabels) {
+        if (depths?.length) {
+            for (let d = 0; d < depths.length; d++) {
+                const cell = depths[d];
+                const dl = depthLabels ? depthLabels(d) : (d === 0 ? 'SON' : d + ' ÖNCE');
+                this._pushTerm(
+                    terms, influences,
+                    this.depthSlotId(groupId, d),
+                    label + ' · ' + dl,
+                    cell?.pct ?? null
+                );
+            }
+        }
+        if (ortOzeti) {
+            for (const s of this.ORT_SLOTS) {
+                this._pushTerm(
+                    terms, influences,
+                    this.slotId(groupId, s.slot),
+                    label + ' · ' + s.short,
+                    ortOzeti[s.key]?.pct ?? null
+                );
+            }
+        }
     },
 
     computeRowTahmin(row, extraSections, influences) {
+        this._initCompat();
         influences = influences || this.getInfluences();
         const terms = [];
 
-        for (const def of this.CORE_ORT_KEYS) {
-            const pct = this._ortPct(row[def.key]);
-            const weight = influences[def.weightId] ?? this.DEFAULT_INFLUENCE;
-            if (pct != null && weight > 0) {
-                terms.push({
-                    weightId: def.weightId,
-                    label: def.label,
-                    pct,
-                    weight,
-                    source: 'core'
-                });
-            }
+        for (const g of this.CORE_GROUPS) {
+            this._collectGroupTerms(
+                g.id, g.label,
+                row[g.depthsKey], row[g.ortKey],
+                influences, terms
+            );
         }
         for (const sec of extraSections || []) {
-            const pct = this._ortPct(row[sec.ortKey]);
-            const weight = influences[sec.id] ?? this.DEFAULT_INFLUENCE;
-            if (pct != null && weight > 0) {
-                terms.push({
-                    weightId: sec.id,
-                    label: sec.label,
-                    pct,
-                    weight,
-                    source: 'extra'
-                });
-            }
+            this._collectGroupTerms(
+                sec.id, sec.label,
+                row[sec.depthsKey], row[sec.ortKey],
+                influences, terms
+            );
         }
 
         if (!terms.length) {
@@ -165,7 +196,7 @@ const IstatistikTahminEngine = {
             weightSum += t.weight;
         }
         const pct = Math.round(weightedSum / weightSum);
-        const topTerms = [...terms].sort((a, b) => (b.pct * b.weight) - (a.pct * a.weight)).slice(0, 8);
+        const topTerms = [...terms].sort((a, b) => (b.pct * b.weight) - (a.pct * a.weight)).slice(0, 10);
         return { pct, metricCount: terms.length, weightSum, terms, topTerms };
     },
 
@@ -202,14 +233,6 @@ const IstatistikTahminEngine = {
         for (const e of actualOrder) {
             byName.set(String(e.name).toUpperCase().trim(), e.finish);
         }
-        const extraSections = pkg.extraSections || [];
-        const perMetric = [];
-        for (const def of this.CORE_ORT_KEYS) {
-            perMetric.push(this._metricRankReport(pkg.rows, def.label, r => this._ortPct(r[def.key]), byName));
-        }
-        for (const sec of extraSections) {
-            perMetric.push(this._metricRankReport(pkg.rows, sec.label, r => this._ortPct(r[sec.ortKey]), byName));
-        }
         const winner = actualOrder.find(e => e.finish === 1);
         const winnerRow = winner
             ? pkg.rows.find(r => String(r.name).toUpperCase().trim() === String(winner.name).toUpperCase().trim())
@@ -217,28 +240,9 @@ const IstatistikTahminEngine = {
         return {
             winner: winner?.name || null,
             compositeRank: winnerRow?.tahmin?.rank ?? null,
-            compositePct: winnerRow?.tahmin?.pct ?? null,
-            metricsWhereWinnerFirst: perMetric.filter(m => m.winnerRank === 1).map(m => m.label),
-            perMetric: perMetric.sort((a, b) => (a.winnerRank || 99) - (b.winnerRank || 99))
+            compositePct: winnerRow?.tahmin?.pct ?? null
         };
-    },
-
-    _metricRankReport(rows, label, getPct, finishByName) {
-        const ranked = rows
-            .map(r => ({ name: r.name, pct: getPct(r) }))
-            .filter(e => e.pct != null)
-            .sort((a, b) => b.pct - a.pct);
-        const winnerEntry = [...finishByName.entries()].find(([, f]) => f === 1);
-        const winnerName = winnerEntry ? winnerEntry[0] : null;
-        let winnerRank = null;
-        let winnerPct = null;
-        if (winnerName) {
-            const idx = ranked.findIndex(e => String(e.name).toUpperCase().trim() === winnerName);
-            if (idx >= 0) {
-                winnerRank = idx + 1;
-                winnerPct = ranked[idx].pct;
-            }
-        }
-        return { label, winnerRank, winnerPct, horseCount: ranked.length };
     }
 };
+
+IstatistikTahminEngine._initCompat();
