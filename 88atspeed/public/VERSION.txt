@@ -1,4 +1,4 @@
 branch=cursor/istatistik-full-grids-c2e4
-commit=pending
+commit=c74679b
 message=feat: İstatistikler tüm eksik GÖSTERİM metrikleri % derinlik gridleri
 deployed=
