@@ -205,6 +205,50 @@ const IstatistikEngine = {
         };
     },
 
+    /**
+     * Dönem + mesafe eşleşen koşularda ilk N başarısı (şehir filtresi yok).
+     */
+    computeMesafeDonemIlkBasari(kosular, programTarih, hedefMesafe, period, ilkLimit = 3) {
+        const ref = this._parseKosuTarih(programTarih);
+        if (!ref || hedefMesafe === null) {
+            return { pct: null, hit: 0, miss: 0, total: 0, ilkLimit };
+        }
+        const cutoff = this._subtractPeriod(ref, period);
+        const programNorm = this._normalizeTarih(programTarih);
+        let hit = 0;
+        let total = 0;
+        for (const k of kosular || []) {
+            if (!this._kosuDonemIcinde(k, ref, cutoff, programNorm)) continue;
+            if (!this._mesafeEslesme(k.mesafe, hedefMesafe)) continue;
+            const sira = this._parseSira(k.sira);
+            if (sira === null) continue;
+            total++;
+            if (sira <= ilkLimit) hit++;
+        }
+        if (total === 0) return { pct: null, hit, miss: 0, total, ilkLimit };
+        return {
+            pct: Math.round((hit / total) * 100),
+            hit,
+            miss: total - hit,
+            total,
+            ilkLimit
+        };
+    },
+
+    _mesafeIlkBundle(kosular, programTarih, hedefMesafe, ilkLimit) {
+        return {
+            ay3: this.computeMesafeDonemIlkBasari(
+                kosular, programTarih, hedefMesafe, { months: 3 }, ilkLimit
+            ),
+            ay1: this.computeMesafeDonemIlkBasari(
+                kosular, programTarih, hedefMesafe, { months: 1 }, ilkLimit
+            ),
+            gun15: this.computeMesafeDonemIlkBasari(
+                kosular, programTarih, hedefMesafe, { days: 15 }, ilkLimit
+            )
+        };
+    },
+
     /** @deprecated computeSehirMesafeDonemIlkBasari kullanın */
     computeSehirMesafeDonemIlk3Basari(kosular, programTarih, hedefSehir, hedefMesafe, period) {
         const r = this.computeSehirMesafeDonemIlkBasari(
@@ -1150,6 +1194,9 @@ const IstatistikEngine = {
             const smIlk3 = this._smIlkBundle(kosular, programTarih, hedefSehir, hedefMesafe, 3);
             const smIlk2 = this._smIlkBundle(kosular, programTarih, hedefSehir, hedefMesafe, 2);
             const smIlk1 = this._smIlkBundle(kosular, programTarih, hedefSehir, hedefMesafe, 1);
+            const mesafeIlk3 = this._mesafeIlkBundle(kosular, programTarih, hedefMesafe, 3);
+            const mesafeIlk2 = this._mesafeIlkBundle(kosular, programTarih, hedefMesafe, 2);
+            const mesafeIlk1 = this._mesafeIlkBundle(kosular, programTarih, hedefMesafe, 1);
             const dr1Depths = son800Dr1Grid.byHorse.get(key) || [];
             const drDepths = son800DrGrid.byHorse.get(key) || [];
             const son8001Depths = son8001Grid.byHorse.get(key) || [];
@@ -1219,7 +1266,10 @@ const IstatistikEngine = {
                 genelIlk1,
                 smIlk3,
                 smIlk2,
-                smIlk1
+                smIlk1,
+                mesafeIlk3,
+                mesafeIlk2,
+                mesafeIlk1
             };
         });
         return {
