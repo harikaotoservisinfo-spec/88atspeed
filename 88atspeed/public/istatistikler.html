@@ -170,6 +170,10 @@
         .istatistik-table td.istat-grp-f827 {
             background: #e0f7fa;
         }
+        .istatistik-table th.istat-grp-ffd,
+        .istatistik-table td.istat-grp-ffd {
+            background: #ede7f6;
+        }
         .istatistik-table th.istat-grp-son800dr1,
         .istatistik-table td.istat-grp-son800dr1 {
             background: #e8eaf6;
@@ -259,6 +263,8 @@
         .istatistik-table th.istat-grp-son800oran2.istat-grp-start { border-left-color: #ff9800; }
         .istatistik-table th.istat-grp-f827 { color: #006064; }
         .istatistik-table th.istat-grp-f827.istat-grp-start { border-left-color: #00bcd4; }
+        .istatistik-table th.istat-grp-ffd { color: #4527a0; }
+        .istatistik-table th.istat-grp-ffd.istat-grp-start { border-left-color: #7e57c2; }
         .istatistik-table th.istat-grp-son800dr1 { color: #283593; }
         .istatistik-table th.istat-grp-son800dr1.istat-grp-start { border-left-color: #5c6bc0; }
         .istatistik-table th.istat-grp-son800dr { color: #00695c; }
@@ -299,6 +305,7 @@
         .istatistik-table td.istat-grp-son800oran1.istat-grp-start { border-left-color: #ffd54f; }
         .istatistik-table td.istat-grp-son800oran2.istat-grp-start { border-left-color: #ffcc80; }
         .istatistik-table td.istat-grp-f827.istat-grp-start { border-left-color: #80deea; }
+        .istatistik-table td.istat-grp-ffd.istat-grp-start { border-left-color: #b39ddb; }
         .istatistik-table td.istat-grp-son800dr1.istat-grp-start { border-left-color: #9fa8da; }
         .istatistik-table td.istat-grp-son800dr.istat-grp-start { border-left-color: #80cbc4; }
         .istatistik-table td.istat-grp-test1.istat-grp-start { border-left-color: #f48fb1; }
@@ -355,6 +362,7 @@
         .istatistik-table tbody tr:hover td.istat-grp-son800oran1 { background: #fff3d0; }
         .istatistik-table tbody tr:hover td.istat-grp-son800oran2 { background: #ffe8c8; }
         .istatistik-table tbody tr:hover td.istat-grp-f827 { background: #c8f4f9; }
+        .istatistik-table tbody tr:hover td.istat-grp-ffd { background: #d1c4e9; }
         .istatistik-table tbody tr:hover td.istat-grp-son800dr1 { background: #dce0f5; }
         .istatistik-table tbody tr:hover td.istat-grp-son800dr { background: #d0ece9; }
         .istatistik-table tbody tr:hover td.istat-grp-test1 { background: #f8d7e3; }
@@ -410,13 +418,15 @@
     <div class="istatistik-hint">
         <strong>Şehir deneyimi:</strong> Bilinen koşular içinde program hipodromunda
         (<span id="istatistikSehirHint">—</span>) koşma oranı.<br>
-        <strong>SON800-1 / SON800-2 / 800-1 ORAN / 800-2 ORAN / 800Δ·7 / SON800·DR / TEST1–3 / TEST·SIRA / T1×DR:</strong>
+        <strong>SON800-1 / SON800-2 / 800-1 ORAN / 800-2 ORAN / 800Δ·7 / FFΔ / SON800·DR / TEST1–3 / TEST·SIRA / T1×DR:</strong>
         Derinlik sütunlarının sonunda <strong>AĞ. ORT.</strong> ağırlıklı;
         <strong>AĞ. ORT.1</strong> son 3 derinlik; <strong>AĞ. ORT.2</strong> son 2 derinlik;
         <strong>AĞ. ORT.3</strong> ağırlıklı özet (ORT.2×4 + ORT.1×2 + ORT.×1, eksik derinlik 0 sayılmaz).<br>
         <strong>TEST AĞ. ORT.:</strong> TEST1, TEST2 ve TEST3 ağırlıklı ortalamaları yan yana özet sütun.<br>
         <strong>TEST·SIRA:</strong> TEST3≥TEST2≥TEST1 kuralı — tam uyan %100; diğerleri yakınlığa göre
         derinlik kıyası + AĞ. ORT.<br>
+        <strong>FFΔ:</strong> GÖSTERİM FARKLARIN FARKI — her derinlikte o noktadan geriye
+        |sonFark−ilkFark| 0'a en yakın = %100; derinlik kıyası + AĞ. ORT.<br>
         <strong>T1×DR:</strong> TEST1 × DR/1DR — o gün koşan atlar arasında en düşük T1×DR = %100;
         derinlik kıyası + AĞ. ORT.<br>
         <strong>Son 3 ay / 1 ay / 15 gün:</strong> Program tarihine göre dönem içi koşu sayısının,
@@ -429,10 +439,10 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260825h"></script>
-<script src="js/istatistik-engine.js?v=20260825h"></script>
+<script src="js/utils.js?v=20260825i"></script>
+<script src="js/istatistik-engine.js?v=20260825i"></script>
 <script>
-const ISTAT_BUILD = '20260825h';
+const ISTAT_BUILD = '20260825i';
 let currentKayitId = null;
 let currentKayitMeta = null;
 let currentRaceData = null;
@@ -792,7 +802,32 @@ function renderFark827DepthCells(depths, maxDepth, ortOzeti) {
         if (d === 0) cls += ' istat-grp-start';
         h += '<td class="' + cls + '">' + formatFark827DepthCell(cell, son800DepthLabel(d)) + '</td>';
     }
-    return appendDepthOrtOzetiCells(h, 'istat-grp-f827', '800Δ·7', ortOzeti, true);
+    return appendDepthOrtOzetiCells(h, 'istat-grp-f827', '800Δ·7', ortOzeti, false);
+}
+
+function formatFfDepthCell(cell, depthLabel) {
+    if (!cell || cell.pct === null) return '<span class="istat-pct istat-pct-none">—</span>';
+    const farkTxt = cell.fark != null ? (cell.fark > 0 ? '+' : '') + cell.fark.toFixed(4) : '?';
+    let title = 'FFΔ · ' + depthLabel;
+    if (cell.tarih) title += ' (' + cell.tarih + ')';
+    title += ' | FARKLARIN FARKI=' + farkTxt + ' |' + farkTxt + '|=' + (cell.absFark != null ? cell.absFark.toFixed(4) : '?');
+    title += ' | ' + cell.adet + ' koşu | ' + cell.comparedCount + ' at kıyası → %' + cell.pct;
+    if (cell.isBest) title += ' (0\'a en yakın)';
+    return '<span class="istat-pct ' + pctClass(cell.pct) + '" title="' + title.replace(/"/g, '&quot;') + '">%' + cell.pct + '</span>';
+}
+
+function renderFfDepthCells(depths, maxDepth, ortOzeti) {
+    if (maxDepth === 0) {
+        return '<td class="istat-grp-ffd istat-son800-depth istat-grp-start istat-grp-end"><span class="istat-pct istat-pct-none">—</span></td>';
+    }
+    let h = '';
+    for (let d = 0; d < maxDepth; d++) {
+        const cell = depths && depths[d] ? depths[d] : null;
+        let cls = 'istat-grp-ffd istat-son800-depth';
+        if (d === 0) cls += ' istat-grp-start';
+        h += '<td class="' + cls + '">' + formatFfDepthCell(cell, son800DepthLabel(d)) + '</td>';
+    }
+    return appendDepthOrtOzetiCells(h, 'istat-grp-ffd', 'FFΔ', ortOzeti, true);
 }
 
 function formatGenelIlkPctCell(stat, donemLabel, ilkNo) {
@@ -865,12 +900,13 @@ function updateMeta() {
     if (hint) hint.textContent = currentKayitMeta.hipodrom;
 }
 
-function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxDepth2, oranAna1, oranAna2, maxDepthFark827, maxDepthDr1, maxDepthDr, maxDepthTest1, maxDepthTest2, maxDepthTest3, maxDepthTest123Sirali, maxDepthT1dr) {
+function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxDepth2, oranAna1, oranAna2, maxDepthFark827, maxDepthFf, maxDepthDr1, maxDepthDr, maxDepthTest1, maxDepthTest2, maxDepthTest3, maxDepthTest123Sirali, maxDepthT1dr) {
     const d1 = maxDepth1 || 0;
     const d2 = maxDepth2 || 0;
     const o1 = oranMaxDepth1 || 0;
     const o2 = oranMaxDepth2 || 0;
     const f8 = maxDepthFark827 || 0;
+    const ff = maxDepthFf || 0;
     const dr1 = maxDepthDr1 || 0;
     const dr = maxDepthDr || 0;
     const t1 = maxDepthTest1 || 0;
@@ -914,11 +950,19 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
     }
 
     if (f8 > 0) {
-        h += '<th colspan="' + (f8 + 4) + '" class="istat-th-grp istat-grp-f827 istat-grp-start istat-grp-end">';
+        h += '<th colspan="' + (f8 + 4) + '" class="istat-th-grp istat-grp-f827 istat-grp-start">';
         h += '800Δ·7<small>Son 7 koşu |8002-8001| ort. 0\'a yakın = %100 + ağ. ort.</small></th>';
     } else {
-        h += '<th rowspan="2" class="istat-th-base istat-th-metric istat-grp-f827 istat-grp-start istat-grp-end">';
+        h += '<th rowspan="2" class="istat-th-base istat-th-metric istat-grp-f827 istat-grp-start">';
         h += '800Δ·7<small>Veri yok</small></th>';
+    }
+
+    if (ff > 0) {
+        h += '<th colspan="' + (ff + 4) + '" class="istat-th-grp istat-grp-ffd istat-grp-start istat-grp-end">';
+        h += 'FFΔ<small>FARKLARIN FARKI |0\'a| yakın = %100 + ağ. ort.</small></th>';
+    } else {
+        h += '<th rowspan="2" class="istat-th-base istat-th-metric istat-grp-ffd istat-grp-start istat-grp-end">';
+        h += 'FFΔ<small>Veri yok</small></th>';
     }
 
     if (dr1 > 0) {
@@ -1039,7 +1083,15 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
         h += '<th class="' + cls + '">' + son800DepthLabel(d) + '</th>';
     }
     if (f8 > 0) {
-        h = appendOrtOzetiHeaderCols(h, 'istat-grp-f827', true);
+        h = appendOrtOzetiHeaderCols(h, 'istat-grp-f827', false);
+    }
+    for (let d = 0; d < ff; d++) {
+        let cls = 'istat-th-metric istat-th-son800-depth istat-grp-ffd';
+        if (d === 0) cls += ' istat-grp-start';
+        h += '<th class="' + cls + '">' + son800DepthLabel(d) + '</th>';
+    }
+    if (ff > 0) {
+        h = appendOrtOzetiHeaderCols(h, 'istat-grp-ffd', true);
     }
     for (let d = 0; d < dr1; d++) {
         let cls = 'istat-th-metric istat-th-son800-depth istat-grp-son800dr1';
@@ -1163,6 +1215,7 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
         const maxDepthTest123Sirali = pkg.maxDepthTest123Sirali;
         const maxDepthT1dr = pkg.maxDepthT1dr;
         const maxDepthFark827 = pkg.maxDepthFark827;
+        const maxDepthFf = pkg.maxDepthFf;
 
         html += '<div class="istatistik-race-card">';
         html += '<div class="istatistik-race-header">';
@@ -1180,6 +1233,9 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
         }
         if (maxDepthFark827 > 0) {
             html += '<span class="istatistik-race-badge">800Δ·7: ' + maxDepthFark827 + ' derinlik</span>';
+        }
+        if (maxDepthFf > 0) {
+            html += '<span class="istatistik-race-badge">FFΔ: ' + maxDepthFf + ' derinlik</span>';
         }
         if (maxDepthDr1 > 0) {
             html += '<span class="istatistik-race-badge">800·1DR: ' + maxDepthDr1 + ' derinlik</span>';
@@ -1205,7 +1261,7 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
         html += '</div>';
         html += '<div class="istatistik-table-wrap">';
         html += '<table class="istatistik-table">';
-        html += renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxDepth2, pkg.oranAnaDerece1, pkg.oranAnaDerece2, maxDepthFark827, maxDepthDr1, maxDepthDr, maxDepthTest1, maxDepthTest2, maxDepthTest3, maxDepthTest123Sirali, maxDepthT1dr);
+        html += renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxDepth2, pkg.oranAnaDerece1, pkg.oranAnaDerece2, maxDepthFark827, maxDepthFf, maxDepthDr1, maxDepthDr, maxDepthTest1, maxDepthTest2, maxDepthTest3, maxDepthTest123Sirali, maxDepthT1dr);
         html += '<tbody>';
 
         for (const row of rows) {
@@ -1218,6 +1274,7 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
             html += renderSon800OranCells(row.oran1Depths, oranMaxDepth1, 'istat-grp-son800oran1', '800-1 ORAN', pkg.oranAnaDerece1, row.oran1OrtOzeti, true);
             html += renderSon800OranCells(row.oran2Depths, oranMaxDepth2, 'istat-grp-son800oran2', '800-2 ORAN', pkg.oranAnaDerece2, row.oran2OrtOzeti, false);
             html += renderFark827DepthCells(row.fark827Depths, maxDepthFark827, row.fark827OrtOzeti);
+            html += renderFfDepthCells(row.ffDepths, maxDepthFf, row.ffOrtOzeti);
             html += renderSon800Dr1KorelasyonCells(row.son800Dr1Depths, maxDepthDr1, row.son800Dr1OrtOzeti);
             html += renderSon800DrslKorelasyonCells(row.son800DrDepths, maxDepthDr, row.son800DrOrtOzeti);
             html += renderTest1DepthCells(row.test1Depths, maxDepthTest1, row.test1OrtOzeti);

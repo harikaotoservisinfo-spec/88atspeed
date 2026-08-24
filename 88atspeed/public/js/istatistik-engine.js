@@ -390,6 +390,97 @@ const IstatistikEngine = {
         return { maxDepth, anaDerece, anaSalise, byHorse };
     },
 
+    /** GÖSTERİM FARK = birinci_dr/sl − at_dr/sl */
+    _computeKosuFark(kosu) {
+        const mesafe = parseInt(String(kosu.mesafe || '').replace(/\D/g, ''), 10);
+        if (!mesafe) return null;
+        const dereceSalise = AtSpeedUtils.dereceToSalise(kosu.at_derece);
+        const birinciSalise = AtSpeedUtils.dereceToSalise(kosu.birinci_derece);
+        const drSl = AtSpeedUtils.metreBasiSalise(dereceSalise, mesafe);
+        const birinciDrSl = AtSpeedUtils.metreBasiSalise(birinciSalise, mesafe);
+        if (birinciDrSl !== null && drSl !== null) return birinciDrSl - drSl;
+        return null;
+    },
+
+    /** Derinlik d'den geriye tüm koşularda FARKLARIN FARKI (sonFark − ilkFark) */
+    _farklarinFarkiAtDepth(sortedKosular, depth) {
+        const window = sortedKosular.slice(depth);
+        if (!window.length) return null;
+        const farkDegerleri = [];
+        for (let i = window.length - 1; i >= 0; i--) {
+            const fark = this._computeKosuFark(window[i]);
+            if (fark !== null) farkDegerleri.push(fark);
+        }
+        if (!farkDegerleri.length) return null;
+        const ilkFark = farkDegerleri[0];
+        const sonFark = farkDegerleri[farkDegerleri.length - 1];
+        const ff = sonFark - ilkFark;
+        return {
+            fark: ff,
+            absFark: Math.abs(ff),
+            adet: farkDegerleri.length,
+            tarih: sortedKosular[depth]?.tarih || null
+        };
+    },
+
+    _buildFarklarinFarkiChains(race, programTarih) {
+        const horses = race.horses || [];
+        const chains = new Map();
+        for (const horse of horses) {
+            const sorted = this._kosularYenidenEskiye(horse.kosular, programTarih);
+            const chain = [];
+            for (let d = 0; d < sorted.length; d++) {
+                chain[d] = this._farklarinFarkiAtDepth(sorted, d);
+            }
+            chains.set(this._horseKey(horse), chain);
+        }
+        const maxDepth = Math.max(0, ...[...chains.values()].map(c => c.length));
+        return { chains, maxDepth };
+    },
+
+    /**
+     * FFΔ derinlik kıyası — GÖSTERİM FARKLARIN FARKI.
+     * Her derinlikte o noktadan geriye |farkların farkı| 0'a en yakın = %100.
+     */
+    computeFarklarinFarkiDepthGrid(race, programTarih) {
+        const { chains, maxDepth } = this._buildFarklarinFarkiChains(race, programTarih);
+        const byHorse = new Map();
+        for (const key of chains.keys()) {
+            byHorse.set(key, new Array(maxDepth).fill(null));
+        }
+
+        for (let d = 0; d < maxDepth; d++) {
+            const atDepth = [];
+            for (const [key, chain] of chains) {
+                if (chain[d]) {
+                    atDepth.push({ key, ...chain[d] });
+                }
+            }
+            if (!atDepth.length) continue;
+
+            const minAbsFark = Math.min(...atDepth.map(e => e.absFark));
+            const comparedCount = atDepth.length;
+
+            for (const e of atDepth) {
+                const pct = e.absFark === 0
+                    ? 100
+                    : Math.round((minAbsFark / e.absFark) * 100);
+                byHorse.get(e.key)[d] = {
+                    pct,
+                    fark: e.fark,
+                    absFark: e.absFark,
+                    adet: e.adet,
+                    tarih: e.tarih,
+                    comparedCount,
+                    depth: d,
+                    isBest: e.absFark === minAbsFark
+                };
+            }
+        }
+
+        return { maxDepth, byHorse };
+    },
+
     /** FARK 8002-8001 = SON800_2/SL − SON800_1/SL (GÖSTERİM ile aynı) */
     _computeFark8002_8001(kosu) {
         let son800_1 = kosu.son800_bir;
@@ -1340,6 +1431,7 @@ const IstatistikEngine = {
         const oran1Grid = this.computeSon800AnaOranGrid(race, programTarih, 'bir');
         const oran2Grid = this.computeSon800AnaOranGrid(race, programTarih, 'iki');
         const fark827Grid = this.computeFark8002OrtDepthGrid(race, programTarih);
+        const ffGrid = this.computeFarklarinFarkiDepthGrid(race, programTarih);
         const son800Dr1Grid = this.computeSon800Dr1slKorelasyonGrid(race, programTarih);
         const son800DrGrid = this.computeSon800DrslKorelasyonGrid(race, programTarih);
         const test1Grid = this.computeTest1DepthGrid(race, programTarih);
@@ -1376,6 +1468,7 @@ const IstatistikEngine = {
             const oran1Depths = oran1Grid.byHorse.get(key) || [];
             const oran2Depths = oran2Grid.byHorse.get(key) || [];
             const fark827Depths = fark827Grid.byHorse.get(key) || [];
+            const ffDepths = ffGrid.byHorse.get(key) || [];
             const test1Depths = test1Grid.byHorse.get(key) || [];
             const test2Depths = test2Grid.byHorse.get(key) || [];
             const test3Depths = test3Grid.byHorse.get(key) || [];
@@ -1406,6 +1499,10 @@ const IstatistikEngine = {
                 fark827Depths,
                 fark827OrtOzeti: this._computeDepthOrtOzeti(
                     fark827Depths, fark827Grid.maxDepth
+                ),
+                ffDepths,
+                ffOrtOzeti: this._computeDepthOrtOzeti(
+                    ffDepths, ffGrid.maxDepth
                 ),
                 son800Dr1Depths: dr1Depths,
                 son800Dr1OrtOzeti: this._computeDepthOrtOzeti(
@@ -1457,6 +1554,7 @@ const IstatistikEngine = {
             oranAnaDerece1: oran1Grid.anaDerece,
             oranAnaDerece2: oran2Grid.anaDerece,
             maxDepthFark827: fark827Grid.maxDepth,
+            maxDepthFf: ffGrid.maxDepth,
             maxDepthDr1: son800Dr1Grid.maxDepth,
             maxDepthDr: son800DrGrid.maxDepth,
             maxDepthTest1: test1Grid.maxDepth,
