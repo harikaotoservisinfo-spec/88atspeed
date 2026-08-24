@@ -2,90 +2,589 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Gösterim - 88ATSPEED</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="css/theme.css?v=20260822a" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; background: transparent; color: #fff; }
-        .gosterim-controls {
-            background: rgba(30, 30, 60, 0.8);
-            border-radius: 20px;
-            padding: 20px;
-            margin-bottom: 20px;
-            display: flex;
-            gap: 15px;
-            align-items: flex-end;
-            flex-wrap: wrap;
+        #gosterimContainer { padding: 20px 24px 32px; max-width: 100%; }
+        .gosterim-controls { justify-content: flex-start; }
+        .gosterim-btn { min-width: 220px; }
+        .results-table { margin-top: 4px; background: transparent; padding: 0; }
+        .race-header { display: flex; align-items: center; gap: 10px; }
+        .race-table-wrap { overflow-x: auto; padding: 16px 16px 20px; background: var(--bg-surface); }
+
+        .gosterim-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 10px;
+            font-size: 11px;
+            min-width: 2400px;
         }
-        .control-group { display: flex; flex-direction: column; gap: 8px; }
-        .control-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; color: #ff9800; }
-        .gosterim-btn {
-            padding: 12px 20px;
-            font-size: 14px;
-            font-weight: 600;
-            border-radius: 12px;
-            cursor: pointer;
-            background: linear-gradient(135deg, #ff9800, #f44336);
-            color: white;
-            min-width: 160px;
-            border: none;
-        }
-        .gosterim-btn:hover { opacity: 0.9; transform: translateY(-2px); }
-        .results-table {
-            background: rgba(30, 30, 60, 0.6);
-            border-radius: 20px;
-            overflow-x: auto;
-            padding: 15px;
-        }
-        table { width: 100%; border-collapse: collapse; font-size: 10px; }
-        th, td { padding: 6px 8px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); border-right: 1px solid rgba(255,255,255,0.05); }
-        th {
-            background: #1a1a3e;
-            color: #ff9800;
-            font-weight: 600;
-            position: sticky;
-            top: 0;
+        .gosterim-table thead tr { position: sticky; top: 0; z-index: 20; }
+        .gosterim-table th {
+            background: var(--text-primary);
+            color: #eef1f8;
+            font-weight: 700;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            padding: 12px 10px;
+            text-align: center;
             white-space: nowrap;
             cursor: pointer;
             user-select: none;
+            border: none;
         }
-        th:hover { background: rgba(255,152,0,0.3); }
-        th .sort-icon { display: inline-block; margin-left: 5px; font-size: 10px; opacity: 0.5; }
-        th.sort-asc .sort-icon { opacity: 1; transform: rotate(0deg); }
-        th.sort-desc .sort-icon { opacity: 1; transform: rotate(180deg); display: inline-block; }
-        .status { padding: 12px; border-radius: 12px; margin-bottom: 15px; text-align: center; }
-        .status-loading { background: rgba(255,152,0,0.2); color: #ff9800; }
-        .status-success { background: rgba(76,175,80,0.2); color: #4CAF50; }
-        .status-error { background: rgba(244,67,54,0.2); color: #f44336; }
-        .empty { text-align: center; padding: 60px; color: rgba(255,255,255,0.5); }
-        .race-card { background: rgba(30,30,60,0.4); border-radius: 16px; margin-bottom: 25px; overflow: hidden; }
-        .race-header { background: linear-gradient(135deg, rgba(255,152,0,0.3), rgba(76,175,80,0.15)); padding: 12px 15px; font-weight: bold; font-size: 14px; border-radius: 12px 12px 0 0; }
-        .kayit-listesi {
-            background: rgba(0,0,0,0.3);
-            border-radius: 12px;
+        .gosterim-table th:first-child { border-radius: var(--radius-md) 0 0 var(--radius-md); }
+        .gosterim-table th:last-child { border-radius: 0 var(--radius-md) var(--radius-md) 0; padding-right: 14px; }
+        .gosterim-table th:hover { background: var(--accent-light); }
+        .gosterim-table th .sort-icon { display: inline-block; margin-left: 4px; font-size: 9px; opacity: 0.45; }
+        .gosterim-table th.sort-asc .sort-icon,
+        .gosterim-table th.sort-desc .sort-icon { opacity: 1; color: #fff176; }
+        .gosterim-table th.sort-desc .sort-icon { transform: rotate(180deg); display: inline-block; }
+
+        .gosterim-table tbody tr.row-card { transition: transform 0.12s ease; }
+        .gosterim-table tbody tr.row-card:hover { transform: translateY(-1px); }
+        .gosterim-table tbody tr.row-card:hover td { box-shadow: 0 6px 20px rgba(15, 34, 71, 0.12); }
+        .gosterim-table tbody td {
+            background: var(--bg-card);
+            color: var(--text-primary);
             padding: 10px;
-            margin-bottom: 15px;
-            max-height: 250px;
-            overflow-y: auto;
+            text-align: center;
+            vertical-align: middle;
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            font-weight: 500;
+            box-shadow: var(--shadow-sm);
         }
-        .kayit-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 12px;
-            margin: 5px 0;
-            background: rgba(255,255,255,0.05);
-            border-radius: 8px;
+        .gosterim-table tbody td:last-child {
+            border-right: 1px solid var(--border);
+            border-radius: 0 var(--radius-md) var(--radius-md) 0;
+            padding-right: 14px;
+        }
+        .gosterim-table .col-delete {
+            position: sticky;
+            left: 0;
+            z-index: 6;
+            width: 52px;
+            min-width: 52px;
+            text-align: center;
+            padding: 6px 4px !important;
+            background: var(--bg-card);
+            border-left: 1px solid var(--border);
+            border-radius: var(--radius-md) 0 0 var(--radius-md);
+            box-shadow: 2px 0 6px rgba(15, 34, 71, 0.06);
+        }
+        .gosterim-table thead .col-delete {
+            z-index: 26;
+            background: #b71c1c;
+            color: #fff;
+            cursor: default;
+        }
+        .gosterim-table thead .col-delete:hover { background: #b71c1c; }
+        .gosterim-table .col-sticky {
+            position: sticky;
+            left: 52px;
+            z-index: 5;
+            background: var(--bg-card);
+            font-weight: 700;
+            color: var(--accent);
+            box-shadow: 2px 0 6px rgba(15, 34, 71, 0.04);
+        }
+        .gosterim-table .col-sticky-2 {
+            position: sticky;
+            left: 104px;
+            z-index: 5;
+            background: var(--bg-card);
+            text-align: left;
+            min-width: 140px;
+            font-weight: 600;
+            box-shadow: 2px 0 6px rgba(15, 34, 71, 0.04);
+        }
+        .gosterim-table thead .col-sticky,
+        .gosterim-table thead .col-sticky-2 { z-index: 25; background: var(--text-primary); color: #eef1f8; }
+        .gosterim-table tbody tr.row-card:nth-child(even) td { background: #fdfcfa; }
+        .gosterim-table tbody tr.row-card:nth-child(even) .col-delete,
+        .gosterim-table tbody tr.row-card:nth-child(even) .col-sticky,
+        .gosterim-table tbody tr.row-card:nth-child(even) .col-sticky-2 { background: #fdfcfa; }
+        tr.pembe-satir .col-delete, tr.pembe-satir .col-sticky, tr.pembe-satir .col-sticky-2 { background-color: var(--highlight-pink-row) !important; }
+
+        /* TEST4 = TEST6 — açık fosfor yeşil satır (eşleşen hücreler hariç) */
+        tr.fosfor-yesil-satir td:not(.eslesme-yesil),
+        tr.fosfor-yesil-satir .col-delete,
+        tr.fosfor-yesil-satir .col-sticky:not(.eslesme-yesil),
+        tr.fosfor-yesil-satir .col-sticky-2:not(.eslesme-yesil) {
+            background: #e8ff9e !important;
+            color: #1b5e20 !important;
+            box-shadow: inset 0 0 10px rgba(118, 255, 3, 0.2);
+        }
+        .fosfor-yesil-hucre:not(.eslesme-yesil) {
+            background: #c5f77d !important;
+            color: #1b5e20 !important;
+            font-weight: 800 !important;
+            box-shadow: inset 0 0 8px rgba(118, 255, 3, 0.25);
+        }
+
+        /* Koyu yeşil eşleşme — fosfor/pembe satırda da geçerli */
+        tr.fosfor-yesil-satir td.eslesme-yesil,
+        tr.fosfor-yesil-satir td.eslesme-yesil.col-sticky,
+        tr.fosfor-yesil-satir td.eslesme-yesil.col-sticky-2,
+        tr.pembe-satir td.eslesme-yesil,
+        tr.fosfor-yesil-satir td.eslesme-yesil.son800-eniyi {
+            background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%) !important;
+            color: #ccff90 !important;
+            font-weight: 800 !important;
+            box-shadow: inset 0 0 10px rgba(118, 255, 3, 0.35), 0 0 6px rgba(76, 175, 80, 0.25) !important;
+            text-shadow: 0 0 4px rgba(204, 255, 144, 0.6);
+        }
+
+        .row-delete-btn {
+            border: 1px solid rgba(198, 40, 40, 0.35);
+            background: #ffebee;
+            color: #b71c1c;
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 14px;
+            line-height: 1;
             cursor: pointer;
+            transition: background 0.12s ease, transform 0.12s ease;
         }
-        .kayit-item:hover { background: rgba(255,152,0,0.2); }
-        .sari-hucre { background-color: #ffeb3b !important; color: #000 !important; font-weight: bold; }
-        tr.sari-satir td { background-color: #fff9c4 !important; color: #000 !important; }
-        .eniyi-test1 { background-color: #ffeb3b !important; color: #000 !important; font-weight: bold; }
-        .eniyi-test2 { background-color: #ffeb3b !important; color: #000 !important; font-weight: bold; }
-        .kirmizi-yazi { color: #ff0000 !important; font-weight: bold; }
-        .yesil-yazi { color: #00cc00 !important; font-weight: bold; }
-        .pembe-hucre { background-color: #ffb6c1 !important; color: #000 !important; }
-        tr.pembe-satir td { background-color: #ffc0cb !important; color: #000 !important; }
+        .row-delete-btn:hover { background: #ffcdd2; transform: scale(1.08); }
+
+        /* Kayıt hipodromu / koşu mesafesi ile eşleşen hücreler */
+        .eslesme-yesil,
+        .mesafe-eslesme {
+            background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%) !important;
+            color: #ccff90 !important;
+            font-weight: 800 !important;
+            box-shadow: inset 0 0 10px rgba(118, 255, 3, 0.35), 0 0 6px rgba(76, 175, 80, 0.25);
+            text-shadow: 0 0 4px rgba(204, 255, 144, 0.6);
+        }
+
+        /* SON800 en düşük 3 — açık yeşil (şehir eşleşmezse) */
+        .son800-eniyi {
+            background: #c8e6c9 !important;
+            color: #1b5e20 !important;
+            font-weight: 700 !important;
+        }
+
+        /* TEST1≈TEST2 en yakın ve en düşük 3 — fosfor koyu sarı kalın yazı */
+        .fosfor-sari-yazi {
+            color: #b8860b !important;
+            font-weight: 800 !important;
+            text-shadow: 0 0 6px #fff176, 0 0 10px #ffeb3b, 0 0 3px #f9a825;
+        }
+        td.eslesme-yesil.fosfor-sari-yazi {
+            color: #fff176 !important;
+            text-shadow: 0 0 8px #ffeb3b, 0 0 14px #ffd600, 0 0 4px #f9a825;
+        }
+
+        /* Güçlü uyarı: kırmızı kural + TEST1≈TEST2 fosfor sarı aynı satırda */
+        tr.guclu-uyari-satir td:not(.eslesme-yesil),
+        tr.guclu-uyari-satir .col-delete,
+        tr.guclu-uyari-satir .col-sticky:not(.eslesme-yesil),
+        tr.guclu-uyari-satir .col-sticky-2:not(.eslesme-yesil) {
+            background: linear-gradient(135deg, #0a2e12 0%, #1b5e20 45%, #256329 100%) !important;
+            color: #e8f5e9 !important;
+            font-weight: 700 !important;
+            box-shadow: inset 0 0 14px rgba(118, 255, 3, 0.3), 0 0 10px rgba(27, 94, 32, 0.45);
+            border-top: 2px solid #76ff03;
+            border-bottom: 2px solid #76ff03;
+        }
+        tr.guclu-uyari-satir td.eslesme-yesil,
+        tr.guclu-uyari-satir td.eslesme-yesil.col-sticky,
+        tr.guclu-uyari-satir td.eslesme-yesil.col-sticky-2 {
+            background: linear-gradient(135deg, #004d14 0%, #1b5e20 50%, #388e3c 100%) !important;
+            color: #ccff90 !important;
+            font-weight: 800 !important;
+            box-shadow: inset 0 0 16px rgba(118, 255, 3, 0.5), 0 0 10px rgba(118, 255, 3, 0.35) !important;
+            text-shadow: 0 0 6px rgba(204, 255, 144, 0.8);
+        }
+        tr.guclu-uyari-satir .fosfor-sari-yazi {
+            color: #fff59d !important;
+            font-weight: 800 !important;
+            text-shadow: 0 0 10px #ffeb3b, 0 0 18px #ffd600, 0 0 6px #fff;
+        }
+        tr.guclu-uyari-satir .kirmizi-yazi {
+            color: #ff8a80 !important;
+            font-weight: 800 !important;
+            text-shadow: 0 0 10px #ff5252, 0 0 6px #fff, 0 0 3px #d50000;
+        }
+        /* Güçlü uyarı satırında şehir: farklıysa nötr, aynıysa fosfor yeşil yazı */
+        tr.guclu-uyari-satir td.guclu-sehir-farkli {
+            background: #f2f1ec !important;
+            color: #0f2247 !important;
+            font-weight: 600 !important;
+            box-shadow: none !important;
+            text-shadow: none !important;
+        }
+        tr.guclu-uyari-satir td.guclu-sehir-eslesme {
+            background: linear-gradient(135deg, #004d14 0%, #1b5e20 50%, #388e3c 100%) !important;
+            color: #76ff03 !important;
+            font-weight: 800 !important;
+            text-shadow: 0 0 8px #ccff90, 0 0 14px #76ff03, 0 0 4px #a5d6a7;
+            box-shadow: inset 0 0 16px rgba(118, 255, 3, 0.5), 0 0 10px rgba(118, 255, 3, 0.35) !important;
+        }
+
+        /* TEST3 top-3 + TEST2<TEST3 + TEST1<=TEST2 → fosfor mavi */
+        .fosfor-mavi-yazi {
+            color: #01579b !important;
+            font-weight: 800 !important;
+            text-shadow: 0 0 8px #00e5ff, 0 0 14px #18ffff, 0 0 4px #0288d1;
+        }
+        tr.fosfor-mavi-satir:not(.guclu-uyari-satir) td:not(.eslesme-yesil):not(.test23-yanip-son) {
+            background: rgba(0, 188, 212, 0.14) !important;
+        }
+        tr.fosfor-mavi-satir td:not(.eslesme-yesil):not(.test23-yanip-son),
+        tr.fosfor-mavi-satir .col-sticky:not(.eslesme-yesil),
+        tr.fosfor-mavi-satir .col-sticky-2:not(.eslesme-yesil) {
+            color: #01579b !important;
+            font-weight: 700 !important;
+            text-shadow: 0 0 8px #00e5ff, 0 0 14px #18ffff, 0 0 4px #01579b;
+        }
+        tr.guclu-uyari-satir.fosfor-mavi-satir td:not(.eslesme-yesil):not(.test23-yanip-son):not(.guclu-sehir-farkli),
+        tr.guclu-uyari-satir.fosfor-mavi-satir .fosfor-mavi-yazi:not(.test23-yanip-son) {
+            color: #84ffff !important;
+            font-weight: 800 !important;
+            text-shadow: 0 0 10px #18ffff, 0 0 18px #00e5ff, 0 0 6px #fff;
+        }
+        tr.fosfor-mavi-satir td.eslesme-yesil:not(.test23-yanip-son) {
+            color: #84ffff !important;
+            text-shadow: 0 0 10px #18ffff, 0 0 16px #00e5ff, 0 0 4px #fff;
+        }
+
+        /* TEST3−TEST2 en yüksek fark → TEST2/TEST3 yanıp söner */
+        @keyframes test23-blink {
+            0%, 100% {
+                background: linear-gradient(135deg, #01579b 0%, #0277bd 100%) !important;
+                color: #84ffff !important;
+                font-weight: 800 !important;
+                box-shadow: inset 0 0 14px #00e5ff, 0 0 20px #18ffff !important;
+                text-shadow: 0 0 10px #fff, 0 0 18px #18ffff;
+            }
+            50% {
+                background: linear-gradient(135deg, #e1f5fe 0%, #b3e5fc 100%) !important;
+                color: #01579b !important;
+                font-weight: 800 !important;
+                box-shadow: inset 0 0 10px #00bcd4, 0 0 24px #fff !important;
+                text-shadow: 0 0 8px #0277bd;
+            }
+        }
+        td.test23-yanip-son,
+        tr.guclu-uyari-satir td.test23-yanip-son,
+        tr.fosfor-mavi-satir td.test23-yanip-son {
+            animation: test23-blink 1s ease-in-out infinite !important;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* T1×DR — son koşu fosfor kırmızı yazı */
+        .fosfor-kirmizi-yazi {
+            color: #ff1744 !important;
+            font-weight: 800 !important;
+            text-shadow: 0 0 6px #ff5252, 0 0 10px #ff1744, 0 0 3px #d50000;
+        }
+        tr.fosfor-mavi-satir td.fosfor-kirmizi-yazi,
+        tr.fosfor-yesil-satir td.fosfor-kirmizi-yazi,
+        tr.guclu-uyari-satir td.fosfor-kirmizi-yazi {
+            color: #ff1744 !important;
+            text-shadow: 0 0 8px #ff5252, 0 0 14px #ff1744, 0 0 4px #d50000;
+        }
+
+        /* T1×DR — son koşularda en iyi 2: fosfor yeşil yanıp sönen hücre */
+        @keyframes t1dr-yesil-yanip {
+            0%, 100% {
+                background: #c5f77d !important;
+                color: #1b5e20 !important;
+                box-shadow: inset 0 0 8px rgba(118, 255, 3, 0.45), 0 0 6px rgba(118, 255, 3, 0.25);
+            }
+            50% {
+                background: #76ff03 !important;
+                color: #004d40 !important;
+                box-shadow: inset 0 0 14px rgba(118, 255, 3, 0.75), 0 0 12px rgba(118, 255, 3, 0.45);
+            }
+        }
+        td.t1dr-eniyi-yanip-son,
+        tr.fosfor-mavi-satir td.t1dr-eniyi-yanip-son,
+        tr.fosfor-yesil-satir td.t1dr-eniyi-yanip-son,
+        tr.guclu-uyari-satir td.t1dr-eniyi-yanip-son {
+            animation: t1dr-yesil-yanip 1.1s ease-in-out infinite !important;
+            font-weight: 800 !important;
+            position: relative;
+            z-index: 2;
+        }
+        td.t1dr-eniyi-yanip-son.fosfor-kirmizi-yazi {
+            color: #b71c1c !important;
+            text-shadow: 0 0 8px #ff5252, 0 0 12px #ff1744, 0 0 4px #d50000;
+        }
+
+        /* T1×DR-T3 — son koşu koyu fosfor yeşil yazı */
+        .fosfor-yesil-koyu-yazi {
+            color: #1b5e20 !important;
+            font-weight: 800 !important;
+            text-shadow: 0 0 6px #76ff03, 0 0 10px #00c853, 0 0 3px #2e7d32;
+        }
+        tr.fosfor-mavi-satir td.fosfor-yesil-koyu-yazi,
+        tr.fosfor-yesil-satir td.fosfor-yesil-koyu-yazi,
+        tr.guclu-uyari-satir td.fosfor-yesil-koyu-yazi {
+            color: #004d40 !important;
+            text-shadow: 0 0 8px #69f0ae, 0 0 14px #00e676, 0 0 4px #1b5e20;
+        }
+
+        /* Son 7 koşu 8002-8001 ort. 0'a yakın 3 at — AT İSMİ mavi fosfor yazı */
+        .at-ismi-mavi-vurgu {
+            color: #01579b !important;
+            font-weight: 800 !important;
+            text-shadow: 0 0 8px #00e5ff, 0 0 14px #18ffff, 0 0 4px #0288d1;
+        }
+        tr.guclu-uyari-satir td.at-ismi-mavi-vurgu,
+        tr.fosfor-mavi-satir td.at-ismi-mavi-vurgu,
+        tr.fosfor-yesil-satir td.at-ismi-mavi-vurgu {
+            color: #84ffff !important;
+            text-shadow: 0 0 10px #18ffff, 0 0 18px #00e5ff, 0 0 6px #fff;
+        }
+
+        /* Son 3 koşu 8002-8001 ort. 0'a yakın 3 at — AT ID mavi hücre */
+        .at-id-mavi-vurgu {
+            background: linear-gradient(135deg, #01579b 0%, #0288d1 50%, #03a9f4 100%) !important;
+            color: #e1f5fe !important;
+            font-weight: 800 !important;
+            box-shadow: inset 0 0 12px rgba(0, 229, 255, 0.45), 0 0 10px rgba(3, 169, 244, 0.35);
+            text-shadow: 0 0 6px rgba(255, 255, 255, 0.85);
+        }
+        tr.guclu-uyari-satir td.at-id-mavi-vurgu,
+        tr.fosfor-mavi-satir td.at-id-mavi-vurgu,
+        tr.fosfor-yesil-satir td.at-id-mavi-vurgu {
+            background: linear-gradient(135deg, #0277bd 0%, #039be5 50%, #29b6f6 100%) !important;
+            color: #fff !important;
+            box-shadow: inset 0 0 14px rgba(0, 229, 255, 0.55), 0 0 12px rgba(41, 182, 246, 0.45) !important;
+        }
+
+        /* Son 2 koşu 8002-8001 ort. 0'a yakın 3 at — TARİH koyu mavi */
+        .tarih-koyu-mavi-vurgu {
+            color: #0d47a1 !important;
+            font-weight: 800 !important;
+            background: rgba(13, 71, 161, 0.1) !important;
+            text-shadow: 0 0 6px rgba(25, 118, 210, 0.45);
+            box-shadow: inset 0 0 8px rgba(13, 71, 161, 0.15);
+        }
+        tr.guclu-uyari-satir td.tarih-koyu-mavi-vurgu,
+        tr.fosfor-mavi-satir td.tarih-koyu-mavi-vurgu,
+        tr.fosfor-yesil-satir td.tarih-koyu-mavi-vurgu {
+            color: #90caf9 !important;
+            background: rgba(13, 71, 161, 0.35) !important;
+            text-shadow: 0 0 8px rgba(144, 202, 249, 0.8);
+        }
+
+        /* AT İSMİ+AT ID+TARİH vurgu + TEST1/2/3 kırmızı → SIRA koyu mavi */
+        .at-sira-koyu-mavi-vurgu {
+            background: linear-gradient(135deg, #0d47a1 0%, #1565c0 50%, #1976d2 100%) !important;
+            color: #e3f2fd !important;
+            font-weight: 800 !important;
+            box-shadow: inset 0 0 12px rgba(13, 71, 161, 0.55), 0 0 8px rgba(25, 118, 210, 0.35);
+            text-shadow: 0 0 6px rgba(227, 242, 253, 0.8);
+        }
+        tr.guclu-uyari-satir td.at-sira-koyu-mavi-vurgu,
+        tr.fosfor-mavi-satir td.at-sira-koyu-mavi-vurgu,
+        tr.fosfor-yesil-satir td.at-sira-koyu-mavi-vurgu {
+            background: linear-gradient(135deg, #0a3d91 0%, #0d47a1 50%, #1565c0 100%) !important;
+            color: #fff !important;
+            box-shadow: inset 0 0 14px rgba(144, 202, 249, 0.45), 0 0 10px rgba(25, 118, 210, 0.5) !important;
+        }
+
+        /* TEST1≈TEST2 sarı vurgulu at — en soldaki SIRA (tüm satırlar) koyu mavi */
+        .sira-no-koyu-mavi-vurgu,
+        td.col-sticky.sira-no-koyu-mavi-vurgu {
+            background: linear-gradient(135deg, #0d47a1 0%, #1565c0 50%, #1976d2 100%) !important;
+            color: #e3f2fd !important;
+            font-weight: 800 !important;
+            box-shadow: inset 0 0 12px rgba(13, 71, 161, 0.55), 0 0 8px rgba(25, 118, 210, 0.35);
+            text-shadow: 0 0 6px rgba(227, 242, 253, 0.8);
+        }
+        tr.guclu-uyari-satir td.sira-no-koyu-mavi-vurgu,
+        tr.fosfor-mavi-satir td.sira-no-koyu-mavi-vurgu,
+        tr.fosfor-yesil-satir td.sira-no-koyu-mavi-vurgu {
+            background: linear-gradient(135deg, #0a3d91 0%, #0d47a1 50%, #1565c0 100%) !important;
+            color: #fff !important;
+            box-shadow: inset 0 0 14px rgba(144, 202, 249, 0.45), 0 0 10px rgba(25, 118, 210, 0.5) !important;
+        }
+
+        /* En yeni 2 yeşil koşu + herhangi sarı TEST1/2 + son 3'te kırmızı TEST → fosfor kırmızı kenar */
+        @keyframes fosfor-kirmizi-kenar {
+            0%, 100% {
+                outline-color: #b71c1c;
+                box-shadow: inset 0 0 10px rgba(255, 23, 68, 0.35), 0 0 10px rgba(198, 40, 40, 0.55);
+            }
+            50% {
+                outline-color: #ff1744;
+                box-shadow: inset 0 0 14px rgba(255, 82, 82, 0.5), 0 0 18px rgba(255, 23, 68, 0.75);
+            }
+        }
+        tr.fosfor-kirmizi-kenar-satir td {
+            outline: 2px solid #b71c1c;
+            outline-offset: -2px;
+            animation: fosfor-kirmizi-kenar 1.4s ease-in-out infinite;
+        }
+        /* Sticky sütunlarda position:sticky korunmalı (relative ile ezilmesin) */
+        tr.fosfor-kirmizi-kenar-satir .col-delete {
+            position: sticky;
+            left: 0;
+            z-index: 7;
+        }
+        tr.fosfor-kirmizi-kenar-satir .col-sticky {
+            position: sticky;
+            left: 52px;
+            z-index: 6;
+        }
+        tr.fosfor-kirmizi-kenar-satir .col-sticky-2 {
+            position: sticky;
+            left: 104px;
+            z-index: 6;
+        }
+
+        /* Koyu mavi kenar: TEST1≤TEST2≤TEST3 veya SON800-1 en iyi 3 */
+        @keyframes koyu-mavi-kenar {
+            0%, 100% {
+                outline-color: #0d47a1;
+                box-shadow: inset 0 0 10px rgba(13, 71, 161, 0.35), 0 0 10px rgba(21, 101, 192, 0.55);
+            }
+            50% {
+                outline-color: #1565c0;
+                box-shadow: inset 0 0 14px rgba(25, 118, 210, 0.5), 0 0 18px rgba(33, 150, 243, 0.75);
+            }
+        }
+        tr.koyu-mavi-kenar-satir td {
+            outline: 2px solid #0d47a1;
+            outline-offset: -2px;
+            animation: koyu-mavi-kenar 1.4s ease-in-out infinite;
+        }
+        tr.koyu-mavi-kenar-satir .col-delete {
+            position: sticky;
+            left: 0;
+            z-index: 7;
+        }
+        tr.koyu-mavi-kenar-satir .col-sticky {
+            position: sticky;
+            left: 52px;
+            z-index: 6;
+        }
+        tr.koyu-mavi-kenar-satir .col-sticky-2 {
+            position: sticky;
+            left: 104px;
+            z-index: 6;
+        }
+
+        /* Mavi kenarlı satırlar arasında |TEST9| 0'a en yakın at → TEST9 koyu mavi yazı */
+        .mavi-kenar-test9-vurgu,
+        tr.koyu-mavi-kenar-satir td.mavi-kenar-test9-vurgu {
+            color: #0a3d91 !important;
+            font-weight: 800 !important;
+            text-shadow: 0 0 8px rgba(25, 118, 210, 0.75), 0 0 14px rgba(13, 71, 161, 0.55), 0 0 4px rgba(255, 255, 255, 0.6);
+        }
+
+        /* Görünüm SIRA=1 (en yeni koşu): 8002-8001 top-3 pozitif veya TEST9 yakın → mavi yanıp sönen */
+        @keyframes mavi-yanip-son {
+            0%, 100% {
+                background: linear-gradient(135deg, #002171 0%, #01579b 45%, #0277bd 100%) !important;
+                color: #ffffff !important;
+                font-weight: 900 !important;
+                outline: 2px solid #00e5ff !important;
+                outline-offset: -2px;
+                box-shadow:
+                    inset 0 0 18px #00e5ff,
+                    0 0 22px #00b0ff,
+                    0 0 36px #18ffff !important;
+                text-shadow:
+                    0 0 12px #ffffff,
+                    0 0 20px #18ffff,
+                    0 0 28px #00e5ff;
+                transform: scale(1);
+            }
+            50% {
+                background: linear-gradient(135deg, #e0f7fa 0%, #80deea 50%, #4dd0e1 100%) !important;
+                color: #002171 !important;
+                font-weight: 900 !important;
+                outline: 3px solid #0277bd !important;
+                outline-offset: -3px;
+                box-shadow:
+                    inset 0 0 8px #ffffff,
+                    0 0 10px rgba(2, 119, 189, 0.35),
+                    0 0 0 rgba(24, 255, 255, 0) !important;
+                text-shadow: 0 0 4px rgba(1, 87, 155, 0.45);
+                transform: scale(1.02);
+            }
+        }
+        td.mavi-yanip-son,
+        tr.guclu-uyari-satir td.mavi-yanip-son,
+        tr.fosfor-mavi-satir td.mavi-yanip-son,
+        tr.fosfor-yesil-satir td.mavi-yanip-son,
+        tr.fosfor-kirmizi-kenar-satir td.mavi-yanip-son,
+        tr.koyu-mavi-kenar-satir td.mavi-yanip-son,
+        tr.pembe-satir td.mavi-yanip-son {
+            animation: mavi-yanip-son 0.7s cubic-bezier(0.4, 0, 0.2, 1) infinite !important;
+            position: relative;
+            z-index: 3;
+            letter-spacing: 0.02em;
+        }
+
+        /* TEST9 — SIRA=1 kuralından |TEST9| 0'a en yakın 3 at: ekstra belirgin yanıp sönme */
+        @keyframes test9-yanip-son-guclu {
+            0%, 45% {
+                background: linear-gradient(135deg, #000051 0%, #001a7a 35%, #0d47a1 100%) !important;
+                color: #ffffff !important;
+                font-weight: 900 !important;
+                outline: 3px solid #00e5ff !important;
+                outline-offset: -3px;
+                box-shadow:
+                    inset 0 0 24px #00e5ff,
+                    inset 0 0 40px #18ffff,
+                    0 0 28px #00b0ff,
+                    0 0 48px #18ffff,
+                    0 0 64px rgba(0, 229, 255, 0.85) !important;
+                text-shadow:
+                    0 0 14px #ffffff,
+                    0 0 24px #18ffff,
+                    0 0 36px #00e5ff,
+                    0 0 48px #ffffff;
+                transform: scale(1.07);
+                filter: brightness(1.2);
+            }
+            50%, 100% {
+                background: #ffffff !important;
+                color: #000051 !important;
+                outline: 4px solid #0277bd !important;
+                outline-offset: -4px;
+                box-shadow:
+                    inset 0 0 10px rgba(2, 119, 189, 0.35),
+                    0 0 20px #00e5ff,
+                    0 0 40px #18ffff,
+                    0 0 60px rgba(24, 255, 255, 0.9) !important;
+                text-shadow: 0 0 6px rgba(0, 0, 81, 0.5);
+                transform: scale(1.1);
+                filter: brightness(1.35);
+            }
+        }
+        td.test9-yanip-son-guclu,
+        tr.guclu-uyari-satir td.test9-yanip-son-guclu,
+        tr.fosfor-mavi-satir td.test9-yanip-son-guclu,
+        tr.fosfor-yesil-satir td.test9-yanip-son-guclu,
+        tr.fosfor-kirmizi-kenar-satir td.test9-yanip-son-guclu,
+        tr.koyu-mavi-kenar-satir td.test9-yanip-son-guclu,
+        tr.pembe-satir td.test9-yanip-son-guclu {
+            animation: test9-yanip-son-guclu 0.55s step-end infinite !important;
+            position: relative;
+            z-index: 8 !important;
+            letter-spacing: 0.05em;
+            font-size: 1.08em;
+        }
+        td.test9-yanip-son-guclu.mavi-kenar-test9-vurgu {
+            color: inherit !important;
+            text-shadow: inherit;
+        }
     </style>
 </head>
 <body>
@@ -98,54 +597,55 @@
 <div id="gosterimResults" class="results-table"><div class="empty">🏇 HESAPLAMA KAYITLARI butonuna tıklayın</div></div>
 </div>
 
+<script src="js/utils.js?v=20260824w"></script>
+<script src="js/formula-engine.js?v=20260824w"></script>
 <script>
 let currentHesaplamaData = null;
 let currentHesaplamaId = null;
-let currentSort = { column: null, direction: 'asc' };
+let currentProgramTarih = null;
+let currentHipodrom = null;
+let currentSort = { column: null, direction: 'asc', type: null };
 
-function dereceToSalise(derece) {
-    if (!derece || derece === '-' || derece === 'Derecesiz') return null;
-    try {
-        let s = derece.toString().trim().replace(/:/g, '.');
-        let parts = s.split('.');
-        if (parts.length === 3) {
-            return (parseInt(parts[0]) * 60 * 100) + (parseInt(parts[1]) * 100) + parseInt(parts[2]);
-        } else if (parts.length === 2) {
-            return (parseInt(parts[0]) * 100) + parseInt(parts[1]);
-        } else if (parts.length === 1) {
-            return parseInt(parts[0]) * 100;
-        }
-    } catch(e) { return null; }
-    return null;
-}
+const GOSTERIM_HEADERS = [
+    { col: 0, label: 'SIRA', type: 'number', sticky: 1 },
+    { col: 1, label: 'AT İSMİ', type: 'string', sticky: 2 },
+    { col: 2, label: 'AT ID', type: 'number' },
+    { col: 3, label: 'TARİH', type: 'date' },
+    { col: 4, label: 'ŞEHİR', type: 'string' },
+    { col: 5, label: 'MESAFE', type: 'number' },
+    { col: 6, label: 'SIRA', type: 'number' },
+    { col: 7, label: 'AT DERECE', type: 'string' },
+    { col: 8, label: '1.DERECE', type: 'string' },
+    { col: 9, label: 'SON800-1', type: 'string' },
+    { col: 10, label: 'SON800-2', type: 'string' },
+    { col: 11, label: 'DR/SL', type: 'number' },
+    { col: 12, label: '1DR/SL', type: 'number' },
+    { col: 13, label: 'DR/1DR', type: 'number', title: '(DR/SL) ÷ (1DR/SL)' },
+    { col: 14, label: 'FARK', type: 'number' },
+    { col: 15, label: '8001/SL', type: 'number' },
+    { col: 16, label: '8002/SL', type: 'number' },
+    { col: 17, label: '8002-8001', type: 'number' },
+    { col: 18, label: 'T1×DR', type: 'string', title: 'TEST1 × DR/1DR — birinci farkı entegre TEST1' },
+    { col: 19, label: 'T1×DR-T3', type: 'string', title: 'TEST3 × DR/1DR — birinci farkı entegre TEST3' },
+    { col: 20, label: 'TEST1', type: 'string' },
+    { col: 21, label: 'TEST2', type: 'string' },
+    { col: 22, label: 'TEST3', type: 'string' },
+    { col: 23, label: 'T2−T3', type: 'number', title: 'TEST2 − TEST3 (negatif en yüksek → yeşil vurgu)' },
+    { col: 24, label: 'TEST4', type: 'number' },
+    { col: 25, label: 'TEST5', type: 'number', title: 'T1×DR − T1×DR-T3 (TEST1−TEST3 entegre farkı)' },
+    { col: 26, label: 'TEST6', type: 'number' },
+    { col: 27, label: 'TEST7', type: 'number' },
+    { col: 28, label: 'TEST8', type: 'number' },
+    { col: 29, label: 'TEST9', type: 'number' },
+    { col: 30, label: 'İLK FARK', type: 'number' },
+    { col: 31, label: 'SON FARK', type: 'number' },
+    { col: 32, label: 'FARKLARIN FARKI', type: 'number' }
+];
 
-function saliseToDerece(salise) {
-    if (!salise) return '-';
-    try {
-        let salise_int = Math.floor(Math.abs(salise));
-        let dk = Math.floor(salise_int / 6000);
-        let kalan = salise_int % 6000;
-        let sn = Math.floor(kalan / 100);
-        let sl = kalan % 100;
-        if (dk > 0) return `${dk}.${sn.toString().padStart(2,'0')}.${sl.toString().padStart(2,'0')}`;
-        else return `${sn.toString().padStart(2,'0')}.${sl.toString().padStart(2,'0')}`;
-    } catch(e) { return '-'; }
-}
-
-function saliseToFarkFormat(salise) {
-    if (salise === null || salise === undefined) return '-';
-    let abs_salise = Math.floor(Math.abs(parseInt(salise)));
-    let sn = Math.floor(abs_salise / 100);
-    let sl = abs_salise % 100;
-    let sign = salise >= 0 ? '+' : '-';
-    return `${sign}${sn.toString().padStart(2,'0')}.${sl.toString().padStart(2,'0')}`;
-}
-
-function metreBasiSalise(salise, mesafe) {
-    if (salise && mesafe && mesafe !== '-' && mesafe !== 'Derecesiz') {
-        return salise / parseInt(mesafe);
-    }
-    return null;
+function headerStickyClass(h) {
+    if (h.sticky === 1) return ' col-sticky';
+    if (h.sticky === 2) return ' col-sticky-2';
+    return '';
 }
 
 document.getElementById('kayitlariGetirBtn').onclick = async () => {
@@ -167,12 +667,12 @@ document.getElementById('kayitlariGetirBtn').onclick = async () => {
             return;
         }
         
-        let html = '<div style="margin-bottom:10px; font-weight:bold;">📋 HESAPLAMA KAYITLARI:</div>';
+        let html = '<div class="kayit-listesi-title">📋 HESAPLAMA KAYITLARI</div>';
         for (let i = 0; i < result.kayitlar.length; i++) {
             const k = result.kayitlar[i];
             html += `<div class="kayit-item" data-id="${k.id}">
-                        <span>📅 ${k.tarih} | 🏟️ ${k.hipodrom} | 🐎 ${k.total_horses} at | 🕐 ${k.kayit_tarihi}</span>
-                        <span style="color:#ff9800;">📂 Yükle →</span>
+                        <span>📅 ${AtSpeedUtils.escapeHtml(k.tarih)} | 🏟️ ${AtSpeedUtils.escapeHtml(k.hipodrom)} | 🐎 ${k.total_horses} at | 🕐 ${AtSpeedUtils.escapeHtml(k.kayit_tarihi)}</span>
+                        <span class="kayit-item-action">Yükle →</span>
                     </div>`;
         }
         kayitListesiDiv.innerHTML = html;
@@ -205,46 +705,30 @@ async function loadKayit(id) {
         
         currentHesaplamaData = result.kayit.veri;
         currentHesaplamaId = id;
+        currentProgramTarih = result.kayit.tarih || null;
+        currentHipodrom = result.kayit.hipodrom || null;
         
         displayResults(currentHesaplamaData);
-        statusDiv.innerHTML = '<div class="status status-success">✅ Kayıt yüklendi! (ID: ' + id + ')</div>';
+        const tarihNotu = currentProgramTarih
+            ? ' — ' + currentProgramTarih + ' koşuları hariç tutuldu'
+            : '';
+        const hipodromNotu = currentHipodrom ? ' | 🏟️ ' + currentHipodrom + ' şehri yeşil' : '';
+        statusDiv.innerHTML = '<div class="status status-success">✅ Kayıt yüklendi! (ID: ' + id + ')' + tarihNotu + hipodromNotu + ' — 🗑️ SİL sütunu solda</div>';
+
+        window.parent.postMessage({
+            type: '88atspeed-kayit-loaded',
+            kayit: {
+                id: id,
+                tarih: currentProgramTarih || result.kayit.tarih,
+                hipodrom: currentHipodrom || result.kayit.hipodrom,
+                race_count: currentHesaplamaData.length,
+                veri: currentHesaplamaData
+            }
+        }, '*');
         
     } catch (error) {
         statusDiv.innerHTML = '<div class="status status-error">❌ Yükleme hatası: ' + error.message + '</div>';
     }
-}
-
-function parseNumberFromText(text) {
-    if (!text || text === '-') return null;
-    let cleaned = text.toString().replace(/[^0-9.-]/g, '');
-    let num = parseFloat(cleaned);
-    return isNaN(num) ? null : num;
-}
-
-function sortTableData(rowsData, columnIndex, type, direction) {
-    return rowsData.sort((a, b) => {
-        let valA = a.values[columnIndex];
-        let valB = b.values[columnIndex];
-        
-        if (type === 'number') {
-            let numA = parseNumberFromText(valA);
-            let numB = parseNumberFromText(valB);
-            if (numA === null && numB === null) return 0;
-            if (numA === null) return -1;
-            if (numB === null) return 1;
-            return direction === 'asc' ? numA - numB : numB - numA;
-        } else if (type === 'date') {
-            let dateA = new Date(valA.split('.').reverse().join('-'));
-            let dateB = new Date(valB.split('.').reverse().join('-'));
-            if (isNaN(dateA)) dateA = new Date(0);
-            if (isNaN(dateB)) dateB = new Date(0);
-            return direction === 'asc' ? dateA - dateB : dateB - dateA;
-        } else {
-            valA = valA.toLowerCase();
-            valB = valB.toLowerCase();
-            return direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
-        }
-    });
 }
 
 function displayResults(data) {
@@ -252,417 +736,137 @@ function displayResults(data) {
         document.getElementById('gosterimResults').innerHTML = '<div class="empty">⚠️ Veri bulunamadı</div>';
         return;
     }
-    
+
     let html = '';
-    
+
     for (let i = 0; i < data.length; i++) {
         const race = data[i];
         const raceMesafe = (race.mesafe && race.mesafe !== '?') ? race.mesafe : (race.raceDistance || '?');
         const racePist = race.pist || '';
         const mesafeGosterim = raceMesafe !== '?' ? raceMesafe + ' ' + racePist : '?';
-        const hedefMesafe = parseInt(raceMesafe);
-        
-        let test1Degerleri = [];
-        let test2Degerleri = [];
-        
-        for (let j = 0; j < race.horses.length; j++) {
-            const horse = race.horses[j];
-            const kosular = horse.kosular || [];
-            for (let idx = 0; idx < kosular.length; idx++) {
-                const atKosu = kosular[idx];
-                const gecmisMesafe = atKosu.mesafe;
-                const dereceStr = atKosu.at_derece;
-                const dereceSalise = dereceToSalise(dereceStr);
-                const dr_sl = metreBasiSalise(dereceSalise, gecmisMesafe);
-                
-                let test1Val = null;
-                if (dr_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
-                    test1Val = hedefMesafe * dr_sl;
-                }
-                if (test1Val !== null) {
-                    test1Degerleri.push({ j, idx, val: test1Val });
-                }
-                
-                let son800_1 = atKosu.son800_bir;
-                const son800_1Salise = dereceToSalise(son800_1);
-                const son800_1_sl = son800_1Salise ? son800_1Salise / 800 : null;
-                let test2Val = null;
-                if (son800_1_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
-                    test2Val = hedefMesafe * son800_1_sl;
-                }
-                if (test2Val !== null) {
-                    test2Degerleri.push({ j, idx, val: test2Val });
-                }
-            }
-        }
-        
-        test1Degerleri.sort((a, b) => a.val - b.val);
-        test2Degerleri.sort((a, b) => a.val - b.val);
-        
-        const enIyilerTest1 = new Set();
-        const enIyilerTest2 = new Set();
-        
-        for (let t = 0; t < Math.min(3, test1Degerleri.length); t++) {
-            enIyilerTest1.add(`${test1Degerleri[t].j}_${test1Degerleri[t].idx}`);
-        }
-        for (let t = 0; t < Math.min(3, test2Degerleri.length); t++) {
-            enIyilerTest2.add(`${test2Degerleri[t].j}_${test2Degerleri[t].idx}`);
-        }
-        
-        let horseTest4Farki = {};
-        let horseTest7Farki = {};
-        let horseIlkFark = {};
-        let horseSonFark = {};
-        let horseFarklarinFarki = {};
-        
-        for (let j = 0; j < race.horses.length; j++) {
-            const horse = race.horses[j];
-            const kosular = horse.kosular || [];
-            
-            const kosularSorted = [...kosular].sort((a, b) => {
-                const dateA = a.tarih ? new Date(a.tarih.split('.').reverse().join('-')) : new Date(0);
-                const dateB = b.tarih ? new Date(b.tarih.split('.').reverse().join('-')) : new Date(0);
-                return dateA - dateB;
-            });
-            
-            let test4Degerleri = [];
-            let test7Degerleri = [];
-            let farkDegerleri = [];
-            
-            for (let idx = 0; idx < kosularSorted.length; idx++) {
-                const atKosu = kosularSorted[idx];
-                const gecmisMesafe = atKosu.mesafe;
-                const dereceStr = atKosu.at_derece;
-                const birinciDerece = atKosu.birinci_derece;
-                const dereceSalise = dereceToSalise(dereceStr);
-                const birinciSalise = dereceToSalise(birinciDerece);
-                const dr_sl = metreBasiSalise(dereceSalise, gecmisMesafe);
-                const birinci_dr_sl = metreBasiSalise(birinciSalise, gecmisMesafe);
-                
-                let test1_salise = null;
-                if (dr_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
-                    test1_salise = hedefMesafe * dr_sl;
-                }
-                
-                let son800_2 = atKosu.son800_iki;
-                if (!son800_2 || son800_2 === '-') son800_2 = atKosu.son800_bir;
-                const son800_2Salise = dereceToSalise(son800_2);
-                const son800_2_sl = son800_2Salise ? son800_2Salise / 800 : null;
-                let test3_salise = null;
-                if (son800_2_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
-                    test3_salise = hedefMesafe * son800_2_sl;
-                }
-                let test4_salise = null;
-                if (test1_salise !== null && test3_salise !== null) {
-                    test4_salise = test3_salise - test1_salise;
-                }
-                if (test4_salise !== null) {
-                    test4Degerleri.push(test4_salise);
-                }
-                
-                let son800_1 = atKosu.son800_bir;
-                const son800_1Salise = dereceToSalise(son800_1);
-                const son800_1_sl = son800_1Salise ? son800_1Salise / 800 : null;
-                let test2_salise = null;
-                if (son800_1_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
-                    test2_salise = hedefMesafe * son800_1_sl;
-                }
-                let test7_salise = null;
-                if (test1_salise !== null && test2_salise !== null) {
-                    test7_salise = test1_salise - test2_salise;
-                }
-                if (test7_salise !== null) {
-                    test7Degerleri.push(test7_salise);
-                }
-                
-                let farkDegeri = null;
-                if (birinci_dr_sl !== null && dr_sl !== null) {
-                    farkDegeri = birinci_dr_sl - dr_sl;
-                }
-                if (farkDegeri !== null) {
-                    farkDegerleri.push(farkDegeri);
-                }
-            }
-            
-            if (test4Degerleri.length > 0) {
-                const ilkTest4 = test4Degerleri[0];
-                const sonTest4 = test4Degerleri[test4Degerleri.length - 1];
-                horseTest4Farki[j] = sonTest4 - ilkTest4;
-            } else {
-                horseTest4Farki[j] = null;
-            }
-            
-            if (test7Degerleri.length > 0) {
-                const ilkTest7 = test7Degerleri[0];
-                const sonTest7 = test7Degerleri[test7Degerleri.length - 1];
-                horseTest7Farki[j] = sonTest7 - ilkTest7;
-            } else {
-                horseTest7Farki[j] = null;
-            }
-            
-            if (farkDegerleri.length > 0) {
-                horseIlkFark[j] = farkDegerleri[0];
-                horseSonFark[j] = farkDegerleri[farkDegerleri.length - 1];
-                horseFarklarinFarki[j] = horseSonFark[j] - horseIlkFark[j];
-            } else {
-                horseIlkFark[j] = null;
-                horseSonFark[j] = null;
-                horseFarklarinFarki[j] = null;
-            }
-        }
-        
-        let raceRowsData = [];
-        
-        for (let j = 0; j < race.horses.length; j++) {
-            const horse = race.horses[j];
-            const kosular = horse.kosular || [];
-            const test8Deger = horseTest4Farki[j];
-            const test9Deger = horseTest7Farki[j];
-            const ilkFarkDeger = horseIlkFark[j];
-            const sonFarkDeger = horseSonFark[j];
-            const farklarinFarkiDeger = horseFarklarinFarki[j];
-            
-            const kosularSorted = [...kosular].sort((a, b) => {
-                const dateA = a.tarih ? new Date(a.tarih.split('.').reverse().join('-')) : new Date(0);
-                const dateB = b.tarih ? new Date(b.tarih.split('.').reverse().join('-')) : new Date(0);
-                return dateB - dateA;
-            });
-            
-            for (let idx = 0; idx < kosularSorted.length; idx++) {
-                const atKosu = kosularSorted[idx];
-                const originalIdx = kosular.findIndex(k => k.tarih === atKosu.tarih && k.at_derece === atKosu.at_derece);
-                
-                const gecmisMesafe = atKosu.mesafe;
-                const dereceStr = atKosu.at_derece;
-                const birinciDerece = atKosu.birinci_derece;
-                let son800_1 = atKosu.son800_bir;
-                let son800_2 = atKosu.son800_iki;
-                if (!son800_2 || son800_2 === '-') son800_2 = son800_1;
-                
-                const dereceSalise = dereceToSalise(dereceStr);
-                const birinciSalise = dereceToSalise(birinciDerece);
-                const son800_1Salise = dereceToSalise(son800_1);
-                const son800_2Salise = dereceToSalise(son800_2);
-                
-                const dr_sl = metreBasiSalise(dereceSalise, gecmisMesafe);
-                const birinci_dr_sl = metreBasiSalise(birinciSalise, gecmisMesafe);
-                const son800_1_sl = son800_1Salise ? son800_1Salise / 800 : null;
-                const son800_2_sl = son800_2Salise ? son800_2Salise / 800 : null;
-                
-                const fark = (birinci_dr_sl && dr_sl) ? (birinci_dr_sl - dr_sl) : null;
-                const fark_8002_8001 = (son800_2_sl && son800_1_sl) ? (son800_2_sl - son800_1_sl) : null;
-                
-                let test1_salise = null, test2_salise = null, test3_salise = null;
-                if (dr_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
-                    test1_salise = hedefMesafe * dr_sl;
-                }
-                if (son800_1_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
-                    test2_salise = hedefMesafe * son800_1_sl;
-                }
-                if (son800_2_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
-                    test3_salise = hedefMesafe * son800_2_sl;
-                }
-                
-                let kirmiziYazi = false;
-                if (test1_salise !== null && test2_salise !== null && test3_salise !== null) {
-                    if (test1_salise < test2_salise && test1_salise < test3_salise) {
-                        kirmiziYazi = true;
-                    }
-                }
-                
-                let test4_salise = null, test5_salise = null, test6_salise = null, test7_salise = null;
-                if (test1_salise && test3_salise) test4_salise = test3_salise - test1_salise;
-                if (test1_salise !== null && birinciSalise !== null) {
-                    test5_salise = test1_salise - birinciSalise;
-                }
-                if (test1_salise && test2_salise) test6_salise = test2_salise - test1_salise;
-                if (test1_salise !== null && test2_salise !== null) {
-                    test7_salise = test1_salise - test2_salise;
-                }
-                
-                let yesilYazi = false;
-                if (test5_salise !== null) {
-                    let test5Fark = test5_salise / 100;
-                    if (test5Fark < 1) {
-                        yesilYazi = true;
-                    }
-                }
-                
-                let ayniMi = (test4_salise !== null && test6_salise !== null && test4_salise === test6_salise);
-                let test1Class = enIyilerTest1.has(`${j}_${originalIdx}`) ? 'eniyi-test1' : '';
-                let test2Class = enIyilerTest2.has(`${j}_${originalIdx}`) ? 'eniyi-test2' : '';
-                
-                let gosterimFark = (birinci_dr_sl && dr_sl) ? (birinci_dr_sl - dr_sl) : null;
-                
-                let rowValues = [
-                    (idx+1).toString(),
-                    horse.name || '-',
-                    horse.atId || '-',
-                    atKosu.tarih || '-',
-                    atKosu.sehir || '-',
-                    gecmisMesafe || '-',
-                    atKosu.sira || '-',
-                    dereceStr || '-',
-                    birinciDerece || '-',
-                    son800_1 || '-',
-                    son800_2 || '-',
-                    dr_sl ? dr_sl.toFixed(4) : '-',
-                    birinci_dr_sl ? birinci_dr_sl.toFixed(4) : '-',
-                    gosterimFark ? (gosterimFark > 0 ? '+' : '') + gosterimFark.toFixed(4) : '-',
-                    son800_1_sl ? son800_1_sl.toFixed(4) : '-',
-                    son800_2_sl ? son800_2_sl.toFixed(4) : '-',
-                    fark_8002_8001 ? (fark_8002_8001 > 0 ? '+' : '') + fark_8002_8001.toFixed(4) : '-',
-                    test1_salise ? saliseToDerece(test1_salise) : '-',
-                    test2_salise ? saliseToDerece(test2_salise) : '-',
-                    test3_salise ? saliseToDerece(test3_salise) : '-',
-                    test4_salise ? saliseToFarkFormat(test4_salise) : '-',
-                    saliseToFarkFormat(test5_salise),
-                    test6_salise ? saliseToFarkFormat(test6_salise) : '-',
-                    test7_salise ? saliseToFarkFormat(test7_salise) : '-',
-                    test8Deger !== null ? saliseToFarkFormat(test8Deger) : '-',
-                    test9Deger !== null ? saliseToFarkFormat(test9Deger) : '-',
-                    ilkFarkDeger !== null ? (ilkFarkDeger > 0 ? '+' : '') + ilkFarkDeger.toFixed(4) : '-',
-                    sonFarkDeger !== null ? (sonFarkDeger > 0 ? '+' : '') + sonFarkDeger.toFixed(4) : '-',
-                    farklarinFarkiDeger !== null ? (farklarinFarkiDeger > 0 ? '+' : '') + farklarinFarkiDeger.toFixed(4) : '-'
-                ];
-                
-                let farkDegeriStr = rowValues[13];
-                let fark8002DegeriStr = rowValues[16];
-                let farkBosMu = (farkDegeriStr === '-' || farkDegeriStr === null);
-                let fark8002BosMu = (fark8002DegeriStr === '-' || fark8002DegeriStr === null);
-                let pembeSatir = (farkBosMu && fark8002BosMu);
-                let pembeFarkHucre = (farkBosMu && !fark8002BosMu);
-                let pembe8002Hucre = (!farkBosMu && fark8002BosMu);
-                
-                raceRowsData.push({
-                    element: null,
-                    values: rowValues,
-                    classes: {
-                        satirClass: ayniMi ? 'sari-satir' : (pembeSatir ? 'pembe-satir' : ''),
-                        test4Class: ayniMi ? 'sari-hucre' : '',
-                        test6Class: ayniMi ? 'sari-hucre' : '',
-                        test1Class: test1Class,
-                        test2Class: test2Class,
-                        kirmiziClass: kirmiziYazi ? 'kirmizi-yazi' : '',
-                        yesilClass: yesilYazi ? 'yesil-yazi' : '',
-                        farkClass: pembeFarkHucre ? 'pembe-hucre' : '',
-                        fark8002Class: pembe8002Hucre ? 'pembe-hucre' : ''
-                    }
-                });
-            }
-        }
-        
-        if (currentSort.column !== null && currentSort.direction) {
-            let columnIndex = currentSort.column;
-            let type = 'string';
-            if (columnIndex === 0 || columnIndex === 3 || columnIndex === 6 || columnIndex >= 11) {
-                type = 'number';
-            } else if (columnIndex === 2) {
-                type = 'number';
-            } else if (columnIndex === 4) {
-                type = 'date';
-            }
-            raceRowsData = sortTableData(raceRowsData, columnIndex, type, currentSort.direction);
-        }
-        
-        let raceHtml = `<div class="race-card">`;
-        raceHtml += `<div class="race-header">🏆 ${race.raceNo}. KOŞU (${race.horses.length} at) - MESAFE: ${mesafeGosterim}</div>`;
-        raceHtml += `<div style="overflow-x:auto;">`;
-        raceHtml += `<table border="0" id="raceTable_${i}" style="width:100%; border-collapse:collapse;">`;
+
+        let raceRowsData = GosterimEngine.buildRaceRows(race, {
+            programTarih: currentProgramTarih,
+            hipodromSehir: currentHipodrom,
+            raceIndex: i
+        });
+        raceRowsData = GosterimEngine.sortRows(raceRowsData, currentSort);
+
+        let raceHtml = `<div class="race-card" data-race-index="${i}">`;
+        raceHtml += `<div class="race-header">`;
+        raceHtml += `<span>🏆 ${race.raceNo}. KOŞU</span>`;
+        raceHtml += `<span class="race-header-badge">${race.horses.length} AT</span>`;
+        raceHtml += `<span class="race-header-badge">MESAFE: ${AtSpeedUtils.escapeHtml(mesafeGosterim)}</span>`;
+        raceHtml += `</div>`;
+        raceHtml += `<div class="race-table-wrap">`;
+        raceHtml += `<table class="gosterim-table" id="raceTable_${i}">`;
         raceHtml += `<thead><tr>`;
-        raceHtml += `<th data-column="0" data-type="number" style="background:#1a1a3e;">SIRA <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="1" data-type="string" style="background:#1a1a3e;">AT İSMİ <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="2" data-type="string" style="background:#1a1a3e;">AT ID <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="3" data-type="date" style="background:#1a1a3e;">TARİH <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="4" data-type="string" style="background:#1a1a3e;">ŞEHİR <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="5" data-type="number" style="background:#1a1a3e;">MESAFE <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="6" data-type="number" style="background:#1a1a3e;">SIRA <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="7" data-type="string" style="background:#1a1a3e;">AT DERECE <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="8" data-type="string" style="background:#1a1a3e;">1.DERECE <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="9" data-type="string" style="background:#1a1a3e;">SON800-1 <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="10" data-type="string" style="background:#1a1a3e;">SON800-2 <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="11" data-type="number" style="background:#1a1a3e;">DR/SL <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="12" data-type="number" style="background:#1a1a3e;">1DR/SL <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="13" data-type="number" style="background:#1a1a3e;">FARK <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="14" data-type="number" style="background:#1a1a3e;">8001/SL <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="15" data-type="number" style="background:#1a1a3e;">8002/SL <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="16" data-type="number" style="background:#1a1a3e;">8002-8001 <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="17" data-type="string" style="background:#1a1a3e;">TEST1 <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="18" data-type="string" style="background:#1a1a3e;">TEST2 <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="19" data-type="string" style="background:#1a1a3e;">TEST3 <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="20" data-type="number" style="background:#1a1a3e;">TEST4 <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="21" data-type="number" style="background:#1a1a3e;">TEST5 <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="22" data-type="number" style="background:#1a1a3e;">TEST6 <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="23" data-type="number" style="background:#1a1a3e;">TEST7 <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="24" data-type="number" style="background:#1a1a3e;">TEST8 <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="25" data-type="number" style="background:#1a1a3e;">TEST9 <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="26" data-type="number" style="background:#1a1a3e;">İLK FARK <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="27" data-type="number" style="background:#1a1a3e;">SON FARK <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="28" data-type="number" style="background:#1a1a3e;">FARKLARIN FARKI <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `</thead><tbody>`;
-        
-        for (let r = 0; r < raceRowsData.length; r++) {
-            const row = raceRowsData[r];
-            const vals = row.values;
-            const cls = row.classes;
-            
-            raceHtml += `<tr class="${cls.satirClass}">`;
-            for (let c = 0; c < vals.length; c++) {
-                let cellClass = '';
-                if (c === 16) cellClass = cls.test1Class;
-                else if (c === 17) cellClass = cls.test2Class;
-                else if (c === 19 && cls.test4Class) cellClass = cls.test4Class;
-                else if (c === 21 && cls.test6Class) cellClass = cls.test6Class;
-                else if (c === 16 || c === 17 || c === 18) cellClass = cls.kirmiziClass;
-                else if (c === 20) cellClass = cls.yesilClass;
-                if (c === 13 && cls.farkClass) cellClass = cls.farkClass;
-                if (c === 16 && cls.fark8002Class) cellClass = cls.fark8002Class;
-                
-                raceHtml += `<td class="${cellClass}">${vals[c]}<\/td>`;
-            }
-            raceHtml += `<\/tr>`;
+        raceHtml += `<th class="col-delete">SİL</th>`;
+        for (const h of GOSTERIM_HEADERS) {
+            const sortClass = String(currentSort.column) === String(h.col)
+                ? (currentSort.direction === 'asc' ? ' sort-asc' : ' sort-desc')
+                : '';
+            raceHtml += `<th class="${headerStickyClass(h).trim()}${sortClass}" data-column="${h.col}" data-type="${h.type}"`
+                + (h.title ? ` title="${AtSpeedUtils.escapeHtml(h.title)}"` : '') + `>${h.label} <span class="sort-icon">▲</span></th>`;
         }
-        
-        raceHtml += `</tbody></table></div></div><br>`;
+        raceHtml += `</tr></thead><tbody>`;
+
+        for (const row of raceRowsData) {
+            const rowClass = ['row-card', row.classes.satirClass].filter(Boolean).join(' ');
+            const m = row.meta || {};
+            raceHtml += `<tr class="${rowClass}" data-race="${m.raceIndex}" data-horse="${m.horseIndex}"`;
+            raceHtml += ` data-tarih="${AtSpeedUtils.escapeHtml(m.tarih || '')}"`;
+            raceHtml += ` data-sehir="${AtSpeedUtils.escapeHtml(m.sehir || '')}"`;
+            raceHtml += ` data-mesafe="${AtSpeedUtils.escapeHtml(String(m.mesafe || ''))}"`;
+            raceHtml += ` data-derece="${AtSpeedUtils.escapeHtml(m.at_derece || '')}">`;
+            raceHtml += `<td class="col-delete"><button type="button" class="row-delete-btn" title="Bu geçmiş koşuyu sil">🗑️</button></td>`;
+            for (let c = 0; c < row.values.length; c++) {
+                const cellClass = GosterimEngine.getCellClass(c, row.classes);
+                const tdClasses = [];
+                if (cellClass) tdClasses.push(cellClass);
+                if (c === 0) tdClasses.push('col-sticky');
+                else if (c === 1) tdClasses.push('col-sticky-2');
+                raceHtml += `<td class="${tdClasses.join(' ')}">${AtSpeedUtils.escapeHtml(row.values[c])}</td>`;
+            }
+            raceHtml += `</tr>`;
+        }
+
+        raceHtml += `</tbody></table></div></div>`;
         html += raceHtml;
     }
-    
+
     document.getElementById('gosterimResults').innerHTML = html;
-    
+
+    document.querySelectorAll('.race-table-wrap').forEach(el => { el.scrollLeft = 0; });
+
+    document.querySelectorAll('.row-delete-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const tr = btn.closest('tr');
+            if (!tr || !currentHesaplamaData) return;
+            const raceIdx = parseInt(tr.dataset.race, 10);
+            const horseIdx = parseInt(tr.dataset.horse, 10);
+            if (isNaN(raceIdx) || isNaN(horseIdx)) return;
+            deleteKosuSatir(raceIdx, horseIdx, {
+                tarih: tr.dataset.tarih,
+                sehir: tr.dataset.sehir,
+                mesafe: tr.dataset.mesafe,
+                at_derece: tr.dataset.derece
+            });
+        });
+    });
+
     document.querySelectorAll('.race-card table').forEach(table => {
         const headers = table.querySelectorAll('th');
-        headers.forEach((th, idx) => {
-            th.style.cursor = 'pointer';
+        headers.forEach(th => {
             th.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const column = th.getAttribute('data-column');
-                const type = th.getAttribute('data-type');
-                if (!column) return;
-                
-                if (currentSort.column === column) {
+                const type = th.getAttribute('data-type') || AtSpeedUtils.getSortType(column);
+                if (column === null) return;
+
+                if (String(currentSort.column) === String(column)) {
                     currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
                 } else {
                     currentSort.column = column;
                     currentSort.direction = 'asc';
                 }
-                
-                headers.forEach(h => {
-                    h.classList.remove('sort-asc', 'sort-desc');
-                });
-                th.classList.add(currentSort.direction === 'asc' ? 'sort-asc' : 'sort-desc');
-                
+                currentSort.type = type;
+
                 displayResults(currentHesaplamaData);
             });
         });
     });
 }
 
-function escapeHtml(s) {
-    if (!s) return '-';
-    return String(s).replace(/[&<>]/g, function(m) {
-        return m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;';
-    });
+function deleteKosuSatir(raceIdx, horseIdx, kosuRef) {
+    const race = currentHesaplamaData[raceIdx];
+    const horse = race?.horses?.[horseIdx];
+    if (!horse) return;
+
+    const onceki = (horse.kosular || []).length;
+    horse.kosular = (horse.kosular || []).filter(k => !GosterimEngine.kosuEquals(k, kosuRef));
+    if (horse.kosular.length === onceki) return;
+
+    displayResults(currentHesaplamaData);
+    const statusDiv = document.getElementById('gosterimStatus');
+    const etiket = [kosuRef.tarih, kosuRef.sehir, kosuRef.mesafe + 'm'].filter(Boolean).join(' · ');
+    statusDiv.innerHTML = '<div class="status status-success">🗑️ Silindi: ' + AtSpeedUtils.escapeHtml(etiket) + ' (bellekte — kaydetmek için HESAPLAMA sekmesinden yeniden kayıt gerekir)</div>';
 }
+
+window.addEventListener('message', (e) => {
+    if (e.data?.type !== '88atspeed-request-kayit-export' || !currentHesaplamaData) return;
+    window.parent.postMessage({
+        type: '88atspeed-kayit-loaded',
+        kayit: {
+            id: currentHesaplamaId,
+            tarih: currentProgramTarih,
+            hipodrom: currentHipodrom,
+            race_count: currentHesaplamaData.length,
+            veri: currentHesaplamaData
+        }
+    }, '*');
+});
 </script>
 </body>
 </html>
