@@ -24,6 +24,18 @@
             color: #fff;
             border-color: #4a148c;
         }
+        .istatistik-build {
+            margin-left: auto;
+            align-self: center;
+            font-size: 11px;
+            font-weight: 700;
+            color: #6a1b9a;
+            padding: 6px 10px;
+            background: #f3e5f5;
+            border-radius: 999px;
+            border: 1px solid #e1bee7;
+            white-space: nowrap;
+        }
         .istatistik-meta {
             padding: 12px 16px;
             background: var(--bg-card);
@@ -262,6 +274,7 @@
     <div class="istatistik-controls">
         <button type="button" id="kayitSenkronBtn" class="istatistik-btn">🔄 GÖSTERİM kaydını kullan</button>
         <button type="button" id="kayitlariGetirBtn" class="istatistik-btn istatistik-btn-primary">📋 Kayıt listesinden seç</button>
+        <span id="istatistikBuild" class="istatistik-build" title="Yüklü sürüm"></span>
     </div>
     <div id="kayitListesi" class="kayit-listesi" style="display:none;"></div>
     <div id="istatistikStatus"></div>
@@ -280,9 +293,10 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260824w"></script>
-<script src="js/istatistik-engine.js?v=20260824i"></script>
+<script src="js/utils.js?v=20260824j"></script>
+<script src="js/istatistik-engine.js?v=20260824j"></script>
 <script>
+const ISTAT_BUILD = '20260824j';
 let currentKayitId = null;
 let currentKayitMeta = null;
 let currentRaceData = null;
@@ -388,9 +402,9 @@ function renderIstatistikTableHead() {
     h += '<th rowspan="2" class="istat-th-base istat-sticky-at">AT İSMİ</th>';
     h += '<th rowspan="2" class="istat-th-base istat-th-metric">ŞEHİR<br>DENEYİMİ</th>';
     h += '<th rowspan="2" class="istat-th-base istat-th-metric istat-grp-son8001 istat-grp-start">';
-    h += 'SON800-1<small>Tüm koşular ort. kıyası</small></th>';
+    h += 'SON800-1<br><small>Tüm koşular ort. kıyası</small></th>';
     h += '<th rowspan="2" class="istat-th-base istat-th-metric istat-grp-son8002 istat-grp-end">';
-    h += 'SON800-2<small>Tüm koşular ort. kıyası</small></th>';
+    h += 'SON800-2<br><small>Tüm koşular ort. kıyası</small></th>';
     h += '<th colspan="3" class="istat-th-grp istat-grp-donem istat-grp-start istat-grp-end">';
     h += 'Dönem İçi Koşu Oranı<small>Son dönemdeki koşu / eski koşu payı</small></th>';
     h += '<th colspan="3" class="istat-th-grp istat-grp-ilk3 istat-grp-start istat-grp-end">';
