@@ -408,61 +408,99 @@ const IstatistikEngine = {
         };
     },
 
-    /**
-     * Son koşuda SON800-1 (hızlı = düşük) + 1DR/SL (düşük = iyi) korelasyonu.
-     * Her metrik rakip kıyasında (min / değer) × 100; birleşik = geometrik ortalama.
-     */
-    computeSon800Dr1slKorelasyon(race, programTarih) {
+    /** Atın koşularını yeniden eskiye SON800+1DR/SL korelasyon zinciri */
+    _kosularSon800Dr1slZinciri(kosular, programTarih) {
+        const programNorm = programTarih ? this._normalizeTarih(programTarih) : null;
+        const sorted = [...(kosular || [])]
+            .filter(k => {
+                if (!k?.tarih) return false;
+                if (programNorm && this._normalizeTarih(k.tarih) === programNorm) return false;
+                return true;
+            })
+            .sort((a, b) => {
+                const da = this._parseKosuTarih(a.tarih);
+                const db = this._parseKosuTarih(b.tarih);
+                if (!da && !db) return 0;
+                if (!da) return 1;
+                if (!db) return -1;
+                return db - da;
+            });
+        const chain = [];
+        for (const k of sorted) {
+            const metrik = this._sonKosuSon800Dr1slMetrikleri(k);
+            if (!metrik) continue;
+            chain.push(metrik);
+        }
+        return chain;
+    },
+
+    _buildSon800Dr1slChains(race, programTarih) {
         const horses = race.horses || [];
-        const entries = [];
-        const byHorse = new Map();
-
+        const chains = new Map();
         for (const horse of horses) {
-            const key = this._horseKey(horse);
-            const sonKosu = this._sonKosuTam(horse.kosular, programTarih);
-            const metrik = this._sonKosuSon800Dr1slMetrikleri(sonKosu);
-            if (!metrik) {
-                byHorse.set(key, null);
-                continue;
+            chains.set(this._horseKey(horse), this._kosularSon800Dr1slZinciri(horse.kosular, programTarih));
+        }
+        const maxDepth = Math.max(0, ...[...chains.values()].map(c => c.length));
+        return { horses, chains, maxDepth };
+    },
+
+    /**
+     * SON800-1 + 1DR/SL derinlik bazlı korelasyon (SON, 1 ÖNCE …).
+     * Her derinlikte rakip kıyası; birleşik = geometrik ortalama.
+     */
+    computeSon800Dr1slKorelasyonGrid(race, programTarih) {
+        const { chains, maxDepth } = this._buildSon800Dr1slChains(race, programTarih);
+        const byHorse = new Map();
+        for (const key of chains.keys()) {
+            byHorse.set(key, new Array(maxDepth).fill(null));
+        }
+
+        for (let d = 0; d < maxDepth; d++) {
+            const atDepth = [];
+            for (const [key, chain] of chains) {
+                if (chain[d]) {
+                    atDepth.push({ key, ...chain[d] });
+                }
             }
-            entries.push({
-                key,
-                son800Salise: metrik.son800Salise,
-                birinciDrSl: metrik.birinciDrSl,
-                son800Derece: metrik.son800Derece,
-                birinciDerece: metrik.birinciDerece,
-                tarih: metrik.tarih,
-                mesafe: metrik.mesafe
-            });
+            if (!atDepth.length) continue;
+
+            const minSon800 = Math.min(...atDepth.map(e => e.son800Salise));
+            const minDr1sl = Math.min(...atDepth.map(e => e.birinciDrSl));
+            const comparedCount = atDepth.length;
+
+            for (const e of atDepth) {
+                const son800Pct = Math.round((minSon800 / e.son800Salise) * 100);
+                const dr1Pct = Math.round((minDr1sl / e.birinciDrSl) * 100);
+                const pct = Math.round(Math.sqrt(son800Pct * dr1Pct));
+                byHorse.get(e.key)[d] = {
+                    pct,
+                    son800Pct,
+                    dr1Pct,
+                    son800Derece: e.son800Derece,
+                    birinciDerece: e.birinciDerece,
+                    son800Salise: e.son800Salise,
+                    birinciDrSl: e.birinciDrSl,
+                    tarih: e.tarih,
+                    mesafe: e.mesafe,
+                    comparedCount,
+                    depth: d,
+                    isBest: e.son800Salise === minSon800 && e.birinciDrSl === minDr1sl
+                };
+            }
         }
 
-        if (!entries.length) {
-            return { byHorse, comparedCount: 0 };
+        return { maxDepth, byHorse };
+    },
+
+    /** @deprecated computeSon800Dr1slKorelasyonGrid kullanın */
+    computeSon800Dr1slKorelasyon(race, programTarih) {
+        const grid = this.computeSon800Dr1slKorelasyonGrid(race, programTarih);
+        const byHorse = new Map();
+        let comparedCount = 0;
+        for (const [key, depths] of grid.byHorse) {
+            byHorse.set(key, depths[0] || null);
+            if (depths[0]?.comparedCount) comparedCount = depths[0].comparedCount;
         }
-
-        const minSon800 = Math.min(...entries.map(e => e.son800Salise));
-        const minDr1sl = Math.min(...entries.map(e => e.birinciDrSl));
-        const comparedCount = entries.length;
-
-        for (const e of entries) {
-            const son800Pct = Math.round((minSon800 / e.son800Salise) * 100);
-            const dr1Pct = Math.round((minDr1sl / e.birinciDrSl) * 100);
-            const pct = Math.round(Math.sqrt(son800Pct * dr1Pct));
-            byHorse.set(e.key, {
-                pct,
-                son800Pct,
-                dr1Pct,
-                son800Derece: e.son800Derece,
-                birinciDerece: e.birinciDerece,
-                son800Salise: e.son800Salise,
-                birinciDrSl: e.birinciDrSl,
-                tarih: e.tarih,
-                mesafe: e.mesafe,
-                comparedCount,
-                isBest: e.son800Salise === minSon800 && e.birinciDrSl === minDr1sl
-            });
-        }
-
         return { byHorse, comparedCount };
     },
 
@@ -473,7 +511,7 @@ const IstatistikEngine = {
         const son8002Grid = this.computeSon800DepthGrid(race, programTarih, 'iki');
         const oran1Grid = this.computeSon800AnaOranGrid(race, programTarih, 'bir');
         const oran2Grid = this.computeSon800AnaOranGrid(race, programTarih, 'iki');
-        const son800Dr1Grid = this.computeSon800Dr1slKorelasyon(race, programTarih);
+        const son800Dr1Grid = this.computeSon800Dr1slKorelasyonGrid(race, programTarih);
         const horses = [...(race.horses || [])].sort((a, b) => {
             const na = parseInt(a.no, 10);
             const nb = parseInt(b.no, 10);
@@ -503,7 +541,7 @@ const IstatistikEngine = {
                 son8002Depths: son8002Grid.byHorse.get(key) || [],
                 oran1Depths: oran1Grid.byHorse.get(key) || [],
                 oran2Depths: oran2Grid.byHorse.get(key) || [],
-                son800Dr1Korelasyon: son800Dr1Grid.byHorse.get(key) || null,
+                son800Dr1Depths: son800Dr1Grid.byHorse.get(key) || [],
                 ay3,
                 ay1,
                 gun15,
@@ -522,7 +560,7 @@ const IstatistikEngine = {
             oranMaxDepth2: oran2Grid.maxDepth,
             oranAnaDerece1: oran1Grid.anaDerece,
             oranAnaDerece2: oran2Grid.anaDerece,
-            son800Dr1ComparedCount: son800Dr1Grid.comparedCount,
+            maxDepthDr1: son800Dr1Grid.maxDepth,
             rows
         };
     },

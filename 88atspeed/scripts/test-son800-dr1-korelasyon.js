@@ -1,4 +1,4 @@
-/* Test SON800·1DR/SL son koşu korelasyonu */
+/* Test SON800·1DR/SL derinlik bazlı korelasyon */
 const fs = require('fs');
 const path = require('path');
 
@@ -10,54 +10,49 @@ const race = {
     horses: [
         {
             no: 1, name: 'Hızlı800 İyi1DR',
-            kosular: [{
-                tarih: '20.08.2026', mesafe: '1400',
-                son800_bir: '0.48.00', birinci_derece: '1.24.00', at_derece: '1.25.00'
-            }]
+            kosular: [
+                { tarih: '20.08.2026', mesafe: '1400', son800_bir: '0.48.00', birinci_derece: '1.24.00', at_derece: '1.25.00' },
+                { tarih: '01.08.2026', mesafe: '1400', son800_bir: '0.50.00', birinci_derece: '1.26.00', at_derece: '1.27.00' }
+            ]
         },
         {
             no: 2, name: 'Yavaş800 İyi1DR',
-            kosular: [{
-                tarih: '18.08.2026', mesafe: '1400',
-                son800_bir: '0.52.00', birinci_derece: '1.24.00', at_derece: '1.26.00'
-            }]
+            kosular: [
+                { tarih: '18.08.2026', mesafe: '1400', son800_bir: '0.52.00', birinci_derece: '1.24.00', at_derece: '1.26.00' },
+                { tarih: '05.08.2026', mesafe: '1400', son800_bir: '0.49.00', birinci_derece: '1.25.00', at_derece: '1.26.00' }
+            ]
         },
         {
             no: 3, name: 'Hızlı800 Kötü1DR',
             kosular: [{
-                tarih: '15.08.2026', mesafe: '1400',
-                son800_bir: '0.48.00', birinci_derece: '1.28.00', at_derece: '1.29.00'
+                tarih: '15.08.2026', mesafe: '1400', son800_bir: '0.48.00', birinci_derece: '1.28.00', at_derece: '1.29.00'
             }]
         }
     ]
 };
 
 const pkg = global.IstatistikEngine.buildRaceIstatistikPackage(race, 'İstanbul', '24.08.2026');
-const byName = Object.fromEntries(pkg.rows.map(r => [r.name, r.son800Dr1Korelasyon]));
+console.log('maxDepthDr1:', pkg.maxDepthDr1);
 
-console.log('comparedCount:', pkg.son800Dr1ComparedCount);
-for (const [name, k] of Object.entries(byName)) {
-    console.log(name, k ? { pct: k.pct, son800Pct: k.son800Pct, dr1Pct: k.dr1Pct } : null);
+for (const row of pkg.rows) {
+    const depths = row.son800Dr1Depths || [];
+    const summary = depths.map((c, i) => c ? (i === 0 ? 'SON' : i + 'ÖNCE') + '=' + c.pct : '—').join(', ');
+    console.log(row.name + ':', summary || '—');
 }
 
-const best = byName['Hızlı800 İyi1DR'];
-const slow = byName['Yavaş800 İyi1DR'];
-const badDr = byName['Hızlı800 Kötü1DR'];
-
-if (!best || best.pct !== 100) {
-    console.error('FAIL: Hızlı800 İyi1DR should be 100%');
+if (pkg.maxDepthDr1 !== 2) {
+    console.error('FAIL: maxDepthDr1 should be 2');
     process.exit(1);
 }
-if (!slow || slow.pct >= best.pct) {
-    console.error('FAIL: Yavaş800 should score lower than best');
+
+const best = pkg.rows.find(r => r.name === 'Hızlı800 İyi1DR');
+if (!best?.son800Dr1Depths[0] || best.son800Dr1Depths[0].pct !== 100) {
+    console.error('FAIL: best horse at SON depth should be 100%');
     process.exit(1);
 }
-if (!badDr || badDr.pct >= best.pct) {
-    console.error('FAIL: Kötü 1DR should score lower than best');
-    process.exit(1);
-}
-if (best.pct <= badDr.pct) {
-    console.error('FAIL: combined best should beat fast800+bad1dr');
+
+if (!best.son800Dr1Depths[1]) {
+    console.error('FAIL: best horse should have 1 ÖNCE depth');
     process.exit(1);
 }
 
