@@ -892,6 +892,118 @@ const IstatistikEngine = {
         return { maxDepth, byHorse };
     },
 
+    /** Geçmiş koşudan T1×DR (TEST1 × DR/1DR) — GÖSTERİM ile aynı */
+    _kosuT1drMetrikleri(kosu, hedefMesafe) {
+        if (!kosu || hedefMesafe === null || hedefMesafe <= 0) return null;
+        const gecmisMesafe = kosu.mesafe;
+        const dereceSalise = AtSpeedUtils.dereceToSalise(kosu.at_derece);
+        const birinciSalise = AtSpeedUtils.dereceToSalise(kosu.birinci_derece);
+        const drSl = AtSpeedUtils.metreBasiSalise(dereceSalise, gecmisMesafe);
+        const birinciDrSl = AtSpeedUtils.metreBasiSalise(birinciSalise, gecmisMesafe);
+        const drOran = (drSl !== null && birinciDrSl !== null && birinciDrSl !== 0)
+            ? drSl / birinciDrSl
+            : null;
+        if (drSl === null || drOran === null) return null;
+        const test1 = hedefMesafe * drSl;
+        const t1dr = test1 * drOran;
+        if (t1dr <= 0) return null;
+        return {
+            t1dr,
+            test1,
+            drOran,
+            drSl,
+            birinciDrSl,
+            atDerece: kosu.at_derece || null,
+            birinciDerece: kosu.birinci_derece || null,
+            mesafe: this._parseMesafe(gecmisMesafe),
+            tarih: kosu.tarih || null
+        };
+    },
+
+    _kosularT1drZinciri(kosular, programTarih, hedefMesafe) {
+        const programNorm = programTarih ? this._normalizeTarih(programTarih) : null;
+        const sorted = [...(kosular || [])]
+            .filter(k => {
+                if (!k?.tarih) return false;
+                if (programNorm && this._normalizeTarih(k.tarih) === programNorm) return false;
+                return true;
+            })
+            .sort((a, b) => {
+                const da = this._parseKosuTarih(a.tarih);
+                const db = this._parseKosuTarih(b.tarih);
+                if (!da && !db) return 0;
+                if (!da) return 1;
+                if (!db) return -1;
+                return db - da;
+            });
+        const chain = [];
+        for (const k of sorted) {
+            const metrik = this._kosuT1drMetrikleri(k, hedefMesafe);
+            if (!metrik) continue;
+            chain.push(metrik);
+        }
+        return chain;
+    },
+
+    _buildT1drChains(race, programTarih) {
+        const hedefMesafe = this._hedefMesafe(race);
+        const horses = race.horses || [];
+        const chains = new Map();
+        for (const horse of horses) {
+            chains.set(
+                this._horseKey(horse),
+                this._kosularT1drZinciri(horse.kosular, programTarih, hedefMesafe)
+            );
+        }
+        const maxDepth = Math.max(0, ...[...chains.values()].map(c => c.length));
+        return { horses, chains, maxDepth, hedefMesafe };
+    },
+
+    /**
+     * T1×DR derinlik bazlı rakip kıyası (SON, 1 ÖNCE …).
+     * O gün koşan atlar arasında en düşük T1×DR = %100; diğerleri (min / değer) × 100.
+     */
+    computeT1drDepthGrid(race, programTarih) {
+        const { chains, maxDepth } = this._buildT1drChains(race, programTarih);
+        const byHorse = new Map();
+        for (const key of chains.keys()) {
+            byHorse.set(key, new Array(maxDepth).fill(null));
+        }
+
+        for (let d = 0; d < maxDepth; d++) {
+            const atDepth = [];
+            for (const [key, chain] of chains) {
+                if (chain[d]) {
+                    atDepth.push({ key, ...chain[d] });
+                }
+            }
+            if (!atDepth.length) continue;
+
+            const minT1dr = Math.min(...atDepth.map(e => e.t1dr));
+            const comparedCount = atDepth.length;
+
+            for (const e of atDepth) {
+                const pct = Math.round((minT1dr / e.t1dr) * 100);
+                byHorse.get(e.key)[d] = {
+                    pct,
+                    t1dr: e.t1dr,
+                    t1drDerece: AtSpeedUtils.saliseToDerece(e.t1dr),
+                    test1: e.test1,
+                    drOran: e.drOran,
+                    atDerece: e.atDerece,
+                    birinciDerece: e.birinciDerece,
+                    tarih: e.tarih,
+                    mesafe: e.mesafe,
+                    comparedCount,
+                    depth: d,
+                    isBest: e.t1dr === minT1dr
+                };
+            }
+        }
+
+        return { maxDepth, byHorse };
+    },
+
     /** @deprecated computeTest1DepthGrid kullanın */
     computeTest12DepthGrid(race, programTarih) {
         return this.computeTest1DepthGrid(race, programTarih);
@@ -1018,6 +1130,7 @@ const IstatistikEngine = {
         const test2Grid = this.computeTest2DepthGrid(race, programTarih);
         const test3Grid = this.computeTest3DepthGrid(race, programTarih);
         const test123SiraliGrid = this.computeTest123SiraliDepthGrid(race, programTarih);
+        const t1drGrid = this.computeT1drDepthGrid(race, programTarih);
         const horses = [...(race.horses || [])].sort((a, b) => {
             const na = parseInt(a.no, 10);
             const nb = parseInt(b.no, 10);
@@ -1047,6 +1160,7 @@ const IstatistikEngine = {
             const test2Depths = test2Grid.byHorse.get(key) || [];
             const test3Depths = test3Grid.byHorse.get(key) || [];
             const test123SiraliDepths = test123SiraliGrid.byHorse.get(key) || [];
+            const t1drDepths = t1drGrid.byHorse.get(key) || [];
             return {
                 no: horse.no,
                 name: horse.name || '-',
@@ -1093,6 +1207,10 @@ const IstatistikEngine = {
                 test123SiraliAgirlikliOrt: this._computeDepthAgirlikliOrtalama(
                     test123SiraliDepths, test123SiraliGrid.maxDepth
                 ),
+                t1drDepths,
+                t1drAgirlikliOrt: this._computeDepthAgirlikliOrtalama(
+                    t1drDepths, t1drGrid.maxDepth
+                ),
                 ay3,
                 ay1,
                 gun15,
@@ -1117,6 +1235,7 @@ const IstatistikEngine = {
             maxDepthTest2: test2Grid.maxDepth,
             maxDepthTest3: test3Grid.maxDepth,
             maxDepthTest123Sirali: test123SiraliGrid.maxDepth,
+            maxDepthT1dr: t1drGrid.maxDepth,
             rows
         };
     },
