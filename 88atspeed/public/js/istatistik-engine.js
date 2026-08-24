@@ -481,6 +481,92 @@ const IstatistikEngine = {
         return { maxDepth, byHorse };
     },
 
+    /** GÖSTERİM TEST4 = TEST3 − TEST1 (salise) */
+    _computeKosuTest4(kosu, hedefMesafe) {
+        const t1 = this._kosuTest1Metrikleri(kosu, hedefMesafe);
+        const t3 = this._kosuTest3Metrikleri(kosu, hedefMesafe);
+        if (!t1 || !t3) return null;
+        return t3.test3 - t1.test1;
+    },
+
+    /** Derinlik d'den geriye TEST8 = son TEST4 − ilk TEST4 (GÖSTERİM ile aynı) */
+    _test8AtDepth(sortedKosular, depth, hedefMesafe) {
+        const window = sortedKosular.slice(depth);
+        if (!window.length) return null;
+        const test4Degerleri = [];
+        for (let i = window.length - 1; i >= 0; i--) {
+            const t4 = this._computeKosuTest4(window[i], hedefMesafe);
+            if (t4 !== null) test4Degerleri.push(t4);
+        }
+        if (!test4Degerleri.length) return null;
+        const test8 = test4Degerleri[test4Degerleri.length - 1] - test4Degerleri[0];
+        return {
+            test8,
+            absTest8: Math.abs(test8),
+            adet: test4Degerleri.length,
+            tarih: sortedKosular[depth]?.tarih || null
+        };
+    },
+
+    _buildTest8Chains(race, programTarih) {
+        const hedefMesafe = this._hedefMesafe(race);
+        const horses = race.horses || [];
+        const chains = new Map();
+        for (const horse of horses) {
+            const sorted = this._kosularYenidenEskiye(horse.kosular, programTarih);
+            const chain = [];
+            for (let d = 0; d < sorted.length; d++) {
+                chain[d] = this._test8AtDepth(sorted, d, hedefMesafe);
+            }
+            chains.set(this._horseKey(horse), chain);
+        }
+        const maxDepth = Math.max(0, ...[...chains.values()].map(c => c.length));
+        return { chains, maxDepth, hedefMesafe };
+    },
+
+    /**
+     * T8Δ derinlik kıyası — GÖSTERİM TEST8 (TEST4 trendi).
+     * Her derinlikte o noktadan geriye |TEST8| 0'a en yakın = %100.
+     */
+    computeTest8DepthGrid(race, programTarih) {
+        const { chains, maxDepth } = this._buildTest8Chains(race, programTarih);
+        const byHorse = new Map();
+        for (const key of chains.keys()) {
+            byHorse.set(key, new Array(maxDepth).fill(null));
+        }
+
+        for (let d = 0; d < maxDepth; d++) {
+            const atDepth = [];
+            for (const [key, chain] of chains) {
+                if (chain[d]) {
+                    atDepth.push({ key, ...chain[d] });
+                }
+            }
+            if (!atDepth.length) continue;
+
+            const minAbs = Math.min(...atDepth.map(e => e.absTest8));
+            const comparedCount = atDepth.length;
+
+            for (const e of atDepth) {
+                const pct = e.absTest8 === 0
+                    ? 100
+                    : Math.round((minAbs / e.absTest8) * 100);
+                byHorse.get(e.key)[d] = {
+                    pct,
+                    test8: e.test8,
+                    absTest8: e.absTest8,
+                    adet: e.adet,
+                    tarih: e.tarih,
+                    comparedCount,
+                    depth: d,
+                    isBest: e.absTest8 === minAbs
+                };
+            }
+        }
+
+        return { maxDepth, byHorse };
+    },
+
     /** FARK 8002-8001 = SON800_2/SL − SON800_1/SL (GÖSTERİM ile aynı) */
     _computeFark8002_8001(kosu) {
         let son800_1 = kosu.son800_bir;
@@ -1432,6 +1518,7 @@ const IstatistikEngine = {
         const oran2Grid = this.computeSon800AnaOranGrid(race, programTarih, 'iki');
         const fark827Grid = this.computeFark8002OrtDepthGrid(race, programTarih);
         const ffGrid = this.computeFarklarinFarkiDepthGrid(race, programTarih);
+        const test8Grid = this.computeTest8DepthGrid(race, programTarih);
         const son800Dr1Grid = this.computeSon800Dr1slKorelasyonGrid(race, programTarih);
         const son800DrGrid = this.computeSon800DrslKorelasyonGrid(race, programTarih);
         const test1Grid = this.computeTest1DepthGrid(race, programTarih);
@@ -1469,6 +1556,7 @@ const IstatistikEngine = {
             const oran2Depths = oran2Grid.byHorse.get(key) || [];
             const fark827Depths = fark827Grid.byHorse.get(key) || [];
             const ffDepths = ffGrid.byHorse.get(key) || [];
+            const test8Depths = test8Grid.byHorse.get(key) || [];
             const test1Depths = test1Grid.byHorse.get(key) || [];
             const test2Depths = test2Grid.byHorse.get(key) || [];
             const test3Depths = test3Grid.byHorse.get(key) || [];
@@ -1503,6 +1591,10 @@ const IstatistikEngine = {
                 ffDepths,
                 ffOrtOzeti: this._computeDepthOrtOzeti(
                     ffDepths, ffGrid.maxDepth
+                ),
+                test8Depths,
+                test8OrtOzeti: this._computeDepthOrtOzeti(
+                    test8Depths, test8Grid.maxDepth
                 ),
                 son800Dr1Depths: dr1Depths,
                 son800Dr1OrtOzeti: this._computeDepthOrtOzeti(
@@ -1555,6 +1647,7 @@ const IstatistikEngine = {
             oranAnaDerece2: oran2Grid.anaDerece,
             maxDepthFark827: fark827Grid.maxDepth,
             maxDepthFf: ffGrid.maxDepth,
+            maxDepthT8: test8Grid.maxDepth,
             maxDepthDr1: son800Dr1Grid.maxDepth,
             maxDepthDr: son800DrGrid.maxDepth,
             maxDepthTest1: test1Grid.maxDepth,
