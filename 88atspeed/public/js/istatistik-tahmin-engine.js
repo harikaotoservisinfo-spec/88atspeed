@@ -32,7 +32,7 @@ const IstatistikTahminEngine = {
         { id: 't8', depthsKey: 'test8Depths', ortKey: 'test8OrtOzeti', label: 'T8Δ' },
         { id: 'son800dr1', depthsKey: 'son800Dr1Depths', ortKey: 'son800Dr1OrtOzeti', label: 'SON800·1DR' },
         { id: 'son800dr', depthsKey: 'son800DrDepths', ortKey: 'son800DrOrtOzeti', label: 'SON800·DR' },
-        { id: 'test1', depthsKey: 'test1Depths', ortKey: 'test1OrtOzeti', label: 'TEST1' },
+        { id: 'test1', depthsKey: 'test1Depths', ortKey: 'test1OrtOzeti', label: 'TEST1', defaultInfluence: 2 },
         { id: 'test2', depthsKey: 'test2Depths', ortKey: 'test2OrtOzeti', label: 'TEST2' },
         { id: 'test3', depthsKey: 'test3Depths', ortKey: 'test3OrtOzeti', label: 'TEST3' },
         { id: 'testsira', depthsKey: 'test123SiraliDepths', ortKey: 'test123SiraliOrtOzeti', label: 'TEST·SIRA' },
@@ -164,6 +164,34 @@ const IstatistikTahminEngine = {
         return String(weightId).slice(0, -this.PERFECT100_SUFFIX.length);
     },
 
+    _groupIdFromBaseSlot(baseSlotId) {
+        const idx = String(baseSlotId).indexOf(':');
+        return idx >= 0 ? baseSlotId.slice(0, idx) : baseSlotId;
+    },
+
+    _defaultInfluenceForGroup(groupId) {
+        const core = this.CORE_GROUPS.find(g => g.id === groupId);
+        if (core?.defaultInfluence != null) return core.defaultInfluence;
+        const simple = this.SIMPLE_COLUMN_GROUPS.find(g => g.id === groupId);
+        if (simple?.defaultInfluence != null) return simple.defaultInfluence;
+        return this.DEFAULT_INFLUENCE;
+    },
+
+    _defaultInfluenceForBaseSlot(baseSlotId) {
+        return this._defaultInfluenceForGroup(this._groupIdFromBaseSlot(baseSlotId));
+    },
+
+    _resolveBaseInfluence(influences, weightId) {
+        if (influences && influences[weightId] != null) return influences[weightId];
+        return this._defaultInfluenceForBaseSlot(weightId);
+    },
+
+    _resolvePerfect100Influence(influences, baseSlotId) {
+        const key = this.perfect100SlotId(baseSlotId);
+        if (influences && influences[key] != null) return influences[key];
+        return this.DEFAULT_PERFECT100_INFLUENCE;
+    },
+
     _loadInfluences() {
         if (this._influenceCache) return this._influenceCache;
         try {
@@ -202,7 +230,7 @@ const IstatistikTahminEngine = {
             return this.getPerfect100Influence(this.baseSlotIdFromPerfect100(weightId));
         }
         const v = this._loadInfluences()[weightId];
-        return v != null ? v : this.DEFAULT_INFLUENCE;
+        return v != null ? v : this._defaultInfluenceForBaseSlot(weightId);
     },
 
     getPerfect100Influence(baseSlotId) {
@@ -260,9 +288,9 @@ const IstatistikTahminEngine = {
 
     _pushTerm(terms, influences, weightId, label, pct) {
         if (pct == null) return;
-        const baseWeight = influences[weightId] ?? this.DEFAULT_INFLUENCE;
+        const baseWeight = this._resolveBaseInfluence(influences, weightId);
         const p100Boost = pct === 100
-            ? (influences[this.perfect100SlotId(weightId)] ?? this.DEFAULT_PERFECT100_INFLUENCE)
+            ? this._resolvePerfect100Influence(influences, weightId)
             : 0;
         const weight = baseWeight + p100Boost;
         if (weight <= 0) return;

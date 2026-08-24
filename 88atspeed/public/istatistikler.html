@@ -589,7 +589,7 @@
         Derinlik sütunlarının sonunda <strong>AĞ. ORT.</strong> ağırlıklı;
         <strong>AĞ. ORT.1</strong> son 3 derinlik; <strong>AĞ. ORT.2</strong> son 2 derinlik;
         <strong>AĞ. ORT.3</strong> ağırlıklı özet (ORT.2×4 + ORT.1×2 + ORT.×1, eksik derinlik 0 sayılmaz).<br>
-        <strong>TEST AĞ. ORT.:</strong> TEST1, TEST2 ve TEST3 ağırlıklı ortalamaları yan yana özet sütun.<br>
+        <strong>TEST1:</strong> En iyi TEST1 = %100 derinlik kıyası + AĞ. ORT.; TAHMİN'de varsayılan sütun etkisi diğer grupların <strong>2 katı</strong> (%2).<br>
         <strong>TEST·SIRA:</strong> TEST3≥TEST2≥TEST1 kuralı — tam uyan %100; diğerleri yakınlığa göre
         derinlik kıyası + AĞ. ORT.<br>
         <strong>FFΔ:</strong> GÖSTERİM FARKLARIN FARKI — her derinlikte o noktadan geriye
@@ -614,12 +614,12 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260825r"></script>
-<script src="js/istatistik-engine.js?v=20260825r"></script>
-<script src="js/istatistik-grids-extra.js?v=20260825r"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260825r"></script>
+<script src="js/utils.js?v=20260825s"></script>
+<script src="js/istatistik-engine.js?v=20260825s"></script>
+<script src="js/istatistik-grids-extra.js?v=20260825s"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260825s"></script>
 <script>
-const ISTAT_BUILD = '20260825r';
+const ISTAT_BUILD = '20260825s';
 let istatRaceCache = [];
 let currentKayitId = null;
 let currentKayitMeta = null;
@@ -1489,7 +1489,7 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
     if (t1 > 0) {
         h = appendMetricGroupThColspan(h, {
             colspan: t1 + 4, grpClass: 'istat-grp-test1',
-            label: 'TEST1', subtitle: 'En iyi TEST1 = %100, derinlik kıyası + ağ. ort.'
+            label: 'TEST1', subtitle: 'En iyi TEST1 = %100, derinlik kıyası + ağ. ort. (TAHMİN varsayılan etki ×2)'
         });
     } else {
         h = appendMetricGroupThRowspan(h, {

@@ -90,8 +90,12 @@ if (t2.pct !== 68) {
     process.exit(1);
 }
 
-if (TE.getInfluence(TE.slotId('test1', 'd0')) !== TE.DEFAULT_INFLUENCE) {
-    console.error('FAIL: varsayılan etki', TE.DEFAULT_INFLUENCE);
+if (TE.getInfluence(TE.slotId('test1', 'd0')) !== 2) {
+    console.error('FAIL: TEST1 varsayılan etki 2 olmalı, got', TE.getInfluence(TE.slotId('test1', 'd0')));
+    process.exit(1);
+}
+if (TE.getInfluence(TE.slotId('test2', 'd0')) !== TE.DEFAULT_INFLUENCE) {
+    console.error('FAIL: TEST2 varsayılan etki', TE.DEFAULT_INFLUENCE);
     process.exit(1);
 }
 
