@@ -506,14 +506,9 @@
         }
         .istat-w-btn:hover { background: #f3e5f5; }
         .istat-w-etki {
-            min-width: 28px;
+            min-width: 32px;
             font-weight: 800;
             color: #6a1b9a;
-        }
-        .istat-w-num {
-            font-weight: 600;
-            color: #5e35b1;
-            font-size: 9px;
         }
         .istatistik-table th.istat-th-grp .istat-grp-head { text-align: center; }
     </style>
@@ -523,7 +518,7 @@
     <div class="istatistik-controls">
         <button type="button" id="kayitSenkronBtn" class="istatistik-btn">🔄 GÖSTERİM kaydını kullan</button>
         <button type="button" id="kayitlariGetirBtn" class="istatistik-btn istatistik-btn-primary">📋 Kayıt listesinden seç</button>
-        <button type="button" id="tahminAgirlikSifirlaBtn" class="istatistik-btn" title="Tüm metrik ağırlıklarını 1× yap">↺ Ağırlık sıfırla</button>
+        <button type="button" id="tahminAgirlikSifirlaBtn" class="istatistik-btn" title="Tüm etki % değerlerini varsayılana (%2) döndür">↺ Etki sıfırla</button>
         <span id="istatistikBuild" class="istatistik-build" title="Yüklü sürüm"></span>
     </div>
     <div id="kayitListesi" class="kayit-listesi" style="display:none;"></div>
@@ -546,8 +541,8 @@
         |TEST8| 0'a en yakın = %100; derinlik kıyası + AĞ. ORT.<br>
         <strong>Ek gruplar (800Δ·2/3, T9Δ, DR/1DR, TEST4–7, FARK, Ş+M…):</strong>
         GÖSTERİM ve Tahminim kurallarındaki eksik sütunlar — hepsi derinlik % + AĞ. ORT.1/2/3.<br>
-        <strong>TAHMİN:</strong> Her grubun başındaki <strong>+/−</strong> ile ağırlık ayarlanır;
-        <strong>%etki</strong> o metriğin bileşik tahmin içindeki payını gösterir. Ağırlıklar tarayıcıda saklanır.<br>
+        <strong>TAHMİN:</strong> Her grubun başındaki <strong>+/−</strong> ile etki %1 adımlarla ayarlanır
+        (ör. %7 → %6 → %5); <strong>%0</strong> = TAHMİN'den çıkar. Varsayılan %2. Tarayıcıda saklanır.<br>
         <strong>T1×DR:</strong> TEST1 × DR/1DR — o gün koşan atlar arasında en düşük T1×DR = %100;
         derinlik kıyası + AĞ. ORT.<br>
         <strong>Son 3 ay / 1 ay / 15 gün:</strong> Program tarihine göre dönem içi koşu sayısının,
@@ -560,12 +555,12 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260825m"></script>
-<script src="js/istatistik-engine.js?v=20260825m"></script>
-<script src="js/istatistik-grids-extra.js?v=20260825m"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260825m"></script>
+<script src="js/utils.js?v=20260825n"></script>
+<script src="js/istatistik-engine.js?v=20260825n"></script>
+<script src="js/istatistik-grids-extra.js?v=20260825n"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260825n"></script>
 <script>
-const ISTAT_BUILD = '20260825m';
+const ISTAT_BUILD = '20260825n';
 let istatRaceCache = [];
 let currentKayitId = null;
 let currentKayitMeta = null;
@@ -623,14 +618,12 @@ function renderTahminCell(tahmin, horseCount, horseNo) {
 
 function renderMetricWeightBar(weightId) {
     const TE = IstatistikTahminEngine;
-    const w = TE.getWeight(weightId);
-    const etki = TE.getInfluencePct(weightId);
-    const off = w === 0 ? ' istat-metric-weight-off' : '';
+    const etki = TE.getInfluence(weightId);
+    const off = etki === 0 ? ' istat-metric-weight-off' : '';
     return '<div class="istat-metric-weight' + off + '" data-weight-id="' + weightId + '">'
-        + '<button type="button" class="istat-w-btn" data-w-action="dec" title="Ağırlığı azalt">−</button>'
-        + '<span class="istat-w-etki" title="TAHMİN içindeki etki payı">%' + etki + '</span>'
-        + '<button type="button" class="istat-w-btn" data-w-action="inc" title="Ağırlığı artır">+</button>'
-        + '<span class="istat-w-num" title="Ağırlık çarpanı">' + w + '×</span>'
+        + '<button type="button" class="istat-w-btn" data-w-action="dec" title="Etkiyi %1 azalt">−</button>'
+        + '<span class="istat-w-etki" title="TAHMİN etki %">%' + etki + '</span>'
+        + '<button type="button" class="istat-w-btn" data-w-action="inc" title="Etkiyi %1 artır">+</button>'
         + '</div>';
 }
 
@@ -664,12 +657,10 @@ function refreshAllTahmin() {
     document.querySelectorAll('.istat-metric-weight').forEach(el => {
         const id = el.dataset.weightId;
         if (!id) return;
-        const w = TE.getWeight(id);
+        const etki = TE.getInfluence(id);
         const etkiEl = el.querySelector('.istat-w-etki');
-        const numEl = el.querySelector('.istat-w-num');
-        if (etkiEl) etkiEl.textContent = '%' + TE.getInfluencePct(id);
-        if (numEl) numEl.textContent = w + '×';
-        el.classList.toggle('istat-metric-weight-off', w === 0);
+        if (etkiEl) etkiEl.textContent = '%' + etki;
+        el.classList.toggle('istat-metric-weight-off', etki === 0);
     });
     istatRaceCache.forEach((entry, raceIndex) => {
         TE.attachRaceTahmin(entry.pkg, weights);
@@ -711,7 +702,7 @@ function bindTahminWeightControls() {
         if (!wrap) return;
         const id = wrap.dataset.weightId;
         const delta = btn.dataset.wAction === 'inc' ? 1 : -1;
-        IstatistikTahminEngine.adjustWeight(id, delta);
+        IstatistikTahminEngine.adjustInfluence(id, delta);
         refreshAllTahmin();
     });
 }
@@ -1838,7 +1829,7 @@ document.getElementById('kayitSenkronBtn').onclick = () => {
 document.getElementById('tahminAgirlikSifirlaBtn').onclick = () => {
     IstatistikTahminEngine.resetWeights();
     if (istatRaceCache.length) refreshAllTahmin();
-    setStatus('<div class="status status-success">✅ Tüm metrik ağırlıkları 1× olarak sıfırlandı</div>');
+    setStatus('<div class="status status-success">✅ Tüm metrik etkileri varsayılana (%2) sıfırlandı</div>');
 };
 
 window.addEventListener('message', (e) => {

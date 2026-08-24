@@ -1,11 +1,14 @@
 /**
  * İstatistikler — ağırlıklı AĞ. ORT.3 bileşik tahmin skoru
+ * Her metrik için etki % (0–100) doğrudan ayarlanır; +/− ile 1'er adım.
  */
 const IstatistikTahminEngine = {
-    WEIGHT_STORAGE_KEY: '88atspeed-istat-metric-weights',
-    DEFAULT_WEIGHT: 1,
-    MIN_WEIGHT: 0,
-    MAX_WEIGHT: 20,
+    INFLUENCE_STORAGE_KEY: '88atspeed-istat-metric-influence',
+    LEGACY_WEIGHT_STORAGE_KEY: '88atspeed-istat-metric-weights',
+    DEFAULT_INFLUENCE: 2,
+    MIN_INFLUENCE: 0,
+    MAX_INFLUENCE: 100,
+    INFLUENCE_STEP: 1,
 
     CORE_ORT_KEYS: [
         { key: 'son8001OrtOzeti', label: 'SON800-1', weightId: 'son8001' },
@@ -24,7 +27,7 @@ const IstatistikTahminEngine = {
         { key: 't1drOrtOzeti', label: 'T1×DR', weightId: 't1dr' }
     ],
 
-    _weightsCache: null,
+    _influenceCache: null,
 
     _allWeightIds(extraSections) {
         const ids = this.CORE_ORT_KEYS.map(d => d.weightId);
@@ -34,63 +37,81 @@ const IstatistikTahminEngine = {
         return ids;
     },
 
-    _loadWeights() {
-        if (this._weightsCache) return this._weightsCache;
+    _loadInfluences() {
+        if (this._influenceCache) return this._influenceCache;
         try {
-            const raw = localStorage.getItem(this.WEIGHT_STORAGE_KEY);
-            this._weightsCache = raw ? JSON.parse(raw) : {};
-        } catch (_) {
-            this._weightsCache = {};
-        }
-        return this._weightsCache;
+            const raw = localStorage.getItem(this.INFLUENCE_STORAGE_KEY);
+            if (raw) {
+                this._influenceCache = JSON.parse(raw);
+                return this._influenceCache;
+            }
+        } catch (_) {}
+        this._influenceCache = {};
+        return this._influenceCache;
     },
 
-    _saveWeights() {
+    _saveInfluences() {
         try {
-            localStorage.setItem(this.WEIGHT_STORAGE_KEY, JSON.stringify(this._weightsCache || {}));
+            localStorage.setItem(this.INFLUENCE_STORAGE_KEY, JSON.stringify(this._influenceCache || {}));
         } catch (_) {}
     },
 
+    /** Eski çarpan (0–20) kayıtlarını temizle */
+    _clearLegacyWeights() {
+        try {
+            localStorage.removeItem(this.LEGACY_WEIGHT_STORAGE_KEY);
+        } catch (_) {}
+    },
+
+    getInfluences() {
+        return { ...this._loadInfluences() };
+    },
+
+    /** Geriye uyumluluk */
     getWeights() {
-        return { ...this._loadWeights() };
+        return this.getInfluences();
     },
 
+    getInfluence(weightId) {
+        const v = this._loadInfluences()[weightId];
+        return v != null ? v : this.DEFAULT_INFLUENCE;
+    },
+
+    /** Geriye uyumluluk */
     getWeight(weightId) {
-        const w = this._loadWeights()[weightId];
-        return w != null ? w : this.DEFAULT_WEIGHT;
+        return this.getInfluence(weightId);
     },
 
-    setWeight(weightId, value) {
-        const v = Math.max(this.MIN_WEIGHT, Math.min(this.MAX_WEIGHT, Math.round(Number(value) || 0)));
-        this._loadWeights();
-        this._weightsCache[weightId] = v;
-        this._saveWeights();
+    setInfluence(weightId, value) {
+        const v = Math.max(
+            this.MIN_INFLUENCE,
+            Math.min(this.MAX_INFLUENCE, Math.round(Number(value) || 0))
+        );
+        this._loadInfluences();
+        this._influenceCache[weightId] = v;
+        this._saveInfluences();
         return v;
     },
 
+    adjustInfluence(weightId, delta) {
+        const step = delta > 0 ? this.INFLUENCE_STEP : -this.INFLUENCE_STEP;
+        return this.setInfluence(weightId, this.getInfluence(weightId) + step);
+    },
+
+    /** Geriye uyumluluk */
     adjustWeight(weightId, delta) {
-        return this.setWeight(weightId, this.getWeight(weightId) + delta);
+        return this.adjustInfluence(weightId, delta);
     },
 
     resetWeights() {
-        this._weightsCache = {};
-        this._saveWeights();
+        this._influenceCache = {};
+        this._saveInfluences();
+        this._clearLegacyWeights();
     },
 
-    /** TAHMİN formülündeki toplam ağırlık payı */
-    getTotalWeightSum(extraSections) {
-        const ids = this._allWeightIds(extraSections);
-        let sum = 0;
-        for (const id of ids) sum += this.getWeight(id);
-        return sum;
-    },
-
-    /** Metriğin TAHMİN içindeki etki yüzdesi (tüm gruplar toplamına göre) */
-    getInfluencePct(weightId, extraSections) {
-        const total = this.getTotalWeightSum(extraSections);
-        const w = this.getWeight(weightId);
-        if (total <= 0 || w <= 0) return 0;
-        return Math.round((w / total) * 100);
+    /** Gösterim: doğrudan etki % */
+    getInfluencePct(weightId) {
+        return this.getInfluence(weightId);
     },
 
     _ortPct(oz) {
@@ -102,13 +123,13 @@ const IstatistikTahminEngine = {
         return null;
     },
 
-    computeRowTahmin(row, extraSections, weights) {
-        weights = weights || this.getWeights();
+    computeRowTahmin(row, extraSections, influences) {
+        influences = influences || this.getInfluences();
         const terms = [];
 
         for (const def of this.CORE_ORT_KEYS) {
             const pct = this._ortPct(row[def.key]);
-            const weight = weights[def.weightId] ?? this.DEFAULT_WEIGHT;
+            const weight = influences[def.weightId] ?? this.DEFAULT_INFLUENCE;
             if (pct != null && weight > 0) {
                 terms.push({
                     weightId: def.weightId,
@@ -121,7 +142,7 @@ const IstatistikTahminEngine = {
         }
         for (const sec of extraSections || []) {
             const pct = this._ortPct(row[sec.ortKey]);
-            const weight = weights[sec.id] ?? this.DEFAULT_WEIGHT;
+            const weight = influences[sec.id] ?? this.DEFAULT_INFLUENCE;
             if (pct != null && weight > 0) {
                 terms.push({
                     weightId: sec.id,
@@ -148,11 +169,11 @@ const IstatistikTahminEngine = {
         return { pct, metricCount: terms.length, weightSum, terms, topTerms };
     },
 
-    attachRaceTahmin(pkg, weights) {
+    attachRaceTahmin(pkg, influences) {
         const extraSections = pkg.extraSections || [];
         const scored = pkg.rows.map(row => ({
             row,
-            tahmin: this.computeRowTahmin(row, extraSections, weights)
+            tahmin: this.computeRowTahmin(row, extraSections, influences)
         }));
         scored.sort((a, b) => {
             const pa = a.tahmin.pct ?? -1;

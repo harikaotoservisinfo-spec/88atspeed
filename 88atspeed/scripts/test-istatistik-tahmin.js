@@ -80,26 +80,27 @@ if (fakeT.pct !== 99) {
     process.exit(1);
 }
 
-TE.setWeight('test1', 3);
-TE.setWeight('son8001', 1);
+TE.setInfluence('test1', 80);
+TE.setInfluence('son8001', 20);
 const weighted = TE.computeRowTahmin({
     name: 'W',
     son8001OrtOzeti: ort3(50),
     test1OrtOzeti: ort3(100)
 }, []);
-// (50*1 + 100*3) / 4 = 87.5 → 88
-if (weighted.pct !== 88) {
-    console.error('FAIL: ağırlıklı ortalama 88 olmalı, got', weighted.pct);
+// (50*20 + 100*80) / 100 = 90
+if (weighted.pct !== 90) {
+    console.error('FAIL: etki ağırlıklı ortalama 90 olmalı, got', weighted.pct);
+    process.exit(1);
+}
+
+if (TE.adjustInfluence('test1', -1) !== 79) {
+    console.error('FAIL: adjustInfluence -1 adım çalışmalı');
     process.exit(1);
 }
 TE.resetWeights();
 
-if (TE.getInfluencePct('test1') !== Math.round((3 / (3 + 40)) * 100) && TE.getWeight('test1') === 3) {
-    // only if test1 still 3 - we reset above so skip
-}
-const inf = TE.getInfluencePct('son8001');
-if (inf <= 0 || inf > 100) {
-    console.error('FAIL: etki yüzdesi geçersiz', inf);
+if (TE.getInfluence('son8001') !== TE.DEFAULT_INFLUENCE) {
+    console.error('FAIL: reset sonrası varsayılan etki', TE.getInfluence('son8001'));
     process.exit(1);
 }
 
