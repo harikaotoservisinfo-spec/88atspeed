@@ -413,7 +413,9 @@
         <strong>SON800-1 / SON800-2 / 800-1 ORAN / 800-2 ORAN:</strong> Derinlik sütunlarının sonunda
         <strong>AĞ. ORT.</strong> — son koşudan geriye ağırlıklı ortalama (SON en yüksek ağırlık).<br>
         <strong>800Δ·7:</strong> GÖSTERİM AT İSMİ mavi fosfor kuralı — her derinlikte son 7 koşunun
-        FARK 8002-8001 ortalaması; |ort| 0'a en yakın at = %100 + AĞ. ORT.<br>
+        FARK 8002-8001 ortalaması; |ort| 0'a en yakın at = %100.
+        <strong>AĞ. ORT.</strong> ağırlıklı; <strong>AĞ. ORT.1</strong> son 3 derinlik;
+        <strong>AĞ. ORT.2</strong> son 2 derinlik; <strong>AĞ. ORT.3</strong> bu üçünün ortalaması.<br>
         <strong>SON800·1DR/SL:</strong> SON800-1 + birinci derece (1DR/SL) korelasyonu + AĞ. ORT.<br>
         <strong>SON800·DR/SL:</strong> SON800-1 + atın kendi derecesi (DR/SL) korelasyonu + AĞ. ORT.<br>
         <strong>TEST1:</strong> O gün koşan atlar arasında en iyi TEST1 (DR/SL×mesafe) = %100;
@@ -437,10 +439,10 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260825d"></script>
-<script src="js/istatistik-engine.js?v=20260825d"></script>
+<script src="js/utils.js?v=20260825e"></script>
+<script src="js/istatistik-engine.js?v=20260825e"></script>
 <script>
-const ISTAT_BUILD = '20260825d';
+const ISTAT_BUILD = '20260825e';
 let currentKayitId = null;
 let currentKayitMeta = null;
 let currentRaceData = null;
@@ -744,7 +746,26 @@ function formatFark827DepthCell(cell, depthLabel) {
     return '<span class="istat-pct ' + pctClass(cell.pct) + '" title="' + title.replace(/"/g, '&quot;') + '">%' + cell.pct + '</span>';
 }
 
-function renderFark827DepthCells(depths, maxDepth, agirlikliOrt) {
+function formatDepthSonNOrtCell(stat, groupLabel, label, windowDesc) {
+    if (!stat || stat.pct === null) return '<span class="istat-pct istat-pct-none">—</span>';
+    let title = groupLabel + ' · ' + label + ' (' + windowDesc + ', ' + stat.depthCount + ' derinlik)';
+    for (const p of stat.parts) {
+        const lbl = p.depth === 0 ? 'SON' : p.depth + ' ÖNCE';
+        title += ' | ' + lbl + ': %' + p.pct;
+        if (p.tarih) title += ' (' + p.tarih + ')';
+    }
+    title += ' → %' + stat.pct;
+    return '<span class="istat-pct ' + pctClass(stat.pct) + '" title="' + title.replace(/"/g, '&quot;') + '">%' + stat.pct + '</span>';
+}
+
+function formatFark827Ort3Cell(stat, groupLabel) {
+    if (!stat || stat.pct === null) return '<span class="istat-pct istat-pct-none">—</span>';
+    const title = groupLabel + ' · AĞ. ORT.3 (AĞ. ORT. + AĞ. ORT.1 + AĞ. ORT.2 ortalaması, '
+        + stat.count + ' değer) → %' + stat.pct;
+    return '<span class="istat-pct ' + pctClass(stat.pct) + '" title="' + title.replace(/"/g, '&quot;') + '">%' + stat.pct + '</span>';
+}
+
+function renderFark827DepthCells(depths, maxDepth, ortOzeti) {
     if (maxDepth === 0) {
         return '<td class="istat-grp-f827 istat-son800-depth istat-grp-start istat-grp-end"><span class="istat-pct istat-pct-none">—</span></td>';
     }
@@ -755,7 +776,12 @@ function renderFark827DepthCells(depths, maxDepth, agirlikliOrt) {
         if (d === 0) cls += ' istat-grp-start';
         h += '<td class="' + cls + '">' + formatFark827DepthCell(cell, son800DepthLabel(d)) + '</td>';
     }
-    return appendDepthAvgCell(h, 'istat-grp-f827', agirlikliOrt, '800Δ·7', true);
+    const oz = ortOzeti || {};
+    h += '<td class="istat-grp-f827 istat-son800-avg">' + formatDepthAgirlikliOrtCell(oz.agirlikli, '800Δ·7') + '</td>';
+    h += '<td class="istat-grp-f827 istat-son800-avg">' + formatDepthSonNOrtCell(oz.ort1, '800Δ·7', 'AĞ. ORT.1', 'SON+1+2 ÖNCE') + '</td>';
+    h += '<td class="istat-grp-f827 istat-son800-avg">' + formatDepthSonNOrtCell(oz.ort2, '800Δ·7', 'AĞ. ORT.2', 'SON+1 ÖNCE') + '</td>';
+    h += '<td class="istat-grp-f827 istat-son800-avg istat-grp-end">' + formatFark827Ort3Cell(oz.ort3, '800Δ·7') + '</td>';
+    return h;
 }
 
 function formatGenelIlkPctCell(stat, donemLabel, ilkNo) {
@@ -877,7 +903,7 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
     }
 
     if (f8 > 0) {
-        h += '<th colspan="' + (f8 + 1) + '" class="istat-th-grp istat-grp-f827 istat-grp-start istat-grp-end">';
+        h += '<th colspan="' + (f8 + 4) + '" class="istat-th-grp istat-grp-f827 istat-grp-start istat-grp-end">';
         h += '800Δ·7<small>Son 7 koşu |8002-8001| ort. 0\'a yakın = %100 + ağ. ort.</small></th>';
     } else {
         h += '<th rowspan="2" class="istat-th-base istat-th-metric istat-grp-f827 istat-grp-start istat-grp-end">';
@@ -1002,7 +1028,10 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
         h += '<th class="' + cls + '">' + son800DepthLabel(d) + '</th>';
     }
     if (f8 > 0) {
-        h += '<th class="istat-th-metric istat-th-son800-avg istat-grp-f827 istat-grp-end">AĞ. ORT.</th>';
+        h += '<th class="istat-th-metric istat-th-son800-avg istat-grp-f827">AĞ. ORT.</th>';
+        h += '<th class="istat-th-metric istat-th-son800-avg istat-grp-f827">AĞ. ORT.1</th>';
+        h += '<th class="istat-th-metric istat-th-son800-avg istat-grp-f827">AĞ. ORT.2</th>';
+        h += '<th class="istat-th-metric istat-th-son800-avg istat-grp-f827 istat-grp-end">AĞ. ORT.3</th>';
     }
     for (let d = 0; d < dr1; d++) {
         let cls = 'istat-th-metric istat-th-son800-depth istat-grp-son800dr1';
@@ -1180,7 +1209,7 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
             html += renderSon800DepthCells(row.son8002Depths, maxDepth2, 'istat-grp-son8002', 'SON800-2', row.son8002AgirlikliOrt);
             html += renderSon800OranCells(row.oran1Depths, oranMaxDepth1, 'istat-grp-son800oran1', '800-1 ORAN', pkg.oranAnaDerece1, row.oran1AgirlikliOrt, true);
             html += renderSon800OranCells(row.oran2Depths, oranMaxDepth2, 'istat-grp-son800oran2', '800-2 ORAN', pkg.oranAnaDerece2, row.oran2AgirlikliOrt, false);
-            html += renderFark827DepthCells(row.fark827Depths, maxDepthFark827, row.fark827AgirlikliOrt);
+            html += renderFark827DepthCells(row.fark827Depths, maxDepthFark827, row.fark827OrtOzeti);
             html += renderSon800Dr1KorelasyonCells(row.son800Dr1Depths, maxDepthDr1, row.son800Dr1AgirlikliOrt);
             html += renderSon800DrslKorelasyonCells(row.son800DrDepths, maxDepthDr, row.son800DrAgirlikliOrt);
             html += renderTest1DepthCells(row.test1Depths, maxDepthTest1, row.test1AgirlikliOrt);

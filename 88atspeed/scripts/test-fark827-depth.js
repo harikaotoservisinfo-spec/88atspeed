@@ -56,12 +56,33 @@ if (dengeli.fark827Depths[0].absOrt >= farkli.fark827Depths[0].absOrt) {
     process.exit(1);
 }
 
-if (!dengeli.fark827AgirlikliOrt || dengeli.fark827AgirlikliOrt.pct === null) {
+if (!dengeli.fark827OrtOzeti?.agirlikli || dengeli.fark827OrtOzeti.agirlikli.pct === null) {
     console.error('FAIL: ağırlıklı ortalama eksik');
     process.exit(1);
 }
 
-console.log('Dengeli SON:', dengeli.fark827Depths[0].absOrt.toFixed(4), '→', dengeli.fark827Depths[0].pct + '%');
-console.log('Farklı SON:', farkli.fark827Depths[0].absOrt.toFixed(4), '→', farkli.fark827Depths[0].pct + '%');
+const oz = dengeli.fark827OrtOzeti;
+const depths = dengeli.fark827Depths;
+const expectedOrt1 = Math.round((depths[0].pct + depths[1].pct + depths[2].pct) / 3);
+const expectedOrt2 = Math.round((depths[0].pct + depths[1].pct) / 2);
+const expectedOrt3 = Math.round((oz.agirlikli.pct + expectedOrt1 + expectedOrt2) / 3);
+
+if (oz.ort1?.pct !== expectedOrt1) {
+    console.error('FAIL: AĞ. ORT.1 expected', expectedOrt1, 'got', oz.ort1?.pct);
+    process.exit(1);
+}
+if (oz.ort2?.pct !== expectedOrt2) {
+    console.error('FAIL: AĞ. ORT.2 expected', expectedOrt2, 'got', oz.ort2?.pct);
+    process.exit(1);
+}
+if (oz.ort3?.pct !== expectedOrt3) {
+    console.error('FAIL: AĞ. ORT.3 expected', expectedOrt3, 'got', oz.ort3?.pct);
+    process.exit(1);
+}
+
+console.log('AĞ. ORT.:', oz.agirlikli.pct + '%');
+console.log('AĞ. ORT.1:', oz.ort1.pct + '%');
+console.log('AĞ. ORT.2:', oz.ort2.pct + '%');
+console.log('AĞ. ORT.3:', oz.ort3.pct + '%');
 console.log('maxDepthFark827:', pkg.maxDepthFark827);
 console.log('OK');

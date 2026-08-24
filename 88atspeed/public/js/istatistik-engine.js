@@ -1258,6 +1258,43 @@ const IstatistikEngine = {
         };
     },
 
+    /** SON … (n−1) ÖNCE derinlik yüzdelerinin aritmetik ortalaması */
+    _computeDepthSonNOrtalama(depths, count) {
+        if (!count || !depths?.length) return null;
+        let sum = 0;
+        let adet = 0;
+        const parts = [];
+        for (let d = 0; d < count; d++) {
+            const cell = depths[d];
+            if (!cell || cell.pct === null || cell.pct === undefined) continue;
+            sum += cell.pct;
+            adet++;
+            parts.push({ depth: d, pct: cell.pct, tarih: cell.tarih || null });
+        }
+        if (adet === 0) return null;
+        return {
+            pct: Math.round(sum / adet),
+            depthCount: adet,
+            windowSize: count,
+            parts
+        };
+    },
+
+    /** 800Δ·7 özet: AĞ. ORT. + son 3/2 ort. + üçlü ortalama */
+    _computeFark827OrtOzeti(depths, maxDepth) {
+        const agirlikli = this._computeDepthAgirlikliOrtalama(depths, maxDepth);
+        const ort1 = this._computeDepthSonNOrtalama(depths, 3);
+        const ort2 = this._computeDepthSonNOrtalama(depths, 2);
+        const ort3Vals = [];
+        if (agirlikli?.pct != null) ort3Vals.push(agirlikli.pct);
+        if (ort1?.pct != null) ort3Vals.push(ort1.pct);
+        if (ort2?.pct != null) ort3Vals.push(ort2.pct);
+        const ort3 = ort3Vals.length
+            ? { pct: Math.round(ort3Vals.reduce((a, b) => a + b, 0) / ort3Vals.length), count: ort3Vals.length }
+            : null;
+        return { agirlikli, ort1, ort2, ort3 };
+    },
+
     /** @deprecated _computeDepthAgirlikliOrtalama kullanın */
     _computeSon800Dr1AgirlikliOrtalama(depths, maxDepth) {
         return this._computeDepthAgirlikliOrtalama(depths, maxDepth);
@@ -1347,7 +1384,7 @@ const IstatistikEngine = {
                     oran2Depths, oran2Grid.maxDepth
                 ),
                 fark827Depths,
-                fark827AgirlikliOrt: this._computeDepthAgirlikliOrtalama(
+                fark827OrtOzeti: this._computeFark827OrtOzeti(
                     fark827Depths, fark827Grid.maxDepth
                 ),
                 son800Dr1Depths: dr1Depths,
