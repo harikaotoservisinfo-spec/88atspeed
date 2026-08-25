@@ -118,6 +118,10 @@ const IstatistikTahminEngine = {
     ],
 
     _storeCache: null,
+    _draftByMetric: null,
+
+    CALC_MODE_SOLO: 'solo',
+    CALC_MODE_ALL: 'all',
 
     _profileKey(kind, profileId) {
         return kind + ':' + profileId;
@@ -217,8 +221,29 @@ const IstatistikTahminEngine = {
     _emptyStore() {
         return {
             selectedMetric: this.DEFAULT_SELECTED_METRIC,
+            calcMode: this.CALC_MODE_SOLO,
+            savedMetrics: [],
             byMetric: {}
         };
+    },
+
+    _savedMetricIds(store) {
+        store = store || this._loadStore();
+        const explicit = store.savedMetrics || [];
+        const fromSaved = Object.keys(store.byMetric || {}).filter(
+            id => Object.keys(store.byMetric[id] || {}).length > 0
+        );
+        return [...new Set([...explicit, ...fromSaved])];
+    },
+
+    _migrateStore(store) {
+        if (!store.calcMode) store.calcMode = this.CALC_MODE_SOLO;
+        if (!store.savedMetrics) {
+            store.savedMetrics = Object.keys(store.byMetric || {}).filter(
+                id => Object.keys(store.byMetric[id] || {}).length > 0
+            );
+        }
+        return store;
     },
 
     _loadStore() {
@@ -228,10 +253,12 @@ const IstatistikTahminEngine = {
             if (raw) {
                 const parsed = JSON.parse(raw);
                 if (parsed && parsed.byMetric) {
-                    this._storeCache = {
+                    this._storeCache = this._migrateStore({
                         selectedMetric: parsed.selectedMetric || this.DEFAULT_SELECTED_METRIC,
+                        calcMode: parsed.calcMode,
+                        savedMetrics: parsed.savedMetrics,
                         byMetric: parsed.byMetric || {}
-                    };
+                    });
                     return this._storeCache;
                 }
             }
@@ -269,10 +296,122 @@ const IstatistikTahminEngine = {
         return this._loadStore().selectedMetric || this.DEFAULT_SELECTED_METRIC;
     },
 
+    getCalcMode() {
+        return this._loadStore().calcMode || this.CALC_MODE_SOLO;
+    },
+
+    setCalcMode(mode) {
+        const store = this._loadStore();
+        store.calcMode = mode === this.CALC_MODE_ALL ? this.CALC_MODE_ALL : this.CALC_MODE_SOLO;
+        this._saveStore();
+        return store.calcMode;
+    },
+
+    isMetricSaved(metricId) {
+        return this._savedMetricIds().includes(metricId);
+    },
+
+    _ensureDraftMap() {
+        if (!this._draftByMetric) this._draftByMetric = {};
+    },
+
+    _buildDefaultDraft(metricId) {
+        const draft = {};
+        for (const sec of this.getMetricProfileSections(metricId)) {
+            for (const p of sec.profiles) {
+                draft[this._profileKey(sec.kind, p.id)] = p.defaultInfluence ?? this.DEFAULT_INFLUENCE;
+            }
+        }
+        return draft;
+    },
+
+    ensureDraft(metricId) {
+        this._ensureDraftMap();
+        if (this._draftByMetric[metricId]) return this._draftByMetric[metricId];
+        const saved = this._loadStore().byMetric?.[metricId];
+        if (saved && Object.keys(saved).length) {
+            this._draftByMetric[metricId] = { ...saved };
+        } else {
+            this._draftByMetric[metricId] = this._buildDefaultDraft(metricId);
+        }
+        return this._draftByMetric[metricId];
+    },
+
+    clearDraft(metricId) {
+        this._ensureDraftMap();
+        if (metricId) delete this._draftByMetric[metricId];
+        else this._draftByMetric = {};
+    },
+
+    hasUnsavedDraft(metricId) {
+        const draft = this._draftByMetric?.[metricId];
+        if (!draft) return false;
+        const saved = this._loadStore().byMetric?.[metricId] || {};
+        return JSON.stringify(draft) !== JSON.stringify(saved);
+    },
+
+    getDraftInfluence(metricId, kind, profileId) {
+        this.ensureDraft(metricId);
+        const key = this._profileKey(kind, profileId);
+        const v = this._draftByMetric[metricId][key];
+        return v != null ? v : this._defaultForProfile(kind, profileId, metricId);
+    },
+
+    setDraftInfluence(metricId, kind, profileId, value) {
+        this.ensureDraft(metricId);
+        const v = Math.max(
+            this.MIN_INFLUENCE,
+            Math.min(this.MAX_INFLUENCE, Math.round(Number(value) || 0))
+        );
+        this._draftByMetric[metricId][this._profileKey(kind, profileId)] = v;
+        return v;
+    },
+
+    saveDraftMetric(metricId) {
+        metricId = metricId || this.getSelectedMetric();
+        this.ensureDraft(metricId);
+        const store = this._loadStore();
+        store.byMetric[metricId] = { ...this._draftByMetric[metricId] };
+        if (!store.savedMetrics) store.savedMetrics = [];
+        if (!store.savedMetrics.includes(metricId)) store.savedMetrics.push(metricId);
+        this._saveStore();
+        return metricId;
+    },
+
+    _effectiveInfluenceMap(metricId) {
+        if (this._draftByMetric?.[metricId]) {
+            return { ...this._draftByMetric[metricId] };
+        }
+        const saved = this._loadStore().byMetric?.[metricId];
+        return saved ? { ...saved } : {};
+    },
+
+    getActiveMetricIds(extraSections) {
+        const store = this._loadStore();
+        const mode = store.calcMode || this.CALC_MODE_SOLO;
+        const selected = store.selectedMetric || this.DEFAULT_SELECTED_METRIC;
+        const saved = this._savedMetricIds(store);
+        if (mode === this.CALC_MODE_ALL) {
+            return saved;
+        }
+        return [selected];
+    },
+
+    getCalculationWeights(extraSections) {
+        const flat = {};
+        for (const metricId of this.getActiveMetricIds(extraSections)) {
+            const map = this._effectiveInfluenceMap(metricId);
+            for (const [key, val] of Object.entries(map)) {
+                flat[metricId + ':' + key] = val;
+            }
+        }
+        return flat;
+    },
+
     setSelectedMetric(metricId) {
         const store = this._loadStore();
         store.selectedMetric = metricId;
-        if (!store.byMetric[metricId]) store.byMetric[metricId] = {};
+        this.ensureDraft(metricId);
         this._saveStore();
         return metricId;
     },
@@ -302,16 +441,21 @@ const IstatistikTahminEngine = {
     },
 
     hasCustomMetricInfluences(metricId) {
-        const m = this._loadStore().byMetric?.[metricId];
-        return m && Object.keys(m).length > 0;
+        return this.isMetricSaved(metricId);
     },
 
     resetMetricInfluences(metricId) {
         const store = this._loadStore();
         if (metricId) {
             delete store.byMetric[metricId];
+            if (store.savedMetrics) {
+                store.savedMetrics = store.savedMetrics.filter(id => id !== metricId);
+            }
+            this.clearDraft(metricId);
         } else {
             store.byMetric = {};
+            store.savedMetrics = [];
+            this.clearDraft();
         }
         this._saveStore();
     },
@@ -331,11 +475,15 @@ const IstatistikTahminEngine = {
         return this.getInfluences();
     },
 
+    getWeights(extraSections) {
+        return this.getCalculationWeights(extraSections);
+    },
+
     getInfluence(weightId) {
         const parsed = this._parseWeightId(weightId);
         if (!parsed) return this.DEFAULT_INFLUENCE;
         if (parsed.metricId) {
-            return this.getMetricInfluence(parsed.metricId, parsed.kind, parsed.profileId);
+            return this.getDraftInfluence(parsed.metricId, parsed.kind, parsed.profileId);
         }
         return this._defaultForProfile(parsed.kind, parsed.profileId, null);
     },
@@ -353,7 +501,7 @@ const IstatistikTahminEngine = {
         if (!parsed?.metricId) {
             return Math.max(this.MIN_INFLUENCE, Math.min(this.MAX_INFLUENCE, Math.round(Number(value) || 0)));
         }
-        return this.setMetricInfluence(parsed.metricId, parsed.kind, parsed.profileId, value);
+        return this.setDraftInfluence(parsed.metricId, parsed.kind, parsed.profileId, value);
     },
 
     adjustInfluence(weightId, delta) {
@@ -370,13 +518,16 @@ const IstatistikTahminEngine = {
         if (!metricId) {
             const store = this._loadStore();
             store.selectedMetric = this.DEFAULT_SELECTED_METRIC;
+            store.calcMode = this.CALC_MODE_SOLO;
             this._saveStore();
         }
         this._clearLegacy();
     },
 
     _resolveInfluence(influences, weightId, metricId, kind, profileId) {
-        if (influences && influences[weightId] != null) return influences[weightId];
+        if (influences != null) {
+            return influences[weightId] != null ? influences[weightId] : 0;
+        }
         return this.getMetricInfluence(metricId, kind, profileId);
     },
 
@@ -582,6 +733,7 @@ const IstatistikTahminEngine = {
 
     attachRaceTahmin(pkg, influences) {
         const extraSections = pkg.extraSections || [];
+        if (influences == null) influences = this.getCalculationWeights(extraSections);
         const scored = pkg.rows.map(row => ({
             row,
             tahmin: this.computeRowTahmin(row, extraSections, influences)

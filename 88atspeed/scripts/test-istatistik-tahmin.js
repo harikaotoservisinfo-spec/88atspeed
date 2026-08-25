@@ -27,9 +27,17 @@ function kosu(tarih, atDr, birinciDr, opts = {}) {
 
 TE.resetWeights();
 
-// Metrik bazlı kayıt
+// Metrik bazlı kayıt (taslak + kaydet)
 TE.setMetricInfluence('son8001', 'visual', 'maviKenar', 25);
 TE.setMetricInfluence('t8', 'visual', 'maviKenar', 5);
+TE.ensureDraft('son8001');
+TE.ensureDraft('t8');
+TE.saveDraftMetric('son8001');
+TE.saveDraftMetric('t8');
+if (TE.getDraftInfluence('son8001', 'visual', 'maviKenar') !== 25) {
+    console.error('FAIL: son8001 maviKenar taslak');
+    process.exit(1);
+}
 if (TE.getMetricInfluence('son8001', 'visual', 'maviKenar') !== 25) {
     console.error('FAIL: son8001 maviKenar kayıt');
     process.exit(1);
@@ -43,15 +51,32 @@ const row = {
     son8001Depths: [{ visualProfile: 'maviKenar' }],
     test8Depths: [{ visualProfile: 'maviKenar' }]
 };
-const t = TE.computeRowTahmin(row, []);
-const son8001Term = t.terms.find(x => x.metricId === 'son8001');
-const t8Term = t.terms.find(x => x.metricId === 't8');
+// Solo mod: yalnızca seçili metrik
+TE.setCalcMode(TE.CALC_MODE_SOLO);
+TE.setSelectedMetric('son8001');
+let t = TE.computeRowTahmin(row, []);
+let son8001Term = t.terms.find(x => x.metricId === 'son8001');
+let t8Term = t.terms.find(x => x.metricId === 't8');
 if (!son8001Term || son8001Term.points !== 25) {
-    console.error('FAIL: son8001 skor', son8001Term);
+    console.error('FAIL: solo son8001 skor', son8001Term);
+    process.exit(1);
+}
+if (t8Term) {
+    console.error('FAIL: solo modda t8 sıfır olmalı', t8Term);
+    process.exit(1);
+}
+
+// Tüm kayıtlılar modu
+TE.setCalcMode(TE.CALC_MODE_ALL);
+t = TE.computeRowTahmin(row, []);
+son8001Term = t.terms.find(x => x.metricId === 'son8001');
+t8Term = t.terms.find(x => x.metricId === 't8');
+if (!son8001Term || son8001Term.points !== 25) {
+    console.error('FAIL: all son8001 skor', son8001Term);
     process.exit(1);
 }
 if (!t8Term || t8Term.points !== 5) {
-    console.error('FAIL: t8 skor', t8Term);
+    console.error('FAIL: all t8 skor', t8Term);
     process.exit(1);
 }
 
@@ -82,11 +107,11 @@ if (!catalog.find(m => m.id === 'son8001') || !catalog.find(m => m.id === 'f802'
 }
 
 TE.resetMetricInfluences('son8001');
-if (TE.hasCustomMetricInfluences('son8001')) {
+if (TE.isMetricSaved('son8001')) {
     console.error('FAIL: son8001 sıfırlanmadı');
     process.exit(1);
 }
-if (!TE.hasCustomMetricInfluences('t8')) {
+if (!TE.isMetricSaved('t8')) {
     console.error('FAIL: t8 etkileri kalmalı');
     process.exit(1);
 }
@@ -104,6 +129,10 @@ if (defaultSections[0].profiles.length !== TE.VISUAL_PROFILES.length) {
 }
 
 TE.setMetricInfluence('t9v', 'visual', 'pct100', 30);
+TE.ensureDraft('t9v');
+TE.saveDraftMetric('t9v');
+TE.setCalcMode(TE.CALC_MODE_SOLO);
+TE.setSelectedMetric('t9v');
 const t9vRow = {
     t9vDepths: [{ pct: 100, isBest: true, kmIsBest: true, kmPct: 100, t9IsBest: true, t9Pct: 100 }],
     kmaviDepths: [{ qualifies: true, pct: 100, isBest: true }],
@@ -117,7 +146,8 @@ if (!pct100Term || pct100Term.points !== 30) {
     process.exit(1);
 }
 
-TE.setMetricInfluence('t9v', 'visual', 'kmUymuyor', 3);
+TE.setDraftInfluence('t9v', 'visual', 'kmUymuyor', 3);
+TE.saveDraftMetric('t9v');
 const kmUymRow = {
     t9vDepths: [null],
     kmaviDepths: [{ qualifies: false }],
