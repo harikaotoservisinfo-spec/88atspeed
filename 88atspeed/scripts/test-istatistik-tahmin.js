@@ -27,23 +27,27 @@ function kosu(tarih, atDr, birinciDr, opts = {}) {
 
 TE.resetWeights();
 
-// Varsayılan ton önceliği: sarı 8–10, yeşil 2–4
+// Varsayılan: puan ölçekli metriklerde slider 0; t9v özel seçiciler ayrı
 TE.ensureDraft('son8001');
 TE.ensureDraft('t9v');
-if (TE.getDraftInfluence('son8001', 'visual', 'sari') !== 8) {
-    console.error('FAIL: sari varsayılan 8 değil', TE.getDraftInfluence('son8001', 'visual', 'sari'));
+if (TE.getDraftInfluence('son8001', 'visual', 'sari') !== 0) {
+    console.error('FAIL: son8001 sari varsayılan 0 değil', TE.getDraftInfluence('son8001', 'visual', 'sari'));
     process.exit(1);
 }
-if (TE.getDraftInfluence('son8001', 'visual', 'sariMavi') !== 10) {
-    console.error('FAIL: sariMavi varsayılan 10 değil');
+if (TE.getDraftInfluence('son8001', 'visual', 'sariMavi') !== 0) {
+    console.error('FAIL: son8001 sariMavi varsayılan 0 değil');
     process.exit(1);
 }
-if (TE.getDraftInfluence('son8001', 'visual', 'yesil') !== 2) {
-    console.error('FAIL: yesil varsayılan 2 değil');
+if (TE.getDraftInfluence('son8001', 'visual', 'yesil') !== 0) {
+    console.error('FAIL: son8001 yesil varsayılan 0 değil');
     process.exit(1);
 }
-if (TE.getDraftInfluence('son8001', 'visual', 'maviKenar') !== 0) {
-    console.error('FAIL: maviKenar varsayılan 0 değil');
+if (TE.getVisualPointScale('son8001', 'visual', 'maviKenar') !== 12) {
+    console.error('FAIL: son8001 maviKenar ölçek 12 değil');
+    process.exit(1);
+}
+if (TE.getVisualPointScale('sl802', 'visual', 'sariKirmizi') !== 70) {
+    console.error('FAIL: sl802 sariKirmizi ölçek 70 değil');
     process.exit(1);
 }
 if (TE.getDraftInfluence('t9v', 'visual', 'pct100') !== 0) {
@@ -158,6 +162,18 @@ if (f8021T.score !== 70) {
     process.exit(1);
 }
 
+TE.setDraftInfluence('sl802', 'visual', 'maviKenar', 1);
+TE.saveDraftMetric('sl802');
+TE.setSelectedMetric('sl802');
+const sl802T = TE.computeRowTahmin(
+    { sl802Depths: [{ visualProfile: 'maviKenar' }] },
+    [{ id: 'sl802', label: '8002/SL', depthsKey: 'sl802Depths' }]
+);
+if (sl802T.score !== 12) {
+    console.error('FAIL: sl802 maviKenar +1 = 12 puan', sl802T.score);
+    process.exit(1);
+}
+
 if (TE.getDraftInfluence('sm12', 'visual', 'sariKirmizi') !== 0) {
     console.error('FAIL: sm12 slider varsayılan 0 olmalı');
     process.exit(1);
@@ -236,8 +252,8 @@ TE.setSelectedMetric('son8001');
 let t = TE.computeRowTahmin(row, []);
 let son8001Term = t.terms.find(x => x.metricId === 'son8001');
 let t8Term = t.terms.find(x => x.metricId === 't8');
-if (!son8001Term || son8001Term.points !== 25) {
-    console.error('FAIL: solo son8001 skor', son8001Term);
+if (!son8001Term || son8001Term.points !== 300) {
+    console.error('FAIL: solo son8001 skor 25×12=300', son8001Term);
     process.exit(1);
 }
 if (t8Term) {
@@ -250,12 +266,12 @@ TE.setCalcMode(TE.CALC_MODE_ALL);
 t = TE.computeRowTahmin(row, []);
 son8001Term = t.terms.find(x => x.metricId === 'son8001');
 t8Term = t.terms.find(x => x.metricId === 't8');
-if (!son8001Term || son8001Term.points !== 25) {
-    console.error('FAIL: all son8001 skor', son8001Term);
+if (!son8001Term || son8001Term.points !== 300) {
+    console.error('FAIL: all son8001 skor 25×12=300', son8001Term);
     process.exit(1);
 }
-if (!t8Term || t8Term.points !== 5) {
-    console.error('FAIL: all t8 skor', t8Term);
+if (!t8Term || t8Term.points !== 60) {
+    console.error('FAIL: all t8 skor 5×12=60', t8Term);
     process.exit(1);
 }
 

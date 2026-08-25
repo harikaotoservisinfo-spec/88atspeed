@@ -14,15 +14,15 @@ const IstatistikTahminEngine = {
     ],
     DEFAULT_INFLUENCE: 0,
     /** Sarı ton > yeşil ton önceliği — preset sürümü (localStorage migrasyonu) */
-    TONE_KENAR_PRESET_VERSION: 7,
+    TONE_KENAR_PRESET_VERSION: 8,
 
     /** Metrik bazlı varsayılan slider etkileri (0–100) — puan ölçekli metrikler hariç */
     METRIC_INFLUENCE_PRESETS: {},
 
-    /** SM_VISUAL_POINT_SCALE tablosunu kullanan metrikler */
-    SM_POINT_SCALE_METRICS: ['sm12', 'smGec', 'sehirSon', 'f8021'],
+    /** Bu metrikler eski 1:1 puan modelini kullanır (özel seçici katalogları) */
+    POINT_SCALE_EXCLUDED_METRICS: ['t9v'],
 
-    /** Ş+M görsel profil puan ölçeği — slider +1 başına hücre puanı */
+    /** Görsel profil puan ölçeği — slider +1 başına hücre puanı (t9v hariç tüm metrikler) */
     SM_VISUAL_POINT_SCALE: {
         'visual:sariMavi': 100,
         'visual:sariKirmizi': 70,
@@ -37,27 +37,10 @@ const IstatistikTahminEngine = {
         'visual:yesilAcik': 3
     },
 
-    /**
-     * Metrik → görsel profil puan ölçeği (slider × ölçek = puan).
-     * sm12, smGec, sehirSon, f8021 aynı kullanıcı tablosunu kullanır.
-     */
-    METRIC_VISUAL_POINT_SCALE: null,
+    /** Trend Δ referans ölçeği ve çarpanı — puan ölçekli metriklerde */
+    POINT_SCALE_TREND_REF: 30,
+    POINT_SCALE_TREND_MULT: 1.2,
 
-    /** Trend büyüklük referansı — Δ puanı bu ölçekle çarpılır (sarı=30) */
-    METRIC_TREND_REF_POINT_SCALE: {
-        sm12: 30,
-        smGec: 30,
-        sehirSon: 30,
-        f8021: 30
-    },
-
-    /** Trend puanı çarpanı — aynı slider +1'de görselden %20 daha etkili */
-    METRIC_TREND_POINT_MULTIPLIER: {
-        sm12: 1.2,
-        smGec: 1.2,
-        sehirSon: 1.2,
-        f8021: 1.2
-    },
     DEFAULT_SELECTED_METRIC: 'son8001',
     MIN_INFLUENCE: 0,
     MAX_INFLUENCE: 100,
@@ -397,10 +380,9 @@ const IstatistikTahminEngine = {
 
     _applyToneKenarPreset(store) {
         const preset = this._toneKenarPresetKeys();
-        const skip = new Set(this.SM_POINT_SCALE_METRICS || []);
         for (const metricId of this._savedMetricIds(store)) {
             if (this.METRIC_INFLUENCE_PRESETS?.[metricId]) continue;
-            if (skip.has(metricId)) continue;
+            if (this._isPointScaleMetric(metricId)) continue;
             if (!store.byMetric[metricId]) store.byMetric[metricId] = {};
             for (const [k, v] of Object.entries(preset)) {
                 store.byMetric[metricId][k] = v;
@@ -449,31 +431,33 @@ const IstatistikTahminEngine = {
         this._resetMetricInfluences(store, 'f8021');
     },
 
+    /** v8: tüm görsel profil metrikleri aynı ölçek tablosuna geçti (t9v hariç) */
+    _migrateGlobalVisualPointScaleModel(store) {
+        const skip = new Set(this.POINT_SCALE_EXCLUDED_METRICS || []);
+        for (const metricId of Object.keys(store.byMetric || {})) {
+            if (skip.has(metricId)) continue;
+            this._resetMetricInfluences(store, metricId);
+        }
+    },
+
     _isPointScaleMetric(metricId) {
-        return !!this._metricVisualPointScales()[metricId];
+        if (!metricId) return false;
+        return !(this.POINT_SCALE_EXCLUDED_METRICS || []).includes(metricId);
     },
 
     getVisualPointScale(metricId, kind, profileId) {
-        const scales = this._metricVisualPointScales();
+        if (!this._isPointScaleMetric(metricId) || kind !== this.VISUAL_GROUP) return 1;
         const key = this._profileKey(kind, profileId);
-        const metricScale = scales[metricId]?.[key];
-        if (metricScale != null) return metricScale;
-        return 1;
-    },
-
-    _metricVisualPointScales() {
-        if (!this.METRIC_VISUAL_POINT_SCALE) {
-            const sm = this.SM_VISUAL_POINT_SCALE;
-            this.METRIC_VISUAL_POINT_SCALE = {};
-            for (const id of this.SM_POINT_SCALE_METRICS) {
-                this.METRIC_VISUAL_POINT_SCALE[id] = sm;
-            }
-        }
-        return this.METRIC_VISUAL_POINT_SCALE;
+        const scale = this.SM_VISUAL_POINT_SCALE[key];
+        return scale != null ? scale : 1;
     },
 
     getTrendRefPointScale(metricId) {
-        return this.METRIC_TREND_REF_POINT_SCALE?.[metricId] || 1;
+        return this._isPointScaleMetric(metricId) ? this.POINT_SCALE_TREND_REF : 1;
+    },
+
+    getTrendPointMultiplier(metricId) {
+        return this._isPointScaleMetric(metricId) ? this.POINT_SCALE_TREND_MULT : 1;
     },
 
     _emptyStore() {
@@ -515,6 +499,9 @@ const IstatistikTahminEngine = {
             }
             if (prevVersion < 7) {
                 this._migrateF8021PointScaleModel(store);
+            }
+            if (prevVersion < 8) {
+                this._migrateGlobalVisualPointScaleModel(store);
             }
             if (prevVersion < 3) {
                 this._applyToneKenarPreset(store);
@@ -883,7 +870,7 @@ const IstatistikTahminEngine = {
         );
         if (weight <= 0 || delta <= 0) return;
         const refScale = this.getTrendRefPointScale(metricId);
-        const trendMult = this.METRIC_TREND_POINT_MULTIPLIER?.[metricId] || 1;
+        const trendMult = this.getTrendPointMultiplier(metricId);
         let points = Math.round((weight * delta * refScale) / this.TREND_DELTA_DIVISOR);
         if (trendMult !== 1) {
             points = Math.round(points * trendMult);
