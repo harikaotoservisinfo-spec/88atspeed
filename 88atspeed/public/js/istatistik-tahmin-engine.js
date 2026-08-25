@@ -779,17 +779,10 @@ const IstatistikTahminEngine = {
         if (!cell || cell.pct == null) return 'hucreYok';
 
         const IE = typeof IstatistikEngine !== 'undefined' ? IstatistikEngine : null;
-        if (cell.gosterim || cell.visualProfile) {
-            const profile = cell.visualProfile
-                || (IE?.classifyCellVisual ? IE.classifyCellVisual(cell) : null);
-            const mapped = profile ? this._visualProfileToTonKenar(profile) : null;
-            if (mapped) return mapped;
-
-            const g = cell.gosterim || {};
-            let border = 'yok';
-            if (g.kirmiziKenar) border = 'kirmizi';
-            else if (g.maviKenar) border = 'mavi';
-            const tone = this._t9vPctToTone(cell.pct);
+        if (cell.gosterim) {
+            const { tone, border } = IE?.classifyRenderedToneBorder
+                ? IE.classifyRenderedToneBorder(cell)
+                : { tone: this._t9vPctToTone(cell.pct), border: 'yok' };
             return 'tk_' + tone + '_' + border;
         }
 

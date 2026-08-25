@@ -33,28 +33,61 @@
         };
     }
 
+    function classifyRenderedBorder(g) {
+        if (g.kirmiziKenar) return 'kirmizi';
+        if (g.maviKenar) return 'mavi';
+        return 'yok';
+    }
+
+    /**
+     * Ekranda görünen dolgu tonu — CSS ile aynı öncelik (gizli test bayrakları tonu değiştirmez).
+     */
+    function classifyRenderedTone(g, pct) {
+        if (g.sehirEslesme || g.mesafeEslesme) return 'yesil';
+        if (g.gucluUyari) return 'yesil';
+        if (g.yesilSatir) return 'sari';
+        if (g.sariTest12 || g.pembeSatir) return 'sari';
+        if (g.kirmiziTest) return 'kirmizi';
+        const gosOnTd = !!(g.kirmiziKenar || g.maviKenar || g.yesilSatir || g.gucluUyari
+            || g.maviFosfor || g.pembeSatir || g.sariTest12 || g.kirmiziTest
+            || g.sehirEslesme || g.mesafeEslesme);
+        if (gosOnTd) return 'yok';
+        if (pct != null) {
+            if (pct === 0) return 'kirmizi';
+            if (pct <= 33) return 'sari';
+            if (pct >= 34) return 'yesil';
+        }
+        return 'yok';
+    }
+
+    /** @returns {{ tone: string, border: string }} */
+    IE.classifyRenderedToneBorder = function (cell) {
+        const g = cell?.gosterim || {};
+        return {
+            tone: classifyRenderedTone(g, cell?.pct),
+            border: classifyRenderedBorder(g)
+        };
+    };
+
     /**
      * Hücre görsel profili — kenar + dolgu kombinasyonları (TAHMİN için tek anahtar).
+     * Öncelik: ekranda görünen TD sınıfları; test1/2/3EnIyi yalnızca koyu yeşil eşleşmede ton verir.
      */
     IE.classifyCellVisual = function (cell) {
         if (!cell?.gosterim) return null;
         const g = cell.gosterim;
-        const border = g.kirmiziKenar ? 'kirmizi' : (g.maviKenar ? 'mavi' : 'yok');
-        const koyuYesil = !!(g.sehirEslesme || g.mesafeEslesme || g.test1EnIyi || g.test2EnIyi || g.test3EnIyi);
-        const acikYesil = !!(g.yesilSatir && !koyuYesil);
-        const sari = !!(g.sariTest12 || acikYesil);
+        const { tone, border } = this.classifyRenderedToneBorder(cell);
 
-        if (koyuYesil && border === 'mavi') return 'yesilMavi';
-        if (koyuYesil && border === 'kirmizi') return 'yesilKirmizi';
-        if (koyuYesil) return 'yesil';
-        if (sari && border === 'mavi') return 'sariMavi';
-        if (sari && border === 'kirmizi') return 'sariKirmizi';
-        if (sari) return 'sari';
+        if (tone === 'yesil' && border === 'mavi') return 'yesilMavi';
+        if (tone === 'yesil' && border === 'kirmizi') return 'yesilKirmizi';
+        if (tone === 'yesil') return 'yesil';
+        if (tone === 'sari' && border === 'mavi') return 'sariMavi';
+        if (tone === 'sari' && border === 'kirmizi') return 'sariKirmizi';
+        if (tone === 'sari') return 'sari';
         if (border === 'mavi') return 'maviKenar';
         if (border === 'kirmizi') return 'kirmiziKenar';
         if (g.gucluUyari) return 'gucluUyari';
         if (g.maviFosfor) return 'maviFosfor';
-        if (acikYesil) return 'yesilAcik';
         return null;
     };
 

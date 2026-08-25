@@ -216,6 +216,27 @@ if (borderOnly !== 'tk_yok_mavi') {
     process.exit(1);
 }
 
+// TUNCER tipi: sarı satır + kırmızı kenar; test1EnIyi ekranda ton değiştirmez → sariKirmizi
+const tuncerCell = {
+    pct: 0,
+    gosterim: { kirmiziKenar: true, yesilSatir: true, test1EnIyi: true }
+};
+if (IE.classifyCellVisual(tuncerCell) !== 'sariKirmizi') {
+    console.error('FAIL: yesilSatir+kirmizi test1EnIyi → sariKirmizi', IE.classifyCellVisual(tuncerCell));
+    process.exit(1);
+}
+TE.setDraftInfluence('sm12', 'visual', 'sariKirmizi', 5);
+TE.setSelectedMetric('sm12');
+TE.setCalcMode(TE.CALC_MODE_SOLO);
+TE.saveDraftMetric('sm12');
+const tuncerRow = { sm12Depths: [null, tuncerCell] };
+const tuncerT = TE.computeRowTahmin(tuncerRow, [{ id: 'sm12', label: 'Ş+M-12', depthsKey: 'sm12Depths' }]);
+const tuncerTerm = tuncerT.terms.find(x => x.metricId === 'sm12' && x.label.includes('Sarı+kırmızı'));
+if (!tuncerTerm || tuncerTerm.points !== 5) {
+    console.error('FAIL: sm12 sariKirmizi TUNCER tipi', tuncerTerm, tuncerT.terms);
+    process.exit(1);
+}
+
 console.log('Metrik bazlı TAHMİN: son8001 +' + son8001Term.points + ', t8 +' + t8Term.points);
 console.log('T9V pct100 +' + pct100Term.points);
 
