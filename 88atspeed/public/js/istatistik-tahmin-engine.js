@@ -14,10 +14,13 @@ const IstatistikTahminEngine = {
     ],
     DEFAULT_INFLUENCE: 0,
     /** Sarı ton > yeşil ton önceliği — preset sürümü (localStorage migrasyonu) */
-    TONE_KENAR_PRESET_VERSION: 8,
+    TONE_KENAR_PRESET_VERSION: 9,
 
     /** Metrik bazlı varsayılan slider etkileri (0–100) — puan ölçekli metrikler hariç */
     METRIC_INFLUENCE_PRESETS: {},
+
+    /** Puan ölçekli metriklerde görsel profil başlangıç slider değeri (+1) */
+    POINT_SCALE_DEFAULT_VISUAL_INFLUENCE: 1,
 
     /** Bu metrikler eski 1:1 puan modelini kullanır (özel seçici katalogları) */
     POINT_SCALE_EXCLUDED_METRICS: ['t9v'],
@@ -331,8 +334,11 @@ const IstatistikTahminEngine = {
             if (metricPreset && metricPreset[key] != null) {
                 return metricPreset[key];
             }
-            // Puan ölçekli metrikler: slider 0'dan başlar
+            // Puan ölçekli metrikler: görsel +1, trend 0
             if (this._isPointScaleMetric(metricId)) {
+                if (kind === this.VISUAL_GROUP) {
+                    return this.POINT_SCALE_DEFAULT_VISUAL_INFLUENCE;
+                }
                 return this.DEFAULT_INFLUENCE;
             }
             const p = this.getProfileDef(metricId, kind, profileId);
@@ -440,6 +446,44 @@ const IstatistikTahminEngine = {
         }
     },
 
+    _allPointScaleMetricIds() {
+        const extras = [
+            'f802', 'f803', 't9', 'dr1dr', 'drsl', 'dr1sl', 't12y', 'kirmizi', 'yesil', 'mavif',
+            'kmavi', 't4', 't5', 't6', 't7', 't2m3', 't1dr3', 'fark', 'ilkf', 'sonf', 'sl801',
+            'sl802', 'f8021', 'sehirSon', 'smGec', 'sm12'
+        ];
+        const core = this.CORE_GROUPS.map(g => g.id);
+        return [...new Set([...core, ...extras])].filter(id => this._isPointScaleMetric(id));
+    },
+
+    _buildPointScaleStarterInfluences(metricId) {
+        const out = {};
+        for (const sec of this.getMetricProfileSections(metricId)) {
+            for (const p of sec.profiles) {
+                out[this._profileKey(sec.kind, p.id)] = this._defaultForProfile(
+                    sec.kind, p.id, metricId
+                );
+            }
+        }
+        return out;
+    },
+
+    /** v9: kayıtlı olmayan puan ölçekli metrikler → görsel +1, trend 0, kaydet */
+    _migrateUnsavedPointScaleStarters(store) {
+        const saved = new Set(store.savedMetrics || []);
+        for (const metricId of this._allPointScaleMetricIds()) {
+            if (saved.has(metricId)) continue;
+            if (!store.byMetric[metricId]) store.byMetric[metricId] = {};
+            const starter = this._buildPointScaleStarterInfluences(metricId);
+            for (const [k, v] of Object.entries(starter)) {
+                store.byMetric[metricId][k] = v;
+            }
+            if (!store.savedMetrics) store.savedMetrics = [];
+            if (!store.savedMetrics.includes(metricId)) store.savedMetrics.push(metricId);
+        }
+        this._draftByMetric = null;
+    },
+
     _isPointScaleMetric(metricId) {
         if (!metricId) return false;
         return !(this.POINT_SCALE_EXCLUDED_METRICS || []).includes(metricId);
@@ -502,6 +546,9 @@ const IstatistikTahminEngine = {
             }
             if (prevVersion < 8) {
                 this._migrateGlobalVisualPointScaleModel(store);
+            }
+            if (prevVersion < 9) {
+                this._migrateUnsavedPointScaleStarters(store);
             }
             if (prevVersion < 3) {
                 this._applyToneKenarPreset(store);

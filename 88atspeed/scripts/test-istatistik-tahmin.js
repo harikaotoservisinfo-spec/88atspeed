@@ -27,19 +27,23 @@ function kosu(tarih, atDr, birinciDr, opts = {}) {
 
 TE.resetWeights();
 
-// Varsayılan: puan ölçekli metriklerde slider 0; t9v özel seçiciler ayrı
+// Varsayılan: puan ölçekli metriklerde görsel +1, trend 0; t9v ayrı
 TE.ensureDraft('son8001');
 TE.ensureDraft('t9v');
-if (TE.getDraftInfluence('son8001', 'visual', 'sari') !== 0) {
-    console.error('FAIL: son8001 sari varsayılan 0 değil', TE.getDraftInfluence('son8001', 'visual', 'sari'));
+if (TE.getDraftInfluence('son8001', 'visual', 'sari') !== 1) {
+    console.error('FAIL: son8001 sari varsayılan 1 değil', TE.getDraftInfluence('son8001', 'visual', 'sari'));
     process.exit(1);
 }
-if (TE.getDraftInfluence('son8001', 'visual', 'sariMavi') !== 0) {
-    console.error('FAIL: son8001 sariMavi varsayılan 0 değil');
+if (TE.getDraftInfluence('son8001', 'visual', 'sariMavi') !== 1) {
+    console.error('FAIL: son8001 sariMavi varsayılan 1 değil');
     process.exit(1);
 }
-if (TE.getDraftInfluence('son8001', 'visual', 'yesil') !== 0) {
-    console.error('FAIL: son8001 yesil varsayılan 0 değil');
+if (TE.getDraftInfluence('son8001', 'visual', 'yesil') !== 1) {
+    console.error('FAIL: son8001 yesil varsayılan 1 değil');
+    process.exit(1);
+}
+if (TE.getDraftInfluence('son8001', 'trend', 'trendDownSon') !== 0) {
+    console.error('FAIL: son8001 trend varsayılan 0 değil');
     process.exit(1);
 }
 if (TE.getVisualPointScale('son8001', 'visual', 'maviKenar') !== 12) {
@@ -103,12 +107,12 @@ if (TE.getVisualPointScale('smGec', 'visual', 'sariKirmizi') !== 70) {
     console.error('FAIL: smGec sariKirmizi ölçek 70 değil');
     process.exit(1);
 }
-if (TE.getDraftInfluence('smGec', 'visual', 'maviKenar') !== 0) {
-    console.error('FAIL: smGec slider varsayılan 0 olmalı');
+if (TE.getDraftInfluence('smGec', 'visual', 'maviKenar') !== 1) {
+    console.error('FAIL: smGec görsel varsayılan 1 olmalı');
     process.exit(1);
 }
 
-// smGec: mavi kenar +1 = 12 puan (16 değil)
+// smGec: mavi kenar +1 = 12 puan
 TE.setDraftInfluence('smGec', 'visual', 'maviKenar', 1);
 TE.saveDraftMetric('smGec');
 TE.setSelectedMetric('smGec');
@@ -126,8 +130,8 @@ if (TE.getVisualPointScale('sehirSon', 'visual', 'sariMavi') !== 100) {
     console.error('FAIL: sehirSon sariMavi ölçek 100 değil');
     process.exit(1);
 }
-if (TE.getDraftInfluence('sehirSon', 'visual', 'sari') !== 0) {
-    console.error('FAIL: sehirSon slider varsayılan 0 olmalı', TE.getDraftInfluence('sehirSon', 'visual', 'sari'));
+if (TE.getDraftInfluence('sehirSon', 'visual', 'sari') !== 1) {
+    console.error('FAIL: sehirSon görsel varsayılan 1 olmalı', TE.getDraftInfluence('sehirSon', 'visual', 'sari'));
     process.exit(1);
 }
 TE.setDraftInfluence('sehirSon', 'visual', 'sari', 1);
@@ -146,8 +150,8 @@ if (TE.getVisualPointScale('f8021', 'visual', 'sariKirmizi') !== 70) {
     console.error('FAIL: f8021 sariKirmizi ölçek 70 değil');
     process.exit(1);
 }
-if (TE.getDraftInfluence('f8021', 'visual', 'sariMavi') !== 0) {
-    console.error('FAIL: f8021 slider varsayılan 0 olmalı');
+if (TE.getDraftInfluence('f8021', 'visual', 'sariMavi') !== 1) {
+    console.error('FAIL: f8021 görsel varsayılan 1 olmalı');
     process.exit(1);
 }
 TE.setDraftInfluence('f8021', 'visual', 'sariKirmizi', 1);
@@ -174,8 +178,8 @@ if (sl802T.score !== 12) {
     process.exit(1);
 }
 
-if (TE.getDraftInfluence('sm12', 'visual', 'sariKirmizi') !== 0) {
-    console.error('FAIL: sm12 slider varsayılan 0 olmalı');
+if (TE.getDraftInfluence('sm12', 'visual', 'sariKirmizi') !== 1) {
+    console.error('FAIL: sm12 görsel varsayılan 1 olmalı');
     process.exit(1);
 }
 
