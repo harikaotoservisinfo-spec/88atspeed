@@ -31,6 +31,7 @@ const race = {
 };
 
 const pkg = global.IstatistikEngine.buildRaceIstatistikPackage(race, 'İstanbul', '24.08.2026');
+global.IstatistikEngine.applyProgramGlobalPctScales([pkg]);
 console.log('maxDepthTest1:', pkg.maxDepthTest1);
 
 for (const row of pkg.rows) {

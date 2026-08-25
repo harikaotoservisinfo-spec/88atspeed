@@ -83,6 +83,7 @@
             for (const e of atDepth) {
                 const cell = {
                     pct: AtSpeedUtils.pctLinearMinBest(e[valueKey], minVal, maxVal),
+                    val: e[valueKey],
                     comparedCount: atDepth.length,
                     depth: d,
                     isBest: e[valueKey] === minVal,
@@ -450,6 +451,28 @@
         }
         return { maxDepth, byHorse };
     };
+
+    /** Program geneli min–max ölçek — ek derinlik grupları */
+    IE.PROGRAM_GLOBAL_PCT_EXTRA_SPECS = [
+        { depthsKey: 'f802Depths', valueKey: 'absOrt', maxDepthKey: 'maxDepthF802', ortKey: 'f802OrtOzeti' },
+        { depthsKey: 'f803Depths', valueKey: 'absOrt', maxDepthKey: 'maxDepthF803', ortKey: 'f803OrtOzeti' },
+        { depthsKey: 't9Depths', valueKey: 'absVal', maxDepthKey: 'maxDepthT9', ortKey: 't9OrtOzeti' },
+        { depthsKey: 'dr1drDepths', valueKey: 'val', maxDepthKey: 'maxDepthDr1dr', ortKey: 'dr1drOrtOzeti' },
+        { depthsKey: 'drslDepths', valueKey: 'val', maxDepthKey: 'maxDepthDrsl', ortKey: 'drslOrtOzeti' },
+        { depthsKey: 'dr1slDepths', valueKey: 'val', maxDepthKey: 'maxDepthDr1sl', ortKey: 'dr1slOrtOzeti' },
+        { depthsKey: 't12yDepths', valueKey: 'absVal', maxDepthKey: 'maxDepthT12y', ortKey: 't12yOrtOzeti' },
+        { depthsKey: 'yesilDepths', valueKey: 'absVal', maxDepthKey: 'maxDepthYesil', ortKey: 'yesilOrtOzeti' },
+        { depthsKey: 't4Depths', valueKey: 'absVal', maxDepthKey: 'maxDepthT4', ortKey: 't4OrtOzeti' },
+        { depthsKey: 't5Depths', valueKey: 'absVal', maxDepthKey: 'maxDepthT5', ortKey: 't5OrtOzeti' },
+        { depthsKey: 't6Depths', valueKey: 'absVal', maxDepthKey: 'maxDepthT6', ortKey: 't6OrtOzeti' },
+        { depthsKey: 't7Depths', valueKey: 'absVal', maxDepthKey: 'maxDepthT7', ortKey: 't7OrtOzeti' },
+        { depthsKey: 't2m3Depths', valueKey: 'val', maxDepthKey: 'maxDepthT2m3', ortKey: 't2m3OrtOzeti' },
+        { depthsKey: 't1dr3Depths', valueKey: 'val', maxDepthKey: 'maxDepthT1dr3', ortKey: 't1dr3OrtOzeti' },
+        { depthsKey: 'sl801Depths', valueKey: 'val', maxDepthKey: 'maxDepthSl801', ortKey: 'sl801OrtOzeti' },
+        { depthsKey: 'sl802Depths', valueKey: 'val', maxDepthKey: 'maxDepthSl802', ortKey: 'sl802OrtOzeti' },
+        { depthsKey: 'f8021Depths', valueKey: 'absVal', maxDepthKey: 'maxDepthF8021', ortKey: 'f8021OrtOzeti' },
+        { depthsKey: 't9vDepths', valueKey: 'absTest9', maxDepthKey: 'maxDepthT9v', ortKey: 't9vOrtOzeti' }
+    ];
 
     /** Tüm ek grid tanımları */
     IE.ISTAT_EXTRA_SECTIONS = [

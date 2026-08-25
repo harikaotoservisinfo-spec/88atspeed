@@ -847,14 +847,14 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260825at"></script>
-<script src="js/formula-engine.js?v=20260825at"></script>
-<script src="js/istatistik-engine.js?v=20260825at"></script>
-<script src="js/istatistik-grids-extra.js?v=20260825at"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260825at"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260825at"></script>
+<script src="js/utils.js?v=20260825au"></script>
+<script src="js/formula-engine.js?v=20260825au"></script>
+<script src="js/istatistik-engine.js?v=20260825au"></script>
+<script src="js/istatistik-grids-extra.js?v=20260825au"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260825au"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260825au"></script>
 <script>
-const ISTAT_BUILD = '20260825at';
+const ISTAT_BUILD = '20260825au';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
 let currentKayitId = null;
@@ -2288,7 +2288,7 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
     }
 
     istatRaceCache = [];
-    let html = '<div class="istatistik-stack">';
+    const raceEntries = [];
     for (let i = 0; i < data.length; i++) {
         const race = data[i];
         const raceNo = race.raceNo || (i + 1);
@@ -2297,6 +2297,14 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
         const mesafeGosterim = mesafe !== '?' ? mesafe + (pist ? ' ' + pist : '') : '?';
         const hedefMesafe = IstatistikEngine._hedefMesafe(race);
         const pkg = IstatistikEngine.buildRaceIstatistikPackage(race, hedefSehir, programTarih);
+        raceEntries.push({ race, raceNo, mesafeGosterim, hedefMesafe, pkg });
+    }
+    if (raceEntries.length) {
+        IstatistikEngine.applyProgramGlobalPctScales(raceEntries.map(e => e.pkg));
+    }
+    let html = '<div class="istatistik-stack">';
+    for (let i = 0; i < raceEntries.length; i++) {
+        const { race, raceNo, mesafeGosterim, pkg } = raceEntries[i];
         IstatistikTahminEngine.attachRaceTahmin(pkg);
         istatRaceCache.push({ pkg, horseCount: pkg.rows.length });
         const rows = pkg.rows;
