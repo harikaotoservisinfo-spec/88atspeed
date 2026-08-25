@@ -161,4 +161,55 @@ if (!kmUymT.terms.some(x => x.metricId === 't9v' && x.label.includes('KM uyumsuz
 
 console.log('Metrik bazlı TAHMİN: son8001 +' + son8001Term.points + ', t8 +' + t8Term.points);
 console.log('T9V pct100 +' + pct100Term.points);
+
+// Trend derinlik: sabit indeks + büyüklük puanı
+const hits = IE.computeDepthTrendHits([
+    { pct: 1 }, { pct: 22 }, { pct: 50 }
+]);
+if (!hits.find(h => h.id === 'trendDownSon' && h.delta === 21)) {
+    console.error('FAIL: trendDownSon delta', hits);
+    process.exit(1);
+}
+if (!hits.find(h => h.id === 'trendDown3' && h.delta === 49)) {
+    console.error('FAIL: trendDown3 delta', hits);
+    process.exit(1);
+}
+// Null SON — 1 ÖNCE/2 ÖNCE karşılaştırılmamalı
+const nullSon = IE.computeDepthTrendHits([null, { pct: 50 }, { pct: 80 }]);
+if (nullSon.some(h => h.id === 'trendDownSon')) {
+    console.error('FAIL: null SON trendDownSon', nullSon);
+    process.exit(1);
+}
+
+TE.resetWeights();
+TE.setDraftInfluence('t9v', 'trend', 'trendDownSon', 25);
+TE.saveDraftMetric('t9v');
+TE.setCalcMode(TE.CALC_MODE_SOLO);
+TE.setSelectedMetric('t9v');
+const trendRow = {
+    t9vDepths: [{ pct: 10 }, { pct: 60 }],
+    kmaviDepths: [{ qualifies: true }, { qualifies: true }],
+    t9Depths: [{ pct: 10 }, { pct: 60 }],
+    t9vOrtOzeti: {}
+};
+const trendT = TE.computeRowTahmin(trendRow, [{ id: 't9v', label: 'T9V', depthsKey: 't9vDepths' }]);
+const trendTerm = trendT.terms.find(x => x.metricId === 't9v' && x.label.includes('SON ↓'));
+// delta=50, weight=25 → round(25*50/25)=50
+if (!trendTerm || trendTerm.points !== 50) {
+    console.error('FAIL: trend magnitude points', trendTerm, trendT.terms);
+    process.exit(1);
+}
+const flatRow = {
+    t9vDepths: [{ pct: 50 }, { pct: 50 }],
+    kmaviDepths: [{ qualifies: true }, { qualifies: true }],
+    t9Depths: [{ pct: 50 }, { pct: 50 }],
+    t9vOrtOzeti: {}
+};
+const flatT = TE.computeRowTahmin(flatRow, [{ id: 't9v', label: 'T9V', depthsKey: 't9vDepths' }]);
+if (flatT.terms.some(x => x.label.includes('SON ↓'))) {
+    console.error('FAIL: düz trend olmamalı', flatT.terms);
+    process.exit(1);
+}
+
+console.log('Trend SON↓ Δ50 → +' + trendTerm.points + ' puan');
 console.log('OK');

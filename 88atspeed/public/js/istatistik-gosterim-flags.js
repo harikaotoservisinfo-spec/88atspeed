@@ -58,21 +58,69 @@
         return null;
     };
 
-    IE.computeDepthTrend = function (depths, maxN) {
+    /**
+     * Derinlik trend isabetleri — sabit indeks (SON=0, 1 ÖNCE=1, 2 ÖNCE=2).
+     * Null hücreler atlanır; sıkıştırılmış dizi kullanılmaz.
+     * @returns {{ id: string, delta: number, strength: number, detail: string }[]}
+     */
+    IE.computeDepthTrendHits = function (depths, maxN) {
         maxN = maxN || 3;
-        const pcts = [];
-        for (let d = 0; d < Math.min(maxN, depths?.length || 0); d++) {
-            if (depths[d]?.pct != null) pcts.push(depths[d].pct);
+        const pct = (d) => {
+            if (d < 0 || d >= (depths?.length || 0)) return null;
+            const v = depths[d]?.pct;
+            return v != null ? v : null;
+        };
+        const p0 = pct(0);
+        const p1 = pct(1);
+        const p2 = pct(2);
+        const hits = [];
+
+        if (p0 != null && p1 != null && p2 != null) {
+            if (p0 < p1 && p1 < p2) {
+                const delta = p2 - p0;
+                hits.push({
+                    id: 'trendDown3',
+                    delta,
+                    strength: Math.min(1, delta / 100),
+                    detail: p0 + ' < ' + p1 + ' < ' + p2 + ' (Δ' + delta + ')'
+                });
+            }
+            if (p0 > p1 && p1 > p2) {
+                const delta = p0 - p2;
+                hits.push({
+                    id: 'trendUp3',
+                    delta,
+                    strength: Math.min(1, delta / 100),
+                    detail: p0 + ' > ' + p1 + ' > ' + p2 + ' (Δ' + delta + ')'
+                });
+            }
         }
-        if (pcts.length < 2) return [];
-        const out = [];
-        const up3 = pcts.length >= 3 && pcts[0] > pcts[1] && pcts[1] > pcts[2];
-        const down3 = pcts.length >= 3 && pcts[0] < pcts[1] && pcts[1] < pcts[2];
-        if (up3) out.push('trendUp3');
-        if (down3) out.push('trendDown3');
-        if (pcts[0] > pcts[1]) out.push('trendUpSon');
-        else if (pcts[0] < pcts[1]) out.push('trendDownSon');
-        return out;
+
+        if (p0 != null && p1 != null) {
+            if (p0 < p1) {
+                const delta = p1 - p0;
+                hits.push({
+                    id: 'trendDownSon',
+                    delta,
+                    strength: Math.min(1, delta / 100),
+                    detail: 'SON %' + p0 + ' < 1 ÖNCE %' + p1 + ' (Δ' + delta + ')'
+                });
+            } else if (p0 > p1) {
+                const delta = p0 - p1;
+                hits.push({
+                    id: 'trendUpSon',
+                    delta,
+                    strength: Math.min(1, delta / 100),
+                    detail: 'SON %' + p0 + ' > 1 ÖNCE %' + p1 + ' (Δ' + delta + ')'
+                });
+            }
+        }
+
+        return hits;
+    };
+
+    IE.computeDepthTrend = function (depths, maxN) {
+        return this.computeDepthTrendHits(depths, maxN).map(h => h.id);
     };
 
     IE.buildGosterimFlagIndex = function (race, hedefSehir, programTarih) {
