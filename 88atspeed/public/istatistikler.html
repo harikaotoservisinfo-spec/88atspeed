@@ -92,26 +92,14 @@
             min-width: 76px;
             width: 76px;
             text-align: center;
-            box-shadow: none;
+            box-shadow: 4px 0 10px -4px rgba(0, 0, 0, 0.12);
         }
-        .istatistik-table .istat-sticky-tahmin-grp {
-            position: sticky;
-            z-index: 4;
-            background: #fff;
-            min-width: 52px;
+        .istatistik-table th.istat-metric-active-highlight,
+        .istatistik-table td.istat-metric-active-highlight {
+            box-shadow: inset 0 0 0 2px #7b1fa2;
         }
-        .istatistik-table thead .istat-sticky-tahmin-grp {
-            z-index: 14;
-            background: #ede7f6;
-        }
-        .istatistik-table .istat-sticky-tahmin-grp-edge {
-            box-shadow: 4px 0 10px -4px rgba(0, 0, 0, 0.18);
-        }
-        .istatistik-table .istat-tahmin-active-metric .istat-grp-label {
-            color: #4a148c;
-        }
-        .istatistik-table tbody tr:hover .istat-sticky-tahmin-grp {
-            background: #fafafa;
+        .istatistik-table thead th.istat-metric-active-highlight {
+            background: #e1bee7 !important;
         }
         .istatistik-table tbody tr:hover .istat-sticky-no,
         .istatistik-table tbody tr:hover .istat-sticky-at,
@@ -560,14 +548,14 @@
             border-color: #e0e0e0;
         }
         .istat-metric-weight-compact .istat-w-btn {
-            width: 16px;
-            height: 14px;
-            font-size: 10px;
-            border-radius: 3px;
+            width: 22px;
+            height: 20px;
+            font-size: 11px;
+            border-radius: 4px;
         }
         .istat-metric-weight-compact .istat-w-etki {
-            min-width: 22px;
-            font-size: 9px;
+            min-width: 28px;
+            font-size: 11px;
         }
         .istat-metric-weight-p100 {
             margin-top: 2px;
@@ -678,17 +666,19 @@
             line-height: 1.45;
         }
         .istat-gos-weight-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px 12px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+            gap: 10px 12px;
             margin-top: 10px;
+            width: 100%;
         }
         .istat-gos-weight-item {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 2px;
-            min-width: 72px;
+            gap: 4px;
+            min-width: 0;
+            padding: 4px 2px;
         }
         .istat-gos-metric-picker {
             display: flex;
@@ -784,11 +774,13 @@
             color: #4a148c;
         }
         .istat-gos-weight-label {
-            font-size: 9px;
+            font-size: 10px;
             font-weight: 700;
             color: #5e35b1;
             text-align: center;
-            line-height: 1.2;
+            line-height: 1.25;
+            max-width: 100%;
+            word-break: break-word;
         }
         .istat-gos-hepsi-note p {
             margin: 4px 0 8px;
@@ -884,14 +876,14 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260825bb"></script>
-<script src="js/formula-engine.js?v=20260825bb"></script>
-<script src="js/istatistik-engine.js?v=20260825bb"></script>
-<script src="js/istatistik-grids-extra.js?v=20260825bb"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260825bb"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260825bb"></script>
+<script src="js/utils.js?v=20260825bc"></script>
+<script src="js/formula-engine.js?v=20260825bc"></script>
+<script src="js/istatistik-engine.js?v=20260825bc"></script>
+<script src="js/istatistik-grids-extra.js?v=20260825bc"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260825bc"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260825bc"></script>
 <script>
-const ISTAT_BUILD = '20260825bb';
+const ISTAT_BUILD = '20260825bc';
 const TAHMIN_METRIC_ALL = '__hepsi__';
 let selectedTahminMetric = TAHMIN_METRIC_ALL;
 let istatRaceCache = [];
@@ -1023,67 +1015,52 @@ function patchTahminCellEl(cell, tahmin, horseCount) {
 }
 
 let _tahminRefreshRaf = 0;
-let _activeMetricPatchRaf = 0;
 
 function isTahminMetricAll(metricId) {
     return metricId === TAHMIN_METRIC_ALL;
 }
 
-function markActiveMetricHtml(html, kind) {
-    if (!html) return '';
-    const attr = kind === 'head' ? 'data-active-metric-head="1"' : 'data-active-metric-cell="1"';
-    return html.replace(/<(td|th)\b/g, '<$1 ' + attr);
-}
-
-function scheduleActiveMetricPatch() {
-    if (_activeMetricPatchRaf) return;
-    _activeMetricPatchRaf = requestAnimationFrame(() => {
-        _activeMetricPatchRaf = 0;
-        patchActiveMetricColumns();
+function clearActiveMetricHighlights(root) {
+    (root || document).querySelectorAll('.istat-metric-active-highlight').forEach(el => {
+        el.classList.remove('istat-metric-active-highlight');
     });
 }
 
-function removeActiveMetricNodes(root) {
-    if (!root) return;
-    root.querySelectorAll('[data-active-metric-head],[data-active-metric-cell]').forEach(n => n.remove());
-}
-
-function patchActiveMetricColumns() {
-    if (!istatRaceCache.length) return;
+function syncActiveMetricTableHighlight() {
+    clearActiveMetricHighlights();
+    const metricId = getActiveTahminMetricId();
+    if (isTahminMetricAll(metricId) || !istatRaceCache.length) return;
     istatRaceCache.forEach((entry, raceIndex) => {
         const card = document.querySelector('.istatistik-race-card[data-race-index="' + raceIndex + '"]');
         if (!card) return;
-        const table = card.querySelector('.istatistik-table');
-        if (!table) return;
-        const pkg = entry.pkg;
-        const metricId = getActiveTahminMetricId();
-        const metricDesc = isTahminMetricAll(metricId) ? null : resolveTahminMetricSection(metricId, pkg);
-        const headParts = buildTahminActiveMetricHeadParts(metricDesc);
-        removeActiveMetricNodes(table);
-        const row1 = table.querySelector('thead tr:first-child');
-        const row2 = table.querySelector('thead tr:nth-child(2)');
-        const tahminTh = row1?.querySelector('.istat-sticky-tahmin');
-        if (tahminTh && headParts.row1) {
-            tahminTh.insertAdjacentHTML('afterend', markActiveMetricHtml(headParts.row1, 'head'));
-        }
-        if (row2 && headParts.row2) {
-            row2.insertAdjacentHTML('afterbegin', markActiveMetricHtml(headParts.row2, 'head'));
-        }
-        const bodyRows = table.querySelectorAll('tbody tr');
-        for (let ri = 0; ri < bodyRows.length; ri++) {
-            const row = pkg.rows[ri];
-            const tr = bodyRows[ri];
-            if (!row || !tr) continue;
-            const tahminTd = tr.querySelector('.istat-sticky-tahmin');
-            if (!tahminTd) continue;
-            tahminTd.insertAdjacentHTML('afterend', markActiveMetricHtml(
-                renderTahminActiveMetricCells(row, metricDesc, pkg),
-                'cell'
-            ));
-        }
+        const desc = resolveTahminMetricSection(metricId, entry.pkg);
+        if (!desc?.grpClass) return;
+        card.querySelectorAll('.' + desc.grpClass).forEach(el => {
+            el.classList.add('istat-metric-active-highlight');
+        });
     });
-    notifyParentResize();
 }
+
+function scrollActiveMetricIntoView() {
+    const metricId = getActiveTahminMetricId();
+    if (isTahminMetricAll(metricId) || !istatRaceCache.length) return;
+    const card = document.querySelector('.istatistik-race-card[data-race-index="0"]');
+    if (!card) return;
+    const wrap = card.querySelector('.istatistik-table-wrap');
+    const desc = resolveTahminMetricSection(metricId, istatRaceCache[0].pkg);
+    if (!wrap || !desc?.grpClass) return;
+    const anchor = wrap.querySelector('thead th.' + desc.grpClass);
+    if (!anchor) return;
+    wrap.scrollLeft = Math.max(0, anchor.offsetLeft - TAHMIN_STICKY_SCROLL_OFFSET - 8);
+}
+
+function scheduleActiveMetricUiSync() {
+    requestAnimationFrame(() => {
+        syncActiveMetricTableHighlight();
+        scrollActiveMetricIntoView();
+    });
+}
+
 function scheduleRefreshAllTahmin() {
     if (_tahminRefreshRaf) return;
     _tahminRefreshRaf = requestAnimationFrame(() => {
@@ -1177,7 +1154,7 @@ function bindTahminWeightControls() {
                 IstatistikTahminEngine.ensureDraft(id);
             }
             renderVisualScoreControls();
-            if (istatRaceCache.length) scheduleActiveMetricPatch();
+            if (istatRaceCache.length) scheduleActiveMetricUiSync();
         });
     }
     const metricSave = document.getElementById('tahminMetricSaveBtn');
@@ -1311,8 +1288,7 @@ function wrapDepthCellInner(inner, cell) {
     return inner;
 }
 
-const TAHMIN_STICKY_BASE_LEFT = 246;
-const TAHMIN_STICKY_COL_WIDTH = 54;
+const TAHMIN_STICKY_SCROLL_OFFSET = 246;
 
 function getActiveTahminMetricId() {
     if (selectedTahminMetric) return selectedTahminMetric;
@@ -1360,93 +1336,6 @@ function resolveTahminMetricSection(metricId, pkg) {
         grpClass: c.grpClass,
         kind: 'core'
     };
-}
-
-function applyTahminStickyCols(html) {
-    if (!html) return '';
-    const count = (html.match(/<(td|th) /g) || []).length;
-    let i = 0;
-    return html.replace(/<(td|th) class="/g, (m, tag) => {
-        const left = TAHMIN_STICKY_BASE_LEFT + i * TAHMIN_STICKY_COL_WIDTH;
-        const isLast = i === count - 1;
-        i++;
-        const edge = isLast ? ' istat-sticky-tahmin-grp-edge' : '';
-        return '<' + tag + ' style="left:' + left + 'px" class="istat-sticky-tahmin-grp' + edge + ' ';
-    });
-}
-
-function buildTahminActiveMetricHeadParts(metricDesc) {
-    if (!metricDesc) {
-        return {
-            row1: applyTahminStickyCols(
-                '<th rowspan="2" class="istat-th-base"><div class="istat-col-label">📋<small>Hepsi — tabloda kaydır</small></div></th>'
-            ),
-            row2: ''
-        };
-    }
-    if (metricDesc.maxDepth > 0) {
-        let row2 = appendDepthHeaderCols('', metricDesc.grpClass, metricDesc.id, metricDesc.maxDepth);
-        row2 = appendOrtOzetiHeaderCols(row2, metricDesc.grpClass, metricDesc.id, true);
-        return {
-            row1: applyTahminStickyCols(appendMetricGroupThColspan('', {
-                colspan: metricDesc.maxDepth + 4,
-                grpClass: metricDesc.grpClass + ' istat-tahmin-active-metric',
-                label: AtSpeedUtils.escapeHtml(metricDesc.label),
-                subtitle: AtSpeedUtils.escapeHtml(metricDesc.subtitle)
-            })),
-            row2: applyTahminStickyCols(row2)
-        };
-    }
-    return {
-        row1: applyTahminStickyCols(appendMetricGroupThRowspan('', {
-            grpClass: metricDesc.grpClass + ' istat-tahmin-active-metric',
-            label: AtSpeedUtils.escapeHtml(metricDesc.label),
-            subtitle: 'Veri yok'
-        })),
-        row2: ''
-    };
-}
-
-function renderTahminActiveMetricCells(row, metricDesc, pkg) {
-    if (!metricDesc) {
-        return applyTahminStickyCols('<td class="istat-th-base"><span class="istat-pct istat-pct-none">—</span></td>');
-    }
-    let inner = '';
-    const id = metricDesc.id;
-    if (metricDesc.kind === 'extra') {
-        inner = renderExtraSectionCells(row, metricDesc.section, false);
-    } else if (id === 'son8001') {
-        inner = renderSon800DepthCells(row.son8001Depths, metricDesc.maxDepth, metricDesc.grpClass, 'SON800-1', row.son8001OrtOzeti);
-    } else if (id === 'son8002') {
-        inner = renderSon800DepthCells(row.son8002Depths, metricDesc.maxDepth, metricDesc.grpClass, 'SON800-2', row.son8002OrtOzeti);
-    } else if (id === 'oran1') {
-        inner = renderSon800OranCells(row.oran1Depths, metricDesc.maxDepth, metricDesc.grpClass, '800-1 ORAN', pkg.oranAnaDerece1, row.oran1OrtOzeti, true);
-    } else if (id === 'oran2') {
-        inner = renderSon800OranCells(row.oran2Depths, metricDesc.maxDepth, metricDesc.grpClass, '800-2 ORAN', pkg.oranAnaDerece2, row.oran2OrtOzeti, false);
-    } else if (id === 'fark827') {
-        inner = renderFark827DepthCells(row.fark827Depths, metricDesc.maxDepth, row.fark827OrtOzeti);
-    } else if (id === 'ff') {
-        inner = renderFfDepthCells(row.ffDepths, metricDesc.maxDepth, row.ffOrtOzeti);
-    } else if (id === 't8') {
-        inner = renderT8DepthCells(row.test8Depths, metricDesc.maxDepth, row.test8OrtOzeti);
-    } else if (id === 'son800dr1') {
-        inner = renderSon800Dr1KorelasyonCells(row.son800Dr1Depths, metricDesc.maxDepth, row.son800Dr1OrtOzeti);
-    } else if (id === 'son800dr') {
-        inner = renderSon800DrslKorelasyonCells(row.son800DrDepths, metricDesc.maxDepth, row.son800DrOrtOzeti);
-    } else if (id === 'test1') {
-        inner = renderTest1DepthCells(row.test1Depths, metricDesc.maxDepth, row.test1OrtOzeti);
-    } else if (id === 'test2') {
-        inner = renderTest2DepthCells(row.test2Depths, metricDesc.maxDepth, row.test2OrtOzeti);
-    } else if (id === 'test3') {
-        inner = renderTest3DepthCells(row.test3Depths, metricDesc.maxDepth, row.test3OrtOzeti);
-    } else if (id === 'testsira') {
-        inner = renderTest123SiraliDepthCells(row.test123SiraliDepths, metricDesc.maxDepth, row.test123SiraliOrtOzeti);
-    } else if (id === 't1dr') {
-        inner = renderT1drDepthCells(row.t1drDepths, metricDesc.maxDepth, row.t1drOrtOzeti);
-    } else {
-        inner = '<td class="' + metricDesc.grpClass + '"><span class="istat-pct istat-pct-none">—</span></td>';
-    }
-    return applyTahminStickyCols(inner);
 }
 
 function rerenderIstatistikFromCache() {
@@ -1549,7 +1438,7 @@ function renderVisualScoreControls() {
                 TE.setSelectedMetric(id);
                 TE.ensureDraft(id);
                 renderVisualScoreControls();
-                if (istatRaceCache.length) scheduleActiveMetricPatch();
+                if (istatRaceCache.length) scheduleActiveMetricUiSync();
             });
         });
         const hint = document.getElementById('tahminMetricHint');
@@ -2160,14 +2049,11 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
     const t3 = maxDepthTest3 || 0;
     const ts = maxDepthTest123Sirali || 0;
     const td = maxDepthT1dr || 0;
-    const metricDesc = pkg ? resolveTahminMetricSection(getActiveTahminMetricId(), pkg) : null;
-    const activeMetricHead = buildTahminActiveMetricHeadParts(metricDesc);
     let h = '<thead>';
     h += '<tr>';
     h += '<th rowspan="2" class="istat-th-base istat-sticky-no">#</th>';
     h += '<th rowspan="2" class="istat-th-base istat-sticky-at">AT İSMİ</th>';
     h += '<th rowspan="2" class="istat-th-base istat-sticky-tahmin">TAHMİN<small>Görsel profil + trend skoru</small></th>';
-    h += activeMetricHead.row1;
     h += '<th class="istat-th-grp istat-grp-sehir istat-grp-start istat-grp-end">';
     h += 'ŞEHİR DENEYİMİ<small>Program hipodromunda koşma oranı</small></th>';
 
@@ -2364,7 +2250,6 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
     h += '<th colspan="3" class="istat-th-grp istat-grp-mf1 istat-grp-start">';
     h += 'Genel Mesafe İlk 1<small>Bu mesafede (tüm şehirler) birincilik</small></th>';
     h += '</tr><tr>';
-    h += activeMetricHead.row2;
     h = appendSimpleGroupHeaderCols(h, IstatistikTahminEngine.SIMPLE_COLUMN_GROUPS[0].grpClass, IstatistikTahminEngine.SIMPLE_COLUMN_GROUPS[0], false);
     if (d1 > 0) {
         h = appendDepthHeaderCols(h, 'istat-grp-son8001', 'son8001', d1);
@@ -2475,7 +2360,6 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
         const maxDepthFf = pkg.maxDepthFf;
         const maxDepthT8 = pkg.maxDepthT8;
         const extraSections = pkg.extraSections || [];
-        const metricDesc = resolveTahminMetricSection(getActiveTahminMetricId(), pkg);
 
         html += '<div class="istatistik-race-card" data-race-index="' + i + '">';
         html += '<div class="istatistik-race-header">';
@@ -2540,7 +2424,6 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
             html += '<td class="istat-no istat-sticky-no">' + AtSpeedUtils.escapeHtml(String(row.no || '-')) + '</td>';
             html += '<td class="istat-at istat-sticky-at">' + AtSpeedUtils.escapeHtml(row.name) + '</td>';
             html += renderTahminCell(row.tahmin, rows.length, row.no);
-            html += renderTahminActiveMetricCells(row, metricDesc, pkg);
             html += '<td class="istat-grp-sehir istat-grp-start istat-grp-end">' + formatSehirPctCell(row.sehir) + '</td>';
             html += renderSon800DepthCells(row.son8001Depths, maxDepth1, 'istat-grp-son8001', 'SON800-1', row.son8001OrtOzeti);
             html += renderSon800DepthCells(row.son8002Depths, maxDepth2, 'istat-grp-son8002', 'SON800-2', row.son8002OrtOzeti);
@@ -2585,6 +2468,7 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
     if (container) delete container.dataset.weightBound;
     bindTahminWeightControls();
     renderVisualScoreControls();
+    scheduleActiveMetricUiSync();
     notifyParentResize();
 }
 
