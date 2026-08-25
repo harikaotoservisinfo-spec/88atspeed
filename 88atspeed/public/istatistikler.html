@@ -847,14 +847,14 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260825au"></script>
-<script src="js/formula-engine.js?v=20260825au"></script>
-<script src="js/istatistik-engine.js?v=20260825au"></script>
-<script src="js/istatistik-grids-extra.js?v=20260825au"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260825au"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260825au"></script>
+<script src="js/utils.js?v=20260825av"></script>
+<script src="js/formula-engine.js?v=20260825av"></script>
+<script src="js/istatistik-engine.js?v=20260825av"></script>
+<script src="js/istatistik-grids-extra.js?v=20260825av"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260825av"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260825av"></script>
 <script>
-const ISTAT_BUILD = '20260825au';
+const ISTAT_BUILD = '20260825av';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
 let currentKayitId = null;
@@ -2304,7 +2304,7 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
     }
     let html = '<div class="istatistik-stack">';
     for (let i = 0; i < raceEntries.length; i++) {
-        const { race, raceNo, mesafeGosterim, pkg } = raceEntries[i];
+        const { race, raceNo, mesafeGosterim, hedefMesafe, pkg } = raceEntries[i];
         IstatistikTahminEngine.attachRaceTahmin(pkg);
         istatRaceCache.push({ pkg, horseCount: pkg.rows.length });
         const rows = pkg.rows;
