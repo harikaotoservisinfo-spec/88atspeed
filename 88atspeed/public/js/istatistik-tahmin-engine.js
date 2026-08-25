@@ -102,6 +102,35 @@ const IstatistikTahminEngine = {
     TONE_GROUP: 'tone',
     TREND_GROUP: 'trend',
     ORT_GROUP: 'ort',
+    PCT_GROUP: 'pct',
+
+    /** Derinlik yüzde tabanı — normalize %100 → bu puan (grup ağırlığı öncesi) */
+    PCT_BASE_REF: 100,
+    /** SON hücresi %0 iken uygulanan ceza (grup ağırlığı öncesi) */
+    SON_ZERO_PENALTY_REF: 8,
+    /** Sürekli trend eğimi çarpanı (trend slider açıkken) */
+    PCT_TREND_SLOPE_MULT: 0.12,
+
+    /** pkg üzerindeki maxDepth alan adları */
+    MAX_DEPTH_PKG_KEYS: {
+        son8001: 'maxDepth1',
+        son8002: 'maxDepth2',
+        oran1: 'oranMaxDepth1',
+        oran2: 'oranMaxDepth2',
+        fark827: 'maxDepthFark827',
+        ff: 'maxDepthFf',
+        t8: 'maxDepthT8',
+        son800dr1: 'maxDepthDr1',
+        son800dr: 'maxDepthDr',
+        test1: 'maxDepthTest1',
+        test2: 'maxDepthTest2',
+        test3: 'maxDepthTest3',
+        testsira: 'maxDepthTest123Sirali',
+        t1dr: 'maxDepthT1dr'
+    },
+
+    /** Yüzde tabanı uygulanmayan metrikler (özel TAHMİN mantığı veya ikili 0/100) */
+    PCT_DEPTH_EXCLUDED: ['t9v', 'sehirSon', 'smGec', 'sm12', 'kmavi'],
 
     VISUAL_PROFILES: [
         { id: 'maviKenar', short: 'Mavi kenar', label: 'Mavi kenar' },
@@ -557,7 +586,7 @@ const IstatistikTahminEngine = {
     },
 
     applyMetricGroupWeight(metricId, points) {
-        if (!points || points <= 0) return 0;
+        if (points == null || points === 0) return 0;
         const w = this.getMetricGroupWeight(metricId);
         if (w === this.METRIC_GROUP_WEIGHT_BASE) return points;
         return Math.round((points * w) / this.METRIC_GROUP_WEIGHT_BASE);
@@ -1185,7 +1214,105 @@ const IstatistikTahminEngine = {
         this._collectDepthTrendTerms(depths, metricId, groupLabel, influences, terms);
     },
 
-    _collectMetricTerms(row, g, influences, terms) {
+    _resolveMaxDepth(metricId, pkg, depths) {
+        if (pkg) {
+            const key = this.MAX_DEPTH_PKG_KEYS[metricId];
+            if (key && pkg[key] != null) return pkg[key];
+            const cap = metricId.charAt(0).toUpperCase() + metricId.slice(1);
+            const alt = 'maxDepth' + cap;
+            if (pkg[alt] != null) return pkg[alt];
+        }
+        if (depths?.length) return depths.length;
+        return 0;
+    },
+
+    _hasActiveTrendInfluence(influences, metricId) {
+        return this.TREND_PROFILES.some(p =>
+            this._resolveInfluence(
+                influences, this.trendSlotId(metricId, p.id), metricId, this.TREND_GROUP, p.id
+            ) > 0
+        );
+    },
+
+    _avgActiveTrendInfluence(influences, metricId) {
+        let sum = 0;
+        let n = 0;
+        for (const p of this.TREND_PROFILES) {
+            const w = this._resolveInfluence(
+                influences, this.trendSlotId(metricId, p.id), metricId, this.TREND_GROUP, p.id
+            );
+            if (w > 0) {
+                sum += w;
+                n++;
+            }
+        }
+        return n ? sum / n : 0;
+    },
+
+    _usesPctDepthBase(metricId) {
+        return !this.PCT_DEPTH_EXCLUDED.includes(metricId);
+    },
+
+    _collectDepthPctBaseTerms(depths, maxDepth, metricId, groupLabel, influences, terms) {
+        const IE = typeof IstatistikEngine !== 'undefined' ? IstatistikEngine : null;
+        if (!IE?.computeDepthPctTahminComponents) return;
+        const comp = IE.computeDepthPctTahminComponents(depths, maxDepth, {
+            sonZeroPenaltyRef: this.SON_ZERO_PENALTY_REF
+        });
+        if (!comp) return;
+
+        const normPct = Math.round(comp.normalized);
+        let basePoints = Math.round(comp.weightedSum * (this.PCT_BASE_REF / comp.maxDepth));
+        basePoints = this.applyMetricGroupWeight(metricId, basePoints);
+        if (basePoints > 0) {
+            terms.push({
+                weightId: metricId + ':pct:base',
+                metricId,
+                label: groupLabel + ' · yüzde tabanı %' + normPct,
+                weight: this.PCT_BASE_REF,
+                scale: comp.normalized / 100,
+                metricWeight: this.getMetricGroupWeight(metricId),
+                points: basePoints
+            });
+        }
+
+        if (comp.sonZeroPenalty > 0) {
+            const pen = this.applyMetricGroupWeight(metricId, comp.sonZeroPenalty);
+            if (pen > 0) {
+                terms.push({
+                    weightId: metricId + ':pct:sonZero',
+                    metricId,
+                    label: groupLabel + ' · SON %0 ceza',
+                    points: -pen
+                });
+            }
+        }
+
+        if (comp.trendSlope != null && comp.trendSlope !== 0 && this._hasActiveTrendInfluence(influences, metricId)) {
+            const md = maxDepth || comp.maxDepth || 7;
+            const w0 = md;
+            const w1 = Math.max(1, md - 1);
+            const slopeMult = (w0 + w1) / (2 * md);
+            const avgTrend = this._avgActiveTrendInfluence(influences, metricId);
+            const refScale = this.getTrendRefPointScale(metricId);
+            let slopePts = Math.round(
+                comp.trendSlope * this.PCT_TREND_SLOPE_MULT * avgTrend * slopeMult
+                * refScale / this.POINT_SCALE_TREND_REF
+            );
+            slopePts = this.applyMetricGroupWeight(metricId, slopePts);
+            if (slopePts !== 0) {
+                const arrow = comp.trendSlope > 0 ? '↑' : '↓';
+                terms.push({
+                    weightId: metricId + ':pct:trendSlope',
+                    metricId,
+                    label: groupLabel + ' · eğim ' + arrow + ' (Δ' + Math.round(comp.trendSlope) + ')',
+                    points: slopePts
+                });
+            }
+        }
+    },
+
+    _collectMetricTerms(row, g, influences, terms, pkg) {
         if (g.id === 't9v') {
             this._collectT9vTerms(
                 g.depths,
@@ -1198,6 +1325,10 @@ const IstatistikTahminEngine = {
                 terms
             );
             return;
+        }
+        const maxDepth = this._resolveMaxDepth(g.id, pkg, g.depths);
+        if (this._usesPctDepthBase(g.id)) {
+            this._collectDepthPctBaseTerms(g.depths, maxDepth, g.id, g.label, influences, terms);
         }
         this._collectDepthVisualTerms(g.depths, g.id, g.label, influences, terms);
     },
@@ -1214,7 +1345,7 @@ const IstatistikTahminEngine = {
         return groups;
     },
 
-    computeRowTahmin(row, extraSections, influences) {
+    computeRowTahmin(row, extraSections, influences, pkg) {
         if (influences == null) {
             influences = this.getCalculationWeights(extraSections);
         }
@@ -1223,7 +1354,7 @@ const IstatistikTahminEngine = {
 
         for (const g of this._allDepthGroups(row, extraSections)) {
             if (!activeIds.has(g.id)) continue;
-            this._collectMetricTerms(row, g, influences, terms);
+            this._collectMetricTerms(row, g, influences, terms, pkg);
         }
 
         if (!terms.length) {
@@ -1247,7 +1378,7 @@ const IstatistikTahminEngine = {
         if (influences == null) influences = this.getCalculationWeights(extraSections);
         const scored = pkg.rows.map(row => ({
             row,
-            tahmin: this.computeRowTahmin(row, extraSections, influences)
+            tahmin: this.computeRowTahmin(row, extraSections, influences, pkg)
         }));
 
         const maxScore = Math.max(...scored.map(s => s.tahmin.score), 1);

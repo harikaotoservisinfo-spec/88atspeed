@@ -1438,6 +1438,60 @@ const IstatistikEngine = {
         };
     },
 
+    /**
+     * TAHMİN — derinlik ağırlıklı yüzde bileşenleri.
+     * Dolu hücreler: katkı = (pct/100) × W(d); W(d) = maxDepth − d.
+     * @returns {{ normalized: number, baseRatio: number, weightSum: number, trendSlope: number|null, sonZeroPenalty: number, parts: object[] }|null}
+     */
+    computeDepthPctTahminComponents(depths, maxDepth, options = {}) {
+        const penaltyRef = options.sonZeroPenaltyRef ?? 8;
+        const effectiveMaxDepth = maxDepth || depths?.length || 0;
+        if (!effectiveMaxDepth || !depths?.length) return null;
+
+        let weightedSum = 0;
+        let weightSum = 0;
+        const parts = [];
+
+        for (let d = 0; d < effectiveMaxDepth; d++) {
+            const cell = depths[d];
+            if (!cell || cell.pct == null || cell.pct === undefined) continue;
+            const w = effectiveMaxDepth - d;
+            const contrib = (cell.pct / 100) * w;
+            weightedSum += contrib;
+            weightSum += w;
+            parts.push({ depth: d, pct: cell.pct, weight: w, contrib });
+        }
+
+        if (weightSum === 0) return null;
+
+        const baseRatio = weightedSum / weightSum;
+        const normalized = baseRatio * 100;
+
+        const p0 = depths[0]?.pct;
+        const p2 = depths[2]?.pct;
+        let trendSlope = null;
+        if (p0 != null && p2 != null) {
+            trendSlope = (p0 - p2) / 2;
+        }
+
+        let sonZeroPenalty = 0;
+        if (p0 === 0) {
+            sonZeroPenalty = penaltyRef;
+        }
+
+        return {
+            normalized,
+            baseRatio,
+            weightedSum,
+            weightSum,
+            trendSlope,
+            sonZeroPenalty,
+            depthCount: parts.length,
+            maxDepth: effectiveMaxDepth,
+            parts
+        };
+    },
+
     /** SON … (n−1) ÖNCE derinlik yüzdelerinin aritmetik ortalaması */
     _computeDepthSonNOrtalama(depths, count) {
         if (!count || !depths?.length) return null;
