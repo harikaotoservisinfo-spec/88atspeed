@@ -665,7 +665,13 @@
             gap: 2px;
             min-width: 72px;
         }
-        .istat-gos-weight-label {
+        .istat-gos-section {
+            width: 100%;
+            flex-basis: 100%;
+            margin-top: 6px;
+            font-size: 11px;
+            color: #4a148c;
+        }
             font-size: 9px;
             font-weight: 700;
             color: #5e35b1;
@@ -682,8 +688,8 @@
         <button type="button" id="tahminAgirlikSifirlaBtn" class="istatistik-btn" title="Tüm genel ve %100 ek etkilerini varsayılana sıfırla">↺ Etki sıfırla</button>
         <span id="istatistikBuild" class="istatistik-build" title="Yüklü sürüm"></span>
     </div>
-    <details class="istat-gosterim-controls" id="gosterimWeightPanel">
-        <summary>GÖSTERİM renk etkileri (TAHMİN ağırlıkları)</summary>
+    <details class="istat-gosterim-controls" id="gosterimWeightPanel" open>
+        <summary>TAHMİN görsel profil etkileri (kenar + renk + trend)</summary>
         <div class="istat-gos-weight-grid" id="gosterimWeightGrid"></div>
     </details>
     <div id="kayitListesi" class="kayit-listesi" style="display:none;"></div>
@@ -706,13 +712,9 @@
         |TEST8| 0'a en yakın = %100; derinlik kıyası + AĞ. ORT.<br>
         <strong>Ek gruplar (800Δ·2/3, T9Δ, DR/1DR, TEST4–7, FARK, Ş+M…):</strong>
         GÖSTERİM ve Tahminim kurallarındaki eksik sütunlar — hepsi derinlik % + AĞ. ORT.1/2/3.<br>
-        <strong>TAHMİN:</strong> Şehir deneyimi, dönem/ilk-oran sütunları ve tüm derinlik + AĞ. ORT.*
-        sütunlarında üstteki <strong>+/−</strong> genel etki, alttaki turuncu <strong>%100</strong> yalnızca
-        o sütunda tam %100 olan hücrelere ek etki verir. Tam <strong>%100</strong> hücrelerin genel etkisi
-        otomatik <strong>×2</strong> sayılır. TEST1 varsayılan ×20, TEST3 varsayılan ×5. %1 adım.<br>
-        <strong>GÖSTERİM renkleri:</strong> Derinlik hücrelerinde mavi/kırmızı kenar, yeşil satır vb. GÖSTERİM
-        kuralları görsel olarak yansıtılır; üstteki <strong>GÖSTERİM renk etkileri</strong> panelinden her kuralın
-        TAHMİN ağırlığını ayarlayabilirsiniz (aktif bayrak = %100 terim).<br>
+        <strong>TAHMİN:</strong> Sadece GÖSTERİM görsel profilleri (mavi/kırmızı kenar, sarı/yeşil hücre
+        kombinasyonları) ve son 3 derinlikte % trendi (yükseliş/düşüş) başarı sıralamasını belirler.
+        Üstteki panelden her profilin puan etkisini ayarlayın.<br>
         <strong>T1×DR:</strong> TEST1 × DR/1DR — o gün koşan atlar arasında en düşük T1×DR = %100;
         derinlik kıyası + AĞ. ORT.<br>
         <strong>Son 3 ay / 1 ay / 15 gün:</strong> Program tarihine göre dönem içi koşu sayısının,
@@ -725,14 +727,14 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260825w"></script>
-<script src="js/formula-engine.js?v=20260825w"></script>
-<script src="js/istatistik-engine.js?v=20260825w"></script>
-<script src="js/istatistik-grids-extra.js?v=20260825w"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260825w"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260825w"></script>
+<script src="js/utils.js?v=20260825x"></script>
+<script src="js/formula-engine.js?v=20260825x"></script>
+<script src="js/istatistik-engine.js?v=20260825x"></script>
+<script src="js/istatistik-grids-extra.js?v=20260825x"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260825x"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260825x"></script>
 <script>
-const ISTAT_BUILD = '20260825w';
+const ISTAT_BUILD = '20260825x';
 let istatRaceCache = [];
 let currentKayitId = null;
 let currentKayitMeta = null;
@@ -779,43 +781,28 @@ function renderTahminCell(tahmin, horseCount, horseNo) {
     if (!tahmin || tahmin.rank == null) {
         return '<td class="' + cls + '"' + attrs + '>' + inner + '</td>';
     }
-    let title = 'TAHMİN · ' + tahmin.rank + '. sıra | Bileşik %' + tahmin.pct;
-    title += ' (' + tahmin.metricCount + ' metrik, ağırlık toplamı ' + (tahmin.weightSum || '?') + ')';
+    let title = 'TAHMİN · ' + tahmin.rank + '. sıra | Skor ' + (tahmin.score ?? '?');
+    title += ' (göreli %' + tahmin.pct + ', ' + tahmin.metricCount + ' sinyal)';
     if (tahmin.topTerms?.length) {
         title += ' | ';
-        title += tahmin.topTerms.slice(0, 6).map(t => t.label + ' %' + t.pct + '×' + t.weight).join(' · ');
+        title += tahmin.topTerms.slice(0, 6).map(t => t.label + ' +' + t.points).join(' · ');
     }
     return '<td class="' + cls + '"' + attrs + ' title="' + title.replace(/"/g, '&quot;') + '">' + inner + '</td>';
 }
 
-function renderMetricWeightBar(weightId, compact, kind) {
+function renderMetricWeightBar(weightId, compact) {
     const TE = IstatistikTahminEngine;
-    const isP100 = kind === 'p100';
-    const etki = isP100
-        ? TE.getPerfect100Influence(TE.baseSlotIdFromPerfect100(weightId))
-        : TE.getInfluence(weightId);
+    const etki = TE.getInfluence(weightId);
     const off = etki === 0 ? ' istat-metric-weight-off' : '';
     let cls = compact ? 'istat-metric-weight-compact' : 'istat-metric-weight';
-    if (isP100) cls += ' istat-metric-weight-p100';
-    const title = isP100
-        ? 'Sadece %100 hücrelere ek TAHMİN etkisi'
-        : 'TAHMİN genel etki %';
-    let inner = '<button type="button" class="istat-w-btn" data-w-action="dec" title="Etkiyi %1 azalt">−</button>';
-    if (isP100) inner += '<span class="istat-w-p100-tag">100</span>';
-    inner += '<span class="istat-w-etki" title="' + title + '">%' + etki + '</span>';
-    inner += '<button type="button" class="istat-w-btn" data-w-action="inc" title="Etkiyi %1 artır">+</button>';
-    return '<div class="' + cls + off + '" data-weight-id="' + weightId + '" data-weight-kind="' + (kind || 'base') + '">'
-        + inner + '</div>';
+    let inner = '<button type="button" class="istat-w-btn" data-w-action="dec" title="Puanı 1 azalt">−</button>';
+    inner += '<span class="istat-w-etki" title="TAHMİN puan etkisi">+' + etki + '</span>';
+    inner += '<button type="button" class="istat-w-btn" data-w-action="inc" title="Puanı 1 artır">+</button>';
+    return '<div class="' + cls + off + '" data-weight-id="' + weightId + '">' + inner + '</div>';
 }
 
-function appendColHeaderWithWeight(h, cls, groupId, slot, label) {
-    const TE = IstatistikTahminEngine;
-    const wId = TE.slotId(groupId, slot);
-    const p100Id = TE.perfect100SlotId(wId);
-    h += '<th class="' + cls + ' istat-th-col-weight">';
-    h += renderMetricWeightBar(wId, true, 'base');
-    h += renderMetricWeightBar(p100Id, true, 'p100');
-    h += '<div class="istat-col-label">' + label + '</div></th>';
+function appendColHeader(h, cls, label) {
+    h += '<th class="' + cls + '"><div class="istat-col-label">' + label + '</div></th>';
     return h;
 }
 
@@ -823,7 +810,7 @@ function appendDepthHeaderCols(h, grpClass, groupId, maxDepth) {
     for (let d = 0; d < maxDepth; d++) {
         let cls = 'istat-th-metric istat-th-son800-depth ' + grpClass;
         if (d === 0) cls += ' istat-grp-start';
-        h = appendColHeaderWithWeight(h, cls, groupId, 'd' + d, son800DepthLabel(d));
+        h = appendColHeader(h, cls, son800DepthLabel(d));
     }
     return h;
 }
@@ -856,13 +843,9 @@ function refreshAllTahmin() {
     document.querySelectorAll('.istat-metric-weight, .istat-metric-weight-compact').forEach(el => {
         const id = el.dataset.weightId;
         if (!id) return;
-        const kind = el.dataset.weightKind || 'base';
-        const TE = IstatistikTahminEngine;
-        const etki = kind === 'p100'
-            ? TE.getPerfect100Influence(TE.baseSlotIdFromPerfect100(id))
-            : TE.getInfluence(id);
+        const etki = TE.getInfluence(id);
         const etkiEl = el.querySelector('.istat-w-etki');
-        if (etkiEl) etkiEl.textContent = '%' + etki;
+        if (etkiEl) etkiEl.textContent = '+' + etki;
         el.classList.toggle('istat-metric-weight-off', etki === 0);
     });
     istatRaceCache.forEach((entry, raceIndex) => {
@@ -987,16 +970,24 @@ function wrapDepthCellInner(inner, cell) {
     return inner;
 }
 
-function renderGosterimWeightControls() {
+function renderVisualScoreControls() {
     const grid = document.getElementById('gosterimWeightGrid');
     if (!grid) return;
     const TE = IstatistikTahminEngine;
-    let h = '';
-    for (const f of TE.GOSTERIM_FLAGS) {
-        const wId = TE.gosterimSlotId(f.id);
+    let h = '<div class="istat-gos-section"><strong>Görsel profiller</strong></div>';
+    for (const f of TE.VISUAL_PROFILES) {
+        const wId = TE.visualSlotId(f.id);
         h += '<div class="istat-gos-weight-item">';
         h += '<span class="istat-gos-weight-label">' + AtSpeedUtils.escapeHtml(f.short) + '</span>';
-        h += renderMetricWeightBar(wId, true, 'base');
+        h += renderMetricWeightBar(wId, true);
+        h += '</div>';
+    }
+    h += '<div class="istat-gos-section"><strong>Trend (son 3 derinlik)</strong></div>';
+    for (const f of TE.TREND_PROFILES) {
+        const wId = TE.trendSlotId(f.id);
+        h += '<div class="istat-gos-weight-item">';
+        h += '<span class="istat-gos-weight-label">' + AtSpeedUtils.escapeHtml(f.short) + '</span>';
+        h += renderMetricWeightBar(wId, true);
         h += '</div>';
     }
     grid.innerHTML = h;
@@ -1073,7 +1064,7 @@ function appendSimpleGroupHeaderCols(h, grpClass, group, isGrpEnd) {
         if (i === 0) cls += ' istat-grp-start';
         if (i === group.columns.length - 1 && isGrpEnd) cls += ' istat-grp-end';
         const col = group.columns[i];
-        h = appendColHeaderWithWeight(h, cls, group.id, col.slot, col.short);
+        h = appendColHeader(h, cls, col.short);
     }
     return h;
 }
@@ -1096,7 +1087,7 @@ function appendOrtOzetiHeaderCols(h, grpClass, groupId, isGrpEnd) {
     for (let i = 0; i < cols.length; i++) {
         let cls = 'istat-th-metric istat-th-son800-avg ' + grpClass;
         if (i === cols.length - 1 && isGrpEnd) cls += ' istat-grp-end';
-        h = appendColHeaderWithWeight(h, cls, groupId, cols[i].slot, cols[i].label);
+        h = appendColHeader(h, cls, cols[i].label);
     }
     return h;
 }
@@ -1563,7 +1554,7 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
     h += '<tr>';
     h += '<th rowspan="2" class="istat-th-base istat-sticky-no">#</th>';
     h += '<th rowspan="2" class="istat-th-base istat-sticky-at">AT İSMİ</th>';
-    h += '<th rowspan="2" class="istat-th-base istat-sticky-tahmin">TAHMİN<small>Sütun ağırlıklı bileşik skor</small></th>';
+    h += '<th rowspan="2" class="istat-th-base istat-sticky-tahmin">TAHMİN<small>Görsel profil + trend skoru</small></th>';
     h += '<th class="istat-th-grp istat-grp-sehir istat-grp-start istat-grp-end">';
     h += 'ŞEHİR DENEYİMİ<small>Program hipodromunda koşma oranı</small></th>';
 
@@ -2044,7 +2035,7 @@ document.getElementById('kayitSenkronBtn').onclick = () => {
 document.getElementById('tahminAgirlikSifirlaBtn').onclick = () => {
     IstatistikTahminEngine.resetWeights();
     if (istatRaceCache.length) refreshAllTahmin();
-    setStatus('<div class="status status-success">✅ Tüm sütun etkileri varsayılana (%1) sıfırlandı</div>');
+    setStatus('<div class="status status-success">✅ Tüm görsel profil etkileri varsayılana sıfırlandı</div>');
 };
 
 window.addEventListener('message', (e) => {
@@ -2054,7 +2045,7 @@ window.addEventListener('message', (e) => {
 });
 
 window.addEventListener('load', () => {
-    renderGosterimWeightControls();
+    renderVisualScoreControls();
     fetch('/VERSION.txt?v=' + Date.now())
         .then(r => r.ok ? r.text() : '')
         .then(t => {

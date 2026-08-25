@@ -1,6 +1,5 @@
 /**
- * İstatistikler — GÖSTERİM renklendirme bayraklarını derinlik hücrelerine bağlar.
- * formula-engine.js + istatistik-engine.js sonrası yüklenir.
+ * İstatistikler — GÖSTERİM renklendirme bayrakları + görsel profil sınıflandırması.
  */
 (function () {
     const IE = IstatistikEngine;
@@ -33,6 +32,48 @@
             t1drEnIyi2: !!c.t1drEnIyi2Class
         };
     }
+
+    /**
+     * Hücre görsel profili — kenar + dolgu kombinasyonları (TAHMİN için tek anahtar).
+     */
+    IE.classifyCellVisual = function (cell) {
+        if (!cell?.gosterim) return null;
+        const g = cell.gosterim;
+        const border = g.kirmiziKenar ? 'kirmizi' : (g.maviKenar ? 'mavi' : 'yok');
+        const koyuYesil = !!(g.sehirEslesme || g.mesafeEslesme || g.test1EnIyi || g.test2EnIyi || g.test3EnIyi);
+        const acikYesil = !!(g.yesilSatir && !koyuYesil);
+        const sari = !!(g.sariTest12 || acikYesil);
+
+        if (koyuYesil && border === 'mavi') return 'yesilMavi';
+        if (koyuYesil && border === 'kirmizi') return 'yesilKirmizi';
+        if (koyuYesil) return 'yesil';
+        if (sari && border === 'mavi') return 'sariMavi';
+        if (sari && border === 'kirmizi') return 'sariKirmizi';
+        if (sari) return 'sari';
+        if (border === 'mavi') return 'maviKenar';
+        if (border === 'kirmizi') return 'kirmiziKenar';
+        if (g.gucluUyari) return 'gucluUyari';
+        if (g.maviFosfor) return 'maviFosfor';
+        if (acikYesil) return 'yesilAcik';
+        return null;
+    };
+
+    IE.computeDepthTrend = function (depths, maxN) {
+        maxN = maxN || 3;
+        const pcts = [];
+        for (let d = 0; d < Math.min(maxN, depths?.length || 0); d++) {
+            if (depths[d]?.pct != null) pcts.push(depths[d].pct);
+        }
+        if (pcts.length < 2) return [];
+        const out = [];
+        const up3 = pcts.length >= 3 && pcts[0] > pcts[1] && pcts[1] > pcts[2];
+        const down3 = pcts.length >= 3 && pcts[0] < pcts[1] && pcts[1] < pcts[2];
+        if (up3) out.push('trendUp3');
+        if (down3) out.push('trendDown3');
+        if (pcts[0] > pcts[1]) out.push('trendUpSon');
+        else if (pcts[0] < pcts[1]) out.push('trendDownSon');
+        return out;
+    };
 
     IE.buildGosterimFlagIndex = function (race, hedefSehir, programTarih) {
         if (!GE) return new Map();
@@ -84,7 +125,10 @@
                 for (const cell of depths) {
                     if (!cell || !cell.tarih) continue;
                     const flags = index.get(horseKey + '|' + IE._normalizeTarih(cell.tarih));
-                    if (flags) cell.gosterim = flags;
+                    if (flags) {
+                        cell.gosterim = flags;
+                        cell.visualProfile = IE.classifyCellVisual(cell);
+                    }
                 }
             }
         }
