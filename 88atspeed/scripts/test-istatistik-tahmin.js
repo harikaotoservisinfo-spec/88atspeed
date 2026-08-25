@@ -134,6 +134,10 @@ if (!t9vSections.find(s => s.kind === 'ort') || !t9vSections.find(s => s.title.i
     console.error('FAIL: T9V katalog', t9vSections.map(s => s.title));
     process.exit(1);
 }
+if (!t9vSections.find(s => s.kind === 'color') || !t9vSections.find(s => s.kind === 'tone')) {
+    console.error('FAIL: T9V renk/ton katalog', t9vSections.map(s => s.kind));
+    process.exit(1);
+}
 const defaultSections = TE.getMetricProfileSections('son8001');
 if (defaultSections[0].profiles.length !== TE.VISUAL_PROFILES.length) {
     console.error('FAIL: varsayılan görsel profil sayısı');
@@ -168,6 +172,31 @@ const kmUymRow = {
 const kmUymT = TE.computeRowTahmin(kmUymRow, [{ id: 't9v', label: 'T9V', depthsKey: 't9vDepths' }]);
 if (!kmUymT.terms.some(x => x.metricId === 't9v' && x.label.includes('KM uyumsuz'))) {
     console.error('FAIL: T9V kmUymuyor sinyali', kmUymT.terms);
+    process.exit(1);
+}
+
+TE.setDraftInfluence('t9v', 'color', 'yesilMavi', 15);
+TE.setDraftInfluence('t9v', 'tone', 'tone100', 8);
+TE.saveDraftMetric('t9v');
+const colorRow = {
+    t9vDepths: [{
+        pct: 100,
+        gosterim: { maviKenar: true, test1EnIyi: true, sehirEslesme: true },
+        visualProfile: 'yesilMavi'
+    }],
+    kmaviDepths: [{ qualifies: true }],
+    t9Depths: [{ pct: 100 }],
+    t9vOrtOzeti: {}
+};
+const colorT = TE.computeRowTahmin(colorRow, [{ id: 't9v', label: 'T9V', depthsKey: 't9vDepths' }]);
+const colorTerm = colorT.terms.find(x => x.metricId === 't9v' && x.label.includes('Yeşil+mavi'));
+const toneTerm = colorT.terms.find(x => x.metricId === 't9v' && x.label.includes('% ton 100'));
+if (!colorTerm || colorTerm.points !== 15) {
+    console.error('FAIL: T9V renk profili', colorTerm, colorT.terms);
+    process.exit(1);
+}
+if (!toneTerm || toneTerm.points !== 8) {
+    console.error('FAIL: T9V % ton', toneTerm, colorT.terms);
     process.exit(1);
 }
 

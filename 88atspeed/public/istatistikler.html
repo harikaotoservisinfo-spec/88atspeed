@@ -828,14 +828,14 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260825ac"></script>
-<script src="js/formula-engine.js?v=20260825ac"></script>
-<script src="js/istatistik-engine.js?v=20260825ac"></script>
-<script src="js/istatistik-grids-extra.js?v=20260825ac"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260825ac"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260825ac"></script>
+<script src="js/utils.js?v=20260825ad"></script>
+<script src="js/formula-engine.js?v=20260825ad"></script>
+<script src="js/istatistik-engine.js?v=20260825ad"></script>
+<script src="js/istatistik-grids-extra.js?v=20260825ad"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260825ad"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260825ad"></script>
 <script>
-const ISTAT_BUILD = '20260825ac';
+const ISTAT_BUILD = '20260825ad';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
 let currentKayitId = null;
@@ -1241,6 +1241,9 @@ function renderVisualScoreControls() {
             let wId;
             if (sec.kind === TE.TREND_GROUP) wId = TE.trendSlotId(metricId, f.id);
             else if (sec.kind === TE.ORT_GROUP) wId = TE.ortSlotId(metricId, f.id);
+            else if (sec.kind === TE.COLOR_GROUP) wId = TE.colorSlotId(metricId, f.id);
+            else if (sec.kind === TE.GOS_GROUP) wId = TE.gosSlotId(metricId, f.id);
+            else if (sec.kind === TE.TONE_GROUP) wId = TE.toneSlotId(metricId, f.id);
             else wId = TE.visualSlotId(metricId, f.id);
             h += '<div class="istat-gos-weight-item">';
             h += '<span class="istat-gos-weight-label" title="'

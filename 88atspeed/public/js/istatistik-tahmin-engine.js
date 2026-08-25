@@ -18,6 +18,9 @@ const IstatistikTahminEngine = {
     INFLUENCE_STEP: 1,
 
     VISUAL_GROUP: 'visual',
+    COLOR_GROUP: 'color',
+    GOS_GROUP: 'gos',
+    TONE_GROUP: 'tone',
     TREND_GROUP: 'trend',
     ORT_GROUP: 'ort',
 
@@ -71,6 +74,47 @@ const IstatistikTahminEngine = {
         { id: 'ort3Mid', short: 'AĞ.ORT.3 orta', label: 'AĞ. ORT.3 %50–74' }
     ],
 
+    /** T9V hücre — GÖSTERİM birleşik kenar+renk profili (tablodaki görsel) */
+    T9V_COLOR_PROFILES: [
+        { id: 'maviKenar', short: 'Mavi kenar', label: 'Koyu mavi kenar (TEST·SIRA veya SON800-1)' },
+        { id: 'kirmiziKenar', short: 'Kırmızı kenar', label: 'Fosfor kırmızı kenar satırı' },
+        { id: 'sari', short: 'Sarı', label: 'Sarı hücre (TEST1≈2 veya açık yeşil)' },
+        { id: 'sariMavi', short: 'Sarı+mavi', label: 'Sarı dolgu + mavi kenar' },
+        { id: 'sariKirmizi', short: 'Sarı+kırmızı', label: 'Sarı dolgu + kırmızı kenar' },
+        { id: 'yesil', short: 'Yeşil', label: 'Koyu yeşil (TEST en iyi / şehir / mesafe)' },
+        { id: 'yesilMavi', short: 'Yeşil+mavi', label: 'Koyu yeşil + mavi kenar' },
+        { id: 'yesilKirmizi', short: 'Yeşil+kırmızı', label: 'Koyu yeşil + kırmızı kenar' },
+        { id: 'yesilAcik', short: 'Açık yeşil', label: 'Fosfor yeşil satır (koyu yeşil değil)' },
+        { id: 'gucluUyari', short: 'Güçlü uyarı', label: 'Güçlü uyarı satırı' },
+        { id: 'maviFosfor', short: 'Fosfor mavi', label: 'Fosfor mavi satır' }
+    ],
+
+    /** T9V — ham GÖSTERİM bayrakları (birleşik profile girmeyenler dahil) */
+    T9V_GOSTERIM_RAW: [
+        { id: 'pembeSatir', short: 'Pembe satır', label: 'Pembe satır' },
+        { id: 'kirmiziTest', short: 'Kırmızı TEST', label: 'Kırmızı TEST hücresi' },
+        { id: 'sehirEslesme', short: 'Şehir eşleşme', label: 'Program şehri eşleşmesi (yeşil)' },
+        { id: 'mesafeEslesme', short: 'Mesafe eşleşme', label: 'Koşu mesafesi eşleşmesi' },
+        { id: 'test1EnIyi', short: 'TEST1 en iyi', label: 'TEST1 en iyi' },
+        { id: 'test2EnIyi', short: 'TEST2 en iyi', label: 'TEST2 en iyi' },
+        { id: 'test3EnIyi', short: 'TEST3 en iyi', label: 'TEST3 en iyi' },
+        { id: 'maviKenarSira', short: 'Mavi·T·SIRA', label: 'Mavi kenar — TEST·SIRA kuralı' },
+        { id: 'maviKenarSon800', short: 'Mavi·SON800', label: 'Mavi kenar — SON800-1 en iyi' },
+        { id: 'test23Yanip', short: 'TEST23 yanıp', label: 'TEST2/TEST3 yanıp sönen' },
+        { id: 't1drKirmizi', short: 'T1×DR kırmızı', label: 'T1×DR kırmızı' },
+        { id: 't1drEnIyi2', short: 'T1×DR top2', label: 'T1×DR en iyi 2' }
+    ],
+
+    /** T9V hücre — % değerine göre arka plan tonu (pctClass) */
+    T9V_PCT_TONE: [
+        { id: 'toneNone', short: 'Hücre yok', label: '— veya pct yok' },
+        { id: 'tone0', short: '% ton 0', label: 'pct=0 (kırmızımsı)' },
+        { id: 'toneDusuk', short: '% ton 1-33', label: 'pct %1–33 (sarımsı)' },
+        { id: 'toneOrta', short: '% ton 34-66', label: 'pct %34–66 (açık yeşil)' },
+        { id: 'toneYuksek', short: '% ton 67-99', label: 'pct %67–99 (yeşil)' },
+        { id: 'tone100', short: '% ton 100', label: 'pct %100 (koyu yeşil)' }
+    ],
+
     /** Metrik → seçici kataloğu (UI + varsayılan etkiler) */
     METRIC_SELECTOR_CATALOGS: {
         default: {
@@ -84,6 +128,9 @@ const IstatistikTahminEngine = {
             title: 'T9V sinyalleri',
             sections: [
                 { kind: 'visual', title: 'T9V — KMΔ + |TEST9|', profiles: 'T9V_SIGNAL_PROFILES' },
+                { kind: 'color', title: 'Görsel profil — kenar + renk', profiles: 'T9V_COLOR_PROFILES' },
+                { kind: 'gos', title: 'GÖSTERİM bayrakları', profiles: 'T9V_GOSTERIM_RAW' },
+                { kind: 'tone', title: 'Hücre % tonu (arka plan)', profiles: 'T9V_PCT_TONE' },
                 { kind: 'trend', title: 'Trend (son 3 derinlik)', profiles: 'TREND_PROFILES' },
                 { kind: 'ort', title: 'AĞ. ORT.', profiles: 'T9V_ORT_PROFILES' }
             ]
@@ -139,6 +186,18 @@ const IstatistikTahminEngine = {
         return this.metricWeightId(metricId, this.VISUAL_GROUP, profileId);
     },
 
+    colorSlotId(metricId, profileId) {
+        return this.metricWeightId(metricId, this.COLOR_GROUP, profileId);
+    },
+
+    gosSlotId(metricId, profileId) {
+        return this.metricWeightId(metricId, this.GOS_GROUP, profileId);
+    },
+
+    toneSlotId(metricId, profileId) {
+        return this.metricWeightId(metricId, this.TONE_GROUP, profileId);
+    },
+
     trendSlotId(metricId, profileId) {
         return this.metricWeightId(metricId, this.TREND_GROUP, profileId);
     },
@@ -155,6 +214,9 @@ const IstatistikTahminEngine = {
     _resolveProfileList(refName) {
         if (!refName) return this.VISUAL_PROFILES;
         if (refName === 'TREND_PROFILES') return this.TREND_PROFILES;
+        if (refName === 'T9V_COLOR_PROFILES') return this.T9V_COLOR_PROFILES;
+        if (refName === 'T9V_GOSTERIM_RAW') return this.T9V_GOSTERIM_RAW;
+        if (refName === 'T9V_PCT_TONE') return this.T9V_PCT_TONE;
         if (this[refName]) return this[refName];
         return this.VISUAL_PROFILES;
     },
@@ -217,6 +279,18 @@ const IstatistikTahminEngine = {
         }
         if (kind === this.ORT_GROUP) {
             const p = this.T9V_ORT_PROFILES.find(x => x.id === profileId);
+            return p?.defaultInfluence ?? this.DEFAULT_INFLUENCE;
+        }
+        if (kind === this.COLOR_GROUP) {
+            const p = this.T9V_COLOR_PROFILES.find(x => x.id === profileId);
+            return p?.defaultInfluence ?? this.DEFAULT_INFLUENCE;
+        }
+        if (kind === this.GOS_GROUP) {
+            const p = this.T9V_GOSTERIM_RAW.find(x => x.id === profileId);
+            return p?.defaultInfluence ?? this.DEFAULT_INFLUENCE;
+        }
+        if (kind === this.TONE_GROUP) {
+            const p = this.T9V_PCT_TONE.find(x => x.id === profileId);
             return p?.defaultInfluence ?? this.DEFAULT_INFLUENCE;
         }
         return this.DEFAULT_INFLUENCE;
@@ -447,6 +521,9 @@ const IstatistikTahminEngine = {
         if (!store.byMetric[metricId]) store.byMetric[metricId] = {};
         store.byMetric[metricId][this._profileKey(kind, profileId)] = v;
         this._saveStore();
+        if (this._draftByMetric?.[metricId]) {
+            this._draftByMetric[metricId][this._profileKey(kind, profileId)] = v;
+        }
         return v;
     },
 
@@ -548,17 +625,42 @@ const IstatistikTahminEngine = {
         return this.getMetricInfluence(metricId, kind, profileId);
     },
 
-    _pushSignalTerm(terms, influences, metricId, profileId, label) {
-        const weightId = this.visualSlotId(metricId, profileId);
+    _pushKindTerm(terms, influences, metricId, kind, profileId, label) {
+        const slotMap = {
+            [this.VISUAL_GROUP]: (m, p) => this.visualSlotId(m, p),
+            [this.COLOR_GROUP]: (m, p) => this.colorSlotId(m, p),
+            [this.GOS_GROUP]: (m, p) => this.gosSlotId(m, p),
+            [this.TONE_GROUP]: (m, p) => this.toneSlotId(m, p),
+            [this.TREND_GROUP]: (m, p) => this.trendSlotId(m, p),
+            [this.ORT_GROUP]: (m, p) => this.ortSlotId(m, p)
+        };
+        const slotFn = slotMap[kind] || slotMap[this.VISUAL_GROUP];
+        const weightId = slotFn(metricId, profileId);
         const weight = this._resolveInfluence(
-            influences, weightId, metricId, this.VISUAL_GROUP, profileId
+            influences, weightId, metricId, kind, profileId
         );
         if (weight <= 0) return;
         terms.push({ weightId, metricId, label, weight, points: weight });
     },
 
+    _pushSignalTerm(terms, influences, metricId, profileId, label) {
+        this._pushKindTerm(terms, influences, metricId, this.VISUAL_GROUP, profileId, label);
+    },
+
     _pushVisualTerm(terms, influences, metricId, profileId, label) {
-        this._pushSignalTerm(terms, influences, metricId, profileId, label);
+        this._pushKindTerm(terms, influences, metricId, this.VISUAL_GROUP, profileId, label);
+    },
+
+    _pushColorTerm(terms, influences, metricId, profileId, label) {
+        this._pushKindTerm(terms, influences, metricId, this.COLOR_GROUP, profileId, label);
+    },
+
+    _pushGosTerm(terms, influences, metricId, profileId, label) {
+        this._pushKindTerm(terms, influences, metricId, this.GOS_GROUP, profileId, label);
+    },
+
+    _pushToneTerm(terms, influences, metricId, profileId, label) {
+        this._pushKindTerm(terms, influences, metricId, this.TONE_GROUP, profileId, label);
     },
 
     _pushTrendTerm(terms, influences, metricId, trendHit, label) {
@@ -654,6 +756,56 @@ const IstatistikTahminEngine = {
         return out;
     },
 
+    classifyT9vPctTone(pct) {
+        if (pct == null) return 'toneNone';
+        if (pct === 0) return 'tone0';
+        if (pct <= 33) return 'toneDusuk';
+        if (pct <= 66) return 'toneOrta';
+        if (pct < 100) return 'toneYuksek';
+        return 'tone100';
+    },
+
+    classifyT9vRawGosterim(g) {
+        if (!g) return [];
+        const out = [];
+        for (const p of this.T9V_GOSTERIM_RAW) {
+            if (g[p.id]) out.push(p.id);
+        }
+        return out;
+    },
+
+    _collectT9vGosterimTerms(depths, metricId, groupLabel, influences, terms) {
+        const IE = typeof IstatistikEngine !== 'undefined' ? IstatistikEngine : null;
+        const maxN = depths?.length || 0;
+        for (let d = 0; d < maxN; d++) {
+            const cell = depths[d];
+            const dl = d === 0 ? 'SON' : d + ' ÖNCE';
+            const toneId = this.classifyT9vPctTone(cell?.pct ?? null);
+            const toneDef = this.getProfileDef(metricId, this.TONE_GROUP, toneId);
+            this._pushToneTerm(
+                terms, influences, metricId, toneId,
+                groupLabel + ' · ' + dl + ' · ' + (toneDef?.short || toneId)
+            );
+            if (!cell?.gosterim && !cell?.visualProfile) continue;
+            const profile = cell.visualProfile
+                || (IE?.classifyCellVisual ? IE.classifyCellVisual(cell) : null);
+            if (profile) {
+                const cdef = this.getProfileDef(metricId, this.COLOR_GROUP, profile);
+                this._pushColorTerm(
+                    terms, influences, metricId, profile,
+                    groupLabel + ' · ' + dl + ' · ' + (cdef?.short || profile)
+                );
+            }
+            for (const gid of this.classifyT9vRawGosterim(cell.gosterim)) {
+                const gdef = this.getProfileDef(metricId, this.GOS_GROUP, gid);
+                this._pushGosTerm(
+                    terms, influences, metricId, gid,
+                    groupLabel + ' · ' + dl + ' · ' + (gdef?.short || gid)
+                );
+            }
+        }
+    },
+
     _collectT9vTerms(depths, kmDepths, t9Depths, ortOzeti, metricId, groupLabel, influences, terms) {
         const maxN = depths?.length || 0;
         for (let d = 0; d < maxN; d++) {
@@ -670,6 +822,7 @@ const IstatistikTahminEngine = {
                 );
             }
         }
+        this._collectT9vGosterimTerms(depths, metricId, groupLabel, influences, terms);
         const IE = typeof IstatistikEngine !== 'undefined' ? IstatistikEngine : null;
         this._collectDepthTrendTerms(depths, metricId, groupLabel, influences, terms);
         for (const oid of this.classifyT9vOrtSignals(ortOzeti)) {
