@@ -955,7 +955,13 @@ const IstatistikTahminEngine = {
         return this.getMetricInfluence(metricId, kind, profileId);
     },
 
-    _pushKindTerm(terms, influences, metricId, kind, profileId, label) {
+    _depthWeightFactor(depth, maxDepth) {
+        if (!maxDepth || maxDepth <= 0) return 1;
+        const w = maxDepth - depth;
+        return Math.max(0, w) / maxDepth;
+    },
+
+    _pushKindTerm(terms, influences, metricId, kind, profileId, label, depthFactor = 1) {
         const slotMap = {
             [this.VISUAL_GROUP]: (m, p) => this.visualSlotId(m, p),
             [this.COLOR_GROUP]: (m, p) => this.colorSlotId(m, p),
@@ -971,31 +977,32 @@ const IstatistikTahminEngine = {
         );
         if (weight <= 0) return;
         const scale = this.getVisualPointScale(metricId, kind, profileId);
-        let points = Math.round(weight * scale);
+        const df = depthFactor != null && depthFactor > 0 ? depthFactor : 1;
+        let points = Math.round(weight * scale * df);
         points = this.applyMetricGroupWeight(metricId, points);
         if (points <= 0) return;
         const metricWeight = this.getMetricGroupWeight(metricId);
         terms.push({ weightId, metricId, label, weight, scale, metricWeight, points });
     },
 
-    _pushSignalTerm(terms, influences, metricId, profileId, label) {
-        this._pushKindTerm(terms, influences, metricId, this.VISUAL_GROUP, profileId, label);
+    _pushSignalTerm(terms, influences, metricId, profileId, label, depthFactor) {
+        this._pushKindTerm(terms, influences, metricId, this.VISUAL_GROUP, profileId, label, depthFactor);
     },
 
-    _pushVisualTerm(terms, influences, metricId, profileId, label) {
-        this._pushKindTerm(terms, influences, metricId, this.VISUAL_GROUP, profileId, label);
+    _pushVisualTerm(terms, influences, metricId, profileId, label, depthFactor) {
+        this._pushKindTerm(terms, influences, metricId, this.VISUAL_GROUP, profileId, label, depthFactor);
     },
 
-    _pushColorTerm(terms, influences, metricId, profileId, label) {
-        this._pushKindTerm(terms, influences, metricId, this.COLOR_GROUP, profileId, label);
+    _pushColorTerm(terms, influences, metricId, profileId, label, depthFactor) {
+        this._pushKindTerm(terms, influences, metricId, this.COLOR_GROUP, profileId, label, depthFactor);
     },
 
-    _pushGosTerm(terms, influences, metricId, profileId, label) {
-        this._pushKindTerm(terms, influences, metricId, this.GOS_GROUP, profileId, label);
+    _pushGosTerm(terms, influences, metricId, profileId, label, depthFactor) {
+        this._pushKindTerm(terms, influences, metricId, this.GOS_GROUP, profileId, label, depthFactor);
     },
 
-    _pushToneTerm(terms, influences, metricId, profileId, label) {
-        this._pushKindTerm(terms, influences, metricId, this.TONE_GROUP, profileId, label);
+    _pushToneTerm(terms, influences, metricId, profileId, label, depthFactor) {
+        this._pushKindTerm(terms, influences, metricId, this.TONE_GROUP, profileId, label, depthFactor);
     },
 
     _pushTrendTerm(terms, influences, metricId, trendHit, label) {
@@ -1153,8 +1160,9 @@ const IstatistikTahminEngine = {
         return 'tk_' + tone + '_yok';
     },
 
-    _collectT9vTonKenarTerms(depths, metricId, groupLabel, influences, terms) {
+    _collectT9vTonKenarTerms(depths, metricId, groupLabel, influences, terms, maxDepth) {
         const maxN = depths?.length || 0;
+        const md = maxDepth || maxN || 1;
         for (let d = 0; d < maxN; d++) {
             const cell = depths[d];
             const dl = d === 0 ? 'SON' : d + ' ÖNCE';
@@ -1162,29 +1170,33 @@ const IstatistikTahminEngine = {
             const def = this.getProfileDef(metricId, this.COLOR_GROUP, comboId);
             this._pushColorTerm(
                 terms, influences, metricId, comboId,
-                groupLabel + ' · ' + dl + ' · ' + (def?.short || comboId)
+                groupLabel + ' · ' + dl + ' · ' + (def?.short || comboId),
+                this._depthWeightFactor(d, md)
             );
         }
     },
 
-    _collectT9vTerms(depths, kmDepths, t9Depths, ortOzeti, metricId, groupLabel, influences, terms) {
+    _collectT9vTerms(depths, kmDepths, t9Depths, ortOzeti, metricId, groupLabel, influences, terms, maxDepth) {
         const maxN = depths?.length || 0;
+        const md = maxDepth || maxN || 1;
         for (let d = 0; d < maxN; d++) {
             const cell = depths[d];
             const kmCell = kmDepths?.[d];
             const t9Cell = t9Depths?.[d];
             const signals = this.classifyT9vDepthSignals(cell, kmCell, t9Cell);
             const dl = d === 0 ? 'SON' : d + ' ÖNCE';
+            const df = this._depthWeightFactor(d, md);
             for (const sid of signals) {
                 const def = this.getProfileDef(metricId, this.VISUAL_GROUP, sid);
                 this._pushSignalTerm(
                     terms, influences, metricId, sid,
-                    groupLabel + ' · ' + dl + ' · ' + (def?.short || sid)
+                    groupLabel + ' · ' + dl + ' · ' + (def?.short || sid),
+                    df
                 );
             }
         }
-        this._collectT9vTonKenarTerms(depths, metricId, groupLabel, influences, terms);
-        this._collectDepthTrendTerms(depths, metricId, groupLabel, influences, terms);
+        this._collectT9vTonKenarTerms(depths, metricId, groupLabel, influences, terms, md);
+        this._collectDepthTrendTerms(depths, metricId, groupLabel, influences, terms, md);
         for (const oid of this.classifyT9vOrtSignals(ortOzeti)) {
             const def = this.getProfileDef(metricId, this.ORT_GROUP, oid);
             this._pushOrtTerm(
@@ -1194,9 +1206,10 @@ const IstatistikTahminEngine = {
         }
     },
 
-    _collectDepthVisualTerms(depths, metricId, groupLabel, influences, terms) {
+    _collectDepthVisualTerms(depths, metricId, groupLabel, influences, terms, maxDepth) {
         if (!depths?.length) return;
         const IE = typeof IstatistikEngine !== 'undefined' ? IstatistikEngine : null;
+        const md = maxDepth || depths.length || 1;
         for (let d = 0; d < depths.length; d++) {
             const cell = depths[d];
             if (!cell) continue;
@@ -1208,10 +1221,11 @@ const IstatistikTahminEngine = {
                 || this.VISUAL_PROFILES.find(p => p.id === profile);
             this._pushVisualTerm(
                 terms, influences, metricId, profile,
-                groupLabel + ' · ' + dl + ' · ' + (def?.short || profile)
+                groupLabel + ' · ' + dl + ' · ' + (def?.short || profile),
+                this._depthWeightFactor(d, md)
             );
         }
-        this._collectDepthTrendTerms(depths, metricId, groupLabel, influences, terms);
+        this._collectDepthTrendTerms(depths, metricId, groupLabel, influences, terms, md);
     },
 
     _resolveMaxDepth(metricId, pkg, depths) {
@@ -1313,6 +1327,7 @@ const IstatistikTahminEngine = {
     },
 
     _collectMetricTerms(row, g, influences, terms, pkg) {
+        const maxDepth = this._resolveMaxDepth(g.id, pkg, g.depths);
         if (g.id === 't9v') {
             this._collectT9vTerms(
                 g.depths,
@@ -1322,15 +1337,15 @@ const IstatistikTahminEngine = {
                 g.id,
                 g.label,
                 influences,
-                terms
+                terms,
+                maxDepth
             );
             return;
         }
-        const maxDepth = this._resolveMaxDepth(g.id, pkg, g.depths);
         if (this._usesPctDepthBase(g.id)) {
             this._collectDepthPctBaseTerms(g.depths, maxDepth, g.id, g.label, influences, terms);
         }
-        this._collectDepthVisualTerms(g.depths, g.id, g.label, influences, terms);
+        this._collectDepthVisualTerms(g.depths, g.id, g.label, influences, terms, maxDepth);
     },
 
     _allDepthGroups(row, extraSections) {

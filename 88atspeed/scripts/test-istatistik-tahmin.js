@@ -430,8 +430,58 @@ TE.saveDraftMetric('sm12');
 const tuncerRow = { sm12Depths: [null, tuncerCell] };
 const tuncerT = TE.computeRowTahmin(tuncerRow, [{ id: 'sm12', label: 'Ş+M-12', depthsKey: 'sm12Depths' }]);
 const tuncerTerm = tuncerT.terms.find(x => x.metricId === 'sm12' && x.label.includes('Sarı+kırmızı'));
-if (!tuncerTerm || tuncerTerm.points !== 32) {
-    console.error('FAIL: sm12 sariKirmizi TUNCER 9×70×50/1000=32', tuncerTerm, tuncerT.terms);
+// 1 ÖNCE (d=1, maxDepth=2) → derinlik çarpanı 0.5 → 9×70×0.5×50/1000=16
+if (!tuncerTerm || tuncerTerm.points !== 16) {
+    console.error('FAIL: sm12 sariKirmizi TUNCER 1 ÖNCE derinlik×0.5=16', tuncerTerm, tuncerT.terms);
+    process.exit(1);
+}
+const tuncerSonRow = { sm12Depths: [tuncerCell, null] };
+const tuncerSonT = TE.computeRowTahmin(tuncerSonRow, [{ id: 'sm12', label: 'Ş+M-12', depthsKey: 'sm12Depths' }]);
+const tuncerSonTerm = tuncerSonT.terms.find(x => x.metricId === 'sm12' && x.label.includes('SON'));
+if (!tuncerSonTerm || tuncerSonTerm.points !== 32) {
+    console.error('FAIL: sm12 sariKirmizi TUNCER SON tam derinlik=32', tuncerSonTerm, tuncerSonT.terms);
+    process.exit(1);
+}
+if (tuncerSonTerm.points <= tuncerTerm.points) {
+    console.error('FAIL: SON görsel profil 1 ÖNCE\'den yüksek olmalı', tuncerSonTerm.points, tuncerTerm.points);
+    process.exit(1);
+}
+
+// test1: SON maviKenar > 6 ÖNCE maviKenar (derinlik ağırlığı)
+TE.resetWeights();
+TE.setDraftInfluence('test1', 'visual', 'maviKenar', 1);
+TE.saveDraftMetric('test1');
+TE.setSelectedMetric('test1');
+TE.setCalcMode(TE.CALC_MODE_SOLO);
+const depth7 = Array(7).fill(null);
+depth7[0] = { visualProfile: 'maviKenar' };
+const sonMaviT = TE.computeRowTahmin(
+    { test1Depths: depth7 },
+    [{ id: 'test1', label: 'TEST1', depthsKey: 'test1Depths' }],
+    null,
+    { maxDepthTest1: 7 }
+);
+const depth7Old = Array(7).fill(null);
+depth7Old[6] = { visualProfile: 'maviKenar' };
+const oldMaviT = TE.computeRowTahmin(
+    { test1Depths: depth7Old },
+    [{ id: 'test1', label: 'TEST1', depthsKey: 'test1Depths' }],
+    null,
+    { maxDepthTest1: 7 }
+);
+const sonMaviTerm = sonMaviT.terms.find(x => x.metricId === 'test1' && x.label.includes('SON'));
+const oldMaviTerm = oldMaviT.terms.find(x => x.metricId === 'test1' && x.label.includes('6 ÖNCE'));
+if (!sonMaviTerm || !oldMaviTerm) {
+    console.error('FAIL: test1 maviKenar derinlik terimleri', sonMaviTerm, oldMaviTerm);
+    process.exit(1);
+}
+if (sonMaviTerm.points <= oldMaviTerm.points) {
+    console.error('FAIL: SON maviKenar > 6 ÖNCE maviKenar', sonMaviTerm.points, oldMaviTerm.points);
+    process.exit(1);
+}
+// SON: 1×12×1×250/1000=3; 6 ÖNCE: 1×12×(1/7)×250/1000≈0 (yuvarlama sonrası 0 olabilir)
+if (sonMaviTerm.points !== 3) {
+    console.error('FAIL: test1 SON maviKenar +1 derinlik=3', sonMaviTerm);
     process.exit(1);
 }
 
