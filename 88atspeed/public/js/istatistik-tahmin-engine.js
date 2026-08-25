@@ -128,6 +128,30 @@ const IstatistikTahminEngine = {
         }
     ],
 
+    /** GÖSTERİM renklendirme bayrakları — derinlik hücresinde aktifse TAHMİN'e %100 terim ekler */
+    GOSTERIM_FLAGS: [
+        { id: 'maviKenar', short: 'Mavi kenar', label: 'GÖSTERİM · Mavi kenar', defaultInfluence: 5 },
+        { id: 'maviKenarSira', short: 'Mavi·SIRA', label: 'GÖSTERİM · Mavi kenar (TEST·SIRA)', defaultInfluence: 3 },
+        { id: 'maviKenarSon800', short: 'Mavi·S800', label: 'GÖSTERİM · Mavi kenar (SON800-1)', defaultInfluence: 3 },
+        { id: 'kirmiziKenar', short: 'Kırmızı kenar', label: 'GÖSTERİM · Kırmızı kenar', defaultInfluence: 5 },
+        { id: 'yesilSatir', short: 'Yeşil satır', label: 'GÖSTERİM · Yeşil satır', defaultInfluence: 3 },
+        { id: 'gucluUyari', short: 'Güçlü uyarı', label: 'GÖSTERİM · Güçlü uyarı', defaultInfluence: 5 },
+        { id: 'maviFosfor', short: 'Fosfor mavi', label: 'GÖSTERİM · Fosfor mavi', defaultInfluence: 3 },
+        { id: 'pembeSatir', short: 'Pembe satır', label: 'GÖSTERİM · Pembe satır', defaultInfluence: 1 },
+        { id: 'kirmiziTest', short: 'Kırmızı TEST', label: 'GÖSTERİM · Kırmızı TEST', defaultInfluence: 2 },
+        { id: 'sariTest12', short: 'Sarı TEST1≈2', label: 'GÖSTERİM · Sarı TEST1≈TEST2', defaultInfluence: 2 },
+        { id: 'test1EnIyi', short: 'TEST1 en iyi', label: 'GÖSTERİM · TEST1 en iyi', defaultInfluence: 1 },
+        { id: 'test2EnIyi', short: 'TEST2 en iyi', label: 'GÖSTERİM · TEST2 en iyi', defaultInfluence: 1 },
+        { id: 'test3EnIyi', short: 'TEST3 en iyi', label: 'GÖSTERİM · TEST3 en iyi', defaultInfluence: 1 },
+        { id: 'sehirEslesme', short: 'Şehir eşleşme', label: 'GÖSTERİM · Şehir eşleşme', defaultInfluence: 1 },
+        { id: 'mesafeEslesme', short: 'Mesafe eşleşme', label: 'GÖSTERİM · Mesafe eşleşme', defaultInfluence: 1 },
+        { id: 'test23Yanip', short: 'TEST23 yanıp', label: 'GÖSTERİM · TEST23 yanıp sönen', defaultInfluence: 2 },
+        { id: 't1drKirmizi', short: 'T1×DR kırmızı', label: 'GÖSTERİM · T1×DR kırmızı', defaultInfluence: 2 },
+        { id: 't1drEnIyi2', short: 'T1×DR top2', label: 'GÖSTERİM · T1×DR en iyi 2', defaultInfluence: 2 }
+    ],
+
+    GOSTERIM_GROUP_ID: 'gosterim',
+
     /** Geriye uyumluluk */
     CORE_ORT_KEYS: null,
 
@@ -171,6 +195,9 @@ const IstatistikTahminEngine = {
     },
 
     _defaultInfluenceForGroup(groupId) {
+        if (groupId === this.GOSTERIM_GROUP_ID) return this.DEFAULT_INFLUENCE;
+        const gos = this.GOSTERIM_FLAGS.find(f => f.id === groupId);
+        if (gos?.defaultInfluence != null) return gos.defaultInfluence;
         const core = this.CORE_GROUPS.find(g => g.id === groupId);
         if (core?.defaultInfluence != null) return core.defaultInfluence;
         const simple = this.SIMPLE_COLUMN_GROUPS.find(g => g.id === groupId);
@@ -179,7 +206,19 @@ const IstatistikTahminEngine = {
     },
 
     _defaultInfluenceForBaseSlot(baseSlotId) {
-        return this._defaultInfluenceForGroup(this._groupIdFromBaseSlot(baseSlotId));
+        const idx = String(baseSlotId).indexOf(':');
+        if (idx < 0) return this.DEFAULT_INFLUENCE;
+        const groupId = baseSlotId.slice(0, idx);
+        const slot = baseSlotId.slice(idx + 1);
+        if (groupId === this.GOSTERIM_GROUP_ID) {
+            const gos = this.GOSTERIM_FLAGS.find(f => f.id === slot);
+            if (gos?.defaultInfluence != null) return gos.defaultInfluence;
+        }
+        return this._defaultInfluenceForGroup(groupId);
+    },
+
+    gosterimSlotId(flagId) {
+        return this.slotId(this.GOSTERIM_GROUP_ID, flagId);
     },
 
     _resolveBaseInfluence(influences, weightId) {
@@ -301,6 +340,19 @@ const IstatistikTahminEngine = {
         terms.push({ weightId, label, pct, weight, baseWeight, effectiveBase, p100Boost });
     },
 
+    _collectGosterimFlagTerms(cell, groupLabel, depthLabel, influences, terms) {
+        if (!cell?.gosterim) return;
+        for (const f of this.GOSTERIM_FLAGS) {
+            if (!cell.gosterim[f.id]) continue;
+            this._pushTerm(
+                terms, influences,
+                this.gosterimSlotId(f.id),
+                groupLabel + ' · ' + depthLabel + ' · ' + f.short,
+                100
+            );
+        }
+    },
+
     _collectGroupTerms(groupId, label, depths, ortOzeti, influences, terms, depthLabels) {
         if (depths?.length) {
             for (let d = 0; d < depths.length; d++) {
@@ -312,6 +364,7 @@ const IstatistikTahminEngine = {
                     label + ' · ' + dl,
                     cell?.pct ?? null
                 );
+                this._collectGosterimFlagTerms(cell, label, dl, influences, terms);
             }
         }
         if (ortOzeti) {

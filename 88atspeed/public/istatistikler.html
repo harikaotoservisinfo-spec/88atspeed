@@ -568,6 +568,76 @@
             color: #e65100;
         }
         .istat-th-col-weight { min-width: 58px; }
+
+        /* GÖSTERİM renklendirme — derinlik hücreleri */
+        .istatistik-table td.istat-gos-kirmizi-kenar {
+            box-shadow: inset 0 0 0 2px #d50000, 0 0 8px rgba(255, 23, 68, 0.35);
+        }
+        .istatistik-table td.istat-gos-mavi-kenar {
+            box-shadow: inset 0 0 0 2px #0d47a1, 0 0 8px rgba(13, 71, 161, 0.35);
+        }
+        .istatistik-table td.istat-gos-yesil-satir {
+            background: #e8ff9e !important;
+        }
+        .istatistik-table td.istat-gos-guclu-uyari {
+            background: linear-gradient(135deg, #0a2e12 0%, #1b5e20 100%) !important;
+            color: #e8f5e9 !important;
+        }
+        .istatistik-table td.istat-gos-mavi-fosfor {
+            background: rgba(0, 188, 212, 0.14) !important;
+        }
+        .istatistik-table td.istat-gos-pembe-satir {
+            background: #fce4ec !important;
+        }
+        .istatistik-table td.istat-gos-sari .istat-pct {
+            color: #b8860b !important;
+            font-weight: 800;
+        }
+        .istatistik-table td.istat-gos-kirmizi-test .istat-pct {
+            color: #d50000 !important;
+            font-weight: 800;
+        }
+        .istatistik-table td.istat-gos-eslesme {
+            background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%) !important;
+        }
+        .istatistik-table td.istat-gos-eslesme .istat-pct {
+            color: #ccff90 !important;
+            font-weight: 800;
+        }
+        .istat-gosterim-controls {
+            width: 100%;
+            margin-bottom: 12px;
+            padding: 10px 14px;
+            background: #f3e5f5;
+            border: 1px solid #e1bee7;
+            border-radius: var(--radius-md);
+            font-size: 12px;
+        }
+        .istat-gosterim-controls summary {
+            cursor: pointer;
+            font-weight: 700;
+            color: #4a148c;
+        }
+        .istat-gos-weight-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 12px;
+            margin-top: 10px;
+        }
+        .istat-gos-weight-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            min-width: 72px;
+        }
+        .istat-gos-weight-label {
+            font-size: 9px;
+            font-weight: 700;
+            color: #5e35b1;
+            text-align: center;
+            line-height: 1.2;
+        }
     </style>
 </head>
 <body>
@@ -578,6 +648,10 @@
         <button type="button" id="tahminAgirlikSifirlaBtn" class="istatistik-btn" title="Tüm genel ve %100 ek etkilerini varsayılana sıfırla">↺ Etki sıfırla</button>
         <span id="istatistikBuild" class="istatistik-build" title="Yüklü sürüm"></span>
     </div>
+    <details class="istat-gosterim-controls" id="gosterimWeightPanel">
+        <summary>GÖSTERİM renk etkileri (TAHMİN ağırlıkları)</summary>
+        <div class="istat-gos-weight-grid" id="gosterimWeightGrid"></div>
+    </details>
     <div id="kayitListesi" class="kayit-listesi" style="display:none;"></div>
     <div id="istatistikStatus"></div>
     <div id="istatistikMeta" class="istatistik-meta" style="display:none;"></div>
@@ -602,6 +676,9 @@
         sütunlarında üstteki <strong>+/−</strong> genel etki, alttaki turuncu <strong>%100</strong> yalnızca
         o sütunda tam %100 olan hücrelere ek etki verir. Tam <strong>%100</strong> hücrelerin genel etkisi
         otomatik <strong>×2</strong> sayılır. TEST1 varsayılan ×20, TEST3 varsayılan ×5. %1 adım.<br>
+        <strong>GÖSTERİM renkleri:</strong> Derinlik hücrelerinde mavi/kırmızı kenar, yeşil satır vb. GÖSTERİM
+        kuralları görsel olarak yansıtılır; üstteki <strong>GÖSTERİM renk etkileri</strong> panelinden her kuralın
+        TAHMİN ağırlığını ayarlayabilirsiniz (aktif bayrak = %100 terim).<br>
         <strong>T1×DR:</strong> TEST1 × DR/1DR — o gün koşan atlar arasında en düşük T1×DR = %100;
         derinlik kıyası + AĞ. ORT.<br>
         <strong>Son 3 ay / 1 ay / 15 gün:</strong> Program tarihine göre dönem içi koşu sayısının,
@@ -614,12 +691,14 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260825u"></script>
-<script src="js/istatistik-engine.js?v=20260825u"></script>
-<script src="js/istatistik-grids-extra.js?v=20260825u"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260825u"></script>
+<script src="js/utils.js?v=20260825v"></script>
+<script src="js/formula-engine.js?v=20260825v"></script>
+<script src="js/istatistik-engine.js?v=20260825v"></script>
+<script src="js/istatistik-grids-extra.js?v=20260825v"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260825v"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260825v"></script>
 <script>
-const ISTAT_BUILD = '20260825u';
+const ISTAT_BUILD = '20260825v';
 let istatRaceCache = [];
 let currentKayitId = null;
 let currentKayitMeta = null;
@@ -780,10 +859,10 @@ function refreshAllTahmin() {
 }
 
 function bindTahminWeightControls() {
-    const results = document.getElementById('istatistikResults');
-    if (!results || results.dataset.weightBound === '1') return;
-    results.dataset.weightBound = '1';
-    results.addEventListener('click', (e) => {
+    const container = document.getElementById('istatistikContainer');
+    if (!container || container.dataset.weightBound === '1') return;
+    container.dataset.weightBound = '1';
+    container.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-w-action]');
         if (!btn) return;
         e.preventDefault();
@@ -812,6 +891,81 @@ function formatDonemPctCell(stat, donemLabel) {
 function son800DepthLabel(d) {
     if (d === 0) return 'SON';
     return d + ' ÖNCE';
+}
+
+const GOSTERIM_FLAG_LABELS = {
+    kirmiziKenar: 'Kırmızı kenar',
+    maviKenar: 'Mavi kenar',
+    maviKenarSira: 'Mavi·TEST·SIRA',
+    maviKenarSon800: 'Mavi·SON800-1',
+    yesilSatir: 'Yeşil satır',
+    gucluUyari: 'Güçlü uyarı',
+    maviFosfor: 'Fosfor mavi',
+    pembeSatir: 'Pembe satır',
+    kirmiziTest: 'Kırmızı TEST',
+    sariTest12: 'Sarı TEST1≈2',
+    test1EnIyi: 'TEST1 en iyi',
+    test2EnIyi: 'TEST2 en iyi',
+    test3EnIyi: 'TEST3 en iyi',
+    sehirEslesme: 'Şehir eşleşme',
+    mesafeEslesme: 'Mesafe eşleşme',
+    test23Yanip: 'TEST23 yanıp',
+    t1drKirmizi: 'T1×DR kırmızı',
+    t1drEnIyi2: 'T1×DR top2'
+};
+
+function gosterimTdExtraClasses(cell) {
+    if (!cell?.gosterim) return '';
+    const g = cell.gosterim;
+    const parts = [];
+    if (g.kirmiziKenar) parts.push('istat-gos-kirmizi-kenar');
+    else if (g.maviKenar) parts.push('istat-gos-mavi-kenar');
+    if (g.yesilSatir) parts.push('istat-gos-yesil-satir');
+    if (g.gucluUyari) parts.push('istat-gos-guclu-uyari');
+    if (g.maviFosfor) parts.push('istat-gos-mavi-fosfor');
+    if (g.pembeSatir) parts.push('istat-gos-pembe-satir');
+    if (g.sariTest12) parts.push('istat-gos-sari');
+    if (g.kirmiziTest) parts.push('istat-gos-kirmizi-test');
+    if (g.sehirEslesme || g.mesafeEslesme) parts.push('istat-gos-eslesme');
+    return parts.join(' ');
+}
+
+function depthTdClass(baseCls, cell) {
+    const extra = gosterimTdExtraClasses(cell);
+    return extra ? baseCls + ' ' + extra : baseCls;
+}
+
+function gosterimTitleSuffix(cell) {
+    if (!cell?.gosterim) return '';
+    const tags = [];
+    for (const [key, label] of Object.entries(GOSTERIM_FLAG_LABELS)) {
+        if (cell.gosterim[key]) tags.push(label);
+    }
+    return tags.length ? ' | GÖSTERİM: ' + tags.join(', ') : '';
+}
+
+function wrapDepthCellInner(inner, cell) {
+    const suffix = gosterimTitleSuffix(cell);
+    if (!suffix) return inner;
+    if (inner.includes('title="')) {
+        return inner.replace(/title="([^"]*)"/, (m, t) => 'title="' + t + suffix.replace(/"/g, '&quot;') + '"');
+    }
+    return inner;
+}
+
+function renderGosterimWeightControls() {
+    const grid = document.getElementById('gosterimWeightGrid');
+    if (!grid) return;
+    const TE = IstatistikTahminEngine;
+    let h = '';
+    for (const f of TE.GOSTERIM_FLAGS) {
+        const wId = TE.gosterimSlotId(f.id);
+        h += '<div class="istat-gos-weight-item">';
+        h += '<span class="istat-gos-weight-label">' + AtSpeedUtils.escapeHtml(f.short) + '</span>';
+        h += renderMetricWeightBar(wId, true, 'base');
+        h += '</div>';
+    }
+    grid.innerHTML = h;
 }
 
 function formatSon800DepthCell(cell, label, depthLabel) {
@@ -922,7 +1076,7 @@ function renderTest1DepthCells(depths, maxDepth, ortOzeti) {
         const cell = depths && depths[d] ? depths[d] : null;
         let cls = 'istat-grp-test1 istat-son800-depth';
         if (d === 0) cls += ' istat-grp-start';
-        h += '<td class="' + cls + '">' + formatTest1DepthCell(cell, son800DepthLabel(d)) + '</td>';
+        h += '<td class="' + depthTdClass(cls, cell) + '">' + wrapDepthCellInner(formatTest1DepthCell(cell, son800DepthLabel(d)), cell) + '</td>';
     }
     return appendDepthOrtOzetiCells(h, 'istat-grp-test1', 'TEST1', ortOzeti, false);
 }
@@ -946,7 +1100,7 @@ function renderTest2DepthCells(depths, maxDepth, ortOzeti) {
         const cell = depths && depths[d] ? depths[d] : null;
         let cls = 'istat-grp-test2 istat-son800-depth';
         if (d === 0) cls += ' istat-grp-start';
-        h += '<td class="' + cls + '">' + formatTest2DepthCell(cell, son800DepthLabel(d)) + '</td>';
+        h += '<td class="' + depthTdClass(cls, cell) + '">' + wrapDepthCellInner(formatTest2DepthCell(cell, son800DepthLabel(d)), cell) + '</td>';
     }
     return appendDepthOrtOzetiCells(h, 'istat-grp-test2', 'TEST2', ortOzeti, false);
 }
@@ -971,7 +1125,7 @@ function renderTest3DepthCells(depths, maxDepth, ortOzeti) {
         const cell = depths && depths[d] ? depths[d] : null;
         let cls = 'istat-grp-test3 istat-son800-depth';
         if (d === 0) cls += ' istat-grp-start';
-        h += '<td class="' + cls + '">' + formatTest3DepthCell(cell, son800DepthLabel(d)) + '</td>';
+        h += '<td class="' + depthTdClass(cls, cell) + '">' + wrapDepthCellInner(formatTest3DepthCell(cell, son800DepthLabel(d)), cell) + '</td>';
     }
     return appendDepthOrtOzetiCells(h, 'istat-grp-test3', 'TEST3', ortOzeti, false);
 }
@@ -1011,7 +1165,7 @@ function renderTest123SiraliDepthCells(depths, maxDepth, ortOzeti) {
         const cell = depths && depths[d] ? depths[d] : null;
         let cls = 'istat-grp-testsira istat-son800-depth';
         if (d === 0) cls += ' istat-grp-start';
-        h += '<td class="' + cls + '">' + formatTest123SiraliDepthCell(cell, son800DepthLabel(d)) + '</td>';
+        h += '<td class="' + depthTdClass(cls, cell) + '">' + wrapDepthCellInner(formatTest123SiraliDepthCell(cell, son800DepthLabel(d)), cell) + '</td>';
     }
     return appendDepthOrtOzetiCells(h, 'istat-grp-testsira', 'TEST·SIRA', ortOzeti, false);
 }
@@ -1037,7 +1191,7 @@ function renderT1drDepthCells(depths, maxDepth, ortOzeti) {
         const cell = depths && depths[d] ? depths[d] : null;
         let cls = 'istat-grp-t1dr istat-son800-depth';
         if (d === 0) cls += ' istat-grp-start';
-        h += '<td class="' + cls + '">' + formatT1drDepthCell(cell, son800DepthLabel(d)) + '</td>';
+        h += '<td class="' + depthTdClass(cls, cell) + '">' + wrapDepthCellInner(formatT1drDepthCell(cell, son800DepthLabel(d)), cell) + '</td>';
     }
     return appendDepthOrtOzetiCells(h, 'istat-grp-t1dr', 'T1×DR', ortOzeti, false);
 }
@@ -1053,7 +1207,7 @@ function renderSon800DrKorelasyonGroupCells(depths, maxDepth, grpClass, groupLab
         const cell = depths && depths[d] ? depths[d] : null;
         let cls = grpClass + ' istat-son800-depth';
         if (d === 0) cls += ' istat-grp-start';
-        h += '<td class="' + cls + '">' + formatSon800DrKorelasyonCell(cell, son800DepthLabel(d), groupLabel, drLabel) + '</td>';
+        h += '<td class="' + depthTdClass(cls, cell) + '">' + wrapDepthCellInner(formatSon800DrKorelasyonCell(cell, son800DepthLabel(d), groupLabel, drLabel), cell) + '</td>';
     }
     return appendDepthOrtOzetiCells(h, grpClass, groupLabel, ortOzeti, isGrpEnd);
 }
@@ -1079,7 +1233,7 @@ function renderSon800DepthCells(depths, maxDepth, grpClass, label, ortOzeti) {
         const cell = depths && depths[d] ? depths[d] : null;
         let cls = grpClass + ' istat-son800-depth';
         if (d === 0) cls += ' istat-grp-start';
-        h += '<td class="' + cls + '">' + formatSon800DepthCell(cell, label, son800DepthLabel(d)) + '</td>';
+        h += '<td class="' + depthTdClass(cls, cell) + '">' + wrapDepthCellInner(formatSon800DepthCell(cell, label, son800DepthLabel(d)), cell) + '</td>';
     }
     return appendDepthOrtOzetiCells(h, grpClass, label, ortOzeti, true);
 }
@@ -1118,7 +1272,7 @@ function renderSon800OranCells(depths, maxDepth, grpClass, label, anaDerece, ort
         const cell = depths && depths[d] ? depths[d] : null;
         let cls = grpClass + ' istat-son800-depth';
         if (d === 0) cls += ' istat-grp-start';
-        h += '<td class="' + cls + '">' + formatSon800OranCell(cell, label, son800DepthLabel(d), anaDerece) + '</td>';
+        h += '<td class="' + depthTdClass(cls, cell) + '">' + wrapDepthCellInner(formatSon800OranCell(cell, label, son800DepthLabel(d), anaDerece), cell) + '</td>';
     }
     return appendDepthOrtOzetiCells(h, grpClass, label, ortOzeti, isGrpEnd);
 }
@@ -1155,7 +1309,7 @@ function renderFark827DepthCells(depths, maxDepth, ortOzeti) {
         const cell = depths && depths[d] ? depths[d] : null;
         let cls = 'istat-grp-f827 istat-son800-depth';
         if (d === 0) cls += ' istat-grp-start';
-        h += '<td class="' + cls + '">' + formatFark827DepthCell(cell, son800DepthLabel(d)) + '</td>';
+        h += '<td class="' + depthTdClass(cls, cell) + '">' + wrapDepthCellInner(formatFark827DepthCell(cell, son800DepthLabel(d)), cell) + '</td>';
     }
     return appendDepthOrtOzetiCells(h, 'istat-grp-f827', '800Δ·7', ortOzeti, false);
 }
@@ -1180,7 +1334,7 @@ function renderFfDepthCells(depths, maxDepth, ortOzeti) {
         const cell = depths && depths[d] ? depths[d] : null;
         let cls = 'istat-grp-ffd istat-son800-depth';
         if (d === 0) cls += ' istat-grp-start';
-        h += '<td class="' + cls + '">' + formatFfDepthCell(cell, son800DepthLabel(d)) + '</td>';
+        h += '<td class="' + depthTdClass(cls, cell) + '">' + wrapDepthCellInner(formatFfDepthCell(cell, son800DepthLabel(d)), cell) + '</td>';
     }
     return appendDepthOrtOzetiCells(h, 'istat-grp-ffd', 'FFΔ', ortOzeti, false);
 }
@@ -1206,7 +1360,7 @@ function renderT8DepthCells(depths, maxDepth, ortOzeti) {
         const cell = depths && depths[d] ? depths[d] : null;
         let cls = 'istat-grp-t8d istat-son800-depth';
         if (d === 0) cls += ' istat-grp-start';
-        h += '<td class="' + cls + '">' + formatT8DepthCell(cell, son800DepthLabel(d)) + '</td>';
+        h += '<td class="' + depthTdClass(cls, cell) + '">' + wrapDepthCellInner(formatT8DepthCell(cell, son800DepthLabel(d)), cell) + '</td>';
     }
     return appendDepthOrtOzetiCells(h, 'istat-grp-t8d', 'T8Δ', ortOzeti, false);
 }
@@ -1240,7 +1394,7 @@ function renderExtraSectionCells(row, section, isGrpEnd) {
         const cell = depths && depths[d] ? depths[d] : null;
         let cls = grp + ' istat-son800-depth';
         if (d === 0) cls += ' istat-grp-start';
-        h += '<td class="' + cls + '">' + formatGenericDepthCell(cell, son800DepthLabel(d), section.label) + '</td>';
+        h += '<td class="' + depthTdClass(cls, cell) + '">' + wrapDepthCellInner(formatGenericDepthCell(cell, son800DepthLabel(d), section.label), cell) + '</td>';
     }
     return appendDepthOrtOzetiCells(h, grp, section.label, ortOzeti, isGrpEnd);
 }
@@ -1778,6 +1932,8 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
     const resultsEl = document.getElementById('istatistikResults');
     resultsEl.innerHTML = html;
     delete resultsEl.dataset.weightBound;
+    const container = document.getElementById('istatistikContainer');
+    if (container) delete container.dataset.weightBound;
     bindTahminWeightControls();
     notifyParentResize();
 }
@@ -1864,6 +2020,7 @@ window.addEventListener('message', (e) => {
 });
 
 window.addEventListener('load', () => {
+    renderGosterimWeightControls();
     fetch('/VERSION.txt?v=' + Date.now())
         .then(r => r.ok ? r.text() : '')
         .then(t => {

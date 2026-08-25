@@ -3,8 +3,10 @@ const fs = require('fs');
 const path = require('path');
 
 global.AtSpeedUtils = require('../public/js/utils.js');
+eval(fs.readFileSync(path.join(__dirname, '../public/js/formula-engine.js'), 'utf8') + '\n; global.GosterimEngine = GosterimEngine;');
 eval(fs.readFileSync(path.join(__dirname, '../public/js/istatistik-engine.js'), 'utf8') + '\n; global.IstatistikEngine = IstatistikEngine;');
 eval(fs.readFileSync(path.join(__dirname, '../public/js/istatistik-grids-extra.js'), 'utf8'));
+eval(fs.readFileSync(path.join(__dirname, '../public/js/istatistik-gosterim-flags.js'), 'utf8'));
 eval(fs.readFileSync(path.join(__dirname, '../public/js/istatistik-tahmin-engine.js'), 'utf8') + '\n; global.IstatistikTahminEngine = IstatistikTahminEngine;');
 
 const IE = global.IstatistikEngine;
@@ -131,6 +133,46 @@ if (t100.terms[0].weight !== 12 || t80.terms[0].weight !== 1) {
     process.exit(1);
 }
 TE.resetWeights();
+
+// GÖSTERİM bayrak terimleri
+const influencesGos = {};
+influencesGos[TE.gosterimSlotId('maviKenar')] = 10;
+const rowGos = {
+    test1Depths: [{
+        pct: 50,
+        gosterim: { maviKenar: true, maviKenarSira: true }
+    }]
+};
+const tGos = TE.computeRowTahmin(rowGos, [], influencesGos);
+const gosTerms = tGos.terms.filter(t => t.weightId.startsWith('gosterim:'));
+if (gosTerms.length < 2) {
+    console.error('FAIL: GÖSTERİM bayrak terimleri eksik', gosTerms.length);
+    process.exit(1);
+}
+if (!gosTerms.every(t => t.pct === 100 && t.effectiveBase === t.baseWeight * 2)) {
+    console.error('FAIL: GÖSTERİM terim ağırlığı (×2 %100)', gosTerms);
+    process.exit(1);
+}
+
+// GÖSTERİM bayrakları pakete bağlanıyor
+const raceGos = {
+    mesafe: '1400',
+    horses: [{
+        no: 1,
+        name: 'Gamma',
+        kosular: [
+            kosu('10.08.2026', '1.26.00', '1.25.00', { son800_bir: '0.47.00', son800_iki: '0.48.00' }),
+            kosu('01.08.2026', '1.27.00', '1.26.00')
+        ]
+    }]
+};
+const pkgGos = IE.buildRaceIstatistikPackage(raceGos, 'İzmir', '24.08.2026');
+const gamma = pkgGos.rows[0];
+const hasGos = (gamma.test1Depths || []).some(c => c?.gosterim);
+if (!hasGos) {
+    console.error('FAIL: gosterim bayrakları derinlik hücrelerine bağlanmadı');
+    process.exit(1);
+}
 
 console.log('Sütun bazlı tahmin:', t.pct + '%', '|', t.metricCount, 'terim');
 console.log('OK');

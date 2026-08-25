@@ -686,6 +686,9 @@
         if (typeof this.attachExtendedGrids === 'function') {
             this.attachExtendedGrids(pkg, race, hedefSehir, programTarih);
         }
+        if (typeof this.attachGosterimFlagsToPackage === 'function') {
+            this.attachGosterimFlagsToPackage(pkg, race, hedefSehir, programTarih);
+        }
         return pkg;
     };
 })();
