@@ -63,6 +63,15 @@ if (TE.getDraftInfluence('t9v', 'color', 'tk_sari_kirmizi') !== 9) {
     process.exit(1);
 }
 
+if (TE.getMetricGroupWeight('test1') !== 250) {
+    console.error('FAIL: test1 grup ağırlığı 250 değil');
+    process.exit(1);
+}
+if (TE.getMetricGroupWeight('son8002') !== 40) {
+    console.error('FAIL: son8002 grup ağırlığı 40 değil');
+    process.exit(1);
+}
+
 const sm12Sections = TE.getMetricProfileSections('sm12');
 const sm12Trend = sm12Sections.find(s => s.kind === 'trend');
 if (!sm12Trend || sm12Trend.profiles.length !== 4) {
@@ -121,8 +130,8 @@ const smGecMaviT = TE.computeRowTahmin(
     { smGecDepths: [{ visualProfile: 'maviKenar' }] },
     [{ id: 'smGec', label: 'Ş+M-GEÇ', depthsKey: 'smGecDepths' }]
 );
-if (smGecMaviT.score !== 12) {
-    console.error('FAIL: smGec maviKenar +1 = 12 puan', smGecMaviT.score);
+if (smGecMaviT.score !== 1) {
+    console.error('FAIL: smGec maviKenar +1 = 12×60/1000 puan', smGecMaviT.score);
     process.exit(1);
 }
 
@@ -141,8 +150,8 @@ const sehirSonT = TE.computeRowTahmin(
     { sehirSonDepths: [{ pct: 20, gosterim: {} }] },
     [{ id: 'sehirSon', label: 'ŞEH-SON', depthsKey: 'sehirSonDepths' }]
 );
-if (sehirSonT.score !== 30) {
-    console.error('FAIL: sehirSon sari +1 = 30 puan', sehirSonT.score);
+if (sehirSonT.score !== 2) {
+    console.error('FAIL: sehirSon sari +1 = 30×70/1000 puan', sehirSonT.score);
     process.exit(1);
 }
 
@@ -161,8 +170,8 @@ const f8021T = TE.computeRowTahmin(
     { f8021Depths: [{ pct: 0, gosterim: { kirmiziKenar: true, yesilSatir: true } }] },
     [{ id: 'f8021', label: '8002−1', depthsKey: 'f8021Depths' }]
 );
-if (f8021T.score !== 70) {
-    console.error('FAIL: f8021 sariKirmizi +1 = 70 puan', f8021T.score);
+if (f8021T.score !== 4) {
+    console.error('FAIL: f8021 sariKirmizi +1 = 70×60/1000 puan', f8021T.score);
     process.exit(1);
 }
 
@@ -173,8 +182,8 @@ const sl802T = TE.computeRowTahmin(
     { sl802Depths: [{ visualProfile: 'maviKenar' }] },
     [{ id: 'sl802', label: '8002/SL', depthsKey: 'sl802Depths' }]
 );
-if (sl802T.score !== 12) {
-    console.error('FAIL: sl802 maviKenar +1 = 12 puan', sl802T.score);
+if (sl802T.score !== 1) {
+    console.error('FAIL: sl802 maviKenar +1 = 12×110/1000 puan', sl802T.score);
     process.exit(1);
 }
 
@@ -199,8 +208,8 @@ const yesilT = TE.computeRowTahmin(
     { sm12Depths: [yesilCell] },
     [{ id: 'sm12', label: 'Ş+M-12', depthsKey: 'sm12Depths' }]
 );
-if (skT.score !== 70 || yesilT.score !== 5) {
-    console.error('FAIL: sm12 ölçekli puan', skT.score, yesilT.score);
+if (skT.score !== 4 || yesilT.score !== 0) {
+    console.error('FAIL: sm12 ölçekli puan 70×50/1000 vs 5×50/1000', skT.score, yesilT.score);
     process.exit(1);
 }
 
@@ -221,8 +230,8 @@ if (!sm12TrendTerm || sm12TrendTerm.points < sm12VisualTerm.points) {
     console.error('FAIL: sm12 trend %20 bonus', sm12TrendTerm?.points, sm12VisualTerm?.points);
     process.exit(1);
 }
-if (sm12VisualTerm.points !== 30) {
-    console.error('FAIL: sm12 sari +1 = 30 puan', sm12VisualTerm.points);
+if (sm12VisualTerm.points !== 2) {
+    console.error('FAIL: sm12 sari +1 = 30×50/1000 puan', sm12VisualTerm.points);
     process.exit(1);
 }
 
@@ -256,8 +265,8 @@ TE.setSelectedMetric('son8001');
 let t = TE.computeRowTahmin(row, []);
 let son8001Term = t.terms.find(x => x.metricId === 'son8001');
 let t8Term = t.terms.find(x => x.metricId === 't8');
-if (!son8001Term || son8001Term.points !== 300) {
-    console.error('FAIL: solo son8001 skor 25×12=300', son8001Term);
+if (!son8001Term || son8001Term.points !== 18) {
+    console.error('FAIL: solo son8001 skor 25×12×60/1000=18', son8001Term);
     process.exit(1);
 }
 if (t8Term) {
@@ -270,12 +279,12 @@ TE.setCalcMode(TE.CALC_MODE_ALL);
 t = TE.computeRowTahmin(row, []);
 son8001Term = t.terms.find(x => x.metricId === 'son8001');
 t8Term = t.terms.find(x => x.metricId === 't8');
-if (!son8001Term || son8001Term.points !== 300) {
-    console.error('FAIL: all son8001 skor 25×12=300', son8001Term);
+if (!son8001Term || son8001Term.points !== 18) {
+    console.error('FAIL: all son8001 skor 25×12×60/1000=18', son8001Term);
     process.exit(1);
 }
-if (!t8Term || t8Term.points !== 60) {
-    console.error('FAIL: all t8 skor 5×12=60', t8Term);
+if (!t8Term || t8Term.points !== 4) {
+    console.error('FAIL: all t8 skor 5×12×60/1000=4', t8Term);
     process.exit(1);
 }
 
@@ -349,13 +358,15 @@ const t9vRow = {
 };
 const t9vT = TE.computeRowTahmin(t9vRow, [{ id: 't9v', label: 'T9V', depthsKey: 't9vDepths' }]);
 const pct100Term = t9vT.terms.find(x => x.metricId === 't9v' && x.label.includes('%100'));
-if (!pct100Term || pct100Term.points !== 30) {
-    console.error('FAIL: T9V pct100 skor', pct100Term, t9vT.terms.filter(x => x.metricId === 't9v'));
+if (!pct100Term || pct100Term.points !== 2) {
+    console.error('FAIL: T9V pct100 skor 30×80/1000=2', pct100Term, t9vT.terms.filter(x => x.metricId === 't9v'));
     process.exit(1);
 }
 
-TE.setDraftInfluence('t9v', 'visual', 'kmUymuyor', 3);
+TE.setDraftInfluence('t9v', 'visual', 'kmUymuyor', 13);
 TE.saveDraftMetric('t9v');
+TE.setCalcMode(TE.CALC_MODE_SOLO);
+TE.setSelectedMetric('t9v');
 const kmUymRow = {
     t9vDepths: [null],
     kmaviDepths: [{ qualifies: false }],
@@ -381,8 +392,8 @@ const colorRow = {
 };
 const colorT = TE.computeRowTahmin(colorRow, [{ id: 't9v', label: 'T9V', depthsKey: 't9vDepths' }]);
 const comboTerm = colorT.terms.find(x => x.metricId === 't9v' && x.label.includes('mavi çizgi'));
-if (!comboTerm || comboTerm.points !== 15) {
-    console.error('FAIL: T9V ton×çerçeve', comboTerm, colorT.terms);
+if (!comboTerm || comboTerm.points !== 1) {
+    console.error('FAIL: T9V ton×çerçeve 15×80/1000=1', comboTerm, colorT.terms);
     process.exit(1);
 }
 if (TE.classifyT9vTonKenar(colorRow.t9vDepths[0]) !== 'tk_yesil_mavi') {
@@ -419,8 +430,8 @@ TE.saveDraftMetric('sm12');
 const tuncerRow = { sm12Depths: [null, tuncerCell] };
 const tuncerT = TE.computeRowTahmin(tuncerRow, [{ id: 'sm12', label: 'Ş+M-12', depthsKey: 'sm12Depths' }]);
 const tuncerTerm = tuncerT.terms.find(x => x.metricId === 'sm12' && x.label.includes('Sarı+kırmızı'));
-if (!tuncerTerm || tuncerTerm.points !== 630) {
-    console.error('FAIL: sm12 sariKirmizi TUNCER tipi 9×70=630', tuncerTerm, tuncerT.terms);
+if (!tuncerTerm || tuncerTerm.points !== 32) {
+    console.error('FAIL: sm12 sariKirmizi TUNCER 9×70×50/1000=32', tuncerTerm, tuncerT.terms);
     process.exit(1);
 }
 
@@ -460,8 +471,8 @@ const trendRow = {
 const trendT = TE.computeRowTahmin(trendRow, [{ id: 't9v', label: 'T9V', depthsKey: 't9vDepths' }]);
 const trendTerm = trendT.terms.find(x => x.metricId === 't9v' && x.label.includes('SON ↓'));
 // delta=50, weight=25 → round(25*50/25)=50
-if (!trendTerm || trendTerm.points !== 50) {
-    console.error('FAIL: trend magnitude points', trendTerm, trendT.terms);
+if (!trendTerm || trendTerm.points !== 4) {
+    console.error('FAIL: trend magnitude 50×80/1000=4', trendTerm, trendT.terms);
     process.exit(1);
 }
 const flatRow = {

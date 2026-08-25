@@ -44,6 +44,53 @@ const IstatistikTahminEngine = {
     POINT_SCALE_TREND_REF: 30,
     POINT_SCALE_TREND_MULT: 1.2,
 
+    /** Metrik grubu genel ağırlığı — 1000 üzerinden (puan × ağırlık / 1000) */
+    METRIC_GROUP_WEIGHT_BASE: 1000,
+    METRIC_GROUP_WEIGHT_DEFAULT: 1000,
+    METRIC_GROUP_WEIGHTS: {
+        son8001: 60,
+        son8002: 40,
+        oran1: 30,
+        oran2: 30,
+        fark827: 20,
+        ff: 40,
+        t8: 60,
+        son800dr1: 60,
+        son800dr: 50,
+        test1: 250,
+        test2: 50,
+        test3: 50,
+        testsira: 50,
+        t1dr: 120,
+        f802: 50,
+        f803: 50,
+        t9: 120,
+        dr1dr: 100,
+        drsl: 70,
+        dr1sl: 60,
+        t12y: 200,
+        kirmizi: 100,
+        yesil: 100,
+        mavif: 70,
+        kmavi: 70,
+        t4: 80,
+        t5: 100,
+        t6: 45,
+        t7: 70,
+        t2m3: 40,
+        t1dr3: 90,
+        fark: 150,
+        ilkf: 40,
+        sonf: 80,
+        sl801: 60,
+        sl802: 110,
+        f8021: 60,
+        sehirSon: 70,
+        smGec: 60,
+        sm12: 50,
+        t9v: 80
+    },
+
     DEFAULT_SELECTED_METRIC: 'son8001',
     MIN_INFLUENCE: 0,
     MAX_INFLUENCE: 100,
@@ -504,6 +551,18 @@ const IstatistikTahminEngine = {
         return this._isPointScaleMetric(metricId) ? this.POINT_SCALE_TREND_MULT : 1;
     },
 
+    getMetricGroupWeight(metricId) {
+        const w = this.METRIC_GROUP_WEIGHTS?.[metricId];
+        return w != null ? w : this.METRIC_GROUP_WEIGHT_DEFAULT;
+    },
+
+    applyMetricGroupWeight(metricId, points) {
+        if (!points || points <= 0) return 0;
+        const w = this.getMetricGroupWeight(metricId);
+        if (w === this.METRIC_GROUP_WEIGHT_BASE) return points;
+        return Math.round((points * w) / this.METRIC_GROUP_WEIGHT_BASE);
+    },
+
     _emptyStore() {
         return {
             selectedMetric: this.DEFAULT_SELECTED_METRIC,
@@ -883,9 +942,11 @@ const IstatistikTahminEngine = {
         );
         if (weight <= 0) return;
         const scale = this.getVisualPointScale(metricId, kind, profileId);
-        const points = Math.round(weight * scale);
+        let points = Math.round(weight * scale);
+        points = this.applyMetricGroupWeight(metricId, points);
         if (points <= 0) return;
-        terms.push({ weightId, metricId, label, weight, scale, points });
+        const metricWeight = this.getMetricGroupWeight(metricId);
+        terms.push({ weightId, metricId, label, weight, scale, metricWeight, points });
     },
 
     _pushSignalTerm(terms, influences, metricId, profileId, label) {
@@ -926,6 +987,8 @@ const IstatistikTahminEngine = {
             if (points < trendFloor) points = trendFloor;
         }
         if (points <= 0) return;
+        points = this.applyMetricGroupWeight(metricId, points);
+        if (points <= 0) return;
         const detail = typeof trendHit === 'object' && trendHit.detail ? ' · ' + trendHit.detail : '';
         terms.push({
             weightId,
@@ -933,6 +996,7 @@ const IstatistikTahminEngine = {
             label: label + detail,
             weight,
             delta,
+            metricWeight: this.getMetricGroupWeight(metricId),
             points
         });
     },
@@ -958,9 +1022,14 @@ const IstatistikTahminEngine = {
         );
         if (weight <= 0) return;
         const scale = this.getVisualPointScale(metricId, this.ORT_GROUP, profileId);
-        const points = Math.round(weight * scale);
+        let points = Math.round(weight * scale);
+        points = this.applyMetricGroupWeight(metricId, points);
         if (points <= 0) return;
-        terms.push({ weightId, metricId, label, weight, scale, points });
+        terms.push({
+            weightId, metricId, label, weight, scale,
+            metricWeight: this.getMetricGroupWeight(metricId),
+            points
+        });
     },
 
     _t9vPctTier(pct) {
