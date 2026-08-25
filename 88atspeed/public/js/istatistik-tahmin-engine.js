@@ -3,14 +3,15 @@
  * Etki ID: {metricId}:visual:{profileId}  örn. son8001:visual:maviKenar
  */
 const IstatistikTahminEngine = {
-    INFLUENCE_STORAGE_KEY: '88atspeed-istat-visual-influence-v2',
+    INFLUENCE_STORAGE_KEY: '88atspeed-istat-visual-influence-v3',
     LEGACY_KEYS: [
+        '88atspeed-istat-visual-influence-v2',
         '88atspeed-istat-visual-influence-v1',
         '88atspeed-istat-metric-influence-v2',
         '88atspeed-istat-metric-influence',
         '88atspeed-istat-metric-weights'
     ],
-    DEFAULT_INFLUENCE: 10,
+    DEFAULT_INFLUENCE: 0,
     DEFAULT_SELECTED_METRIC: 'son8001',
     MIN_INFLUENCE: 0,
     MAX_INFLUENCE: 100,
@@ -21,24 +22,24 @@ const IstatistikTahminEngine = {
     ORT_GROUP: 'ort',
 
     VISUAL_PROFILES: [
-        { id: 'maviKenar', short: 'Mavi kenar', label: 'Mavi kenar', defaultInfluence: 15 },
-        { id: 'kirmiziKenar', short: 'Kırmızı kenar', label: 'Kırmızı kenar', defaultInfluence: 12 },
-        { id: 'sari', short: 'Sarı', label: 'Sarı hücre (çizgisiz)', defaultInfluence: 10 },
-        { id: 'sariMavi', short: 'Sarı+mavi', label: 'Sarı + mavi kenar', defaultInfluence: 18 },
-        { id: 'sariKirmizi', short: 'Sarı+kırmızı', label: 'Sarı + kırmızı kenar', defaultInfluence: 16 },
-        { id: 'yesil', short: 'Yeşil', label: 'Yeşil hücre (çizgisiz)', defaultInfluence: 10 },
-        { id: 'yesilMavi', short: 'Yeşil+mavi', label: 'Yeşil + mavi kenar', defaultInfluence: 20 },
-        { id: 'yesilKirmizi', short: 'Yeşil+kırmızı', label: 'Yeşil + kırmızı kenar', defaultInfluence: 18 },
-        { id: 'yesilAcik', short: 'Açık yeşil', label: 'Açık yeşil satır', defaultInfluence: 8 },
-        { id: 'gucluUyari', short: 'Güçlü uyarı', label: 'Güçlü uyarı satırı', defaultInfluence: 14 },
-        { id: 'maviFosfor', short: 'Fosfor mavi', label: 'Fosfor mavi satır', defaultInfluence: 10 }
+        { id: 'maviKenar', short: 'Mavi kenar', label: 'Mavi kenar' },
+        { id: 'kirmiziKenar', short: 'Kırmızı kenar', label: 'Kırmızı kenar' },
+        { id: 'sari', short: 'Sarı', label: 'Sarı hücre (çizgisiz)' },
+        { id: 'sariMavi', short: 'Sarı+mavi', label: 'Sarı + mavi kenar' },
+        { id: 'sariKirmizi', short: 'Sarı+kırmızı', label: 'Sarı + kırmızı kenar' },
+        { id: 'yesil', short: 'Yeşil', label: 'Yeşil hücre (çizgisiz)' },
+        { id: 'yesilMavi', short: 'Yeşil+mavi', label: 'Yeşil + mavi kenar' },
+        { id: 'yesilKirmizi', short: 'Yeşil+kırmızı', label: 'Yeşil + kırmızı kenar' },
+        { id: 'yesilAcik', short: 'Açık yeşil', label: 'Açık yeşil satır' },
+        { id: 'gucluUyari', short: 'Güçlü uyarı', label: 'Güçlü uyarı satırı' },
+        { id: 'maviFosfor', short: 'Fosfor mavi', label: 'Fosfor mavi satır' }
     ],
 
     TREND_PROFILES: [
-        { id: 'trendUp3', short: 'Son 3 ↑', label: 'SON > 1 ÖNCE > 2 ÖNCE (sürekli yükseliş)', defaultInfluence: 12 },
-        { id: 'trendDown3', short: 'Son 3 ↓', label: 'SON < 1 ÖNCE < 2 ÖNCE (sürekli düşüş)', defaultInfluence: 4 },
-        { id: 'trendUpSon', short: 'SON ↑', label: 'SON > 1 ÖNCE (tek adım yükseliş)', defaultInfluence: 6 },
-        { id: 'trendDownSon', short: 'SON ↓', label: 'SON < 1 ÖNCE (tek adım düşüş, büyüklüğe göre puan)', defaultInfluence: 3 }
+        { id: 'trendUp3', short: 'Son 3 ↑', label: 'SON > 1 ÖNCE > 2 ÖNCE (sürekli yükseliş)' },
+        { id: 'trendDown3', short: 'Son 3 ↓', label: 'SON < 1 ÖNCE < 2 ÖNCE (sürekli düşüş)' },
+        { id: 'trendUpSon', short: 'SON ↑', label: 'SON > 1 ÖNCE (tek adım yükseliş)' },
+        { id: 'trendDownSon', short: 'SON ↓', label: 'SON < 1 ÖNCE (tek adım düşüş, büyüklüğe göre puan)' }
     ],
 
     /** Trend puanı: etki × düşüş/yükseliş büyüklüğü (Δ%) — düz +1 değil */
@@ -46,28 +47,28 @@ const IstatistikTahminEngine = {
 
     /** T9V — KMΔ + |TEST9| 0'a yakın: gerçek sinyal seçicileri */
     T9V_SIGNAL_PROFILES: [
-        { id: 'hucreVar', short: 'Hücre var', label: 'KM uyumlu + T9 verisi (hücre dolu)', defaultInfluence: 5 },
-        { id: 'kmUymuyor', short: 'KM uyumsuz', label: 'KMΔ qualifies=false → hücre yok', defaultInfluence: 0 },
-        { id: 't9VeriYok', short: 'T9 eksik', label: 'KM uyumlu ama T9 verisi yok', defaultInfluence: 0 },
-        { id: 'pct100', short: '%100', label: '|TEST9| en düşük (isBest)', defaultInfluence: 20 },
-        { id: 'pct90', short: '%90-99', label: 'T9V %90–99', defaultInfluence: 16 },
-        { id: 'pct75', short: '%75-89', label: 'T9V %75–89', defaultInfluence: 12 },
-        { id: 'pct50', short: '%50-74', label: 'T9V %50–74', defaultInfluence: 8 },
-        { id: 'pct25', short: '%25-49', label: 'T9V %25–49', defaultInfluence: 4 },
-        { id: 'pctLow', short: '%1-24', label: 'T9V %1–24', defaultInfluence: 2 },
-        { id: 'kmEnIyi', short: 'KM en iyi', label: 'KMΔ isBest aynı derinlikte', defaultInfluence: 14 },
-        { id: 'kmPct100', short: 'KM %100', label: 'KMΔ pct=100', defaultInfluence: 10 },
-        { id: 't9EnIyi', short: 'T9 en iyi', label: 'T9Δ isBest (tüm atlar)', defaultInfluence: 12 },
-        { id: 't9Pct100', short: 'T9 %100', label: 'T9Δ pct=100', defaultInfluence: 10 }
+        { id: 'hucreVar', short: 'Hücre var', label: 'KM uyumlu + T9 verisi (hücre dolu)' },
+        { id: 'kmUymuyor', short: 'KM uyumsuz', label: 'KMΔ qualifies=false → hücre yok' },
+        { id: 't9VeriYok', short: 'T9 eksik', label: 'KM uyumlu ama T9 verisi yok' },
+        { id: 'pct100', short: '%100', label: '|TEST9| en düşük (isBest)' },
+        { id: 'pct90', short: '%90-99', label: 'T9V %90–99' },
+        { id: 'pct75', short: '%75-89', label: 'T9V %75–89' },
+        { id: 'pct50', short: '%50-74', label: 'T9V %50–74' },
+        { id: 'pct25', short: '%25-49', label: 'T9V %25–49' },
+        { id: 'pctLow', short: '%1-24', label: 'T9V %1–24' },
+        { id: 'kmEnIyi', short: 'KM en iyi', label: 'KMΔ isBest aynı derinlikte' },
+        { id: 'kmPct100', short: 'KM %100', label: 'KMΔ pct=100' },
+        { id: 't9EnIyi', short: 'T9 en iyi', label: 'T9Δ isBest (tüm atlar)' },
+        { id: 't9Pct100', short: 'T9 %100', label: 'T9Δ pct=100' }
     ],
 
     T9V_ORT_PROFILES: [
-        { id: 'ortAg100', short: 'AĞ.ORT %100', label: 'Ağırlıklı ort. %100', defaultInfluence: 18 },
-        { id: 'ortAg75', short: 'AĞ.ORT %75+', label: 'Ağırlıklı ort. ≥%75', defaultInfluence: 12 },
-        { id: 'ortAg50', short: 'AĞ.ORT %50+', label: 'Ağırlıklı ort. %50–74', defaultInfluence: 6 },
-        { id: 'ortAgLow', short: 'AĞ.ORT düşük', label: 'Ağırlıklı ort. %1–49', defaultInfluence: 2 },
-        { id: 'ort3High', short: 'AĞ.ORT.3 yüksek', label: 'AĞ. ORT.3 ≥%75', defaultInfluence: 10 },
-        { id: 'ort3Mid', short: 'AĞ.ORT.3 orta', label: 'AĞ. ORT.3 %50–74', defaultInfluence: 5 }
+        { id: 'ortAg100', short: 'AĞ.ORT %100', label: 'Ağırlıklı ort. %100' },
+        { id: 'ortAg75', short: 'AĞ.ORT %75+', label: 'Ağırlıklı ort. ≥%75' },
+        { id: 'ortAg50', short: 'AĞ.ORT %50+', label: 'Ağırlıklı ort. %50–74' },
+        { id: 'ortAgLow', short: 'AĞ.ORT düşük', label: 'Ağırlıklı ort. %1–49' },
+        { id: 'ort3High', short: 'AĞ.ORT.3 yüksek', label: 'AĞ. ORT.3 ≥%75' },
+        { id: 'ort3Mid', short: 'AĞ.ORT.3 orta', label: 'AĞ. ORT.3 %50–74' }
     ],
 
     /** Metrik → seçici kataloğu (UI + varsayılan etkiler) */
@@ -322,10 +323,21 @@ const IstatistikTahminEngine = {
         const draft = {};
         for (const sec of this.getMetricProfileSections(metricId)) {
             for (const p of sec.profiles) {
-                draft[this._profileKey(sec.kind, p.id)] = p.defaultInfluence ?? this.DEFAULT_INFLUENCE;
+                draft[this._profileKey(sec.kind, p.id)] = 0;
             }
         }
         return draft;
+    },
+
+    zeroDraftMetric(metricId) {
+        metricId = metricId || this.getSelectedMetric();
+        this._draftByMetric = this._draftByMetric || {};
+        this._draftByMetric[metricId] = this._buildDefaultDraft(metricId);
+        return this._draftByMetric[metricId];
+    },
+
+    zeroAllDrafts() {
+        this._draftByMetric = {};
     },
 
     ensureDraft(metricId) {
@@ -357,7 +369,7 @@ const IstatistikTahminEngine = {
         this.ensureDraft(metricId);
         const key = this._profileKey(kind, profileId);
         const v = this._draftByMetric[metricId][key];
-        return v != null ? v : this._defaultForProfile(kind, profileId, metricId);
+        return v != null ? v : 0;
     },
 
     setDraftInfluence(metricId, kind, profileId, value) {
@@ -455,10 +467,11 @@ const IstatistikTahminEngine = {
                 store.savedMetrics = store.savedMetrics.filter(id => id !== metricId);
             }
             this.clearDraft(metricId);
+            this.zeroDraftMetric(metricId);
         } else {
             store.byMetric = {};
             store.savedMetrics = [];
-            this.clearDraft();
+            this.zeroAllDrafts();
         }
         this._saveStore();
     },
@@ -523,6 +536,7 @@ const IstatistikTahminEngine = {
             store.selectedMetric = this.DEFAULT_SELECTED_METRIC;
             store.calcMode = this.CALC_MODE_SOLO;
             this._saveStore();
+            this.zeroAllDrafts();
         }
         this._clearLegacy();
     },

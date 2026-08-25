@@ -27,6 +27,18 @@ function kosu(tarih, atDr, birinciDr, opts = {}) {
 
 TE.resetWeights();
 
+// Varsayılan: tüm seçiciler 0
+TE.ensureDraft('t9v');
+TE.ensureDraft('son8001');
+if (TE.getDraftInfluence('t9v', 'visual', 'pct100') !== 0) {
+    console.error('FAIL: t9v varsayılan 0 değil');
+    process.exit(1);
+}
+if (TE.getDraftInfluence('son8001', 'visual', 'maviKenar') !== 0) {
+    console.error('FAIL: son8001 varsayılan 0 değil');
+    process.exit(1);
+}
+
 // Metrik bazlı kayıt (taslak + kaydet)
 TE.setMetricInfluence('son8001', 'visual', 'maviKenar', 25);
 TE.setMetricInfluence('t8', 'visual', 'maviKenar', 5);
