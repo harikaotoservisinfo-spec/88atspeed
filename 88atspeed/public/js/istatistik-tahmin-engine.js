@@ -14,10 +14,13 @@ const IstatistikTahminEngine = {
     ],
     DEFAULT_INFLUENCE: 0,
     /** Sarı ton > yeşil ton önceliği — preset sürümü (localStorage migrasyonu) */
-    TONE_KENAR_PRESET_VERSION: 5,
+    TONE_KENAR_PRESET_VERSION: 6,
 
     /** Metrik bazlı varsayılan slider etkileri (0–100) — puan ölçekli metrikler hariç */
     METRIC_INFLUENCE_PRESETS: {},
+
+    /** SM_VISUAL_POINT_SCALE tablosunu kullanan metrikler */
+    SM_POINT_SCALE_METRICS: ['sm12', 'smGec', 'sehirSon'],
 
     /** Ş+M görsel profil puan ölçeği — slider +1 başına hücre puanı */
     SM_VISUAL_POINT_SCALE: {
@@ -36,20 +39,22 @@ const IstatistikTahminEngine = {
 
     /**
      * Metrik → görsel profil puan ölçeği (slider × ölçek = puan).
-     * sm12 ve smGec aynı kullanıcı tablosunu kullanır.
+     * sm12, smGec, sehirSon aynı kullanıcı tablosunu kullanır.
      */
     METRIC_VISUAL_POINT_SCALE: null,
 
     /** Trend büyüklük referansı — Δ puanı bu ölçekle çarpılır (sarı=30) */
     METRIC_TREND_REF_POINT_SCALE: {
         sm12: 30,
-        smGec: 30
+        smGec: 30,
+        sehirSon: 30
     },
 
     /** Trend puanı çarpanı — aynı slider +1'de görselden %20 daha etkili */
     METRIC_TREND_POINT_MULTIPLIER: {
         sm12: 1.2,
-        smGec: 1.2
+        smGec: 1.2,
+        sehirSon: 1.2
     },
     DEFAULT_SELECTED_METRIC: 'son8001',
     MIN_INFLUENCE: 0,
@@ -178,6 +183,13 @@ const IstatistikTahminEngine = {
         },
         smGec: {
             title: 'Ş+M-GEÇ — Şehir+mesafe geçmişi',
+            sections: [
+                { kind: 'visual', title: 'Görsel profiller', profiles: 'VISUAL_PROFILES' },
+                { kind: 'trend', title: 'Trend (son 3 derinlik)', profiles: 'TREND_PROFILES' }
+            ]
+        },
+        sehirSon: {
+            title: 'ŞEH-SON — Koşu program şehrinde',
             sections: [
                 { kind: 'visual', title: 'Görsel profiller', profiles: 'VISUAL_PROFILES' },
                 { kind: 'trend', title: 'Trend (son 3 derinlik)', profiles: 'TREND_PROFILES' }
@@ -327,8 +339,8 @@ const IstatistikTahminEngine = {
             if (metricPreset && metricPreset[key] != null) {
                 return metricPreset[key];
             }
-            // Puan ölçekli metrikler (sm12, smGec): slider 0'dan başlar
-            if (this._metricVisualPointScales()[metricId]) {
+            // Puan ölçekli metrikler: slider 0'dan başlar
+            if (this._isPointScaleMetric(metricId)) {
                 return this.DEFAULT_INFLUENCE;
             }
             const p = this.getProfileDef(metricId, kind, profileId);
@@ -376,8 +388,10 @@ const IstatistikTahminEngine = {
 
     _applyToneKenarPreset(store) {
         const preset = this._toneKenarPresetKeys();
+        const skip = new Set(this.SM_POINT_SCALE_METRICS || []);
         for (const metricId of this._savedMetricIds(store)) {
             if (this.METRIC_INFLUENCE_PRESETS?.[metricId]) continue;
+            if (skip.has(metricId)) continue;
             if (!store.byMetric[metricId]) store.byMetric[metricId] = {};
             for (const [k, v] of Object.entries(preset)) {
                 store.byMetric[metricId][k] = v;
@@ -398,22 +412,31 @@ const IstatistikTahminEngine = {
         this._draftByMetric = null;
     },
 
-    /** v4: sm12 slider değerleri eskiden puan ölçeğiyle karışmıştı — sıfırla */
-    _migrateSm12PointScaleModel(store) {
-        if (!store.byMetric?.sm12) return;
-        for (const key of Object.keys(store.byMetric.sm12)) {
-            store.byMetric.sm12[key] = 0;
+    _resetMetricInfluences(store, metricId) {
+        if (!store.byMetric?.[metricId]) return;
+        for (const key of Object.keys(store.byMetric[metricId])) {
+            store.byMetric[metricId][key] = 0;
         }
         this._draftByMetric = null;
     },
 
+    /** v4: sm12 slider değerleri eskiden puan ölçeğiyle karışmıştı — sıfırla */
+    _migrateSm12PointScaleModel(store) {
+        this._resetMetricInfluences(store, 'sm12');
+    },
+
     /** v5: smGec aynı modele geçti — eski slider değerlerini sıfırla */
     _migrateSmGecPointScaleModel(store) {
-        if (!store.byMetric?.smGec) return;
-        for (const key of Object.keys(store.byMetric.smGec)) {
-            store.byMetric.smGec[key] = 0;
-        }
-        this._draftByMetric = null;
+        this._resetMetricInfluences(store, 'smGec');
+    },
+
+    /** v6: sehirSon (ŞEH-SON) aynı modele geçti */
+    _migrateSehirSonPointScaleModel(store) {
+        this._resetMetricInfluences(store, 'sehirSon');
+    },
+
+    _isPointScaleMetric(metricId) {
+        return !!this._metricVisualPointScales()[metricId];
     },
 
     getVisualPointScale(metricId, kind, profileId) {
@@ -427,7 +450,10 @@ const IstatistikTahminEngine = {
     _metricVisualPointScales() {
         if (!this.METRIC_VISUAL_POINT_SCALE) {
             const sm = this.SM_VISUAL_POINT_SCALE;
-            this.METRIC_VISUAL_POINT_SCALE = { sm12: sm, smGec: sm };
+            this.METRIC_VISUAL_POINT_SCALE = {};
+            for (const id of this.SM_POINT_SCALE_METRICS) {
+                this.METRIC_VISUAL_POINT_SCALE[id] = sm;
+            }
         }
         return this.METRIC_VISUAL_POINT_SCALE;
     },
@@ -469,6 +495,9 @@ const IstatistikTahminEngine = {
             }
             if (prevVersion < 5) {
                 this._migrateSmGecPointScaleModel(store);
+            }
+            if (prevVersion < 6) {
+                this._migrateSehirSonPointScaleModel(store);
             }
             if (prevVersion < 3) {
                 this._applyToneKenarPreset(store);

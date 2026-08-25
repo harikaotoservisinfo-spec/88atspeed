@@ -118,6 +118,26 @@ if (smGecMaviT.score !== 12) {
     process.exit(1);
 }
 
+if (TE.getVisualPointScale('sehirSon', 'visual', 'sariMavi') !== 100) {
+    console.error('FAIL: sehirSon sariMavi ölçek 100 değil');
+    process.exit(1);
+}
+if (TE.getDraftInfluence('sehirSon', 'visual', 'sari') !== 0) {
+    console.error('FAIL: sehirSon slider varsayılan 0 olmalı', TE.getDraftInfluence('sehirSon', 'visual', 'sari'));
+    process.exit(1);
+}
+TE.setDraftInfluence('sehirSon', 'visual', 'sariMavi', 1);
+TE.saveDraftMetric('sehirSon');
+TE.setSelectedMetric('sehirSon');
+const sehirSonT = TE.computeRowTahmin(
+    { sehirSonDepths: [{ pct: 50, gosterim: {} }] },
+    [{ id: 'sehirSon', label: 'ŞEH-SON', depthsKey: 'sehirSonDepths' }]
+);
+if (sehirSonT.score !== 30) {
+    console.error('FAIL: sehirSon sari +1 = 30 puan', sehirSonT.score);
+    process.exit(1);
+}
+
 if (TE.getDraftInfluence('sm12', 'visual', 'sariKirmizi') !== 0) {
     console.error('FAIL: sm12 slider varsayılan 0 olmalı');
     process.exit(1);
