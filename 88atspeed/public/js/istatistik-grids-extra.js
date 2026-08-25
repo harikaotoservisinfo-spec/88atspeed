@@ -389,7 +389,15 @@
                 const km = kmaviGrid.byHorse.get(key)?.[d];
                 if (!t9 || !km?.qualifies) continue;
                 const absTest9 = t9.absVal ?? t9.absTest9 ?? Math.abs(t9.val ?? 0);
-                atDepth.push({ key, absTest9, tarih: t9.tarih });
+                atDepth.push({
+                    key,
+                    absTest9,
+                    tarih: t9.tarih,
+                    kmPct: km.pct,
+                    kmIsBest: !!km.isBest,
+                    t9Pct: t9.pct,
+                    t9IsBest: !!t9.isBest
+                });
             }
             if (!atDepth.length) continue;
             const minAbs = Math.min(...atDepth.map(e => e.absTest9));
@@ -401,7 +409,12 @@
                     comparedCount: atDepth.length,
                     depth: d,
                     isBest: e.absTest9 === minAbs,
-                    tarih: e.tarih || null
+                    tarih: e.tarih || null,
+                    kmQualifies: true,
+                    kmPct: e.kmPct,
+                    kmIsBest: e.kmIsBest,
+                    t9Pct: e.t9Pct,
+                    t9IsBest: e.t9IsBest
                 };
             }
         }

@@ -18,6 +18,7 @@ const IstatistikTahminEngine = {
 
     VISUAL_GROUP: 'visual',
     TREND_GROUP: 'trend',
+    ORT_GROUP: 'ort',
 
     VISUAL_PROFILES: [
         { id: 'maviKenar', short: 'Mavi kenar', label: 'Mavi kenar', defaultInfluence: 15 },
@@ -39,6 +40,51 @@ const IstatistikTahminEngine = {
         { id: 'trendUpSon', short: 'SON ↑', label: 'SON > 1 ÖNCE', defaultInfluence: 6 },
         { id: 'trendDownSon', short: 'SON ↓', label: 'SON < 1 ÖNCE', defaultInfluence: 3 }
     ],
+
+    /** T9V — KMΔ + |TEST9| 0'a yakın: gerçek sinyal seçicileri */
+    T9V_SIGNAL_PROFILES: [
+        { id: 'hucreVar', short: 'Hücre var', label: 'KM uyumlu + T9 verisi (hücre dolu)', defaultInfluence: 5 },
+        { id: 'kmUymuyor', short: 'KM uyumsuz', label: 'KMΔ qualifies=false → hücre yok', defaultInfluence: 0 },
+        { id: 't9VeriYok', short: 'T9 eksik', label: 'KM uyumlu ama T9 verisi yok', defaultInfluence: 0 },
+        { id: 'pct100', short: '%100', label: '|TEST9| en düşük (isBest)', defaultInfluence: 20 },
+        { id: 'pct90', short: '%90-99', label: 'T9V %90–99', defaultInfluence: 16 },
+        { id: 'pct75', short: '%75-89', label: 'T9V %75–89', defaultInfluence: 12 },
+        { id: 'pct50', short: '%50-74', label: 'T9V %50–74', defaultInfluence: 8 },
+        { id: 'pct25', short: '%25-49', label: 'T9V %25–49', defaultInfluence: 4 },
+        { id: 'pctLow', short: '%1-24', label: 'T9V %1–24', defaultInfluence: 2 },
+        { id: 'kmEnIyi', short: 'KM en iyi', label: 'KMΔ isBest aynı derinlikte', defaultInfluence: 14 },
+        { id: 'kmPct100', short: 'KM %100', label: 'KMΔ pct=100', defaultInfluence: 10 },
+        { id: 't9EnIyi', short: 'T9 en iyi', label: 'T9Δ isBest (tüm atlar)', defaultInfluence: 12 },
+        { id: 't9Pct100', short: 'T9 %100', label: 'T9Δ pct=100', defaultInfluence: 10 }
+    ],
+
+    T9V_ORT_PROFILES: [
+        { id: 'ortAg100', short: 'AĞ.ORT %100', label: 'Ağırlıklı ort. %100', defaultInfluence: 18 },
+        { id: 'ortAg75', short: 'AĞ.ORT %75+', label: 'Ağırlıklı ort. ≥%75', defaultInfluence: 12 },
+        { id: 'ortAg50', short: 'AĞ.ORT %50+', label: 'Ağırlıklı ort. %50–74', defaultInfluence: 6 },
+        { id: 'ortAgLow', short: 'AĞ.ORT düşük', label: 'Ağırlıklı ort. %1–49', defaultInfluence: 2 },
+        { id: 'ort3High', short: 'AĞ.ORT.3 yüksek', label: 'AĞ. ORT.3 ≥%75', defaultInfluence: 10 },
+        { id: 'ort3Mid', short: 'AĞ.ORT.3 orta', label: 'AĞ. ORT.3 %50–74', defaultInfluence: 5 }
+    ],
+
+    /** Metrik → seçici kataloğu (UI + varsayılan etkiler) */
+    METRIC_SELECTOR_CATALOGS: {
+        default: {
+            title: 'Görsel profiller',
+            sections: [
+                { kind: 'visual', title: 'Görsel profiller', profiles: null },
+                { kind: 'trend', title: 'Trend (son 3 derinlik)', profiles: null }
+            ]
+        },
+        t9v: {
+            title: 'T9V sinyalleri',
+            sections: [
+                { kind: 'visual', title: 'T9V — KMΔ + |TEST9|', profiles: 'T9V_SIGNAL_PROFILES' },
+                { kind: 'trend', title: 'Trend (son 3 derinlik)', profiles: 'TREND_PROFILES' },
+                { kind: 'ort', title: 'AĞ. ORT.', profiles: 'T9V_ORT_PROFILES' }
+            ]
+        }
+    },
 
     CORE_GROUPS: [
         { id: 'son8001', depthsKey: 'son8001Depths', label: 'SON800-1' },
@@ -89,6 +135,40 @@ const IstatistikTahminEngine = {
         return this.metricWeightId(metricId, this.TREND_GROUP, profileId);
     },
 
+    ortSlotId(metricId, profileId) {
+        return this.metricWeightId(metricId, this.ORT_GROUP, profileId);
+    },
+
+    getMetricSelectorCatalog(metricId) {
+        return this.METRIC_SELECTOR_CATALOGS[metricId]
+            || this.METRIC_SELECTOR_CATALOGS.default;
+    },
+
+    _resolveProfileList(refName) {
+        if (!refName) return this.VISUAL_PROFILES;
+        if (refName === 'TREND_PROFILES') return this.TREND_PROFILES;
+        if (this[refName]) return this[refName];
+        return this.VISUAL_PROFILES;
+    },
+
+    getMetricProfileSections(metricId) {
+        const cat = this.getMetricSelectorCatalog(metricId);
+        return cat.sections.map(sec => ({
+            kind: sec.kind,
+            title: sec.title,
+            profiles: this._resolveProfileList(sec.profiles)
+        }));
+    },
+
+    getProfileDef(metricId, kind, profileId) {
+        for (const sec of this.getMetricProfileSections(metricId)) {
+            if (sec.kind !== kind) continue;
+            const p = sec.profiles.find(x => x.id === profileId);
+            if (p) return p;
+        }
+        return null;
+    },
+
     /** Geriye uyumluluk — tek argümanlı eski çağrılar */
     gosterimSlotId(metricIdOrProfile, profileId) {
         if (profileId == null) return this._profileKey(this.VISUAL_GROUP, metricIdOrProfile);
@@ -114,13 +194,21 @@ const IstatistikTahminEngine = {
         return null;
     },
 
-    _defaultForProfile(kind, profileId) {
+    _defaultForProfile(kind, profileId, metricId) {
+        if (metricId) {
+            const p = this.getProfileDef(metricId, kind, profileId);
+            if (p) return p.defaultInfluence ?? this.DEFAULT_INFLUENCE;
+        }
         if (kind === this.VISUAL_GROUP) {
             const p = this.VISUAL_PROFILES.find(x => x.id === profileId);
             return p?.defaultInfluence ?? this.DEFAULT_INFLUENCE;
         }
         if (kind === this.TREND_GROUP) {
             const p = this.TREND_PROFILES.find(x => x.id === profileId);
+            return p?.defaultInfluence ?? this.DEFAULT_INFLUENCE;
+        }
+        if (kind === this.ORT_GROUP) {
+            const p = this.T9V_ORT_PROFILES.find(x => x.id === profileId);
             return p?.defaultInfluence ?? this.DEFAULT_INFLUENCE;
         }
         return this.DEFAULT_INFLUENCE;
@@ -193,7 +281,7 @@ const IstatistikTahminEngine = {
         const key = this._profileKey(kind, profileId);
         const store = this._loadStore();
         const v = store.byMetric?.[metricId]?.[key];
-        return v != null ? v : this._defaultForProfile(kind, profileId);
+        return v != null ? v : this._defaultForProfile(kind, profileId, metricId);
     },
 
     setMetricInfluence(metricId, kind, profileId, value) {
@@ -249,7 +337,7 @@ const IstatistikTahminEngine = {
         if (parsed.metricId) {
             return this.getMetricInfluence(parsed.metricId, parsed.kind, parsed.profileId);
         }
-        return this._defaultForProfile(parsed.kind, parsed.profileId);
+        return this._defaultForProfile(parsed.kind, parsed.profileId, null);
     },
 
     getWeight(weightId) {
@@ -292,13 +380,17 @@ const IstatistikTahminEngine = {
         return this.getMetricInfluence(metricId, kind, profileId);
     },
 
-    _pushVisualTerm(terms, influences, metricId, profileId, label) {
+    _pushSignalTerm(terms, influences, metricId, profileId, label) {
         const weightId = this.visualSlotId(metricId, profileId);
         const weight = this._resolveInfluence(
             influences, weightId, metricId, this.VISUAL_GROUP, profileId
         );
         if (weight <= 0) return;
         terms.push({ weightId, metricId, label, weight, points: weight });
+    },
+
+    _pushVisualTerm(terms, influences, metricId, profileId, label) {
+        this._pushSignalTerm(terms, influences, metricId, profileId, label);
     },
 
     _pushTrendTerm(terms, influences, metricId, profileId, label) {
@@ -308,6 +400,101 @@ const IstatistikTahminEngine = {
         );
         if (weight <= 0) return;
         terms.push({ weightId, metricId, label, weight, points: weight });
+    },
+
+    _pushOrtTerm(terms, influences, metricId, profileId, label) {
+        const weightId = this.ortSlotId(metricId, profileId);
+        const weight = this._resolveInfluence(
+            influences, weightId, metricId, this.ORT_GROUP, profileId
+        );
+        if (weight <= 0) return;
+        terms.push({ weightId, metricId, label, weight, points: weight });
+    },
+
+    _t9vPctTier(pct) {
+        if (pct == null || pct <= 0) return null;
+        if (pct === 100) return 'pct100';
+        if (pct >= 90) return 'pct90';
+        if (pct >= 75) return 'pct75';
+        if (pct >= 50) return 'pct50';
+        if (pct >= 25) return 'pct25';
+        return 'pctLow';
+    },
+
+    _t9vOrtTier(pct) {
+        if (pct == null || pct <= 0) return null;
+        if (pct === 100) return 'ortAg100';
+        if (pct >= 75) return 'ortAg75';
+        if (pct >= 50) return 'ortAg50';
+        return 'ortAgLow';
+    },
+
+    /**
+     * T9V derinlik sinyalleri — KMΔ uyumu + |TEST9| yüzde kademesi + KM/T9 bileşenleri.
+     */
+    classifyT9vDepthSignals(cell, kmCell, t9Cell) {
+        const out = [];
+        if (cell?.pct != null) {
+            out.push('hucreVar');
+            const tier = this._t9vPctTier(cell.pct);
+            if (tier) out.push(tier);
+            if (cell.kmIsBest || kmCell?.isBest) out.push('kmEnIyi');
+            if ((cell.kmPct ?? kmCell?.pct) === 100) out.push('kmPct100');
+            if (cell.t9IsBest || t9Cell?.isBest) out.push('t9EnIyi');
+            if ((cell.t9Pct ?? t9Cell?.pct) === 100) out.push('t9Pct100');
+            return out;
+        }
+        if (kmCell?.qualifies && !t9Cell) out.push('t9VeriYok');
+        else out.push('kmUymuyor');
+        return out;
+    },
+
+    classifyT9vOrtSignals(ortOzeti) {
+        const out = [];
+        const ag = ortOzeti?.agirlikli?.pct;
+        const tier = this._t9vOrtTier(ag);
+        if (tier) out.push(tier);
+        const ort3 = ortOzeti?.ort3?.pct;
+        if (ort3 != null && ort3 >= 75) out.push('ort3High');
+        else if (ort3 != null && ort3 >= 50) out.push('ort3Mid');
+        return out;
+    },
+
+    _collectT9vTerms(depths, kmDepths, t9Depths, ortOzeti, metricId, groupLabel, influences, terms) {
+        const maxN = depths?.length || 0;
+        for (let d = 0; d < maxN; d++) {
+            const cell = depths[d];
+            const kmCell = kmDepths?.[d];
+            const t9Cell = t9Depths?.[d];
+            const signals = this.classifyT9vDepthSignals(cell, kmCell, t9Cell);
+            const dl = d === 0 ? 'SON' : d + ' ÖNCE';
+            for (const sid of signals) {
+                const def = this.getProfileDef(metricId, this.VISUAL_GROUP, sid);
+                this._pushSignalTerm(
+                    terms, influences, metricId, sid,
+                    groupLabel + ' · ' + dl + ' · ' + (def?.short || sid)
+                );
+            }
+        }
+        const IE = typeof IstatistikEngine !== 'undefined' ? IstatistikEngine : null;
+        if (IE?.computeDepthTrend) {
+            const trends = IE.computeDepthTrend(depths, 3);
+            for (const tid of trends) {
+                const def = this.getProfileDef(metricId, this.TREND_GROUP, tid)
+                    || this.TREND_PROFILES.find(p => p.id === tid);
+                this._pushTrendTerm(
+                    terms, influences, metricId, tid,
+                    groupLabel + ' · ' + (def?.short || tid)
+                );
+            }
+        }
+        for (const oid of this.classifyT9vOrtSignals(ortOzeti)) {
+            const def = this.getProfileDef(metricId, this.ORT_GROUP, oid);
+            this._pushOrtTerm(
+                terms, influences, metricId, oid,
+                groupLabel + ' · ' + (def?.short || oid)
+            );
+        }
     },
 
     _collectDepthVisualTerms(depths, metricId, groupLabel, influences, terms) {
@@ -320,7 +507,8 @@ const IstatistikTahminEngine = {
                 || (IE && IE.classifyCellVisual ? IE.classifyCellVisual(cell) : null);
             if (!profile) continue;
             const dl = d === 0 ? 'SON' : d + ' ÖNCE';
-            const def = this.VISUAL_PROFILES.find(p => p.id === profile);
+            const def = this.getProfileDef(metricId, this.VISUAL_GROUP, profile)
+                || this.VISUAL_PROFILES.find(p => p.id === profile);
             this._pushVisualTerm(
                 terms, influences, metricId, profile,
                 groupLabel + ' · ' + dl + ' · ' + (def?.short || profile)
@@ -329,13 +517,31 @@ const IstatistikTahminEngine = {
         if (IE?.computeDepthTrend) {
             const trends = IE.computeDepthTrend(depths, 3);
             for (const tid of trends) {
-                const def = this.TREND_PROFILES.find(p => p.id === tid);
+                const def = this.getProfileDef(metricId, this.TREND_GROUP, tid)
+                    || this.TREND_PROFILES.find(p => p.id === tid);
                 this._pushTrendTerm(
                     terms, influences, metricId, tid,
                     groupLabel + ' · ' + (def?.short || tid)
                 );
             }
         }
+    },
+
+    _collectMetricTerms(row, g, influences, terms) {
+        if (g.id === 't9v') {
+            this._collectT9vTerms(
+                g.depths,
+                row.kmaviDepths,
+                row.t9Depths,
+                row.t9vOrtOzeti,
+                g.id,
+                g.label,
+                influences,
+                terms
+            );
+            return;
+        }
+        this._collectDepthVisualTerms(g.depths, g.id, g.label, influences, terms);
     },
 
     _allDepthGroups(row, extraSections) {
@@ -355,7 +561,7 @@ const IstatistikTahminEngine = {
         const terms = [];
 
         for (const g of this._allDepthGroups(row, extraSections)) {
-            this._collectDepthVisualTerms(g.depths, g.id, g.label, influences, terms);
+            this._collectMetricTerms(row, g, influences, terms);
         }
 
         if (!terms.length) {

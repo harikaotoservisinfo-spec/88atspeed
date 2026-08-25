@@ -776,14 +776,14 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260825y"></script>
-<script src="js/formula-engine.js?v=20260825y"></script>
-<script src="js/istatistik-engine.js?v=20260825y"></script>
-<script src="js/istatistik-grids-extra.js?v=20260825y"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260825y"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260825y"></script>
+<script src="js/utils.js?v=20260825z"></script>
+<script src="js/formula-engine.js?v=20260825z"></script>
+<script src="js/istatistik-engine.js?v=20260825z"></script>
+<script src="js/istatistik-grids-extra.js?v=20260825z"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260825z"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260825z"></script>
 <script>
-const ISTAT_BUILD = '20260825y';
+const ISTAT_BUILD = '20260825z';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
 let currentKayitId = null;
@@ -1102,22 +1102,25 @@ function renderVisualScoreControls() {
     if (!grid) return;
     const TE = IstatistikTahminEngine;
     const metricId = selectedTahminMetric || TE.getSelectedMetric();
-    let h = '<div class="istat-gos-section"><strong>Görsel profiller — '
+    const cat = TE.getMetricSelectorCatalog(metricId);
+    let h = '<div class="istat-gos-section"><strong>'
+        + AtSpeedUtils.escapeHtml(cat.title) + ' — '
         + AtSpeedUtils.escapeHtml(metricId) + '</strong></div>';
-    for (const f of TE.VISUAL_PROFILES) {
-        const wId = TE.visualSlotId(metricId, f.id);
-        h += '<div class="istat-gos-weight-item">';
-        h += '<span class="istat-gos-weight-label">' + AtSpeedUtils.escapeHtml(f.short) + '</span>';
-        h += renderMetricWeightBar(wId, true);
-        h += '</div>';
-    }
-    h += '<div class="istat-gos-section"><strong>Trend (son 3 derinlik)</strong></div>';
-    for (const f of TE.TREND_PROFILES) {
-        const wId = TE.trendSlotId(metricId, f.id);
-        h += '<div class="istat-gos-weight-item">';
-        h += '<span class="istat-gos-weight-label">' + AtSpeedUtils.escapeHtml(f.short) + '</span>';
-        h += renderMetricWeightBar(wId, true);
-        h += '</div>';
+    for (const sec of TE.getMetricProfileSections(metricId)) {
+        h += '<div class="istat-gos-section"><strong>'
+            + AtSpeedUtils.escapeHtml(sec.title) + '</strong></div>';
+        for (const f of sec.profiles) {
+            let wId;
+            if (sec.kind === TE.TREND_GROUP) wId = TE.trendSlotId(metricId, f.id);
+            else if (sec.kind === TE.ORT_GROUP) wId = TE.ortSlotId(metricId, f.id);
+            else wId = TE.visualSlotId(metricId, f.id);
+            h += '<div class="istat-gos-weight-item">';
+            h += '<span class="istat-gos-weight-label" title="'
+                + AtSpeedUtils.escapeHtml(f.label || f.short) + '">'
+                + AtSpeedUtils.escapeHtml(f.short) + '</span>';
+            h += renderMetricWeightBar(wId, true);
+            h += '</div>';
+        }
     }
     grid.innerHTML = h;
 }

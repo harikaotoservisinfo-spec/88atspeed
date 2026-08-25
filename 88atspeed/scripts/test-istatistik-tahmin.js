@@ -91,5 +91,44 @@ if (!TE.hasCustomMetricInfluences('t8')) {
     process.exit(1);
 }
 
+// T9V metrik özel seçiciler
+const t9vSections = TE.getMetricProfileSections('t9v');
+if (!t9vSections.find(s => s.kind === 'ort') || !t9vSections.find(s => s.title.includes('T9V'))) {
+    console.error('FAIL: T9V katalog', t9vSections.map(s => s.title));
+    process.exit(1);
+}
+const defaultSections = TE.getMetricProfileSections('son8001');
+if (defaultSections[0].profiles.length !== TE.VISUAL_PROFILES.length) {
+    console.error('FAIL: varsayılan görsel profil sayısı');
+    process.exit(1);
+}
+
+TE.setMetricInfluence('t9v', 'visual', 'pct100', 30);
+const t9vRow = {
+    t9vDepths: [{ pct: 100, isBest: true, kmIsBest: true, kmPct: 100, t9IsBest: true, t9Pct: 100 }],
+    kmaviDepths: [{ qualifies: true, pct: 100, isBest: true }],
+    t9Depths: [{ pct: 100, isBest: true }],
+    t9vOrtOzeti: { agirlikli: { pct: 100 }, ort3: { pct: 80 } }
+};
+const t9vT = TE.computeRowTahmin(t9vRow, [{ id: 't9v', label: 'T9V', depthsKey: 't9vDepths' }]);
+const pct100Term = t9vT.terms.find(x => x.metricId === 't9v' && x.label.includes('%100'));
+if (!pct100Term || pct100Term.points !== 30) {
+    console.error('FAIL: T9V pct100 skor', pct100Term, t9vT.terms.filter(x => x.metricId === 't9v'));
+    process.exit(1);
+}
+
+TE.setMetricInfluence('t9v', 'visual', 'kmUymuyor', 3);
+const kmUymRow = {
+    t9vDepths: [null],
+    kmaviDepths: [{ qualifies: false }],
+    t9Depths: [{ pct: 50 }]
+};
+const kmUymT = TE.computeRowTahmin(kmUymRow, [{ id: 't9v', label: 'T9V', depthsKey: 't9vDepths' }]);
+if (!kmUymT.terms.some(x => x.metricId === 't9v' && x.label.includes('KM uyumsuz'))) {
+    console.error('FAIL: T9V kmUymuyor sinyali', kmUymT.terms);
+    process.exit(1);
+}
+
 console.log('Metrik bazlı TAHMİN: son8001 +' + son8001Term.points + ', t8 +' + t8Term.points);
+console.log('T9V pct100 +' + pct100Term.points);
 console.log('OK');
