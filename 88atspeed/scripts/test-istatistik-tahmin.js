@@ -91,6 +91,33 @@ if (TE.getVisualPointScale('sm12', 'visual', 'yesil') !== 5) {
     console.error('FAIL: sm12 yesil ölçek 5 değil');
     process.exit(1);
 }
+if (TE.getVisualPointScale('smGec', 'visual', 'maviKenar') !== 12) {
+    console.error('FAIL: smGec maviKenar ölçek 12 değil', TE.getVisualPointScale('smGec', 'visual', 'maviKenar'));
+    process.exit(1);
+}
+if (TE.getVisualPointScale('smGec', 'visual', 'sariKirmizi') !== 70) {
+    console.error('FAIL: smGec sariKirmizi ölçek 70 değil');
+    process.exit(1);
+}
+if (TE.getDraftInfluence('smGec', 'visual', 'maviKenar') !== 0) {
+    console.error('FAIL: smGec slider varsayılan 0 olmalı');
+    process.exit(1);
+}
+
+// smGec: mavi kenar +1 = 12 puan (16 değil)
+TE.setDraftInfluence('smGec', 'visual', 'maviKenar', 1);
+TE.saveDraftMetric('smGec');
+TE.setSelectedMetric('smGec');
+TE.setCalcMode(TE.CALC_MODE_SOLO);
+const smGecMaviT = TE.computeRowTahmin(
+    { smGecDepths: [{ visualProfile: 'maviKenar' }] },
+    [{ id: 'smGec', label: 'Ş+M-GEÇ', depthsKey: 'smGecDepths' }]
+);
+if (smGecMaviT.score !== 12) {
+    console.error('FAIL: smGec maviKenar +1 = 12 puan', smGecMaviT.score);
+    process.exit(1);
+}
+
 if (TE.getDraftInfluence('sm12', 'visual', 'sariKirmizi') !== 0) {
     console.error('FAIL: sm12 slider varsayılan 0 olmalı');
     process.exit(1);

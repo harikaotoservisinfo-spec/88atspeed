@@ -14,39 +14,42 @@ const IstatistikTahminEngine = {
     ],
     DEFAULT_INFLUENCE: 0,
     /** Sarı ton > yeşil ton önceliği — preset sürümü (localStorage migrasyonu) */
-    TONE_KENAR_PRESET_VERSION: 4,
+    TONE_KENAR_PRESET_VERSION: 5,
 
-    /** Metrik bazlı varsayılan slider etkileri (0–100) — sm12 hariç */
+    /** Metrik bazlı varsayılan slider etkileri (0–100) — puan ölçekli metrikler hariç */
     METRIC_INFLUENCE_PRESETS: {},
 
+    /** Ş+M görsel profil puan ölçeği — slider +1 başına hücre puanı */
+    SM_VISUAL_POINT_SCALE: {
+        'visual:sariMavi': 100,
+        'visual:sariKirmizi': 70,
+        'visual:sari': 30,
+        'visual:maviKenar': 12,
+        'visual:kirmiziKenar': 8,
+        'visual:yesilMavi': 16,
+        'visual:yesilKirmizi': 13,
+        'visual:yesil': 5,
+        'visual:maviFosfor': 9,
+        'visual:gucluUyari': 7,
+        'visual:yesilAcik': 3
+    },
+
     /**
-     * Ş+M-12 görsel profil puan ölçeği — slider +1 başına bu kadar puan (hücre başına).
-     * Slider değeri × ölçek = puan; örn. sarı+kırmızı +1 → 70 puan, yeşil +1 → 5 puan.
+     * Metrik → görsel profil puan ölçeği (slider × ölçek = puan).
+     * sm12 ve smGec aynı kullanıcı tablosunu kullanır.
      */
-    METRIC_VISUAL_POINT_SCALE: {
-        sm12: {
-            'visual:sariMavi': 100,
-            'visual:sariKirmizi': 70,
-            'visual:sari': 30,
-            'visual:maviKenar': 12,
-            'visual:kirmiziKenar': 8,
-            'visual:yesilMavi': 16,
-            'visual:yesilKirmizi': 13,
-            'visual:yesil': 5,
-            'visual:maviFosfor': 9,
-            'visual:gucluUyari': 7,
-            'visual:yesilAcik': 3
-        }
-    },
+    METRIC_VISUAL_POINT_SCALE: null,
 
-    /** Trend büyüklük referansı — sm12 trend Δ puanı bu ölçekle çarpılır (sarı=30) */
+    /** Trend büyüklük referansı — Δ puanı bu ölçekle çarpılır (sarı=30) */
     METRIC_TREND_REF_POINT_SCALE: {
-        sm12: 30
+        sm12: 30,
+        smGec: 30
     },
 
-    /** Trend puanı çarpanı — sm12 trendler aynı slider +1'de görselden %20 daha etkili */
+    /** Trend puanı çarpanı — aynı slider +1'de görselden %20 daha etkili */
     METRIC_TREND_POINT_MULTIPLIER: {
-        sm12: 1.2
+        sm12: 1.2,
+        smGec: 1.2
     },
     DEFAULT_SELECTED_METRIC: 'son8001',
     MIN_INFLUENCE: 0,
@@ -168,6 +171,13 @@ const IstatistikTahminEngine = {
         },
         sm12: {
             title: 'Ş+M-12 — Ş/M koşuda 1. veya 2.',
+            sections: [
+                { kind: 'visual', title: 'Görsel profiller', profiles: 'VISUAL_PROFILES' },
+                { kind: 'trend', title: 'Trend (son 3 derinlik)', profiles: 'TREND_PROFILES' }
+            ]
+        },
+        smGec: {
+            title: 'Ş+M-GEÇ — Şehir+mesafe geçmişi',
             sections: [
                 { kind: 'visual', title: 'Görsel profiller', profiles: 'VISUAL_PROFILES' },
                 { kind: 'trend', title: 'Trend (son 3 derinlik)', profiles: 'TREND_PROFILES' }
@@ -317,8 +327,8 @@ const IstatistikTahminEngine = {
             if (metricPreset && metricPreset[key] != null) {
                 return metricPreset[key];
             }
-            // Puan ölçekli metrikler (sm12): slider 0'dan başlar, ölçek ayrı tabloda
-            if (this.METRIC_VISUAL_POINT_SCALE?.[metricId]) {
+            // Puan ölçekli metrikler (sm12, smGec): slider 0'dan başlar
+            if (this._metricVisualPointScales()[metricId]) {
                 return this.DEFAULT_INFLUENCE;
             }
             const p = this.getProfileDef(metricId, kind, profileId);
@@ -397,11 +407,29 @@ const IstatistikTahminEngine = {
         this._draftByMetric = null;
     },
 
+    /** v5: smGec aynı modele geçti — eski slider değerlerini sıfırla */
+    _migrateSmGecPointScaleModel(store) {
+        if (!store.byMetric?.smGec) return;
+        for (const key of Object.keys(store.byMetric.smGec)) {
+            store.byMetric.smGec[key] = 0;
+        }
+        this._draftByMetric = null;
+    },
+
     getVisualPointScale(metricId, kind, profileId) {
+        const scales = this._metricVisualPointScales();
         const key = this._profileKey(kind, profileId);
-        const metricScale = this.METRIC_VISUAL_POINT_SCALE?.[metricId]?.[key];
+        const metricScale = scales[metricId]?.[key];
         if (metricScale != null) return metricScale;
         return 1;
+    },
+
+    _metricVisualPointScales() {
+        if (!this.METRIC_VISUAL_POINT_SCALE) {
+            const sm = this.SM_VISUAL_POINT_SCALE;
+            this.METRIC_VISUAL_POINT_SCALE = { sm12: sm, smGec: sm };
+        }
+        return this.METRIC_VISUAL_POINT_SCALE;
     },
 
     getTrendRefPointScale(metricId) {
@@ -438,6 +466,9 @@ const IstatistikTahminEngine = {
         if (prevVersion < this.TONE_KENAR_PRESET_VERSION) {
             if (prevVersion < 4) {
                 this._migrateSm12PointScaleModel(store);
+            }
+            if (prevVersion < 5) {
+                this._migrateSmGecPointScaleModel(store);
             }
             if (prevVersion < 3) {
                 this._applyToneKenarPreset(store);

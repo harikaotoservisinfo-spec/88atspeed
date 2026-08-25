@@ -847,14 +847,14 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260825am"></script>
-<script src="js/formula-engine.js?v=20260825am"></script>
-<script src="js/istatistik-engine.js?v=20260825am"></script>
-<script src="js/istatistik-grids-extra.js?v=20260825am"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260825am"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260825am"></script>
+<script src="js/utils.js?v=20260825an"></script>
+<script src="js/formula-engine.js?v=20260825an"></script>
+<script src="js/istatistik-engine.js?v=20260825an"></script>
+<script src="js/istatistik-grids-extra.js?v=20260825an"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260825an"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260825an"></script>
 <script>
-const ISTAT_BUILD = '20260825am';
+const ISTAT_BUILD = '20260825an';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
 let currentKayitId = null;
@@ -958,19 +958,45 @@ function appendMetricGroupThRowspan(h, opts) {
     return h;
 }
 
+function updateMetricWeightBarEl(el, weightId) {
+    if (!el) return;
+    const TE = IstatistikTahminEngine;
+    const etki = TE.getInfluence(weightId || el.dataset.weightId);
+    const etkiEl = el.querySelector('.istat-w-etki');
+    if (etkiEl) etkiEl.textContent = etki > 0 ? '+' + etki : '0';
+    el.classList.toggle('istat-metric-weight-off', etki === 0);
+}
+
+function patchTahminCellEl(cell, tahmin, horseCount) {
+    if (!cell) return;
+    cell.className = 'istat-tahmin istat-sticky-tahmin ' + tahminRankClass(tahmin?.rank, horseCount);
+    cell.innerHTML = formatTahminCell(tahmin, horseCount);
+    if (tahmin && tahmin.rank != null) {
+        let title = 'TAHMİN · ' + tahmin.rank + '. sıra | Skor ' + (tahmin.score ?? '?');
+        title += ' (göreli %' + tahmin.pct + ', ' + tahmin.metricCount + ' sinyal)';
+        if (tahmin.topTerms?.length) {
+            title += ' | ';
+            title += tahmin.topTerms.slice(0, 6).map(t => t.label + ' +' + t.points).join(' · ');
+        }
+        cell.title = title;
+    } else {
+        cell.removeAttribute('title');
+    }
+}
+
+let _tahminRefreshRaf = 0;
+function scheduleRefreshAllTahmin() {
+    if (_tahminRefreshRaf) return;
+    _tahminRefreshRaf = requestAnimationFrame(() => {
+        _tahminRefreshRaf = 0;
+        refreshAllTahmin();
+    });
+}
+
 function refreshAllTahmin() {
     const TE = IstatistikTahminEngine;
     const extraSections = istatRaceCache[0]?.pkg?.extraSections || [];
     const weights = TE.getCalculationWeights(extraSections);
-    updateTahminModeUi();
-    document.querySelectorAll('.istat-metric-weight, .istat-metric-weight-compact').forEach(el => {
-        const id = el.dataset.weightId;
-        if (!id) return;
-        const etki = TE.getInfluence(id);
-        const etkiEl = el.querySelector('.istat-w-etki');
-        if (etkiEl) etkiEl.textContent = etki > 0 ? '+' + etki : '0';
-        el.classList.toggle('istat-metric-weight-off', etki === 0);
-    });
     const metricId = selectedTahminMetric || TE.getSelectedMetric();
     const hint = document.getElementById('tahminMetricHint');
     if (hint) {
@@ -1013,13 +1039,7 @@ function refreshAllTahmin() {
         }
         for (const row of entry.pkg.rows) {
             const cell = card.querySelector('[data-tahmin-cell][data-horse-no="' + row.no + '"]');
-            if (cell) {
-                const fresh = renderTahminCell(row.tahmin, entry.horseCount, row.no);
-                const wrap = document.createElement('tbody');
-                wrap.innerHTML = '<tr>' + fresh + '</tr>';
-                const newCell = wrap.querySelector('td');
-                if (newCell) cell.replaceWith(newCell);
-            }
+            patchTahminCellEl(cell, row.tahmin, entry.horseCount);
         }
     });
 }
@@ -1038,7 +1058,8 @@ function bindTahminWeightControls() {
         const id = wrap.dataset.weightId;
         const delta = btn.dataset.wAction === 'inc' ? 1 : -1;
         IstatistikTahminEngine.adjustInfluence(id, delta);
-        refreshAllTahmin();
+        updateMetricWeightBarEl(wrap, id);
+        scheduleRefreshAllTahmin();
     });
     const metricSel = document.getElementById('tahminMetricSelect');
     if (metricSel) {
