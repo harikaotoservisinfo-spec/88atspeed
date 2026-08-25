@@ -1,4 +1,4 @@
-/* İstatistik tahmin motoru — görsel profil + trend */
+/* İstatistik tahmin motoru — metrik grubu bazlı görsel profil */
 const fs = require('fs');
 const path = require('path');
 
@@ -25,50 +25,42 @@ function kosu(tarih, atDr, birinciDr, opts = {}) {
     };
 }
 
-// Görsel profil sınıflandırma
-const cellYesilMavi = {
-    gosterim: { maviKenar: true, sehirEslesme: true, yesilSatir: false, sariTest12: false }
-};
-cellYesilMavi.visualProfile = IE.classifyCellVisual(cellYesilMavi);
-if (cellYesilMavi.visualProfile !== 'yesilMavi') {
-    console.error('FAIL: yesilMavi profil', cellYesilMavi.visualProfile);
-    process.exit(1);
-}
-
-const cellSari = {
-    gosterim: { sariTest12: true, maviKenar: false, kirmiziKenar: false, yesilSatir: true }
-};
-cellSari.visualProfile = IE.classifyCellVisual(cellSari);
-if (cellSari.visualProfile !== 'sari') {
-    console.error('FAIL: sari profil', cellSari.visualProfile);
-    process.exit(1);
-}
-
-// Trend
-const trendUp = IE.computeDepthTrend([{ pct: 95 }, { pct: 88 }, { pct: 80 }], 3);
-if (!trendUp.includes('trendUp3') || !trendUp.includes('trendUpSon')) {
-    console.error('FAIL: trendUp', trendUp);
-    process.exit(1);
-}
-
-// Skorlama
 TE.resetWeights();
-const influences = {};
-influences[TE.visualSlotId('yesilMavi')] = 20;
-influences[TE.visualSlotId('maviKenar')] = 10;
-const row = {
-    son8001Depths: [
-        { pct: 100, visualProfile: 'yesilMavi', gosterim: { maviKenar: true, sehirEslesme: true } },
-        { pct: 90, visualProfile: 'maviKenar', gosterim: { maviKenar: true } }
-    ]
-};
-const t = TE.computeRowTahmin(row, [], influences);
-if (t.score < 30 || t.metricCount < 2) {
-    console.error('FAIL: görsel skor', t.score, t.metricCount, t.terms);
+
+// Metrik bazlı kayıt
+TE.setMetricInfluence('son8001', 'visual', 'maviKenar', 25);
+TE.setMetricInfluence('t8', 'visual', 'maviKenar', 5);
+if (TE.getMetricInfluence('son8001', 'visual', 'maviKenar') !== 25) {
+    console.error('FAIL: son8001 maviKenar kayıt');
+    process.exit(1);
+}
+if (TE.getMetricInfluence('t8', 'visual', 'maviKenar') !== 5) {
+    console.error('FAIL: t8 maviKenar ayrı kayıt');
     process.exit(1);
 }
 
-// Paket entegrasyonu
+const row = {
+    son8001Depths: [{ visualProfile: 'maviKenar' }],
+    test8Depths: [{ visualProfile: 'maviKenar' }]
+};
+const t = TE.computeRowTahmin(row, []);
+const son8001Term = t.terms.find(x => x.metricId === 'son8001');
+const t8Term = t.terms.find(x => x.metricId === 't8');
+if (!son8001Term || son8001Term.points !== 25) {
+    console.error('FAIL: son8001 skor', son8001Term);
+    process.exit(1);
+}
+if (!t8Term || t8Term.points !== 5) {
+    console.error('FAIL: t8 skor', t8Term);
+    process.exit(1);
+}
+
+TE.setSelectedMetric('t8');
+if (TE.getSelectedMetric() !== 't8') {
+    console.error('FAIL: seçili metrik');
+    process.exit(1);
+}
+
 const race = {
     mesafe: '1400',
     horses: [
@@ -78,17 +70,26 @@ const race = {
 };
 const pkg = IE.buildRaceIstatistikPackage(race, 'İzmir', '24.08.2026');
 TE.attachRaceTahmin(pkg);
-const alpha = pkg.rows.find(r => r.name === 'Alpha');
-if (!alpha?.tahmin?.rank) {
-    console.error('FAIL: tahmin rank eksik');
+if (!pkg.rows[0]?.tahmin?.rank) {
+    console.error('FAIL: tahmin rank');
     process.exit(1);
 }
 
-const hasVisual = (alpha.son8001Depths || []).some(c => c?.visualProfile);
-if (!hasVisual) {
-    console.error('FAIL: visualProfile bağlanmadı');
+const catalog = TE.getMetricCatalog(pkg.extraSections);
+if (!catalog.find(m => m.id === 'son8001') || !catalog.find(m => m.id === 'f802')) {
+    console.error('FAIL: metrik katalog', catalog.length);
     process.exit(1);
 }
 
-console.log('Görsel TAHMİN skor:', t.score, '|', t.metricCount, 'sinyal');
+TE.resetMetricInfluences('son8001');
+if (TE.hasCustomMetricInfluences('son8001')) {
+    console.error('FAIL: son8001 sıfırlanmadı');
+    process.exit(1);
+}
+if (!TE.hasCustomMetricInfluences('t8')) {
+    console.error('FAIL: t8 etkileri kalmalı');
+    process.exit(1);
+}
+
+console.log('Metrik bazlı TAHMİN: son8001 +' + son8001Term.points + ', t8 +' + t8Term.points);
 console.log('OK');

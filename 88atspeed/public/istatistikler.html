@@ -665,7 +665,47 @@
             gap: 2px;
             min-width: 72px;
         }
-        .istat-gos-section {
+        .istat-gos-metric-picker {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px 14px;
+            width: 100%;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e1bee7;
+        }
+        .istat-gos-metric-picker label {
+            font-weight: 700;
+            color: #4a148c;
+            font-size: 12px;
+        }
+        .istat-gos-metric-select {
+            min-width: 220px;
+            padding: 6px 10px;
+            border-radius: var(--radius-sm);
+            border: 1px solid #ce93d8;
+            background: #fff;
+            font-weight: 600;
+            font-size: 12px;
+            color: #4a148c;
+        }
+        .istat-gos-metric-hint {
+            font-size: 11px;
+            color: #6a1b9a;
+            opacity: 0.85;
+        }
+        .istat-gos-metric-reset {
+            padding: 5px 10px;
+            border-radius: var(--radius-sm);
+            border: 1px solid #ce93d8;
+            background: #fff;
+            font-size: 11px;
+            font-weight: 600;
+            color: #6a1b9a;
+            cursor: pointer;
+        }
+        .istat-gos-metric-reset:hover { background: #f3e5f5; }
             width: 100%;
             flex-basis: 100%;
             margin-top: 6px;
@@ -691,6 +731,12 @@
     </div>
     <details class="istat-gosterim-controls" id="gosterimWeightPanel" open>
         <summary>TAHMİN görsel profil etkileri (kenar + renk + trend)</summary>
+        <div class="istat-gos-metric-picker">
+            <label for="tahminMetricSelect">Metrik grubu</label>
+            <select id="tahminMetricSelect" class="istat-gos-metric-select" title="Her metrik grubunun etkileri ayrı kaydedilir"></select>
+            <button type="button" id="tahminMetricResetBtn" class="istat-gos-metric-reset" title="Seçili grubun kayıtlı etkilerini sil">↺ Bu grubu sıfırla</button>
+            <span id="tahminMetricHint" class="istat-gos-metric-hint"></span>
+        </div>
         <div class="istat-gos-weight-grid" id="gosterimWeightGrid"></div>
     </details>
     <div id="kayitListesi" class="kayit-listesi" style="display:none;"></div>
@@ -713,9 +759,10 @@
         |TEST8| 0'a en yakın = %100; derinlik kıyası + AĞ. ORT.<br>
         <strong>Ek gruplar (800Δ·2/3, T9Δ, DR/1DR, TEST4–7, FARK, Ş+M…):</strong>
         GÖSTERİM ve Tahminim kurallarındaki eksik sütunlar — hepsi derinlik % + AĞ. ORT.1/2/3.<br>
-        <strong>TAHMİN:</strong> Sadece GÖSTERİM görsel profilleri (mavi/kırmızı kenar, sarı/yeşil hücre
-        kombinasyonları) ve son 3 derinlikte % trendi (yükseliş/düşüş) başarı sıralamasını belirler.
-        Üstteki panelden her profilin puan etkisini ayarlayın.<br>
+        <strong>TAHMİN:</strong> GÖSTERİM görsel profilleri (mavi/kırmızı kenar, sarı/yeşil kombinasyonları)
+        ve son 3 derinlik % trendi başarı sıralamasını belirler. Üst panelden <strong>metrik grubu</strong>
+        seçin (SON800-1, T8Δ, …); her grubun puan etkileri <strong>ayrı kaydedilir</strong> ve sonraki
+        açılışta korunur.<br>
         <strong>T1×DR:</strong> TEST1 × DR/1DR — o gün koşan atlar arasında en düşük T1×DR = %100;
         derinlik kıyası + AĞ. ORT.<br>
         <strong>Son 3 ay / 1 ay / 15 gün:</strong> Program tarihine göre dönem içi koşu sayısının,
@@ -728,14 +775,15 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260825x"></script>
-<script src="js/formula-engine.js?v=20260825x"></script>
-<script src="js/istatistik-engine.js?v=20260825x"></script>
-<script src="js/istatistik-grids-extra.js?v=20260825x"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260825x"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260825x"></script>
+<script src="js/utils.js?v=20260825y"></script>
+<script src="js/formula-engine.js?v=20260825y"></script>
+<script src="js/istatistik-engine.js?v=20260825y"></script>
+<script src="js/istatistik-grids-extra.js?v=20260825y"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260825y"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260825y"></script>
 <script>
-const ISTAT_BUILD = '20260825x';
+const ISTAT_BUILD = '20260825y';
+let selectedTahminMetric = null;
 let istatRaceCache = [];
 let currentKayitId = null;
 let currentKayitMeta = null;
@@ -849,6 +897,20 @@ function refreshAllTahmin() {
         if (etkiEl) etkiEl.textContent = '+' + etki;
         el.classList.toggle('istat-metric-weight-off', etki === 0);
     });
+    const metricId = selectedTahminMetric || TE.getSelectedMetric();
+    const hint = document.getElementById('tahminMetricHint');
+    if (hint) {
+        hint.textContent = TE.hasCustomMetricInfluences(metricId)
+            ? '★ Bu grubun özel kayıtlı etkileri var'
+            : 'Varsayılan etkiler (henüz kaydedilmedi)';
+    }
+    const sel = document.getElementById('tahminMetricSelect');
+    if (sel) {
+        const opt = sel.querySelector('option[value="' + metricId + '"]');
+        if (opt && TE.hasCustomMetricInfluences(metricId) && !opt.textContent.endsWith('★')) {
+            opt.textContent = opt.textContent.replace(/ ★$/, '') + ' ★';
+        }
+    }
     istatRaceCache.forEach((entry, raceIndex) => {
         TE.attachRaceTahmin(entry.pkg, weights);
         const card = document.querySelector('.istatistik-race-card[data-race-index="' + raceIndex + '"]');
@@ -892,6 +954,27 @@ function bindTahminWeightControls() {
         IstatistikTahminEngine.adjustInfluence(id, delta);
         refreshAllTahmin();
     });
+    const metricSel = document.getElementById('tahminMetricSelect');
+    if (metricSel) {
+        metricSel.addEventListener('change', (e) => {
+            const id = e.target.value;
+            selectedTahminMetric = id;
+            IstatistikTahminEngine.setSelectedMetric(id);
+            renderVisualScoreControls();
+        });
+    }
+    const metricReset = document.getElementById('tahminMetricResetBtn');
+    if (metricReset) {
+        metricReset.addEventListener('click', () => {
+            const id = selectedTahminMetric || IstatistikTahminEngine.getSelectedMetric();
+            const label = metricSel?.selectedOptions?.[0]?.textContent?.replace(' ★', '') || id;
+            if (!confirm(label + ' grubunun kayıtlı etkilerini sıfırlamak istiyor musunuz?')) return;
+            IstatistikTahminEngine.resetMetricInfluences(id);
+            renderVisualScoreControls();
+            if (istatRaceCache.length) refreshAllTahmin();
+            setStatus('<div class="status status-success">✅ ' + AtSpeedUtils.escapeHtml(label) + ' etkileri sıfırlandı</div>');
+        });
+    }
 }
 
 function formatSehirPctCell(stat) {
@@ -971,13 +1054,57 @@ function wrapDepthCellInner(inner, cell) {
     return inner;
 }
 
+function getTahminMetricCatalog() {
+    const TE = IstatistikTahminEngine;
+    let extra = [];
+    for (const entry of istatRaceCache) {
+        if (entry.pkg?.extraSections?.length) {
+            extra = entry.pkg.extraSections;
+            break;
+        }
+    }
+    if (!extra.length && typeof IstatistikEngine !== 'undefined' && IstatistikEngine.ISTAT_EXTRA_SECTIONS) {
+        extra = IstatistikEngine.ISTAT_EXTRA_SECTIONS;
+    }
+    return TE.getMetricCatalog(extra);
+}
+
+function populateTahminMetricSelect() {
+    const sel = document.getElementById('tahminMetricSelect');
+    if (!sel) return;
+    const TE = IstatistikTahminEngine;
+    const catalog = getTahminMetricCatalog();
+    const saved = TE.getSelectedMetric();
+    const current = catalog.some(m => m.id === saved) ? saved : (catalog[0]?.id || TE.DEFAULT_SELECTED_METRIC);
+    selectedTahminMetric = current;
+    if (!catalog.some(m => m.id === current)) {
+        TE.setSelectedMetric(current);
+    }
+    let h = '';
+    for (const m of catalog) {
+        const custom = TE.hasCustomMetricInfluences(m.id) ? ' ★' : '';
+        h += '<option value="' + m.id + '"' + (m.id === current ? ' selected' : '') + '>'
+            + AtSpeedUtils.escapeHtml(m.label) + custom + '</option>';
+    }
+    sel.innerHTML = h;
+    const hint = document.getElementById('tahminMetricHint');
+    if (hint) {
+        hint.textContent = TE.hasCustomMetricInfluences(current)
+            ? '★ Bu grubun özel kayıtlı etkileri var'
+            : 'Varsayılan etkiler (henüz kaydedilmedi)';
+    }
+}
+
 function renderVisualScoreControls() {
+    populateTahminMetricSelect();
     const grid = document.getElementById('gosterimWeightGrid');
     if (!grid) return;
     const TE = IstatistikTahminEngine;
-    let h = '<div class="istat-gos-section"><strong>Görsel profiller</strong></div>';
+    const metricId = selectedTahminMetric || TE.getSelectedMetric();
+    let h = '<div class="istat-gos-section"><strong>Görsel profiller — '
+        + AtSpeedUtils.escapeHtml(metricId) + '</strong></div>';
     for (const f of TE.VISUAL_PROFILES) {
-        const wId = TE.visualSlotId(f.id);
+        const wId = TE.visualSlotId(metricId, f.id);
         h += '<div class="istat-gos-weight-item">';
         h += '<span class="istat-gos-weight-label">' + AtSpeedUtils.escapeHtml(f.short) + '</span>';
         h += renderMetricWeightBar(wId, true);
@@ -985,7 +1112,7 @@ function renderVisualScoreControls() {
     }
     h += '<div class="istat-gos-section"><strong>Trend (son 3 derinlik)</strong></div>';
     for (const f of TE.TREND_PROFILES) {
-        const wId = TE.trendSlotId(f.id);
+        const wId = TE.trendSlotId(metricId, f.id);
         h += '<div class="istat-gos-weight-item">';
         h += '<span class="istat-gos-weight-label">' + AtSpeedUtils.escapeHtml(f.short) + '</span>';
         h += renderMetricWeightBar(wId, true);
@@ -1961,6 +2088,7 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
     const container = document.getElementById('istatistikContainer');
     if (container) delete container.dataset.weightBound;
     bindTahminWeightControls();
+    renderVisualScoreControls();
     notifyParentResize();
 }
 
@@ -2034,9 +2162,11 @@ document.getElementById('kayitSenkronBtn').onclick = () => {
 };
 
 document.getElementById('tahminAgirlikSifirlaBtn').onclick = () => {
+    if (!confirm('Tüm metrik gruplarının kayıtlı etkilerini sıfırlamak istiyor musunuz?')) return;
     IstatistikTahminEngine.resetWeights();
+    renderVisualScoreControls();
     if (istatRaceCache.length) refreshAllTahmin();
-    setStatus('<div class="status status-success">✅ Tüm görsel profil etkileri varsayılana sıfırlandı</div>');
+    setStatus('<div class="status status-success">✅ Tüm metrik gruplarının etkileri sıfırlandı</div>');
 };
 
 window.addEventListener('message', (e) => {

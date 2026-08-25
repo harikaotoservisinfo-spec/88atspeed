@@ -1,15 +1,17 @@
 /**
- * İstatistikler — GÖSTERİM görsel profil + trend tabanlı TAHMİN sıralaması.
- * Etki ID: visual:maviKenar, trend:trendUp3, ...
+ * İstatistikler — metrik grubu bazlı GÖSTERİM görsel profil + trend TAHMİN.
+ * Etki ID: {metricId}:visual:{profileId}  örn. son8001:visual:maviKenar
  */
 const IstatistikTahminEngine = {
-    INFLUENCE_STORAGE_KEY: '88atspeed-istat-visual-influence-v1',
+    INFLUENCE_STORAGE_KEY: '88atspeed-istat-visual-influence-v2',
     LEGACY_KEYS: [
+        '88atspeed-istat-visual-influence-v1',
         '88atspeed-istat-metric-influence-v2',
         '88atspeed-istat-metric-influence',
         '88atspeed-istat-metric-weights'
     ],
     DEFAULT_INFLUENCE: 10,
+    DEFAULT_SELECTED_METRIC: 'son8001',
     MIN_INFLUENCE: 0,
     MAX_INFLUENCE: 100,
     INFLUENCE_STEP: 1,
@@ -17,7 +19,6 @@ const IstatistikTahminEngine = {
     VISUAL_GROUP: 'visual',
     TREND_GROUP: 'trend',
 
-    /** Kenar + dolgu kombinasyonları — başarı sıralamasının temel faktörleri */
     VISUAL_PROFILES: [
         { id: 'maviKenar', short: 'Mavi kenar', label: 'Mavi kenar', defaultInfluence: 15 },
         { id: 'kirmiziKenar', short: 'Kırmızı kenar', label: 'Kırmızı kenar', defaultInfluence: 12 },
@@ -32,7 +33,6 @@ const IstatistikTahminEngine = {
         { id: 'maviFosfor', short: 'Fosfor mavi', label: 'Fosfor mavi satır', defaultInfluence: 10 }
     ],
 
-    /** Son 3 derinlikte % trendi */
     TREND_PROFILES: [
         { id: 'trendUp3', short: 'Son 3 ↑', label: 'Son 3 derinlik yükseliş', defaultInfluence: 12 },
         { id: 'trendDown3', short: 'Son 3 ↓', label: 'Son 3 derinlik düşüş', defaultInfluence: 4 },
@@ -57,7 +57,6 @@ const IstatistikTahminEngine = {
         { id: 't1dr', depthsKey: 't1drDepths', label: 'T1×DR' }
     ],
 
-    /** Tablo başlıkları için (TAHMİN skoruna dahil değil) */
     SIMPLE_COLUMN_GROUPS: [
         { grpClass: 'istat-grp-sehir', columns: [{ short: 'ŞEHİR' }] },
         { grpClass: 'istat-grp-donem', columns: [{ short: 'SON 3 AY' }, { short: 'SON 1 AY' }, { short: 'SON 15 GÜN' }] },
@@ -72,52 +71,90 @@ const IstatistikTahminEngine = {
         { grpClass: 'istat-grp-mf1', columns: [{ short: '3AY MESİLK1' }, { short: '1AY MESİLK1' }, { short: '15G MESİLK1' }] }
     ],
 
-    _influenceCache: null,
+    _storeCache: null,
 
-    slotId(group, profileId) {
-        return group + ':' + profileId;
+    _profileKey(kind, profileId) {
+        return kind + ':' + profileId;
     },
 
-    visualSlotId(profileId) {
-        return this.slotId(this.VISUAL_GROUP, profileId);
+    metricWeightId(metricId, kind, profileId) {
+        return metricId + ':' + kind + ':' + profileId;
     },
 
-    trendSlotId(profileId) {
-        return this.slotId(this.TREND_GROUP, profileId);
+    visualSlotId(metricId, profileId) {
+        return this.metricWeightId(metricId, this.VISUAL_GROUP, profileId);
     },
 
-    _defaultForSlot(weightId) {
-        const idx = String(weightId).indexOf(':');
-        if (idx < 0) return this.DEFAULT_INFLUENCE;
-        const group = weightId.slice(0, idx);
-        const id = weightId.slice(idx + 1);
-        if (group === this.VISUAL_GROUP) {
-            const p = this.VISUAL_PROFILES.find(x => x.id === id);
+    trendSlotId(metricId, profileId) {
+        return this.metricWeightId(metricId, this.TREND_GROUP, profileId);
+    },
+
+    /** Geriye uyumluluk — tek argümanlı eski çağrılar */
+    gosterimSlotId(metricIdOrProfile, profileId) {
+        if (profileId == null) return this._profileKey(this.VISUAL_GROUP, metricIdOrProfile);
+        return this.visualSlotId(metricIdOrProfile, profileId);
+    },
+
+    get GOSTERIM_FLAGS() {
+        return this.VISUAL_PROFILES;
+    },
+
+    _parseWeightId(weightId) {
+        const parts = String(weightId).split(':');
+        if (parts.length >= 3) {
+            return {
+                metricId: parts[0],
+                kind: parts[1],
+                profileId: parts.slice(2).join(':')
+            };
+        }
+        if (parts.length === 2) {
+            return { metricId: null, kind: parts[0], profileId: parts[1] };
+        }
+        return null;
+    },
+
+    _defaultForProfile(kind, profileId) {
+        if (kind === this.VISUAL_GROUP) {
+            const p = this.VISUAL_PROFILES.find(x => x.id === profileId);
             return p?.defaultInfluence ?? this.DEFAULT_INFLUENCE;
         }
-        if (group === this.TREND_GROUP) {
-            const p = this.TREND_PROFILES.find(x => x.id === id);
+        if (kind === this.TREND_GROUP) {
+            const p = this.TREND_PROFILES.find(x => x.id === profileId);
             return p?.defaultInfluence ?? this.DEFAULT_INFLUENCE;
         }
         return this.DEFAULT_INFLUENCE;
     },
 
-    _loadInfluences() {
-        if (this._influenceCache) return this._influenceCache;
+    _emptyStore() {
+        return {
+            selectedMetric: this.DEFAULT_SELECTED_METRIC,
+            byMetric: {}
+        };
+    },
+
+    _loadStore() {
+        if (this._storeCache) return this._storeCache;
         try {
             const raw = localStorage.getItem(this.INFLUENCE_STORAGE_KEY);
             if (raw) {
-                this._influenceCache = JSON.parse(raw);
-                return this._influenceCache;
+                const parsed = JSON.parse(raw);
+                if (parsed && parsed.byMetric) {
+                    this._storeCache = {
+                        selectedMetric: parsed.selectedMetric || this.DEFAULT_SELECTED_METRIC,
+                        byMetric: parsed.byMetric || {}
+                    };
+                    return this._storeCache;
+                }
             }
         } catch (_) {}
-        this._influenceCache = {};
-        return this._influenceCache;
+        this._storeCache = this._emptyStore();
+        return this._storeCache;
     },
 
-    _saveInfluences() {
+    _saveStore() {
         try {
-            localStorage.setItem(this.INFLUENCE_STORAGE_KEY, JSON.stringify(this._influenceCache || {}));
+            localStorage.setItem(this.INFLUENCE_STORAGE_KEY, JSON.stringify(this._storeCache || this._emptyStore()));
         } catch (_) {}
     },
 
@@ -127,8 +164,79 @@ const IstatistikTahminEngine = {
         }
     },
 
+    getMetricCatalog(extraSections) {
+        const core = this.CORE_GROUPS.map(g => ({ id: g.id, label: g.label }));
+        const extra = (extraSections || []).map(s => ({ id: s.id, label: s.label }));
+        const seen = new Set();
+        const out = [];
+        for (const item of [...core, ...extra]) {
+            if (seen.has(item.id)) continue;
+            seen.add(item.id);
+            out.push(item);
+        }
+        return out;
+    },
+
+    getSelectedMetric() {
+        return this._loadStore().selectedMetric || this.DEFAULT_SELECTED_METRIC;
+    },
+
+    setSelectedMetric(metricId) {
+        const store = this._loadStore();
+        store.selectedMetric = metricId;
+        if (!store.byMetric[metricId]) store.byMetric[metricId] = {};
+        this._saveStore();
+        return metricId;
+    },
+
+    getMetricInfluence(metricId, kind, profileId) {
+        const key = this._profileKey(kind, profileId);
+        const store = this._loadStore();
+        const v = store.byMetric?.[metricId]?.[key];
+        return v != null ? v : this._defaultForProfile(kind, profileId);
+    },
+
+    setMetricInfluence(metricId, kind, profileId, value) {
+        const v = Math.max(
+            this.MIN_INFLUENCE,
+            Math.min(this.MAX_INFLUENCE, Math.round(Number(value) || 0))
+        );
+        const store = this._loadStore();
+        if (!store.byMetric[metricId]) store.byMetric[metricId] = {};
+        store.byMetric[metricId][this._profileKey(kind, profileId)] = v;
+        this._saveStore();
+        return v;
+    },
+
+    getMetricInfluences(metricId) {
+        const store = this._loadStore();
+        return { ...(store.byMetric?.[metricId] || {}) };
+    },
+
+    hasCustomMetricInfluences(metricId) {
+        const m = this._loadStore().byMetric?.[metricId];
+        return m && Object.keys(m).length > 0;
+    },
+
+    resetMetricInfluences(metricId) {
+        const store = this._loadStore();
+        if (metricId) {
+            delete store.byMetric[metricId];
+        } else {
+            store.byMetric = {};
+        }
+        this._saveStore();
+    },
+
     getInfluences() {
-        return { ...this._loadInfluences() };
+        const store = this._loadStore();
+        const flat = {};
+        for (const [metricId, map] of Object.entries(store.byMetric || {})) {
+            for (const [key, val] of Object.entries(map)) {
+                flat[metricId + ':' + key] = val;
+            }
+        }
+        return flat;
     },
 
     getWeights() {
@@ -136,8 +244,12 @@ const IstatistikTahminEngine = {
     },
 
     getInfluence(weightId) {
-        const v = this._loadInfluences()[weightId];
-        return v != null ? v : this._defaultForSlot(weightId);
+        const parsed = this._parseWeightId(weightId);
+        if (!parsed) return this.DEFAULT_INFLUENCE;
+        if (parsed.metricId) {
+            return this.getMetricInfluence(parsed.metricId, parsed.kind, parsed.profileId);
+        }
+        return this._defaultForProfile(parsed.kind, parsed.profileId);
     },
 
     getWeight(weightId) {
@@ -149,14 +261,11 @@ const IstatistikTahminEngine = {
     },
 
     setInfluence(weightId, value) {
-        const v = Math.max(
-            this.MIN_INFLUENCE,
-            Math.min(this.MAX_INFLUENCE, Math.round(Number(value) || 0))
-        );
-        this._loadInfluences();
-        this._influenceCache[weightId] = v;
-        this._saveInfluences();
-        return v;
+        const parsed = this._parseWeightId(weightId);
+        if (!parsed?.metricId) {
+            return Math.max(this.MIN_INFLUENCE, Math.min(this.MAX_INFLUENCE, Math.round(Number(value) || 0)));
+        }
+        return this.setMetricInfluence(parsed.metricId, parsed.kind, parsed.profileId, value);
     },
 
     adjustInfluence(weightId, delta) {
@@ -168,41 +277,40 @@ const IstatistikTahminEngine = {
         return this.adjustInfluence(weightId, delta);
     },
 
-    resetWeights() {
-        this._influenceCache = {};
-        this._saveInfluences();
+    resetWeights(metricId) {
+        this.resetMetricInfluences(metricId);
+        if (!metricId) {
+            const store = this._loadStore();
+            store.selectedMetric = this.DEFAULT_SELECTED_METRIC;
+            this._saveStore();
+        }
         this._clearLegacy();
     },
 
-    /** Geriye uyumluluk — artık kullanılmıyor */
-    gosterimSlotId(flagId) {
-        return this.visualSlotId(flagId);
-    },
-
-    get GOSTERIM_FLAGS() {
-        return this.VISUAL_PROFILES;
-    },
-
-    _resolveInfluence(influences, weightId) {
+    _resolveInfluence(influences, weightId, metricId, kind, profileId) {
         if (influences && influences[weightId] != null) return influences[weightId];
-        return this.getInfluence(weightId);
+        return this.getMetricInfluence(metricId, kind, profileId);
     },
 
-    _pushVisualTerm(terms, influences, profileId, label) {
-        const weightId = this.visualSlotId(profileId);
-        const weight = this._resolveInfluence(influences, weightId);
+    _pushVisualTerm(terms, influences, metricId, profileId, label) {
+        const weightId = this.visualSlotId(metricId, profileId);
+        const weight = this._resolveInfluence(
+            influences, weightId, metricId, this.VISUAL_GROUP, profileId
+        );
         if (weight <= 0) return;
-        terms.push({ weightId, label, weight, points: weight });
+        terms.push({ weightId, metricId, label, weight, points: weight });
     },
 
-    _pushTrendTerm(terms, influences, profileId, label) {
-        const weightId = this.trendSlotId(profileId);
-        const weight = this._resolveInfluence(influences, weightId);
+    _pushTrendTerm(terms, influences, metricId, profileId, label) {
+        const weightId = this.trendSlotId(metricId, profileId);
+        const weight = this._resolveInfluence(
+            influences, weightId, metricId, this.TREND_GROUP, profileId
+        );
         if (weight <= 0) return;
-        terms.push({ weightId, label, weight, points: weight });
+        terms.push({ weightId, metricId, label, weight, points: weight });
     },
 
-    _collectDepthVisualTerms(depths, groupLabel, influences, terms) {
+    _collectDepthVisualTerms(depths, metricId, groupLabel, influences, terms) {
         if (!depths?.length) return;
         const IE = typeof IstatistikEngine !== 'undefined' ? IstatistikEngine : null;
         for (let d = 0; d < depths.length; d++) {
@@ -214,7 +322,7 @@ const IstatistikTahminEngine = {
             const dl = d === 0 ? 'SON' : d + ' ÖNCE';
             const def = this.VISUAL_PROFILES.find(p => p.id === profile);
             this._pushVisualTerm(
-                terms, influences, profile,
+                terms, influences, metricId, profile,
                 groupLabel + ' · ' + dl + ' · ' + (def?.short || profile)
             );
         }
@@ -223,7 +331,7 @@ const IstatistikTahminEngine = {
             for (const tid of trends) {
                 const def = this.TREND_PROFILES.find(p => p.id === tid);
                 this._pushTrendTerm(
-                    terms, influences, tid,
+                    terms, influences, metricId, tid,
                     groupLabel + ' · ' + (def?.short || tid)
                 );
             }
@@ -232,21 +340,22 @@ const IstatistikTahminEngine = {
 
     _allDepthGroups(row, extraSections) {
         const groups = this.CORE_GROUPS.map(g => ({
+            id: g.id,
             label: g.label,
             depths: row[g.depthsKey]
         }));
         for (const sec of extraSections || []) {
-            groups.push({ label: sec.label, depths: row[sec.depthsKey] });
+            groups.push({ id: sec.id, label: sec.label, depths: row[sec.depthsKey] });
         }
         return groups;
     },
 
     computeRowTahmin(row, extraSections, influences) {
-        influences = influences || this.getInfluences();
+        influences = influences || null;
         const terms = [];
 
         for (const g of this._allDepthGroups(row, extraSections)) {
-            this._collectDepthVisualTerms(g.depths, g.label, influences, terms);
+            this._collectDepthVisualTerms(g.depths, g.id, g.label, influences, terms);
         }
 
         if (!terms.length) {
