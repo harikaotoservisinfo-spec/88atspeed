@@ -3,8 +3,9 @@
  * Etki ID: {metricId}:visual:{profileId}  örn. son8001:visual:maviKenar
  */
 const IstatistikTahminEngine = {
-    INFLUENCE_STORAGE_KEY: '88atspeed-istat-visual-influence-v3',
+    INFLUENCE_STORAGE_KEY: '88atspeed-istat-visual-influence-v4',
     LEGACY_KEYS: [
+        '88atspeed-istat-visual-influence-v3',
         '88atspeed-istat-visual-influence-v2',
         '88atspeed-istat-visual-influence-v1',
         '88atspeed-istat-metric-influence-v2',
@@ -12,6 +13,8 @@ const IstatistikTahminEngine = {
         '88atspeed-istat-metric-weights'
     ],
     DEFAULT_INFLUENCE: 0,
+    /** Sarı ton > yeşil ton önceliği — preset sürümü (localStorage migrasyonu) */
+    TONE_KENAR_PRESET_VERSION: 1,
     DEFAULT_SELECTED_METRIC: 'son8001',
     MIN_INFLUENCE: 0,
     MAX_INFLUENCE: 100,
@@ -27,12 +30,12 @@ const IstatistikTahminEngine = {
     VISUAL_PROFILES: [
         { id: 'maviKenar', short: 'Mavi kenar', label: 'Mavi kenar' },
         { id: 'kirmiziKenar', short: 'Kırmızı kenar', label: 'Kırmızı kenar' },
-        { id: 'sari', short: 'Sarı', label: 'Sarı hücre (çizgisiz)' },
-        { id: 'sariMavi', short: 'Sarı+mavi', label: 'Sarı + mavi kenar' },
-        { id: 'sariKirmizi', short: 'Sarı+kırmızı', label: 'Sarı + kırmızı kenar' },
-        { id: 'yesil', short: 'Yeşil', label: 'Yeşil hücre (çizgisiz)' },
-        { id: 'yesilMavi', short: 'Yeşil+mavi', label: 'Yeşil + mavi kenar' },
-        { id: 'yesilKirmizi', short: 'Yeşil+kırmızı', label: 'Yeşil + kırmızı kenar' },
+        { id: 'sari', short: 'Sarı', label: 'Sarı hücre (çizgisiz)', defaultInfluence: 8 },
+        { id: 'sariMavi', short: 'Sarı+mavi', label: 'Sarı + mavi kenar', defaultInfluence: 10 },
+        { id: 'sariKirmizi', short: 'Sarı+kırmızı', label: 'Sarı + kırmızı kenar', defaultInfluence: 9 },
+        { id: 'yesil', short: 'Yeşil', label: 'Yeşil hücre (çizgisiz)', defaultInfluence: 2 },
+        { id: 'yesilMavi', short: 'Yeşil+mavi', label: 'Yeşil + mavi kenar', defaultInfluence: 4 },
+        { id: 'yesilKirmizi', short: 'Yeşil+kırmızı', label: 'Yeşil + kırmızı kenar', defaultInfluence: 3 },
         { id: 'yesilAcik', short: 'Açık yeşil', label: 'Açık yeşil satır' },
         { id: 'gucluUyari', short: 'Güçlü uyarı', label: 'Güçlü uyarı satırı' },
         { id: 'maviFosfor', short: 'Fosfor mavi', label: 'Fosfor mavi satır' }
@@ -76,6 +79,14 @@ const IstatistikTahminEngine = {
 
     /** T9V — ton (dolgu) × çerçeve (kenar) kombinasyonları; her biri ayrı anlam */
     T9V_TON_KENAR_PROFILES: (function () {
+        const toneKenarDefaults = {
+            tk_sari_yok: 8,
+            tk_sari_kirmizi: 9,
+            tk_sari_mavi: 10,
+            tk_yesil_yok: 2,
+            tk_yesil_mavi: 4,
+            tk_yesil_kirmizi: 3
+        };
         const tones = [
             { key: 'yok', label: 'Ton yok (düz/beyaz dolgu)' },
             { key: 'sari', label: 'Sarı ton' },
@@ -96,7 +107,8 @@ const IstatistikTahminEngine = {
                 out.push({
                     id,
                     short: t.label.split(' ')[0] + (t.key === 'yok' ? ' ton' : '') + ' · ' + b.label,
-                    label: t.label + ', ' + b.label
+                    label: t.label + ', ' + b.label,
+                    defaultInfluence: toneKenarDefaults[id] ?? 0
                 });
             }
         }
@@ -287,12 +299,39 @@ const IstatistikTahminEngine = {
         return this.DEFAULT_INFLUENCE;
     },
 
+    _toneKenarPresetKeys() {
+        const out = {};
+        for (const p of this.VISUAL_PROFILES) {
+            if (p.defaultInfluence != null && p.defaultInfluence > 0) {
+                out[this._profileKey(this.VISUAL_GROUP, p.id)] = p.defaultInfluence;
+            }
+        }
+        for (const p of this.T9V_TON_KENAR_PROFILES) {
+            if (p.defaultInfluence != null && p.defaultInfluence > 0) {
+                out[this._profileKey(this.COLOR_GROUP, p.id)] = p.defaultInfluence;
+            }
+        }
+        return out;
+    },
+
+    _applyToneKenarPreset(store) {
+        const preset = this._toneKenarPresetKeys();
+        for (const metricId of this._savedMetricIds(store)) {
+            if (!store.byMetric[metricId]) store.byMetric[metricId] = {};
+            for (const [k, v] of Object.entries(preset)) {
+                store.byMetric[metricId][k] = v;
+            }
+        }
+        this._draftByMetric = null;
+    },
+
     _emptyStore() {
         return {
             selectedMetric: this.DEFAULT_SELECTED_METRIC,
             calcMode: this.CALC_MODE_SOLO,
             savedMetrics: [],
-            byMetric: {}
+            byMetric: {},
+            presetVersion: this.TONE_KENAR_PRESET_VERSION
         };
     },
 
@@ -312,13 +351,20 @@ const IstatistikTahminEngine = {
                 id => Object.keys(store.byMetric[id] || {}).length > 0
             );
         }
+        if ((store.presetVersion || 0) < this.TONE_KENAR_PRESET_VERSION) {
+            this._applyToneKenarPreset(store);
+            store.presetVersion = this.TONE_KENAR_PRESET_VERSION;
+        }
         return store;
     },
 
     _loadStore() {
         if (this._storeCache) return this._storeCache;
         try {
-            const raw = localStorage.getItem(this.INFLUENCE_STORAGE_KEY);
+            let raw = localStorage.getItem(this.INFLUENCE_STORAGE_KEY);
+            if (!raw) {
+                raw = localStorage.getItem('88atspeed-istat-visual-influence-v3');
+            }
             if (raw) {
                 const parsed = JSON.parse(raw);
                 if (parsed && parsed.byMetric) {
@@ -326,8 +372,10 @@ const IstatistikTahminEngine = {
                         selectedMetric: parsed.selectedMetric || this.DEFAULT_SELECTED_METRIC,
                         calcMode: parsed.calcMode,
                         savedMetrics: parsed.savedMetrics,
-                        byMetric: parsed.byMetric || {}
+                        byMetric: parsed.byMetric || {},
+                        presetVersion: parsed.presetVersion
                     });
+                    this._saveStore();
                     return this._storeCache;
                 }
             }
@@ -388,7 +436,9 @@ const IstatistikTahminEngine = {
         const draft = {};
         for (const sec of this.getMetricProfileSections(metricId)) {
             for (const p of sec.profiles) {
-                draft[this._profileKey(sec.kind, p.id)] = 0;
+                draft[this._profileKey(sec.kind, p.id)] = this._defaultForProfile(
+                    sec.kind, p.id, metricId
+                );
             }
         }
         return draft;
@@ -434,7 +484,7 @@ const IstatistikTahminEngine = {
         this.ensureDraft(metricId);
         const key = this._profileKey(kind, profileId);
         const v = this._draftByMetric[metricId][key];
-        return v != null ? v : 0;
+        return v != null ? v : this._defaultForProfile(kind, profileId, metricId);
     },
 
     setDraftInfluence(metricId, kind, profileId, value) {

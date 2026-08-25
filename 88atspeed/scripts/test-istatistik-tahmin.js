@@ -27,15 +27,31 @@ function kosu(tarih, atDr, birinciDr, opts = {}) {
 
 TE.resetWeights();
 
-// Varsayılan: tüm seçiciler 0
-TE.ensureDraft('t9v');
+// Varsayılan ton önceliği: sarı 8–10, yeşil 2–4
 TE.ensureDraft('son8001');
-if (TE.getDraftInfluence('t9v', 'visual', 'pct100') !== 0) {
-    console.error('FAIL: t9v varsayılan 0 değil');
+TE.ensureDraft('t9v');
+if (TE.getDraftInfluence('son8001', 'visual', 'sari') !== 8) {
+    console.error('FAIL: sari varsayılan 8 değil', TE.getDraftInfluence('son8001', 'visual', 'sari'));
+    process.exit(1);
+}
+if (TE.getDraftInfluence('son8001', 'visual', 'sariMavi') !== 10) {
+    console.error('FAIL: sariMavi varsayılan 10 değil');
+    process.exit(1);
+}
+if (TE.getDraftInfluence('son8001', 'visual', 'yesil') !== 2) {
+    console.error('FAIL: yesil varsayılan 2 değil');
     process.exit(1);
 }
 if (TE.getDraftInfluence('son8001', 'visual', 'maviKenar') !== 0) {
-    console.error('FAIL: son8001 varsayılan 0 değil');
+    console.error('FAIL: maviKenar varsayılan 0 değil');
+    process.exit(1);
+}
+if (TE.getDraftInfluence('t9v', 'visual', 'pct100') !== 0) {
+    console.error('FAIL: t9v pct100 varsayılan 0 değil');
+    process.exit(1);
+}
+if (TE.getDraftInfluence('t9v', 'color', 'tk_sari_kirmizi') !== 9) {
+    console.error('FAIL: t9v tk_sari_kirmizi varsayılan 9 değil');
     process.exit(1);
 }
 
@@ -225,14 +241,14 @@ if (IE.classifyCellVisual(tuncerCell) !== 'sariKirmizi') {
     console.error('FAIL: yesilSatir+kirmizi test1EnIyi → sariKirmizi', IE.classifyCellVisual(tuncerCell));
     process.exit(1);
 }
-TE.setDraftInfluence('sm12', 'visual', 'sariKirmizi', 5);
+TE.setDraftInfluence('sm12', 'visual', 'sariKirmizi', 9);
 TE.setSelectedMetric('sm12');
 TE.setCalcMode(TE.CALC_MODE_SOLO);
 TE.saveDraftMetric('sm12');
 const tuncerRow = { sm12Depths: [null, tuncerCell] };
 const tuncerT = TE.computeRowTahmin(tuncerRow, [{ id: 'sm12', label: 'Ş+M-12', depthsKey: 'sm12Depths' }]);
 const tuncerTerm = tuncerT.terms.find(x => x.metricId === 'sm12' && x.label.includes('Sarı+kırmızı'));
-if (!tuncerTerm || tuncerTerm.points !== 5) {
+if (!tuncerTerm || tuncerTerm.points !== 9) {
     console.error('FAIL: sm12 sariKirmizi TUNCER tipi', tuncerTerm, tuncerT.terms);
     process.exit(1);
 }
