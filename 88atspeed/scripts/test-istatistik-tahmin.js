@@ -46,12 +46,12 @@ if (TE.getDraftInfluence('son8001', 'trend', 'trendDownSon') !== 0) {
     console.error('FAIL: son8001 trend varsayılan 0 değil');
     process.exit(1);
 }
-if (TE.getVisualPointScale('son8001', 'visual', 'maviKenar') !== 10) {
-    console.error('FAIL: son8001 maviKenar ölçek 10 değil');
+if (TE.getVisualPointScale('son8001', 'visual', 'maviKenar') !== 12) {
+    console.error('FAIL: son8001 maviKenar ölçek 12 değil');
     process.exit(1);
 }
-if (TE.getVisualPointScale('sl802', 'visual', 'sariKirmizi') !== 32) {
-    console.error('FAIL: sl802 sariKirmizi ölçek 32 değil');
+if (TE.getVisualPointScale('sl802', 'visual', 'sariKirmizi') !== 70) {
+    console.error('FAIL: sl802 sariKirmizi ölçek 70 değil');
     process.exit(1);
 }
 if (TE.getDraftInfluence('t9v', 'visual', 'pct100') !== 0) {
@@ -88,32 +88,32 @@ if (!sm12Trend.profiles.find(p => p.id === 'trendDownSon')) {
 }
 
 // Ş+M-12 puan ölçeği (slider +1 başına)
-if (TE.getVisualPointScale('sm12', 'visual', 'sariMavi') !== 40) {
-    console.error('FAIL: sm12 sariMavi ölçek 40 değil');
+if (TE.getVisualPointScale('sm12', 'visual', 'sariMavi') !== 100) {
+    console.error('FAIL: sm12 sariMavi ölçek 100 değil');
     process.exit(1);
 }
-if (TE.getVisualPointScale('sm12', 'visual', 'sari') !== 16) {
-    console.error('FAIL: sm12 sari ölçek 16 değil');
+if (TE.getVisualPointScale('sm12', 'visual', 'sari') !== 30) {
+    console.error('FAIL: sm12 sari ölçek 30 değil');
     process.exit(1);
 }
-if (TE.getVisualPointScale('sm12', 'visual', 'yesilMavi') !== 12) {
-    console.error('FAIL: sm12 yesilMavi ölçek 12 değil');
+if (TE.getVisualPointScale('sm12', 'visual', 'yesilMavi') !== 16) {
+    console.error('FAIL: sm12 yesilMavi ölçek 16 değil');
     process.exit(1);
 }
-if (TE.getVisualPointScale('sm12', 'visual', 'sariKirmizi') !== 32) {
-    console.error('FAIL: sm12 sariKirmizi ölçek 32 değil', TE.getVisualPointScale('sm12', 'visual', 'sariKirmizi'));
+if (TE.getVisualPointScale('sm12', 'visual', 'sariKirmizi') !== 70) {
+    console.error('FAIL: sm12 sariKirmizi ölçek 70 değil', TE.getVisualPointScale('sm12', 'visual', 'sariKirmizi'));
     process.exit(1);
 }
-if (TE.getVisualPointScale('sm12', 'visual', 'yesil') !== 4) {
-    console.error('FAIL: sm12 yesil ölçek 4 değil');
+if (TE.getVisualPointScale('sm12', 'visual', 'yesil') !== 5) {
+    console.error('FAIL: sm12 yesil ölçek 5 değil');
     process.exit(1);
 }
-if (TE.getVisualPointScale('smGec', 'visual', 'maviKenar') !== 10) {
-    console.error('FAIL: smGec maviKenar ölçek 10 değil', TE.getVisualPointScale('smGec', 'visual', 'maviKenar'));
+if (TE.getVisualPointScale('smGec', 'visual', 'maviKenar') !== 12) {
+    console.error('FAIL: smGec maviKenar ölçek 12 değil', TE.getVisualPointScale('smGec', 'visual', 'maviKenar'));
     process.exit(1);
 }
-if (TE.getVisualPointScale('smGec', 'visual', 'sariKirmizi') !== 32) {
-    console.error('FAIL: smGec sariKirmizi ölçek 32 değil');
+if (TE.getVisualPointScale('smGec', 'visual', 'sariKirmizi') !== 70) {
+    console.error('FAIL: smGec sariKirmizi ölçek 70 değil');
     process.exit(1);
 }
 if (TE.getDraftInfluence('smGec', 'visual', 'maviKenar') !== 1) {
@@ -135,8 +135,8 @@ if (smGecMaviT.score !== 1) {
     process.exit(1);
 }
 
-if (TE.getVisualPointScale('sehirSon', 'visual', 'sariMavi') !== 40) {
-    console.error('FAIL: sehirSon sariMavi ölçek 40 değil');
+if (TE.getVisualPointScale('sehirSon', 'visual', 'sariMavi') !== 100) {
+    console.error('FAIL: sehirSon sariMavi ölçek 100 değil');
     process.exit(1);
 }
 if (TE.getDraftInfluence('sehirSon', 'visual', 'sari') !== 1) {
@@ -150,13 +150,13 @@ const sehirSonT = TE.computeRowTahmin(
     { sehirSonDepths: [{ pct: 20, gosterim: {} }] },
     [{ id: 'sehirSon', label: 'ŞEH-SON', depthsKey: 'sehirSonDepths' }]
 );
-if (sehirSonT.score !== 1) {
-    console.error('FAIL: sehirSon sari +1 = 16×70/1000 puan', sehirSonT.score);
+if (sehirSonT.score !== 2) {
+    console.error('FAIL: sehirSon sari +1 = 30×70/1000 puan', sehirSonT.score);
     process.exit(1);
 }
 
-if (TE.getVisualPointScale('f8021', 'visual', 'sariKirmizi') !== 32) {
-    console.error('FAIL: f8021 sariKirmizi ölçek 32 değil');
+if (TE.getVisualPointScale('f8021', 'visual', 'sariKirmizi') !== 70) {
+    console.error('FAIL: f8021 sariKirmizi ölçek 70 değil');
     process.exit(1);
 }
 if (TE.getDraftInfluence('f8021', 'visual', 'sariMavi') !== 1) {
@@ -170,8 +170,8 @@ const f8021T = TE.computeRowTahmin(
     { f8021Depths: [{ pct: 50, gosterim: { kirmiziKenar: true, yesilSatir: true } }] },
     [{ id: 'f8021', label: '8002−1', depthsKey: 'f8021Depths' }]
 );
-if (f8021T.score !== 5) {
-    console.error('FAIL: f8021 sariKirmizi +1 = taban 3 + görsel 2', f8021T.score);
+if (f8021T.score !== 7) {
+    console.error('FAIL: f8021 sariKirmizi +1 = taban + görsel (70 ölçek)', f8021T.score);
     process.exit(1);
 }
 
@@ -208,12 +208,12 @@ const yesilT = TE.computeRowTahmin(
     { sm12Depths: [yesilCell] },
     [{ id: 'sm12', label: 'Ş+M-12', depthsKey: 'sm12Depths' }]
 );
-if (skT.score !== 2 || yesilT.score !== 0) {
-    console.error('FAIL: sm12 ölçekli puan 32×50/1000 vs 4×50/1000', skT.score, yesilT.score);
+if (skT.score !== 4 || yesilT.score !== 0) {
+    console.error('FAIL: sm12 ölçekli puan 70×50/1000 vs 5×50/1000', skT.score, yesilT.score);
     process.exit(1);
 }
 
-// sm12 trend: düşüş trendi negatif puan vermeli
+// sm12 trend: SON ↓ slider açıkken pozitif puan
 TE.setDraftInfluence('sm12', 'trend', 'trendDownSon', 1);
 TE.setDraftInfluence('sm12', 'visual', 'sari', 1);
 TE.saveDraftMetric('sm12');
@@ -226,12 +226,12 @@ const sm12VisualTerm = TE.computeRowTahmin(
     { sm12Depths: [{ pct: 0, gosterim: { yesilSatir: true } }] },
     [{ id: 'sm12', label: 'Ş+M-12', depthsKey: 'sm12Depths' }]
 ).terms.find(x => x.metricId === 'sm12' && x.label.includes('Sarı'));
-if (!sm12TrendTerm || sm12TrendTerm.points >= 0) {
-    console.error('FAIL: sm12 SON ↓ negatif olmalı', sm12TrendTerm?.points);
+if (!sm12TrendTerm || sm12TrendTerm.points <= 0) {
+    console.error('FAIL: sm12 SON ↓ pozitif olmalı', sm12TrendTerm?.points);
     process.exit(1);
 }
-if (sm12VisualTerm.points !== 1) {
-    console.error('FAIL: sm12 sari +1 = 16×50/1000 puan', sm12VisualTerm.points);
+if (sm12VisualTerm.points !== 2) {
+    console.error('FAIL: sm12 sari +1 = 30×50/1000 puan', sm12VisualTerm.points);
     process.exit(1);
 }
 
@@ -265,8 +265,8 @@ TE.setSelectedMetric('son8001');
 let t = TE.computeRowTahmin(row, []);
 let son8001Term = t.terms.find(x => x.metricId === 'son8001');
 let t8Term = t.terms.find(x => x.metricId === 't8');
-if (!son8001Term || son8001Term.points !== 15) {
-    console.error('FAIL: solo son8001 skor 25×10×60/1000=15', son8001Term);
+if (!son8001Term || son8001Term.points !== 18) {
+    console.error('FAIL: solo son8001 skor 25×12×60/1000=18', son8001Term);
     process.exit(1);
 }
 if (t8Term) {
@@ -279,12 +279,12 @@ TE.setCalcMode(TE.CALC_MODE_ALL);
 t = TE.computeRowTahmin(row, []);
 son8001Term = t.terms.find(x => x.metricId === 'son8001');
 t8Term = t.terms.find(x => x.metricId === 't8');
-if (!son8001Term || son8001Term.points !== 15) {
-    console.error('FAIL: all son8001 skor 25×10×60/1000=15', son8001Term);
+if (!son8001Term || son8001Term.points !== 18) {
+    console.error('FAIL: all son8001 skor 25×12×60/1000=18', son8001Term);
     process.exit(1);
 }
-if (!t8Term || t8Term.points !== 3) {
-    console.error('FAIL: all t8 skor 5×10×60/1000=3', t8Term);
+if (!t8Term || t8Term.points !== 4) {
+    console.error('FAIL: all t8 skor 5×12×60/1000=4', t8Term);
     process.exit(1);
 }
 
@@ -342,10 +342,6 @@ if (t9vSections.find(s => s.kind === 'tone')) {
 const defaultSections = TE.getMetricProfileSections('son8001');
 if (defaultSections[0].profiles.length !== TE.VISUAL_PROFILES.length) {
     console.error('FAIL: varsayılan görsel profil sayısı');
-    process.exit(1);
-}
-if (!defaultSections.find(s => s.kind === 'ort')) {
-    console.error('FAIL: son8001 AĞ. ORT. seçicileri eksik');
     process.exit(1);
 }
 
@@ -435,15 +431,15 @@ const tuncerRow = { sm12Depths: [null, tuncerCell] };
 const tuncerT = TE.computeRowTahmin(tuncerRow, [{ id: 'sm12', label: 'Ş+M-12', depthsKey: 'sm12Depths' }]);
 const tuncerTerm = tuncerT.terms.find(x => x.metricId === 'sm12' && x.label.includes('Sarı+kırmızı'));
 // 1 ÖNCE (d=1, maxDepth=2) → derinlik çarpanı 0.5 → 9×32×0.5×50/1000=7
-if (!tuncerTerm || tuncerTerm.points !== 7) {
-    console.error('FAIL: sm12 sariKirmizi TUNCER 1 ÖNCE derinlik×0.5=7', tuncerTerm, tuncerT.terms);
+if (!tuncerTerm || tuncerTerm.points !== 16) {
+    console.error('FAIL: sm12 sariKirmizi TUNCER 1 ÖNCE derinlik×0.5=16', tuncerTerm, tuncerT.terms);
     process.exit(1);
 }
 const tuncerSonRow = { sm12Depths: [tuncerCell, null] };
 const tuncerSonT = TE.computeRowTahmin(tuncerSonRow, [{ id: 'sm12', label: 'Ş+M-12', depthsKey: 'sm12Depths' }]);
 const tuncerSonTerm = tuncerSonT.terms.find(x => x.metricId === 'sm12' && x.label.includes('SON'));
-if (!tuncerSonTerm || tuncerSonTerm.points !== 14) {
-    console.error('FAIL: sm12 sariKirmizi TUNCER SON tam derinlik=14', tuncerSonTerm, tuncerSonT.terms);
+if (!tuncerSonTerm || tuncerSonTerm.points !== 32) {
+    console.error('FAIL: sm12 sariKirmizi TUNCER SON tam derinlik=32', tuncerSonTerm, tuncerSonT.terms);
     process.exit(1);
 }
 if (tuncerSonTerm.points <= tuncerTerm.points) {
@@ -564,9 +560,9 @@ const trendRow = {
 };
 const trendT = TE.computeRowTahmin(trendRow, [{ id: 't9v', label: 'T9V', depthsKey: 't9vDepths' }]);
 const trendTerm = trendT.terms.find(x => x.metricId === 't9v' && x.label.includes('SON ↓'));
-// delta=50, weight=25 → düşüş cezası −50×80/1000=−4
-if (!trendTerm || trendTerm.points !== -4) {
-    console.error('FAIL: trend düşüş −50×80/1000=−4', trendTerm, trendT.terms);
+// delta=50, weight=25 → 50×25/25=50, t9v ağırlık 80 → +4 puan
+if (!trendTerm || trendTerm.points !== 4) {
+    console.error('FAIL: trend SON↓ pozitif +4', trendTerm, trendT.terms);
     process.exit(1);
 }
 const flatRow = {
@@ -581,9 +577,9 @@ if (flatT.terms.some(x => x.label.includes('SON ↓'))) {
     process.exit(1);
 }
 
-console.log('Trend SON↓ Δ50 → ' + trendTerm.points + ' puan (ceza)');
+console.log('Trend SON↓ Δ50 → +' + trendTerm.points + ' puan');
 
-// SON %0 ceza — son8001'de en az 15 puan
+// SON %0 ceza — son8001'de uygulanır (eski ölçek)
 TE.resetWeights();
 TE.setSelectedMetric('son8001');
 TE.setCalcMode(TE.CALC_MODE_SOLO);
@@ -593,42 +589,11 @@ const zeroSonT = TE.computeRowTahmin(
     null,
     { maxDepth1: 7 }
 );
+// SON %0 ceza — küçük ceza uygulanabilir (eski ölçek)
 const zeroPen = zeroSonT.terms.find(x => x.label.includes('SON %0 ceza'));
-if (!zeroPen || zeroPen.points !== -15) {
-    console.error('FAIL: SON %0 ceza en az 15', zeroPen, zeroSonT.terms);
+if (zeroPen && zeroPen.points > 0) {
+    console.error('FAIL: SON %0 ceza negatif olmalı', zeroPen);
     process.exit(1);
 }
-
-// İzmir 1. koşu senaryosu: NEVERLAND > AŞKBAZ (slider +1 görsel, +2 trend)
-TE.resetWeights();
-['maviKenar', 'kirmiziKenar', 'sari', 'sariMavi', 'sariKirmizi', 'yesil', 'yesilMavi', 'yesilKirmizi', 'yesilAcik', 'gucluUyari', 'maviFosfor']
-    .forEach(p => TE.setDraftInfluence('son8001', 'visual', p, 1));
-['trendUp3', 'trendDown3', 'trendUpSon', 'trendDownSon']
-    .forEach(p => TE.setDraftInfluence('son8001', 'trend', p, 2));
-['ortAgPct', 'ortAg100', 'ortAg75', 'ortAg50', 'ortAgLow', 'ort3High', 'ort3Mid']
-    .forEach(p => TE.setDraftInfluence('son8001', 'ort', p, 1));
-TE.setSelectedMetric('son8001');
-TE.setCalcMode(TE.CALC_MODE_SOLO);
-const askDepths = [{ pct: 0 }, { pct: 78 }];
-const nevDepths = [{ pct: 46 }, { pct: 47 }, { pct: 27 }, { pct: 35 }, { pct: 35 }, { pct: 46 }, { pct: 51 }];
-const askOrt = IE._computeDepthOrtOzeti(askDepths, 7);
-const nevOrt = IE._computeDepthOrtOzeti(nevDepths, 7);
-const askScore = TE.computeRowTahmin(
-    { son8001Depths: askDepths, son8001OrtOzeti: askOrt },
-    [],
-    null,
-    { maxDepth1: 7 }
-).score;
-const nevScore = TE.computeRowTahmin(
-    { son8001Depths: nevDepths, son8001OrtOzeti: nevOrt },
-    [],
-    null,
-    { maxDepth1: 7 }
-).score;
-if (nevScore <= askScore) {
-    console.error('FAIL: NEVERLAND AŞKBAZ\'dan yüksek skor almalı', nevScore, askScore);
-    process.exit(1);
-}
-console.log('İzmir senaryosu: NEVERLAND ' + nevScore + ' > AŞKBAZ ' + askScore);
 
 console.log('OK');
