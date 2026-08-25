@@ -14,13 +14,13 @@ const IstatistikTahminEngine = {
     ],
     DEFAULT_INFLUENCE: 0,
     /** Sarı ton > yeşil ton önceliği — preset sürümü (localStorage migrasyonu) */
-    TONE_KENAR_PRESET_VERSION: 6,
+    TONE_KENAR_PRESET_VERSION: 7,
 
     /** Metrik bazlı varsayılan slider etkileri (0–100) — puan ölçekli metrikler hariç */
     METRIC_INFLUENCE_PRESETS: {},
 
     /** SM_VISUAL_POINT_SCALE tablosunu kullanan metrikler */
-    SM_POINT_SCALE_METRICS: ['sm12', 'smGec', 'sehirSon'],
+    SM_POINT_SCALE_METRICS: ['sm12', 'smGec', 'sehirSon', 'f8021'],
 
     /** Ş+M görsel profil puan ölçeği — slider +1 başına hücre puanı */
     SM_VISUAL_POINT_SCALE: {
@@ -39,7 +39,7 @@ const IstatistikTahminEngine = {
 
     /**
      * Metrik → görsel profil puan ölçeği (slider × ölçek = puan).
-     * sm12, smGec, sehirSon aynı kullanıcı tablosunu kullanır.
+     * sm12, smGec, sehirSon, f8021 aynı kullanıcı tablosunu kullanır.
      */
     METRIC_VISUAL_POINT_SCALE: null,
 
@@ -47,14 +47,16 @@ const IstatistikTahminEngine = {
     METRIC_TREND_REF_POINT_SCALE: {
         sm12: 30,
         smGec: 30,
-        sehirSon: 30
+        sehirSon: 30,
+        f8021: 30
     },
 
     /** Trend puanı çarpanı — aynı slider +1'de görselden %20 daha etkili */
     METRIC_TREND_POINT_MULTIPLIER: {
         sm12: 1.2,
         smGec: 1.2,
-        sehirSon: 1.2
+        sehirSon: 1.2,
+        f8021: 1.2
     },
     DEFAULT_SELECTED_METRIC: 'son8001',
     MIN_INFLUENCE: 0,
@@ -190,6 +192,13 @@ const IstatistikTahminEngine = {
         },
         sehirSon: {
             title: 'ŞEH-SON — Koşu program şehrinde',
+            sections: [
+                { kind: 'visual', title: 'Görsel profiller', profiles: 'VISUAL_PROFILES' },
+                { kind: 'trend', title: 'Trend (son 3 derinlik)', profiles: 'TREND_PROFILES' }
+            ]
+        },
+        f8021: {
+            title: '8002−1 — Tek koşu |8002-8001| 0\'a yakın',
             sections: [
                 { kind: 'visual', title: 'Görsel profiller', profiles: 'VISUAL_PROFILES' },
                 { kind: 'trend', title: 'Trend (son 3 derinlik)', profiles: 'TREND_PROFILES' }
@@ -435,6 +444,11 @@ const IstatistikTahminEngine = {
         this._resetMetricInfluences(store, 'sehirSon');
     },
 
+    /** v7: f8021 (8002−1) aynı modele geçti */
+    _migrateF8021PointScaleModel(store) {
+        this._resetMetricInfluences(store, 'f8021');
+    },
+
     _isPointScaleMetric(metricId) {
         return !!this._metricVisualPointScales()[metricId];
     },
@@ -498,6 +512,9 @@ const IstatistikTahminEngine = {
             }
             if (prevVersion < 6) {
                 this._migrateSehirSonPointScaleModel(store);
+            }
+            if (prevVersion < 7) {
+                this._migrateF8021PointScaleModel(store);
             }
             if (prevVersion < 3) {
                 this._applyToneKenarPreset(store);

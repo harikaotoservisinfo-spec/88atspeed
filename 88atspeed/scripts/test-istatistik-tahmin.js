@@ -126,15 +126,35 @@ if (TE.getDraftInfluence('sehirSon', 'visual', 'sari') !== 0) {
     console.error('FAIL: sehirSon slider varsayılan 0 olmalı', TE.getDraftInfluence('sehirSon', 'visual', 'sari'));
     process.exit(1);
 }
-TE.setDraftInfluence('sehirSon', 'visual', 'sariMavi', 1);
+TE.setDraftInfluence('sehirSon', 'visual', 'sari', 1);
 TE.saveDraftMetric('sehirSon');
 TE.setSelectedMetric('sehirSon');
 const sehirSonT = TE.computeRowTahmin(
-    { sehirSonDepths: [{ pct: 50, gosterim: {} }] },
+    { sehirSonDepths: [{ pct: 20, gosterim: {} }] },
     [{ id: 'sehirSon', label: 'ŞEH-SON', depthsKey: 'sehirSonDepths' }]
 );
 if (sehirSonT.score !== 30) {
     console.error('FAIL: sehirSon sari +1 = 30 puan', sehirSonT.score);
+    process.exit(1);
+}
+
+if (TE.getVisualPointScale('f8021', 'visual', 'sariKirmizi') !== 70) {
+    console.error('FAIL: f8021 sariKirmizi ölçek 70 değil');
+    process.exit(1);
+}
+if (TE.getDraftInfluence('f8021', 'visual', 'sariMavi') !== 0) {
+    console.error('FAIL: f8021 slider varsayılan 0 olmalı');
+    process.exit(1);
+}
+TE.setDraftInfluence('f8021', 'visual', 'sariKirmizi', 1);
+TE.saveDraftMetric('f8021');
+TE.setSelectedMetric('f8021');
+const f8021T = TE.computeRowTahmin(
+    { f8021Depths: [{ pct: 0, gosterim: { kirmiziKenar: true, yesilSatir: true } }] },
+    [{ id: 'f8021', label: '8002−1', depthsKey: 'f8021Depths' }]
+);
+if (f8021T.score !== 70) {
+    console.error('FAIL: f8021 sariKirmizi +1 = 70 puan', f8021T.score);
     process.exit(1);
 }
 
