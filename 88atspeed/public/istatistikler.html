@@ -790,6 +790,32 @@
             text-align: center;
             line-height: 1.2;
         }
+        .istat-gos-hepsi-note p {
+            margin: 4px 0 8px;
+            line-height: 1.45;
+        }
+        .istat-gos-hepsi-quick {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .istat-gos-quick-metric {
+            border: 1px solid #b39ddb;
+            background: #fff;
+            color: #4a148c;
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 11px;
+            cursor: pointer;
+            line-height: 1.3;
+        }
+        .istat-gos-quick-metric:hover {
+            background: #f3e5f5;
+            border-color: #7e57c2;
+        }
+        .istat-gos-metric-select option[value="__hepsi__"] {
+            font-weight: 700;
+        }
     </style>
 </head>
 <body>
@@ -858,15 +884,16 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260825ba"></script>
-<script src="js/formula-engine.js?v=20260825ba"></script>
-<script src="js/istatistik-engine.js?v=20260825ba"></script>
-<script src="js/istatistik-grids-extra.js?v=20260825ba"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260825ba"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260825ba"></script>
+<script src="js/utils.js?v=20260825bb"></script>
+<script src="js/formula-engine.js?v=20260825bb"></script>
+<script src="js/istatistik-engine.js?v=20260825bb"></script>
+<script src="js/istatistik-grids-extra.js?v=20260825bb"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260825bb"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260825bb"></script>
 <script>
-const ISTAT_BUILD = '20260825ba';
-let selectedTahminMetric = null;
+const ISTAT_BUILD = '20260825bb';
+const TAHMIN_METRIC_ALL = '__hepsi__';
+let selectedTahminMetric = TAHMIN_METRIC_ALL;
 let istatRaceCache = [];
 let currentKayitId = null;
 let currentKayitMeta = null;
@@ -996,6 +1023,67 @@ function patchTahminCellEl(cell, tahmin, horseCount) {
 }
 
 let _tahminRefreshRaf = 0;
+let _activeMetricPatchRaf = 0;
+
+function isTahminMetricAll(metricId) {
+    return metricId === TAHMIN_METRIC_ALL;
+}
+
+function markActiveMetricHtml(html, kind) {
+    if (!html) return '';
+    const attr = kind === 'head' ? 'data-active-metric-head="1"' : 'data-active-metric-cell="1"';
+    return html.replace(/<(td|th)\b/g, '<$1 ' + attr);
+}
+
+function scheduleActiveMetricPatch() {
+    if (_activeMetricPatchRaf) return;
+    _activeMetricPatchRaf = requestAnimationFrame(() => {
+        _activeMetricPatchRaf = 0;
+        patchActiveMetricColumns();
+    });
+}
+
+function removeActiveMetricNodes(root) {
+    if (!root) return;
+    root.querySelectorAll('[data-active-metric-head],[data-active-metric-cell]').forEach(n => n.remove());
+}
+
+function patchActiveMetricColumns() {
+    if (!istatRaceCache.length) return;
+    istatRaceCache.forEach((entry, raceIndex) => {
+        const card = document.querySelector('.istatistik-race-card[data-race-index="' + raceIndex + '"]');
+        if (!card) return;
+        const table = card.querySelector('.istatistik-table');
+        if (!table) return;
+        const pkg = entry.pkg;
+        const metricId = getActiveTahminMetricId();
+        const metricDesc = isTahminMetricAll(metricId) ? null : resolveTahminMetricSection(metricId, pkg);
+        const headParts = buildTahminActiveMetricHeadParts(metricDesc);
+        removeActiveMetricNodes(table);
+        const row1 = table.querySelector('thead tr:first-child');
+        const row2 = table.querySelector('thead tr:nth-child(2)');
+        const tahminTh = row1?.querySelector('.istat-sticky-tahmin');
+        if (tahminTh && headParts.row1) {
+            tahminTh.insertAdjacentHTML('afterend', markActiveMetricHtml(headParts.row1, 'head'));
+        }
+        if (row2 && headParts.row2) {
+            row2.insertAdjacentHTML('afterbegin', markActiveMetricHtml(headParts.row2, 'head'));
+        }
+        const bodyRows = table.querySelectorAll('tbody tr');
+        for (let ri = 0; ri < bodyRows.length; ri++) {
+            const row = pkg.rows[ri];
+            const tr = bodyRows[ri];
+            if (!row || !tr) continue;
+            const tahminTd = tr.querySelector('.istat-sticky-tahmin');
+            if (!tahminTd) continue;
+            tahminTd.insertAdjacentHTML('afterend', markActiveMetricHtml(
+                renderTahminActiveMetricCells(row, metricDesc, pkg),
+                'cell'
+            ));
+        }
+    });
+    notifyParentResize();
+}
 function scheduleRefreshAllTahmin() {
     if (_tahminRefreshRaf) return;
     _tahminRefreshRaf = requestAnimationFrame(() => {
@@ -1008,27 +1096,33 @@ function refreshAllTahmin() {
     const TE = IstatistikTahminEngine;
     const extraSections = istatRaceCache[0]?.pkg?.extraSections || [];
     const weights = TE.getCalculationWeights(extraSections);
-    const metricId = selectedTahminMetric || TE.getSelectedMetric();
+    const metricId = getActiveTahminMetricId();
     const hint = document.getElementById('tahminMetricHint');
     if (hint) {
-        const saved = TE.isMetricSaved(metricId);
-        const dirty = TE.hasUnsavedDraft(metricId);
-        if (dirty) {
-            hint.textContent = '● Kaydedilmemiş değişiklikler var — Kaydet ile kalıcı yapın';
-        } else if (saved) {
-            hint.textContent = '★ Bu grubun kayıtlı etkileri var';
+        if (isTahminMetricAll(metricId)) {
+            hint.textContent = '📋 Tüm metrik grupları tabloda — tek grup düzenlemek için listeden seçin';
         } else {
-            hint.textContent = 'Tüm seçiciler 0 — tek tek artırın, Kaydet ile kalıcı yapın';
+            const saved = TE.isMetricSaved(metricId);
+            const dirty = TE.hasUnsavedDraft(metricId);
+            if (dirty) {
+                hint.textContent = '● Kaydedilmemiş değişiklikler var — Kaydet ile kalıcı yapın';
+            } else if (saved) {
+                hint.textContent = '★ Bu grubun kayıtlı etkileri var';
+            } else {
+                hint.textContent = 'Tüm seçiciler 0 — tek tek artırın, Kaydet ile kalıcı yapın';
+            }
         }
     }
     const saveBtn = document.getElementById('tahminMetricSaveBtn');
     if (saveBtn) {
-        saveBtn.classList.toggle('dirty', TE.hasUnsavedDraft(metricId));
+        saveBtn.classList.toggle('dirty', !isTahminMetricAll(metricId) && TE.hasUnsavedDraft(metricId));
+        saveBtn.disabled = isTahminMetricAll(metricId);
     }
     const sel = document.getElementById('tahminMetricSelect');
     if (sel) {
         for (const opt of sel.options) {
             const id = opt.value;
+            if (isTahminMetricAll(id)) continue;
             const label = opt.textContent.replace(/ [★●]$/, '');
             const suffix = TE.hasUnsavedDraft(id) ? ' ●' : (TE.isMetricSaved(id) ? ' ★' : '');
             opt.textContent = label + suffix;
@@ -1077,11 +1171,13 @@ function bindTahminWeightControls() {
         metricSel.addEventListener('change', (e) => {
             const id = e.target.value;
             selectedTahminMetric = id;
-            IstatistikTahminEngine.setSelectedMetric(id);
-            IstatistikTahminEngine.clearDraft(id);
-            IstatistikTahminEngine.ensureDraft(id);
+            if (!isTahminMetricAll(id)) {
+                IstatistikTahminEngine.setSelectedMetric(id);
+                IstatistikTahminEngine.clearDraft(id);
+                IstatistikTahminEngine.ensureDraft(id);
+            }
             renderVisualScoreControls();
-            if (istatRaceCache.length) rerenderIstatistikFromCache();
+            if (istatRaceCache.length) scheduleActiveMetricPatch();
         });
     }
     const metricSave = document.getElementById('tahminMetricSaveBtn');
@@ -1219,8 +1315,9 @@ const TAHMIN_STICKY_BASE_LEFT = 246;
 const TAHMIN_STICKY_COL_WIDTH = 54;
 
 function getActiveTahminMetricId() {
+    if (selectedTahminMetric) return selectedTahminMetric;
     const TE = IstatistikTahminEngine;
-    return selectedTahminMetric || TE.getSelectedMetric();
+    return TE.getSelectedMetric() || TAHMIN_METRIC_ALL;
 }
 
 function resolveTahminMetricSection(metricId, pkg) {
@@ -1282,7 +1379,7 @@ function buildTahminActiveMetricHeadParts(metricDesc) {
     if (!metricDesc) {
         return {
             row1: applyTahminStickyCols(
-                '<th rowspan="2" class="istat-th-base"><div class="istat-col-label">—<small>Metrik grubu</small></div></th>'
+                '<th rowspan="2" class="istat-th-base"><div class="istat-col-label">📋<small>Hepsi — tabloda kaydır</small></div></th>'
             ),
             row2: ''
         };
@@ -1383,9 +1480,11 @@ function updateTahminModeUi() {
     if (allBtn) allBtn.classList.toggle('active', mode === TE.CALC_MODE_ALL);
     const extraSections = istatRaceCache[0]?.pkg?.extraSections || [];
     const active = TE.getActiveMetricIds(extraSections);
-    const selected = selectedTahminMetric || TE.getSelectedMetric();
+    const selected = getActiveTahminMetricId();
     if (calcHint) {
-        if (mode === TE.CALC_MODE_SOLO) {
+        if (isTahminMetricAll(selected)) {
+            calcHint.textContent = 'Hesap: kayıtlı / seçili metrik moduna göre (Hepsi görünümü — tablo donmadan kaydırın)';
+        } else if (mode === TE.CALC_MODE_SOLO) {
             calcHint.textContent = 'Hesap: yalnızca «' + selected + '» (diğer alanlar 0)';
         } else {
             calcHint.textContent = active.length
@@ -1401,13 +1500,19 @@ function populateTahminMetricSelect() {
     const TE = IstatistikTahminEngine;
     const catalog = getTahminMetricCatalog();
     const saved = TE.getSelectedMetric();
-    const current = catalog.some(m => m.id === saved) ? saved : (catalog[0]?.id || TE.DEFAULT_SELECTED_METRIC);
-    selectedTahminMetric = current;
-    TE.ensureDraft(current);
-    if (!catalog.some(m => m.id === current)) {
-        TE.setSelectedMetric(current);
+    if (!selectedTahminMetric) {
+        selectedTahminMetric = catalog.some(m => m.id === saved) ? saved : TAHMIN_METRIC_ALL;
     }
-    let h = '';
+    const current = selectedTahminMetric;
+    if (!isTahminMetricAll(current)) {
+        TE.ensureDraft(current);
+        if (!catalog.some(m => m.id === current)) {
+            selectedTahminMetric = TAHMIN_METRIC_ALL;
+        } else {
+            TE.setSelectedMetric(current);
+        }
+    }
+    let h = '<option value="' + TAHMIN_METRIC_ALL + '"' + (current === TAHMIN_METRIC_ALL ? ' selected' : '') + '>📋 Hepsi (tabloda kaydır)</option>';
     for (const m of catalog) {
         const suffix = TE.hasUnsavedDraft(m.id) ? ' ●' : (TE.isMetricSaved(m.id) ? ' ★' : '');
         h += '<option value="' + m.id + '"' + (m.id === current ? ' selected' : '') + '>'
@@ -1422,7 +1527,40 @@ function renderVisualScoreControls() {
     const grid = document.getElementById('gosterimWeightGrid');
     if (!grid) return;
     const TE = IstatistikTahminEngine;
-    const metricId = selectedTahminMetric || TE.getSelectedMetric();
+    const metricId = getActiveTahminMetricId();
+    if (isTahminMetricAll(metricId)) {
+        const catalog = getTahminMetricCatalog();
+        let h = '<div class="istat-gos-section istat-gos-hepsi-note"><strong>📋 Hepsi görünümü</strong>'
+            + '<p>Tüm metrik grupları tabloda zaten görünür. Etki ayarlarını düzenlemek için yukarıdan bir grup seçin.</p>'
+            + '<div class="istat-gos-hepsi-quick">';
+        for (const m of catalog) {
+            const suffix = TE.hasUnsavedDraft(m.id) ? ' ●' : (TE.isMetricSaved(m.id) ? ' ★' : '');
+            h += '<button type="button" class="istat-gos-quick-metric" data-quick-metric="' + m.id + '">'
+                + AtSpeedUtils.escapeHtml(m.label) + suffix + '</button>';
+        }
+        h += '</div></div>';
+        grid.innerHTML = h;
+        grid.querySelectorAll('[data-quick-metric]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.getAttribute('data-quick-metric');
+                selectedTahminMetric = id;
+                const sel = document.getElementById('tahminMetricSelect');
+                if (sel) sel.value = id;
+                TE.setSelectedMetric(id);
+                TE.ensureDraft(id);
+                renderVisualScoreControls();
+                if (istatRaceCache.length) scheduleActiveMetricPatch();
+            });
+        });
+        const hint = document.getElementById('tahminMetricHint');
+        if (hint) hint.textContent = '📋 Tüm metrik grupları tabloda — tek grup düzenlemek için seçin';
+        const saveBtn = document.getElementById('tahminMetricSaveBtn');
+        if (saveBtn) {
+            saveBtn.classList.remove('dirty');
+            saveBtn.disabled = true;
+        }
+        return;
+    }
     TE.ensureDraft(metricId);
     const cat = TE.getMetricSelectorCatalog(metricId);
     let h = '<div class="istat-gos-section"><strong>'
@@ -1459,7 +1597,10 @@ function renderVisualScoreControls() {
         }
     }
     const saveBtn = document.getElementById('tahminMetricSaveBtn');
-    if (saveBtn) saveBtn.classList.toggle('dirty', TE.hasUnsavedDraft(metricId));
+    if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.classList.toggle('dirty', TE.hasUnsavedDraft(metricId));
+    }
 }
 
 function formatSon800DepthCell(cell, label, depthLabel) {

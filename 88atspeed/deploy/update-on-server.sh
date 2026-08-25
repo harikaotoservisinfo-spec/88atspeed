@@ -3,7 +3,7 @@
 set -euo pipefail
 
 APP_DIR="/var/www/88atspeed"
-BRANCH="${1:-cursor/istatistik-full-grids-c2e4}"
+BRANCH="${1:-cursor/deploy-tahmin-scoring-b004}"
 REPO="https://github.com/harikaotoservisinfo-spec/88atspeed.git"
 TMP="/tmp/88atspeed-deploy-$$"
 
@@ -42,6 +42,6 @@ echo "📦 Branch: $BRANCH | Commit: $COMMIT_SHA"
 echo "🔍 Doğrulama:"
 curl -s http://127.0.0.1:3023/VERSION.txt
 echo ""
-curl -s "http://127.0.0.1:3023/istatistikler.html" | grep -oE '20260824j|tumKosularSon800Ortalama|Genel İlk 2' | head -5 || true
+curl -s "http://127.0.0.1:3023/istatistikler.html" | grep -oE '20260825bb|Hepsi \(tabloda kaydır\)|SON %0 ceza' | head -5 || true
 echo ""
 pm2 status 88atspeed
