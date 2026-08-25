@@ -134,8 +134,13 @@ if (!t9vSections.find(s => s.kind === 'ort') || !t9vSections.find(s => s.title.i
     console.error('FAIL: T9V katalog', t9vSections.map(s => s.title));
     process.exit(1);
 }
-if (!t9vSections.find(s => s.kind === 'color') || !t9vSections.find(s => s.kind === 'tone')) {
-    console.error('FAIL: T9V renk/ton katalog', t9vSections.map(s => s.kind));
+const tkSection = t9vSections.find(s => s.kind === 'color' && s.title.includes('Ton'));
+if (!tkSection || tkSection.profiles.length !== 13) {
+    console.error('FAIL: T9V ton×çerçeve katalog', tkSection?.profiles?.length);
+    process.exit(1);
+}
+if (t9vSections.find(s => s.kind === 'tone')) {
+    console.error('FAIL: T9V ayrı ton seçicisi kalmamalı');
     process.exit(1);
 }
 const defaultSections = TE.getMetricProfileSections('son8001');
@@ -175,8 +180,7 @@ if (!kmUymT.terms.some(x => x.metricId === 't9v' && x.label.includes('KM uyumsuz
     process.exit(1);
 }
 
-TE.setDraftInfluence('t9v', 'color', 'yesilMavi', 15);
-TE.setDraftInfluence('t9v', 'tone', 'tone100', 8);
+TE.setDraftInfluence('t9v', 'color', 'tk_yesil_mavi', 15);
 TE.saveDraftMetric('t9v');
 const colorRow = {
     t9vDepths: [{
@@ -189,14 +193,26 @@ const colorRow = {
     t9vOrtOzeti: {}
 };
 const colorT = TE.computeRowTahmin(colorRow, [{ id: 't9v', label: 'T9V', depthsKey: 't9vDepths' }]);
-const colorTerm = colorT.terms.find(x => x.metricId === 't9v' && x.label.includes('Yeşil+mavi'));
-const toneTerm = colorT.terms.find(x => x.metricId === 't9v' && x.label.includes('% ton 100'));
-if (!colorTerm || colorTerm.points !== 15) {
-    console.error('FAIL: T9V renk profili', colorTerm, colorT.terms);
+const comboTerm = colorT.terms.find(x => x.metricId === 't9v' && x.label.includes('mavi çizgi'));
+if (!comboTerm || comboTerm.points !== 15) {
+    console.error('FAIL: T9V ton×çerçeve', comboTerm, colorT.terms);
     process.exit(1);
 }
-if (!toneTerm || toneTerm.points !== 8) {
-    console.error('FAIL: T9V % ton', toneTerm, colorT.terms);
+if (TE.classifyT9vTonKenar(colorRow.t9vDepths[0]) !== 'tk_yesil_mavi') {
+    console.error('FAIL: classifyT9vTonKenar yesil+mavi');
+    process.exit(1);
+}
+const pctOnly = TE.classifyT9vTonKenar({ pct: 10 });
+if (pctOnly !== 'tk_sari_yok') {
+    console.error('FAIL: classifyT9vTonKenar pct sari', pctOnly);
+    process.exit(1);
+}
+const borderOnly = TE.classifyT9vTonKenar({
+    pct: 50,
+    gosterim: { maviKenar: true }
+});
+if (borderOnly !== 'tk_yok_mavi') {
+    console.error('FAIL: classifyT9vTonKenar ton yok + mavi', borderOnly);
     process.exit(1);
 }
 

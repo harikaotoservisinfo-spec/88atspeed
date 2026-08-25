@@ -74,46 +74,43 @@ const IstatistikTahminEngine = {
         { id: 'ort3Mid', short: 'AĞ.ORT.3 orta', label: 'AĞ. ORT.3 %50–74' }
     ],
 
-    /** T9V hücre — GÖSTERİM birleşik kenar+renk profili (tablodaki görsel) */
-    T9V_COLOR_PROFILES: [
-        { id: 'maviKenar', short: 'Mavi kenar', label: 'Koyu mavi kenar (TEST·SIRA veya SON800-1)' },
-        { id: 'kirmiziKenar', short: 'Kırmızı kenar', label: 'Fosfor kırmızı kenar satırı' },
-        { id: 'sari', short: 'Sarı', label: 'Sarı hücre (TEST1≈2 veya açık yeşil)' },
-        { id: 'sariMavi', short: 'Sarı+mavi', label: 'Sarı dolgu + mavi kenar' },
-        { id: 'sariKirmizi', short: 'Sarı+kırmızı', label: 'Sarı dolgu + kırmızı kenar' },
-        { id: 'yesil', short: 'Yeşil', label: 'Koyu yeşil (TEST en iyi / şehir / mesafe)' },
-        { id: 'yesilMavi', short: 'Yeşil+mavi', label: 'Koyu yeşil + mavi kenar' },
-        { id: 'yesilKirmizi', short: 'Yeşil+kırmızı', label: 'Koyu yeşil + kırmızı kenar' },
-        { id: 'yesilAcik', short: 'Açık yeşil', label: 'Fosfor yeşil satır (koyu yeşil değil)' },
-        { id: 'gucluUyari', short: 'Güçlü uyarı', label: 'Güçlü uyarı satırı' },
-        { id: 'maviFosfor', short: 'Fosfor mavi', label: 'Fosfor mavi satır' }
-    ],
+    /** T9V — ton (dolgu) × çerçeve (kenar) kombinasyonları; her biri ayrı anlam */
+    T9V_TON_KENAR_PROFILES: (function () {
+        const tones = [
+            { key: 'yok', label: 'Ton yok (düz/beyaz dolgu)' },
+            { key: 'sari', label: 'Sarı ton' },
+            { key: 'yesil', label: 'Yeşil ton' },
+            { key: 'kirmizi', label: 'Kırmızı ton' }
+        ];
+        const borders = [
+            { key: 'yok', label: 'çizgi yok' },
+            { key: 'mavi', label: 'mavi çizgi' },
+            { key: 'kirmizi', label: 'kırmızı çizgi' }
+        ];
+        const out = [
+            { id: 'hucreYok', short: 'Hücre yok', label: '— veya pct yok' }
+        ];
+        for (const t of tones) {
+            for (const b of borders) {
+                const id = 'tk_' + t.key + '_' + b.key;
+                out.push({
+                    id,
+                    short: t.label.split(' ')[0] + (t.key === 'yok' ? ' ton' : '') + ' · ' + b.label,
+                    label: t.label + ', ' + b.label
+                });
+            }
+        }
+        return out;
+    })(),
 
-    /** T9V — ham GÖSTERİM bayrakları (birleşik profile girmeyenler dahil) */
-    T9V_GOSTERIM_RAW: [
-        { id: 'pembeSatir', short: 'Pembe satır', label: 'Pembe satır' },
-        { id: 'kirmiziTest', short: 'Kırmızı TEST', label: 'Kırmızı TEST hücresi' },
-        { id: 'sehirEslesme', short: 'Şehir eşleşme', label: 'Program şehri eşleşmesi (yeşil)' },
-        { id: 'mesafeEslesme', short: 'Mesafe eşleşme', label: 'Koşu mesafesi eşleşmesi' },
-        { id: 'test1EnIyi', short: 'TEST1 en iyi', label: 'TEST1 en iyi' },
-        { id: 'test2EnIyi', short: 'TEST2 en iyi', label: 'TEST2 en iyi' },
-        { id: 'test3EnIyi', short: 'TEST3 en iyi', label: 'TEST3 en iyi' },
-        { id: 'maviKenarSira', short: 'Mavi·T·SIRA', label: 'Mavi kenar — TEST·SIRA kuralı' },
-        { id: 'maviKenarSon800', short: 'Mavi·SON800', label: 'Mavi kenar — SON800-1 en iyi' },
-        { id: 'test23Yanip', short: 'TEST23 yanıp', label: 'TEST2/TEST3 yanıp sönen' },
-        { id: 't1drKirmizi', short: 'T1×DR kırmızı', label: 'T1×DR kırmızı' },
-        { id: 't1drEnIyi2', short: 'T1×DR top2', label: 'T1×DR en iyi 2' }
-    ],
+    /** @deprecated T9V için T9V_TON_KENAR_PROFILES kullanın */
+    T9V_COLOR_PROFILES: [],
 
-    /** T9V hücre — % değerine göre arka plan tonu (pctClass) */
-    T9V_PCT_TONE: [
-        { id: 'toneNone', short: 'Hücre yok', label: '— veya pct yok' },
-        { id: 'tone0', short: '% ton 0', label: 'pct=0 (kırmızımsı)' },
-        { id: 'toneDusuk', short: '% ton 1-33', label: 'pct %1–33 (sarımsı)' },
-        { id: 'toneOrta', short: '% ton 34-66', label: 'pct %34–66 (açık yeşil)' },
-        { id: 'toneYuksek', short: '% ton 67-99', label: 'pct %67–99 (yeşil)' },
-        { id: 'tone100', short: '% ton 100', label: 'pct %100 (koyu yeşil)' }
-    ],
+    /** @deprecated */
+    T9V_GOSTERIM_RAW: [],
+
+    /** @deprecated */
+    T9V_PCT_TONE: [],
 
     /** Metrik → seçici kataloğu (UI + varsayılan etkiler) */
     METRIC_SELECTOR_CATALOGS: {
@@ -128,9 +125,7 @@ const IstatistikTahminEngine = {
             title: 'T9V sinyalleri',
             sections: [
                 { kind: 'visual', title: 'T9V — KMΔ + |TEST9|', profiles: 'T9V_SIGNAL_PROFILES' },
-                { kind: 'color', title: 'Görsel profil — kenar + renk', profiles: 'T9V_COLOR_PROFILES' },
-                { kind: 'gos', title: 'GÖSTERİM bayrakları', profiles: 'T9V_GOSTERIM_RAW' },
-                { kind: 'tone', title: 'Hücre % tonu (arka plan)', profiles: 'T9V_PCT_TONE' },
+                { kind: 'color', title: 'Ton + çerçeve (kombinasyon)', profiles: 'T9V_TON_KENAR_PROFILES' },
                 { kind: 'trend', title: 'Trend (son 3 derinlik)', profiles: 'TREND_PROFILES' },
                 { kind: 'ort', title: 'AĞ. ORT.', profiles: 'T9V_ORT_PROFILES' }
             ]
@@ -214,9 +209,7 @@ const IstatistikTahminEngine = {
     _resolveProfileList(refName) {
         if (!refName) return this.VISUAL_PROFILES;
         if (refName === 'TREND_PROFILES') return this.TREND_PROFILES;
-        if (refName === 'T9V_COLOR_PROFILES') return this.T9V_COLOR_PROFILES;
-        if (refName === 'T9V_GOSTERIM_RAW') return this.T9V_GOSTERIM_RAW;
-        if (refName === 'T9V_PCT_TONE') return this.T9V_PCT_TONE;
+        if (refName === 'T9V_TON_KENAR_PROFILES') return this.T9V_TON_KENAR_PROFILES;
         if (this[refName]) return this[refName];
         return this.VISUAL_PROFILES;
     },
@@ -282,16 +275,14 @@ const IstatistikTahminEngine = {
             return p?.defaultInfluence ?? this.DEFAULT_INFLUENCE;
         }
         if (kind === this.COLOR_GROUP) {
-            const p = this.T9V_COLOR_PROFILES.find(x => x.id === profileId);
+            const p = this.T9V_TON_KENAR_PROFILES.find(x => x.id === profileId);
             return p?.defaultInfluence ?? this.DEFAULT_INFLUENCE;
         }
         if (kind === this.GOS_GROUP) {
-            const p = this.T9V_GOSTERIM_RAW.find(x => x.id === profileId);
-            return p?.defaultInfluence ?? this.DEFAULT_INFLUENCE;
+            return this.DEFAULT_INFLUENCE;
         }
         if (kind === this.TONE_GROUP) {
-            const p = this.T9V_PCT_TONE.find(x => x.id === profileId);
-            return p?.defaultInfluence ?? this.DEFAULT_INFLUENCE;
+            return this.DEFAULT_INFLUENCE;
         }
         return this.DEFAULT_INFLUENCE;
     },
@@ -756,53 +747,67 @@ const IstatistikTahminEngine = {
         return out;
     },
 
-    classifyT9vPctTone(pct) {
-        if (pct == null) return 'toneNone';
-        if (pct === 0) return 'tone0';
-        if (pct <= 33) return 'toneDusuk';
-        if (pct <= 66) return 'toneOrta';
-        if (pct < 100) return 'toneYuksek';
-        return 'tone100';
+    _visualProfileToTonKenar(profile) {
+        const map = {
+            yesilMavi: 'tk_yesil_mavi',
+            yesilKirmizi: 'tk_yesil_kirmizi',
+            yesil: 'tk_yesil_yok',
+            sariMavi: 'tk_sari_mavi',
+            sariKirmizi: 'tk_sari_kirmizi',
+            sari: 'tk_sari_yok',
+            maviKenar: 'tk_yok_mavi',
+            kirmiziKenar: 'tk_yok_kirmizi',
+            gucluUyari: 'tk_yesil_yok',
+            maviFosfor: 'tk_yok_yok',
+            yesilAcik: 'tk_sari_yok'
+        };
+        return map[profile] || null;
     },
 
-    classifyT9vRawGosterim(g) {
-        if (!g) return [];
-        const out = [];
-        for (const p of this.T9V_GOSTERIM_RAW) {
-            if (g[p.id]) out.push(p.id);
-        }
-        return out;
+    _t9vPctToTone(pct) {
+        if (pct === 0) return 'kirmizi';
+        if (pct <= 33) return 'sari';
+        if (pct >= 34) return 'yesil';
+        return 'yok';
     },
 
-    _collectT9vGosterimTerms(depths, metricId, groupLabel, influences, terms) {
+    /**
+     * T9V hücre görünümü — dolgu tonu × kenar çizgisi tek kombinasyon anahtarı.
+     * GÖSTERİM bayrakları varsa classifyCellVisual eşlemesi; yoksa pct dolgu kademesi.
+     */
+    classifyT9vTonKenar(cell) {
+        if (!cell || cell.pct == null) return 'hucreYok';
+
         const IE = typeof IstatistikEngine !== 'undefined' ? IstatistikEngine : null;
+        if (cell.gosterim || cell.visualProfile) {
+            const profile = cell.visualProfile
+                || (IE?.classifyCellVisual ? IE.classifyCellVisual(cell) : null);
+            const mapped = profile ? this._visualProfileToTonKenar(profile) : null;
+            if (mapped) return mapped;
+
+            const g = cell.gosterim || {};
+            let border = 'yok';
+            if (g.kirmiziKenar) border = 'kirmizi';
+            else if (g.maviKenar) border = 'mavi';
+            const tone = this._t9vPctToTone(cell.pct);
+            return 'tk_' + tone + '_' + border;
+        }
+
+        const tone = this._t9vPctToTone(cell.pct);
+        return 'tk_' + tone + '_yok';
+    },
+
+    _collectT9vTonKenarTerms(depths, metricId, groupLabel, influences, terms) {
         const maxN = depths?.length || 0;
         for (let d = 0; d < maxN; d++) {
             const cell = depths[d];
             const dl = d === 0 ? 'SON' : d + ' ÖNCE';
-            const toneId = this.classifyT9vPctTone(cell?.pct ?? null);
-            const toneDef = this.getProfileDef(metricId, this.TONE_GROUP, toneId);
-            this._pushToneTerm(
-                terms, influences, metricId, toneId,
-                groupLabel + ' · ' + dl + ' · ' + (toneDef?.short || toneId)
+            const comboId = this.classifyT9vTonKenar(cell);
+            const def = this.getProfileDef(metricId, this.COLOR_GROUP, comboId);
+            this._pushColorTerm(
+                terms, influences, metricId, comboId,
+                groupLabel + ' · ' + dl + ' · ' + (def?.short || comboId)
             );
-            if (!cell?.gosterim && !cell?.visualProfile) continue;
-            const profile = cell.visualProfile
-                || (IE?.classifyCellVisual ? IE.classifyCellVisual(cell) : null);
-            if (profile) {
-                const cdef = this.getProfileDef(metricId, this.COLOR_GROUP, profile);
-                this._pushColorTerm(
-                    terms, influences, metricId, profile,
-                    groupLabel + ' · ' + dl + ' · ' + (cdef?.short || profile)
-                );
-            }
-            for (const gid of this.classifyT9vRawGosterim(cell.gosterim)) {
-                const gdef = this.getProfileDef(metricId, this.GOS_GROUP, gid);
-                this._pushGosTerm(
-                    terms, influences, metricId, gid,
-                    groupLabel + ' · ' + dl + ' · ' + (gdef?.short || gid)
-                );
-            }
         }
     },
 
@@ -822,8 +827,7 @@ const IstatistikTahminEngine = {
                 );
             }
         }
-        this._collectT9vGosterimTerms(depths, metricId, groupLabel, influences, terms);
-        const IE = typeof IstatistikEngine !== 'undefined' ? IstatistikEngine : null;
+        this._collectT9vTonKenarTerms(depths, metricId, groupLabel, influences, terms);
         this._collectDepthTrendTerms(depths, metricId, groupLabel, influences, terms);
         for (const oid of this.classifyT9vOrtSignals(ortOzeti)) {
             const def = this.getProfileDef(metricId, this.ORT_GROUP, oid);

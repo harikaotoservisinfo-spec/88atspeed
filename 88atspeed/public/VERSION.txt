@@ -1,4 +1,4 @@
 branch=cursor/istatistik-full-grids-c2e4
-commit=pending
-message=feat: sütun bazlı TAHMİN etki kontrolleri (SON, ÖNCE, AĞ. ORT.*)
+commit=5ec3ab2
+message=feat: T9V ton×çerçeve kombinasyon seçicileri
 deployed=
