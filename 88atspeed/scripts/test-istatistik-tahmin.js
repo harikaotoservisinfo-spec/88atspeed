@@ -55,6 +55,25 @@ if (TE.getDraftInfluence('t9v', 'color', 'tk_sari_kirmizi') !== 9) {
     process.exit(1);
 }
 
+// Ş+M-12 kullanıcı preset (0–100)
+TE.ensureDraft('sm12');
+if (TE.getDraftInfluence('sm12', 'visual', 'sariMavi') !== 100) {
+    console.error('FAIL: sm12 sariMavi 100 değil', TE.getDraftInfluence('sm12', 'visual', 'sariMavi'));
+    process.exit(1);
+}
+if (TE.getDraftInfluence('sm12', 'visual', 'sari') !== 30) {
+    console.error('FAIL: sm12 sari 30 değil');
+    process.exit(1);
+}
+if (TE.getDraftInfluence('sm12', 'visual', 'yesilMavi') !== 16) {
+    console.error('FAIL: sm12 yesilMavi 16 değil');
+    process.exit(1);
+}
+if (TE.getDraftInfluence('sm12', 'visual', 'sariKirmizi') !== 0) {
+    console.error('FAIL: sm12 sariKirmizi belirtilmedi → 0 olmalı');
+    process.exit(1);
+}
+
 // Metrik bazlı kayıt (taslak + kaydet)
 TE.setMetricInfluence('son8001', 'visual', 'maviKenar', 25);
 TE.setMetricInfluence('t8', 'visual', 'maviKenar', 5);

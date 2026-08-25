@@ -14,7 +14,26 @@ const IstatistikTahminEngine = {
     ],
     DEFAULT_INFLUENCE: 0,
     /** Sarı ton > yeşil ton önceliği — preset sürümü (localStorage migrasyonu) */
-    TONE_KENAR_PRESET_VERSION: 1,
+    TONE_KENAR_PRESET_VERSION: 2,
+
+    /**
+     * Metrik bazlı varsayılan etkiler (0–100).
+     * Ş+M-12 — kullanıcı tanımlı görsel profil ağırlıkları.
+     */
+    METRIC_INFLUENCE_PRESETS: {
+        sm12: {
+            'visual:maviKenar': 12,
+            'visual:kirmiziKenar': 8,
+            'visual:sari': 30,
+            'visual:sariMavi': 100,
+            'visual:yesil': 5,
+            'visual:yesilMavi': 16,
+            'visual:yesilKirmizi': 13,
+            'visual:yesilAcik': 3,
+            'visual:gucluUyari': 7,
+            'visual:maviFosfor': 9
+        }
+    },
     DEFAULT_SELECTED_METRIC: 'son8001',
     MIN_INFLUENCE: 0,
     MAX_INFLUENCE: 100,
@@ -128,6 +147,13 @@ const IstatistikTahminEngine = {
     METRIC_SELECTOR_CATALOGS: {
         default: {
             title: 'Görsel profiller',
+            sections: [
+                { kind: 'visual', title: 'Görsel profiller', profiles: null },
+                { kind: 'trend', title: 'Trend (son 3 derinlik)', profiles: null }
+            ]
+        },
+        sm12: {
+            title: 'Ş+M-12 — Ş/M koşuda 1. veya 2.',
             sections: [
                 { kind: 'visual', title: 'Görsel profiller', profiles: null },
                 { kind: 'trend', title: 'Trend (son 3 derinlik)', profiles: null }
@@ -271,8 +297,13 @@ const IstatistikTahminEngine = {
 
     _defaultForProfile(kind, profileId, metricId) {
         if (metricId) {
+            const key = this._profileKey(kind, profileId);
+            const metricPreset = this.METRIC_INFLUENCE_PRESETS?.[metricId];
+            if (metricPreset && metricPreset[key] != null) {
+                return metricPreset[key];
+            }
             const p = this.getProfileDef(metricId, kind, profileId);
-            if (p) return p.defaultInfluence ?? this.DEFAULT_INFLUENCE;
+            if (p && p.defaultInfluence != null) return p.defaultInfluence;
         }
         if (kind === this.VISUAL_GROUP) {
             const p = this.VISUAL_PROFILES.find(x => x.id === profileId);
@@ -317,10 +348,23 @@ const IstatistikTahminEngine = {
     _applyToneKenarPreset(store) {
         const preset = this._toneKenarPresetKeys();
         for (const metricId of this._savedMetricIds(store)) {
+            if (this.METRIC_INFLUENCE_PRESETS?.[metricId]) continue;
             if (!store.byMetric[metricId]) store.byMetric[metricId] = {};
             for (const [k, v] of Object.entries(preset)) {
                 store.byMetric[metricId][k] = v;
             }
+        }
+        this._draftByMetric = null;
+    },
+
+    _applyMetricPresets(store) {
+        for (const [metricId, preset] of Object.entries(this.METRIC_INFLUENCE_PRESETS || {})) {
+            if (!store.byMetric[metricId]) store.byMetric[metricId] = {};
+            for (const [k, v] of Object.entries(preset)) {
+                store.byMetric[metricId][k] = v;
+            }
+            if (!store.savedMetrics) store.savedMetrics = [];
+            if (!store.savedMetrics.includes(metricId)) store.savedMetrics.push(metricId);
         }
         this._draftByMetric = null;
     },
@@ -353,6 +397,7 @@ const IstatistikTahminEngine = {
         }
         if ((store.presetVersion || 0) < this.TONE_KENAR_PRESET_VERSION) {
             this._applyToneKenarPreset(store);
+            this._applyMetricPresets(store);
             store.presetVersion = this.TONE_KENAR_PRESET_VERSION;
         }
         return store;
