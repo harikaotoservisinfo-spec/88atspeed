@@ -154,15 +154,15 @@ const IstatistikTahminEngine = {
         default: {
             title: 'Görsel profiller',
             sections: [
-                { kind: 'visual', title: 'Görsel profiller', profiles: null },
-                { kind: 'trend', title: 'Trend (son 3 derinlik)', profiles: null }
+                { kind: 'visual', title: 'Görsel profiller', profiles: 'VISUAL_PROFILES' },
+                { kind: 'trend', title: 'Trend (son 3 derinlik)', profiles: 'TREND_PROFILES' }
             ]
         },
         sm12: {
             title: 'Ş+M-12 — Ş/M koşuda 1. veya 2.',
             sections: [
-                { kind: 'visual', title: 'Görsel profiller', profiles: null },
-                { kind: 'trend', title: 'Trend (son 3 derinlik)', profiles: null }
+                { kind: 'visual', title: 'Görsel profiller', profiles: 'VISUAL_PROFILES' },
+                { kind: 'trend', title: 'Trend (son 3 derinlik)', profiles: 'TREND_PROFILES' }
             ]
         },
         t9v: {
@@ -251,8 +251,9 @@ const IstatistikTahminEngine = {
     },
 
     _resolveProfileList(refName) {
-        if (!refName) return this.VISUAL_PROFILES;
+        if (refName === 'VISUAL_PROFILES') return this.VISUAL_PROFILES;
         if (refName === 'TREND_PROFILES') return this.TREND_PROFILES;
+        if (!refName) return this.VISUAL_PROFILES;
         if (refName === 'T9V_TON_KENAR_PROFILES') return this.T9V_TON_KENAR_PROFILES;
         if (this[refName]) return this[refName];
         return this.VISUAL_PROFILES;
@@ -763,10 +764,13 @@ const IstatistikTahminEngine = {
             influences, weightId, metricId, this.TREND_GROUP, profileId
         );
         if (weight <= 0 || delta <= 0) return;
+        const trendMult = this.METRIC_TREND_POINT_MULTIPLIER?.[metricId] || 1;
         let points = Math.round((weight * delta) / this.TREND_DELTA_DIVISOR);
-        const trendMult = this.METRIC_TREND_POINT_MULTIPLIER?.[metricId];
-        if (trendMult && trendMult !== 1) {
+        if (trendMult !== 1) {
             points = Math.round(points * trendMult);
+            // +1 etki: görsel profil +1 = +1 puan; trend +1 ≈ +%20 fazla (min taban)
+            const visualLike = Math.round(weight * trendMult);
+            if (points < visualLike) points = visualLike;
         }
         if (points <= 0) return;
         const detail = typeof trendHit === 'object' && trendHit.detail ? ' · ' + trendHit.detail : '';

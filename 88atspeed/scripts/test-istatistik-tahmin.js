@@ -55,6 +55,21 @@ if (TE.getDraftInfluence('t9v', 'color', 'tk_sari_kirmizi') !== 9) {
     process.exit(1);
 }
 
+const sm12Sections = TE.getMetricProfileSections('sm12');
+const sm12Trend = sm12Sections.find(s => s.kind === 'trend');
+if (!sm12Trend || sm12Trend.profiles.length !== 4) {
+    console.error('FAIL: sm12 trend 4 seçici olmalı', sm12Trend?.profiles?.map(p => p.id));
+    process.exit(1);
+}
+if (sm12Trend.profiles.some(p => p.id === 'sariMavi')) {
+    console.error('FAIL: trend satırı görsel profil göstermemeli');
+    process.exit(1);
+}
+if (!sm12Trend.profiles.find(p => p.id === 'trendDownSon')) {
+    console.error('FAIL: sm12 trendDownSon eksik');
+    process.exit(1);
+}
+
 // Ş+M-12 kullanıcı preset (0–100)
 TE.ensureDraft('sm12');
 if (TE.getDraftInfluence('sm12', 'visual', 'sariMavi') !== 100) {
