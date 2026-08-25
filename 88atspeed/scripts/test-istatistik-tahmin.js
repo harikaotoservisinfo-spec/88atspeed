@@ -485,6 +485,45 @@ if (sonMaviTerm.points !== 3) {
     process.exit(1);
 }
 
+// Diğer metrik gruplarında da SON > eski derinlik (maviKenar +1)
+const multiDepthCases = [
+    { id: 'son8001', depthsKey: 'son8001Depths', pkgKey: 'maxDepth1', md: 7 },
+    { id: 't8', depthsKey: 'test8Depths', pkgKey: 'maxDepthT8', md: 5 },
+    { id: 'f802', depthsKey: 'f802Depths', pkgKey: 'maxDepthF802', md: 4, extra: true },
+    { id: 'sl802', depthsKey: 'sl802Depths', pkgKey: 'maxDepthSl802', md: 5, extra: true },
+    { id: 'sehirSon', depthsKey: 'sehirSonDepths', pkgKey: 'maxDepthSehirSon', md: 6, extra: true },
+    { id: 'smGec', depthsKey: 'smGecDepths', pkgKey: 'maxDepthSmGec', md: 4, extra: true }
+];
+for (const mc of multiDepthCases) {
+    TE.resetWeights();
+    TE.setDraftInfluence(mc.id, 'visual', 'maviKenar', 1);
+    TE.saveDraftMetric(mc.id);
+    TE.setSelectedMetric(mc.id);
+    TE.setCalcMode(TE.CALC_MODE_SOLO);
+    const pkg = { [mc.pkgKey]: mc.md };
+    const sonD = Array(mc.md).fill(null);
+    sonD[0] = { visualProfile: 'maviKenar' };
+    const oldD = Array(mc.md).fill(null);
+    oldD[mc.md - 1] = { visualProfile: 'maviKenar' };
+    const sec = mc.extra
+        ? [{ id: mc.id, label: mc.id, depthsKey: mc.depthsKey, maxDepth: mc.md }]
+        : [];
+    const sonT = TE.computeRowTahmin({ [mc.depthsKey]: sonD }, sec, null, pkg);
+    const oldT = TE.computeRowTahmin({ [mc.depthsKey]: oldD }, sec, null, pkg);
+    const sonPts = sonT.terms.find(x => x.metricId === mc.id && x.label.includes('SON'))?.points || 0;
+    const oldLabel = (mc.md - 1) + ' ÖNCE';
+    const oldPts = oldT.terms.find(x => x.metricId === mc.id && x.label.includes(oldLabel))?.points || 0;
+    if (sonPts <= 0) {
+        console.error('FAIL: ' + mc.id + ' SON maviKenar puan yok', sonT.terms);
+        process.exit(1);
+    }
+    if (sonPts <= oldPts) {
+        console.error('FAIL: ' + mc.id + ' SON > ' + oldLabel, sonPts, oldPts);
+        process.exit(1);
+    }
+}
+console.log('Derinlik ağırlığı: test1 + ' + multiDepthCases.length + ' metrik grubu OK');
+
 console.log('Metrik bazlı TAHMİN: son8001 +' + son8001Term.points + ', t8 +' + t8Term.points);
 console.log('T9V pct100 +' + pct100Term.points);
 

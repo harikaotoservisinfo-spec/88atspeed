@@ -671,6 +671,12 @@
             font-weight: 700;
             color: #4a148c;
         }
+        .istat-gos-depth-note {
+            margin: 8px 0 0;
+            font-size: 12px;
+            color: #5e35b1;
+            line-height: 1.45;
+        }
         .istat-gos-weight-grid {
             display: flex;
             flex-wrap: wrap;
@@ -796,6 +802,9 @@
     </div>
     <details class="istat-gosterim-controls" id="gosterimWeightPanel" open>
         <summary>TAHMİN görsel profil etkileri (kenar + renk + trend)</summary>
+        <p class="istat-gos-depth-note">Görsel profiller <strong>derinlik ağırlıklıdır</strong> — SON koşuda tam etki,
+        eski derinliklerde azalır. Bu kural <strong>tüm metrik gruplarında</strong> (SON800, TEST, T8, Ş+M…)
+        aynı şekilde geçerlidir; her grubun slider değerleri ayrı kaydedilir.</p>
         <div class="istat-gos-metric-picker">
             <label for="tahminMetricSelect">Metrik grubu</label>
             <select id="tahminMetricSelect" class="istat-gos-metric-select" title="Her metrik grubunun etkileri ayrı kaydedilir"></select>
@@ -832,7 +841,9 @@
         <strong>Ek gruplar (800Δ·2/3, T9Δ, DR/1DR, TEST4–7, FARK, Ş+M…):</strong>
         GÖSTERİM ve Tahminim kurallarındaki eksik sütunlar — hepsi derinlik % + AĞ. ORT.1/2/3.<br>
         <strong>TAHMİN:</strong> GÖSTERİM görsel profilleri (mavi/kırmızı kenar, sarı/yeşil kombinasyonları)
-        ve son 3 derinlik % trendi başarı sıralamasını belirler. Üst panelden <strong>metrik grubu</strong>
+        ve son 3 derinlik % trendi başarı sıralamasını belirler. Görsel profil puanları
+        <strong>derinlik ağırlıklıdır</strong> — SON koşudaki mavi kenar, 6 ÖNCE’dekinden çok daha etkilidir.
+        Üst panelden <strong>metrik grubu</strong>
         seçin (SON800-1, T8Δ, …); her grubun puan etkileri <strong>ayrı kaydedilir</strong> ve sonraki
         açılışta korunur.<br>
         <strong>T1×DR:</strong> TEST1 × DR/1DR — o gün koşan atlar arasında en düşük T1×DR = %100;
@@ -847,14 +858,14 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260825ay"></script>
-<script src="js/formula-engine.js?v=20260825ay"></script>
-<script src="js/istatistik-engine.js?v=20260825ay"></script>
-<script src="js/istatistik-grids-extra.js?v=20260825ay"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260825ay"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260825ay"></script>
+<script src="js/utils.js?v=20260825az"></script>
+<script src="js/formula-engine.js?v=20260825az"></script>
+<script src="js/istatistik-engine.js?v=20260825az"></script>
+<script src="js/istatistik-grids-extra.js?v=20260825az"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260825az"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260825az"></script>
 <script>
-const ISTAT_BUILD = '20260825ay';
+const ISTAT_BUILD = '20260825az';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
 let currentKayitId = null;

@@ -111,7 +111,7 @@ const IstatistikTahminEngine = {
     /** Sürekli trend eğimi çarpanı (trend slider açıkken) */
     PCT_TREND_SLOPE_MULT: 0.12,
 
-    /** pkg üzerindeki maxDepth alan adları */
+    /** pkg üzerindeki maxDepth alan adları — çekirdek + ek gruplar */
     MAX_DEPTH_PKG_KEYS: {
         son8001: 'maxDepth1',
         son8002: 'maxDepth2',
@@ -126,7 +126,34 @@ const IstatistikTahminEngine = {
         test2: 'maxDepthTest2',
         test3: 'maxDepthTest3',
         testsira: 'maxDepthTest123Sirali',
-        t1dr: 'maxDepthT1dr'
+        t1dr: 'maxDepthT1dr',
+        f802: 'maxDepthF802',
+        f803: 'maxDepthF803',
+        t9: 'maxDepthT9',
+        dr1dr: 'maxDepthDr1dr',
+        drsl: 'maxDepthDrsl',
+        dr1sl: 'maxDepthDr1sl',
+        t12y: 'maxDepthT12y',
+        kirmizi: 'maxDepthKirmizi',
+        yesil: 'maxDepthYesil',
+        mavif: 'maxDepthMavif',
+        kmavi: 'maxDepthKmavi',
+        t4: 'maxDepthT4',
+        t5: 'maxDepthT5',
+        t6: 'maxDepthT6',
+        t7: 'maxDepthT7',
+        t2m3: 'maxDepthT2m3',
+        t1dr3: 'maxDepthT1dr3',
+        fark: 'maxDepthFark',
+        ilkf: 'maxDepthIlkf',
+        sonf: 'maxDepthSonf',
+        sl801: 'maxDepthSl801',
+        sl802: 'maxDepthSl802',
+        f8021: 'maxDepthF8021',
+        sehirSon: 'maxDepthSehirSon',
+        smGec: 'maxDepthSmGec',
+        sm12: 'maxDepthSm12',
+        t9v: 'maxDepthT9v'
     },
 
     /** Yüzde tabanı uygulanmayan metrikler (özel TAHMİN mantığı veya ikili 0/100) */
@@ -1228,7 +1255,8 @@ const IstatistikTahminEngine = {
         this._collectDepthTrendTerms(depths, metricId, groupLabel, influences, terms, md);
     },
 
-    _resolveMaxDepth(metricId, pkg, depths) {
+    _resolveMaxDepth(metricId, pkg, depths, groupMaxDepth) {
+        if (groupMaxDepth != null && groupMaxDepth > 0) return groupMaxDepth;
         if (pkg) {
             const key = this.MAX_DEPTH_PKG_KEYS[metricId];
             if (key && pkg[key] != null) return pkg[key];
@@ -1327,7 +1355,7 @@ const IstatistikTahminEngine = {
     },
 
     _collectMetricTerms(row, g, influences, terms, pkg) {
-        const maxDepth = this._resolveMaxDepth(g.id, pkg, g.depths);
+        const maxDepth = this._resolveMaxDepth(g.id, pkg, g.depths, g.maxDepth);
         if (g.id === 't9v') {
             this._collectT9vTerms(
                 g.depths,
@@ -1348,14 +1376,20 @@ const IstatistikTahminEngine = {
         this._collectDepthVisualTerms(g.depths, g.id, g.label, influences, terms, maxDepth);
     },
 
-    _allDepthGroups(row, extraSections) {
+    _allDepthGroups(row, extraSections, pkg) {
         const groups = this.CORE_GROUPS.map(g => ({
             id: g.id,
             label: g.label,
-            depths: row[g.depthsKey]
+            depths: row[g.depthsKey],
+            maxDepth: this._resolveMaxDepth(g.id, pkg, row[g.depthsKey])
         }));
         for (const sec of extraSections || []) {
-            groups.push({ id: sec.id, label: sec.label, depths: row[sec.depthsKey] });
+            groups.push({
+                id: sec.id,
+                label: sec.label,
+                depths: row[sec.depthsKey],
+                maxDepth: sec.maxDepth || this._resolveMaxDepth(sec.id, pkg, row[sec.depthsKey])
+            });
         }
         return groups;
     },
@@ -1367,7 +1401,7 @@ const IstatistikTahminEngine = {
         const terms = [];
         const activeIds = new Set(this.getActiveMetricIds(extraSections));
 
-        for (const g of this._allDepthGroups(row, extraSections)) {
+        for (const g of this._allDepthGroups(row, extraSections, pkg)) {
             if (!activeIds.has(g.id)) continue;
             this._collectMetricTerms(row, g, influences, terms, pkg);
         }
