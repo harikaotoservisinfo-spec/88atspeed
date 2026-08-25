@@ -69,8 +69,28 @@ if (TE.getDraftInfluence('sm12', 'visual', 'yesilMavi') !== 16) {
     console.error('FAIL: sm12 yesilMavi 16 değil');
     process.exit(1);
 }
-if (TE.getDraftInfluence('sm12', 'visual', 'sariKirmizi') !== 0) {
-    console.error('FAIL: sm12 sariKirmizi belirtilmedi → 0 olmalı');
+if (TE.getDraftInfluence('sm12', 'visual', 'sariKirmizi') !== 70) {
+    console.error('FAIL: sm12 sariKirmizi 70 değil', TE.getDraftInfluence('sm12', 'visual', 'sariKirmizi'));
+    process.exit(1);
+}
+
+// sm12 trend: aynı etki değerinde görselden %20 fazla puan
+TE.setDraftInfluence('sm12', 'trend', 'trendDownSon', 25);
+TE.setDraftInfluence('sm12', 'visual', 'sari', 25);
+TE.saveDraftMetric('sm12');
+TE.setSelectedMetric('sm12');
+TE.setCalcMode(TE.CALC_MODE_SOLO);
+const trendBonusRow = {
+    sm12Depths: [{ pct: 10 }, { pct: 60 }]
+};
+const trendBonusT = TE.computeRowTahmin(trendBonusRow, [{ id: 'sm12', label: 'Ş+M-12', depthsKey: 'sm12Depths' }]);
+const sm12TrendTerm = trendBonusT.terms.find(x => x.metricId === 'sm12' && x.label.includes('SON ↓'));
+const sm12VisualTerm = TE.computeRowTahmin(
+    { sm12Depths: [{ pct: 0, gosterim: { yesilSatir: true } }] },
+    [{ id: 'sm12', label: 'Ş+M-12', depthsKey: 'sm12Depths' }]
+).terms.find(x => x.metricId === 'sm12' && x.label.includes('Sarı'));
+if (!sm12TrendTerm || sm12TrendTerm.points < sm12VisualTerm.points) {
+    console.error('FAIL: sm12 trend %20 bonus', sm12TrendTerm?.points, sm12VisualTerm?.points);
     process.exit(1);
 }
 

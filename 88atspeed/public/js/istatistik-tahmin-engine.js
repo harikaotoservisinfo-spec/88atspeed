@@ -14,7 +14,7 @@ const IstatistikTahminEngine = {
     ],
     DEFAULT_INFLUENCE: 0,
     /** Sarı ton > yeşil ton önceliği — preset sürümü (localStorage migrasyonu) */
-    TONE_KENAR_PRESET_VERSION: 2,
+    TONE_KENAR_PRESET_VERSION: 3,
 
     /**
      * Metrik bazlı varsayılan etkiler (0–100).
@@ -26,6 +26,7 @@ const IstatistikTahminEngine = {
             'visual:kirmiziKenar': 8,
             'visual:sari': 30,
             'visual:sariMavi': 100,
+            'visual:sariKirmizi': 70,
             'visual:yesil': 5,
             'visual:yesilMavi': 16,
             'visual:yesilKirmizi': 13,
@@ -33,6 +34,11 @@ const IstatistikTahminEngine = {
             'visual:gucluUyari': 7,
             'visual:maviFosfor': 9
         }
+    },
+
+    /** Trend puanı çarpanı — sm12 trendler görsel profilden %20 daha etkili */
+    METRIC_TREND_POINT_MULTIPLIER: {
+        sm12: 1.2
     },
     DEFAULT_SELECTED_METRIC: 'son8001',
     MIN_INFLUENCE: 0,
@@ -757,7 +763,11 @@ const IstatistikTahminEngine = {
             influences, weightId, metricId, this.TREND_GROUP, profileId
         );
         if (weight <= 0 || delta <= 0) return;
-        const points = Math.round((weight * delta) / this.TREND_DELTA_DIVISOR);
+        let points = Math.round((weight * delta) / this.TREND_DELTA_DIVISOR);
+        const trendMult = this.METRIC_TREND_POINT_MULTIPLIER?.[metricId];
+        if (trendMult && trendMult !== 1) {
+            points = Math.round(points * trendMult);
+        }
         if (points <= 0) return;
         const detail = typeof trendHit === 'object' && trendHit.detail ? ' · ' + trendHit.detail : '';
         terms.push({
