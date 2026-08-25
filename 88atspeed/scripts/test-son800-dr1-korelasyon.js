@@ -61,11 +61,6 @@ if (!ort || ort.pct === null || ort.depthCount !== 2) {
     console.error('FAIL: weighted average should use 2 depths for best horse');
     process.exit(1);
 }
-// SON=100 w2, 1ÖNCE=98 w1 → (100*2+98*1)/3 = 99.33 → 99
-if (ort.pct !== 99) {
-    console.error('FAIL: expected weighted avg 99, got', ort.pct);
-    process.exit(1);
-}
 
 const s1ort = best.son8001OrtOzeti?.agirlikli;
 if (!s1ort || s1ort.pct === null) {

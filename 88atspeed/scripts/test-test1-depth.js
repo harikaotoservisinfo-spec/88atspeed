@@ -44,6 +44,26 @@ if (pkg.maxDepthTest1 !== 2) {
     process.exit(1);
 }
 
+// Doğrusal min–max yüzde: en düşük %100, en yüksek %0
+const U = require('../public/js/utils.js');
+const min = 8398; // 1.33.98 salise
+const max = 9102; // 1.51.02 salise
+const mid = 8750;
+if (U.pctLinearMinBest(min, min, max) !== 100) {
+    console.error('FAIL: min should be 100%');
+    process.exit(1);
+}
+if (U.pctLinearMinBest(max, min, max) !== 0) {
+    console.error('FAIL: max should be 0%');
+    process.exit(1);
+}
+const midPct = U.pctLinearMinBest(mid, min, max);
+if (midPct <= 0 || midPct >= 100) {
+    console.error('FAIL: mid should be between 0 and 100, got', midPct);
+    process.exit(1);
+}
+console.log('Linear pct: min=100%, max=0%, mid=' + midPct + '%');
+
 const best = pkg.rows.find(r => r.name === 'En iyi TEST1');
 if (!best?.test1Depths[0] || best.test1Depths[0].pct !== 100) {
     console.error('FAIL: best horse at SON should be 100%, got', best?.test1Depths[0]?.pct);
@@ -51,8 +71,14 @@ if (!best?.test1Depths[0] || best.test1Depths[0].pct !== 100) {
 }
 
 const slow = pkg.rows.find(r => r.name === 'Yavaş TEST1');
-if (!slow?.test1Depths[0] || slow.test1Depths[0].pct >= 100) {
-    console.error('FAIL: slow horse should have pct < 100 at SON');
+if (!slow?.test1Depths[0] || slow.test1Depths[0].pct !== 0) {
+    console.error('FAIL: slow horse (worst) should be 0% at SON, got', slow?.test1Depths[0]?.pct);
+    process.exit(1);
+}
+
+const orta = pkg.rows.find(r => r.name === 'Orta TEST1');
+if (!orta?.test1Depths[0] || orta.test1Depths[0].pct <= 0 || orta.test1Depths[0].pct >= 100) {
+    console.error('FAIL: middle horse should have pct between 0 and 100, got', orta?.test1Depths[0]?.pct);
     process.exit(1);
 }
 

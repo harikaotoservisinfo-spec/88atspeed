@@ -73,6 +73,17 @@ const AtSpeedUtils = {
         return isNaN(num) ? null : num;
     },
 
+    /**
+     * Doğrusal min–max yüzde: en düşük (en iyi) değer %100, en yüksek (en kötü) %0.
+     * Ara değerler: (max − value) / (max − min) × 100
+     */
+    pctLinearMinBest(value, minVal, maxVal) {
+        if (value == null || minVal == null || maxVal == null) return null;
+        if (maxVal === minVal) return 100;
+        const pct = ((maxVal - value) / (maxVal - minVal)) * 100;
+        return Math.round(Math.max(0, Math.min(100, pct)));
+    },
+
     getSortType(columnIndex) {
         const col = parseInt(columnIndex, 10);
         const types = {

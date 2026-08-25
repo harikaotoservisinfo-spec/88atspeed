@@ -79,9 +79,10 @@
             }
             if (!atDepth.length) continue;
             const minVal = Math.min(...atDepth.map(e => e[valueKey]));
+            const maxVal = Math.max(...atDepth.map(e => e[valueKey]));
             for (const e of atDepth) {
                 const cell = {
-                    pct: Math.round((minVal / e[valueKey]) * 100),
+                    pct: AtSpeedUtils.pctLinearMinBest(e[valueKey], minVal, maxVal),
                     comparedCount: atDepth.length,
                     depth: d,
                     isBest: e[valueKey] === minVal,
@@ -108,8 +109,9 @@
             }
             if (!atDepth.length) continue;
             const minAbs = Math.min(...atDepth.map(e => e._abs));
+            const maxAbs = Math.max(...atDepth.map(e => e._abs));
             for (const e of atDepth) {
-                const pct = e._abs === 0 ? 100 : Math.round((minAbs / e._abs) * 100);
+                const pct = AtSpeedUtils.pctLinearMinBest(e._abs, minAbs, maxAbs);
                 const cell = {
                     pct,
                     val: e[valueKey],
@@ -201,8 +203,9 @@
             }
             if (!atDepth.length) continue;
             const minAbs = Math.min(...atDepth.map(e => e.absOrt));
+            const maxAbs = Math.max(...atDepth.map(e => e.absOrt));
             for (const e of atDepth) {
-                const pct = e.absOrt === 0 ? 100 : Math.round((minAbs / e.absOrt) * 100);
+                const pct = AtSpeedUtils.pctLinearMinBest(e.absOrt, minAbs, maxAbs);
                 byHorse.get(e.key)[d] = {
                     pct, ort: e.ort, absOrt: e.absOrt, adet: e.adet, tarih: e.tarih,
                     comparedCount: atDepth.length, depth: d, isBest: e.absOrt === minAbs
@@ -279,8 +282,9 @@
             }
             if (!atDepth.length) continue;
             const minTest3 = Math.min(...atDepth.map(e => e.test3));
+            const maxTest3 = Math.max(...atDepth.map(e => e.test3));
             for (const e of atDepth) {
-                const test3Pct = Math.round((minTest3 / e.test3) * 100);
+                const test3Pct = AtSpeedUtils.pctLinearMinBest(e.test3, minTest3, maxTest3);
                 let pct = e.rulePass
                     ? Math.round(Math.sqrt(test3Pct * Math.max(e.rulePct, 1)))
                     : e.rulePct;
@@ -311,16 +315,8 @@
             if (!atDepth.length) continue;
             const minVal = Math.min(...atDepth.map(e => e[valueKey]));
             const maxVal = Math.max(...atDepth.map(e => e[valueKey]));
-            const span = maxVal - minVal || 1;
             for (const e of atDepth) {
-                let pct;
-                if (e[valueKey] === minVal) {
-                    pct = 100;
-                } else if (minVal > 0) {
-                    pct = Math.round((minVal / e[valueKey]) * 100);
-                } else {
-                    pct = Math.max(0, Math.round(100 - ((e[valueKey] - minVal) / span) * 100));
-                }
+                const pct = AtSpeedUtils.pctLinearMinBest(e[valueKey], minVal, maxVal);
                 const cell = {
                     pct,
                     val: e[valueKey],
@@ -401,8 +397,9 @@
             }
             if (!atDepth.length) continue;
             const minAbs = Math.min(...atDepth.map(e => e.absTest9));
+            const maxAbs = Math.max(...atDepth.map(e => e.absTest9));
             for (const e of atDepth) {
-                const pct = e.absTest9 === 0 ? 100 : Math.round((minAbs / e.absTest9) * 100);
+                const pct = AtSpeedUtils.pctLinearMinBest(e.absTest9, minAbs, maxAbs);
                 byHorse.get(e.key)[d] = {
                     pct,
                     absTest9: e.absTest9,

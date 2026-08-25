@@ -309,7 +309,7 @@ const IstatistikEngine = {
 
     /**
      * Mevcut SON800 sütunları — derinlik bazlı rakip kıyası.
-     * Her derinlikte en düşük süre %100, diğerleri (min / değer) × 100.
+     * Her derinlikte en düşük süre %100, en yüksek %0; aradakiler doğrusal ölçek.
      */
     computeSon800DepthGrid(race, programTarih, alan = 'bir') {
         const { chains, maxDepth } = this._buildSon800Chains(race, programTarih, alan);
@@ -327,10 +327,10 @@ const IstatistikEngine = {
             }
             if (!atDepth.length) continue;
             const minSalise = Math.min(...atDepth.map(e => e.salise));
+            const maxSalise = Math.max(...atDepth.map(e => e.salise));
             const comparedCount = atDepth.length;
             for (const e of atDepth) {
-                if (minSalise <= 0) continue;
-                const pct = Math.round((minSalise / e.salise) * 100);
+                const pct = AtSpeedUtils.pctLinearMinBest(e.salise, minSalise, maxSalise);
                 byHorse.get(e.key)[d] = {
                     pct,
                     derece: e.derece,
@@ -459,12 +459,11 @@ const IstatistikEngine = {
             if (!atDepth.length) continue;
 
             const minAbsFark = Math.min(...atDepth.map(e => e.absFark));
+            const maxAbsFark = Math.max(...atDepth.map(e => e.absFark));
             const comparedCount = atDepth.length;
 
             for (const e of atDepth) {
-                const pct = e.absFark === 0
-                    ? 100
-                    : Math.round((minAbsFark / e.absFark) * 100);
+                const pct = AtSpeedUtils.pctLinearMinBest(e.absFark, minAbsFark, maxAbsFark);
                 byHorse.get(e.key)[d] = {
                     pct,
                     fark: e.fark,
@@ -545,12 +544,11 @@ const IstatistikEngine = {
             if (!atDepth.length) continue;
 
             const minAbs = Math.min(...atDepth.map(e => e.absTest8));
+            const maxAbs = Math.max(...atDepth.map(e => e.absTest8));
             const comparedCount = atDepth.length;
 
             for (const e of atDepth) {
-                const pct = e.absTest8 === 0
-                    ? 100
-                    : Math.round((minAbs / e.absTest8) * 100);
+                const pct = AtSpeedUtils.pctLinearMinBest(e.absTest8, minAbs, maxAbs);
                 byHorse.get(e.key)[d] = {
                     pct,
                     test8: e.test8,
@@ -659,12 +657,11 @@ const IstatistikEngine = {
             if (!atDepth.length) continue;
 
             const minAbsOrt = Math.min(...atDepth.map(e => e.absOrt));
+            const maxAbsOrt = Math.max(...atDepth.map(e => e.absOrt));
             const comparedCount = atDepth.length;
 
             for (const e of atDepth) {
-                const pct = e.absOrt === 0
-                    ? 100
-                    : Math.round((minAbsOrt / e.absOrt) * 100);
+                const pct = AtSpeedUtils.pctLinearMinBest(e.absOrt, minAbsOrt, maxAbsOrt);
                 byHorse.get(e.key)[d] = {
                     pct,
                     ort: e.ort,
@@ -856,7 +853,7 @@ const IstatistikEngine = {
 
     /**
      * TEST1 derinlik bazlı rakip kıyası (SON, 1 ÖNCE …).
-     * O gün koşan atlar arasında en düşük TEST1 = %100; diğerleri (min / değer) × 100.
+     * O gün koşan atlar arasında en düşük TEST1 = %100, en yüksek = %0; aradakiler doğrusal.
      */
     computeTest1DepthGrid(race, programTarih) {
         const { chains, maxDepth } = this._buildTest1Chains(race, programTarih);
@@ -875,10 +872,11 @@ const IstatistikEngine = {
             if (!atDepth.length) continue;
 
             const minTest1 = Math.min(...atDepth.map(e => e.test1));
+            const maxTest1 = Math.max(...atDepth.map(e => e.test1));
             const comparedCount = atDepth.length;
 
             for (const e of atDepth) {
-                const pct = Math.round((minTest1 / e.test1) * 100);
+                const pct = AtSpeedUtils.pctLinearMinBest(e.test1, minTest1, maxTest1);
                 byHorse.get(e.key)[d] = {
                     pct,
                     test1: e.test1,
@@ -972,10 +970,11 @@ const IstatistikEngine = {
             if (!atDepth.length) continue;
 
             const minTest2 = Math.min(...atDepth.map(e => e.test2));
+            const maxTest2 = Math.max(...atDepth.map(e => e.test2));
             const comparedCount = atDepth.length;
 
             for (const e of atDepth) {
-                const pct = Math.round((minTest2 / e.test2) * 100);
+                const pct = AtSpeedUtils.pctLinearMinBest(e.test2, minTest2, maxTest2);
                 byHorse.get(e.key)[d] = {
                     pct,
                     test2: e.test2,
@@ -1076,10 +1075,11 @@ const IstatistikEngine = {
             if (!atDepth.length) continue;
 
             const minTest3 = Math.min(...atDepth.map(e => e.test3));
+            const maxTest3 = Math.max(...atDepth.map(e => e.test3));
             const comparedCount = atDepth.length;
 
             for (const e of atDepth) {
-                const pct = Math.round((minTest3 / e.test3) * 100);
+                const pct = AtSpeedUtils.pctLinearMinBest(e.test3, minTest3, maxTest3);
                 byHorse.get(e.key)[d] = {
                     pct,
                     test3: e.test3,
@@ -1296,7 +1296,7 @@ const IstatistikEngine = {
 
     /**
      * T1×DR derinlik bazlı rakip kıyası (SON, 1 ÖNCE …).
-     * O gün koşan atlar arasında en düşük T1×DR = %100; diğerleri (min / değer) × 100.
+     * O gün koşan atlar arasında en düşük T1×DR = %100, en yüksek = %0; aradakiler doğrusal.
      */
     computeT1drDepthGrid(race, programTarih) {
         const { chains, maxDepth } = this._buildT1drChains(race, programTarih);
@@ -1315,10 +1315,11 @@ const IstatistikEngine = {
             if (!atDepth.length) continue;
 
             const minT1dr = Math.min(...atDepth.map(e => e.t1dr));
+            const maxT1dr = Math.max(...atDepth.map(e => e.t1dr));
             const comparedCount = atDepth.length;
 
             for (const e of atDepth) {
-                const pct = Math.round((minT1dr / e.t1dr) * 100);
+                const pct = AtSpeedUtils.pctLinearMinBest(e.t1dr, minT1dr, maxT1dr);
                 byHorse.get(e.key)[d] = {
                     pct,
                     t1dr: e.t1dr,
@@ -1365,12 +1366,14 @@ const IstatistikEngine = {
             if (!atDepth.length) continue;
 
             const minSon800 = Math.min(...atDepth.map(e => e.son800Salise));
+            const maxSon800 = Math.max(...atDepth.map(e => e.son800Salise));
             const minDrSl = Math.min(...atDepth.map(e => e.drSl));
+            const maxDrSl = Math.max(...atDepth.map(e => e.drSl));
             const comparedCount = atDepth.length;
 
             for (const e of atDepth) {
-                const son800Pct = Math.round((minSon800 / e.son800Salise) * 100);
-                const drPct = Math.round((minDrSl / e.drSl) * 100);
+                const son800Pct = AtSpeedUtils.pctLinearMinBest(e.son800Salise, minSon800, maxSon800);
+                const drPct = AtSpeedUtils.pctLinearMinBest(e.drSl, minDrSl, maxDrSl);
                 const pct = Math.round(Math.sqrt(son800Pct * drPct));
                 byHorse.get(e.key)[d] = {
                     pct,
