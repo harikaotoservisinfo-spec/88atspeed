@@ -70,31 +70,57 @@ if (!sm12Trend.profiles.find(p => p.id === 'trendDownSon')) {
     process.exit(1);
 }
 
-// Ş+M-12 kullanıcı preset (0–100)
-TE.ensureDraft('sm12');
-if (TE.getDraftInfluence('sm12', 'visual', 'sariMavi') !== 100) {
-    console.error('FAIL: sm12 sariMavi 100 değil', TE.getDraftInfluence('sm12', 'visual', 'sariMavi'));
+// Ş+M-12 puan ölçeği (slider +1 başına)
+if (TE.getVisualPointScale('sm12', 'visual', 'sariMavi') !== 100) {
+    console.error('FAIL: sm12 sariMavi ölçek 100 değil');
     process.exit(1);
 }
-if (TE.getDraftInfluence('sm12', 'visual', 'sari') !== 30) {
-    console.error('FAIL: sm12 sari 30 değil');
+if (TE.getVisualPointScale('sm12', 'visual', 'sari') !== 30) {
+    console.error('FAIL: sm12 sari ölçek 30 değil');
     process.exit(1);
 }
-if (TE.getDraftInfluence('sm12', 'visual', 'yesilMavi') !== 16) {
-    console.error('FAIL: sm12 yesilMavi 16 değil');
+if (TE.getVisualPointScale('sm12', 'visual', 'yesilMavi') !== 16) {
+    console.error('FAIL: sm12 yesilMavi ölçek 16 değil');
     process.exit(1);
 }
-if (TE.getDraftInfluence('sm12', 'visual', 'sariKirmizi') !== 70) {
-    console.error('FAIL: sm12 sariKirmizi 70 değil', TE.getDraftInfluence('sm12', 'visual', 'sariKirmizi'));
+if (TE.getVisualPointScale('sm12', 'visual', 'sariKirmizi') !== 70) {
+    console.error('FAIL: sm12 sariKirmizi ölçek 70 değil', TE.getVisualPointScale('sm12', 'visual', 'sariKirmizi'));
+    process.exit(1);
+}
+if (TE.getVisualPointScale('sm12', 'visual', 'yesil') !== 5) {
+    console.error('FAIL: sm12 yesil ölçek 5 değil');
+    process.exit(1);
+}
+if (TE.getDraftInfluence('sm12', 'visual', 'sariKirmizi') !== 0) {
+    console.error('FAIL: sm12 slider varsayılan 0 olmalı');
     process.exit(1);
 }
 
-// sm12 trend: aynı etki değerinde görselden %20 fazla puan
-TE.setDraftInfluence('sm12', 'trend', 'trendDownSon', 25);
-TE.setDraftInfluence('sm12', 'visual', 'sari', 25);
+// sm12: sarı+kırmızı +1 > yeşil +1 (70 vs 5)
+TE.setDraftInfluence('sm12', 'visual', 'sariKirmizi', 1);
+TE.setDraftInfluence('sm12', 'visual', 'yesil', 1);
 TE.saveDraftMetric('sm12');
 TE.setSelectedMetric('sm12');
 TE.setCalcMode(TE.CALC_MODE_SOLO);
+const skCell = { pct: 0, gosterim: { kirmiziKenar: true, yesilSatir: true } };
+const yesilCell = { pct: 50, gosterim: {} };
+const skT = TE.computeRowTahmin(
+    { sm12Depths: [skCell] },
+    [{ id: 'sm12', label: 'Ş+M-12', depthsKey: 'sm12Depths' }]
+);
+const yesilT = TE.computeRowTahmin(
+    { sm12Depths: [yesilCell] },
+    [{ id: 'sm12', label: 'Ş+M-12', depthsKey: 'sm12Depths' }]
+);
+if (skT.score !== 70 || yesilT.score !== 5) {
+    console.error('FAIL: sm12 ölçekli puan', skT.score, yesilT.score);
+    process.exit(1);
+}
+
+// sm12 trend: aynı slider +1'de görselden %20 fazla (sarı baz 30)
+TE.setDraftInfluence('sm12', 'trend', 'trendDownSon', 1);
+TE.setDraftInfluence('sm12', 'visual', 'sari', 1);
+TE.saveDraftMetric('sm12');
 const trendBonusRow = {
     sm12Depths: [{ pct: 10 }, { pct: 60 }]
 };
@@ -106,6 +132,10 @@ const sm12VisualTerm = TE.computeRowTahmin(
 ).terms.find(x => x.metricId === 'sm12' && x.label.includes('Sarı'));
 if (!sm12TrendTerm || sm12TrendTerm.points < sm12VisualTerm.points) {
     console.error('FAIL: sm12 trend %20 bonus', sm12TrendTerm?.points, sm12VisualTerm?.points);
+    process.exit(1);
+}
+if (sm12VisualTerm.points !== 30) {
+    console.error('FAIL: sm12 sari +1 = 30 puan', sm12VisualTerm.points);
     process.exit(1);
 }
 
@@ -302,8 +332,8 @@ TE.saveDraftMetric('sm12');
 const tuncerRow = { sm12Depths: [null, tuncerCell] };
 const tuncerT = TE.computeRowTahmin(tuncerRow, [{ id: 'sm12', label: 'Ş+M-12', depthsKey: 'sm12Depths' }]);
 const tuncerTerm = tuncerT.terms.find(x => x.metricId === 'sm12' && x.label.includes('Sarı+kırmızı'));
-if (!tuncerTerm || tuncerTerm.points !== 9) {
-    console.error('FAIL: sm12 sariKirmizi TUNCER tipi', tuncerTerm, tuncerT.terms);
+if (!tuncerTerm || tuncerTerm.points !== 630) {
+    console.error('FAIL: sm12 sariKirmizi TUNCER tipi 9×70=630', tuncerTerm, tuncerT.terms);
     process.exit(1);
 }
 

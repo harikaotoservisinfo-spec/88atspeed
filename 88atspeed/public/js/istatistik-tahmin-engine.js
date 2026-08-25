@@ -14,29 +14,37 @@ const IstatistikTahminEngine = {
     ],
     DEFAULT_INFLUENCE: 0,
     /** Sarı ton > yeşil ton önceliği — preset sürümü (localStorage migrasyonu) */
-    TONE_KENAR_PRESET_VERSION: 3,
+    TONE_KENAR_PRESET_VERSION: 4,
+
+    /** Metrik bazlı varsayılan slider etkileri (0–100) — sm12 hariç */
+    METRIC_INFLUENCE_PRESETS: {},
 
     /**
-     * Metrik bazlı varsayılan etkiler (0–100).
-     * Ş+M-12 — kullanıcı tanımlı görsel profil ağırlıkları.
+     * Ş+M-12 görsel profil puan ölçeği — slider +1 başına bu kadar puan (hücre başına).
+     * Slider değeri × ölçek = puan; örn. sarı+kırmızı +1 → 70 puan, yeşil +1 → 5 puan.
      */
-    METRIC_INFLUENCE_PRESETS: {
+    METRIC_VISUAL_POINT_SCALE: {
         sm12: {
-            'visual:maviKenar': 12,
-            'visual:kirmiziKenar': 8,
-            'visual:sari': 30,
             'visual:sariMavi': 100,
             'visual:sariKirmizi': 70,
-            'visual:yesil': 5,
+            'visual:sari': 30,
+            'visual:maviKenar': 12,
+            'visual:kirmiziKenar': 8,
             'visual:yesilMavi': 16,
             'visual:yesilKirmizi': 13,
-            'visual:yesilAcik': 3,
+            'visual:yesil': 5,
+            'visual:maviFosfor': 9,
             'visual:gucluUyari': 7,
-            'visual:maviFosfor': 9
+            'visual:yesilAcik': 3
         }
     },
 
-    /** Trend puanı çarpanı — sm12 trendler görsel profilden %20 daha etkili */
+    /** Trend büyüklük referansı — sm12 trend Δ puanı bu ölçekle çarpılır (sarı=30) */
+    METRIC_TREND_REF_POINT_SCALE: {
+        sm12: 30
+    },
+
+    /** Trend puanı çarpanı — sm12 trendler aynı slider +1'de görselden %20 daha etkili */
     METRIC_TREND_POINT_MULTIPLIER: {
         sm12: 1.2
     },
@@ -309,6 +317,10 @@ const IstatistikTahminEngine = {
             if (metricPreset && metricPreset[key] != null) {
                 return metricPreset[key];
             }
+            // Puan ölçekli metrikler (sm12): slider 0'dan başlar, ölçek ayrı tabloda
+            if (this.METRIC_VISUAL_POINT_SCALE?.[metricId]) {
+                return this.DEFAULT_INFLUENCE;
+            }
             const p = this.getProfileDef(metricId, kind, profileId);
             if (p && p.defaultInfluence != null) return p.defaultInfluence;
         }
@@ -376,6 +388,26 @@ const IstatistikTahminEngine = {
         this._draftByMetric = null;
     },
 
+    /** v4: sm12 slider değerleri eskiden puan ölçeğiyle karışmıştı — sıfırla */
+    _migrateSm12PointScaleModel(store) {
+        if (!store.byMetric?.sm12) return;
+        for (const key of Object.keys(store.byMetric.sm12)) {
+            store.byMetric.sm12[key] = 0;
+        }
+        this._draftByMetric = null;
+    },
+
+    getVisualPointScale(metricId, kind, profileId) {
+        const key = this._profileKey(kind, profileId);
+        const metricScale = this.METRIC_VISUAL_POINT_SCALE?.[metricId]?.[key];
+        if (metricScale != null) return metricScale;
+        return 1;
+    },
+
+    getTrendRefPointScale(metricId) {
+        return this.METRIC_TREND_REF_POINT_SCALE?.[metricId] || 1;
+    },
+
     _emptyStore() {
         return {
             selectedMetric: this.DEFAULT_SELECTED_METRIC,
@@ -402,8 +434,14 @@ const IstatistikTahminEngine = {
                 id => Object.keys(store.byMetric[id] || {}).length > 0
             );
         }
-        if ((store.presetVersion || 0) < this.TONE_KENAR_PRESET_VERSION) {
-            this._applyToneKenarPreset(store);
+        const prevVersion = store.presetVersion || 0;
+        if (prevVersion < this.TONE_KENAR_PRESET_VERSION) {
+            if (prevVersion < 4) {
+                this._migrateSm12PointScaleModel(store);
+            }
+            if (prevVersion < 3) {
+                this._applyToneKenarPreset(store);
+            }
             this._applyMetricPresets(store);
             store.presetVersion = this.TONE_KENAR_PRESET_VERSION;
         }
@@ -733,7 +771,10 @@ const IstatistikTahminEngine = {
             influences, weightId, metricId, kind, profileId
         );
         if (weight <= 0) return;
-        terms.push({ weightId, metricId, label, weight, points: weight });
+        const scale = this.getVisualPointScale(metricId, kind, profileId);
+        const points = Math.round(weight * scale);
+        if (points <= 0) return;
+        terms.push({ weightId, metricId, label, weight, scale, points });
     },
 
     _pushSignalTerm(terms, influences, metricId, profileId, label) {
@@ -764,13 +805,14 @@ const IstatistikTahminEngine = {
             influences, weightId, metricId, this.TREND_GROUP, profileId
         );
         if (weight <= 0 || delta <= 0) return;
+        const refScale = this.getTrendRefPointScale(metricId);
         const trendMult = this.METRIC_TREND_POINT_MULTIPLIER?.[metricId] || 1;
-        let points = Math.round((weight * delta) / this.TREND_DELTA_DIVISOR);
+        let points = Math.round((weight * delta * refScale) / this.TREND_DELTA_DIVISOR);
         if (trendMult !== 1) {
             points = Math.round(points * trendMult);
-            // +1 etki: görsel profil +1 = +1 puan; trend +1 ≈ +%20 fazla (min taban)
-            const visualLike = Math.round(weight * trendMult);
-            if (points < visualLike) points = visualLike;
+            // +1 slider: trend ≈ refScale × %20 fazla; görsel +1 = refScale (sarı baz)
+            const trendFloor = Math.round(weight * refScale * trendMult);
+            if (points < trendFloor) points = trendFloor;
         }
         if (points <= 0) return;
         const detail = typeof trendHit === 'object' && trendHit.detail ? ' · ' + trendHit.detail : '';
@@ -804,7 +846,10 @@ const IstatistikTahminEngine = {
             influences, weightId, metricId, this.ORT_GROUP, profileId
         );
         if (weight <= 0) return;
-        terms.push({ weightId, metricId, label, weight, points: weight });
+        const scale = this.getVisualPointScale(metricId, this.ORT_GROUP, profileId);
+        const points = Math.round(weight * scale);
+        if (points <= 0) return;
+        terms.push({ weightId, metricId, label, weight, scale, points });
     },
 
     _t9vPctTier(pct) {
