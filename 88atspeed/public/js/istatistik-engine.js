@@ -1662,8 +1662,8 @@ const IstatistikEngine = {
         };
     },
 
-    /** Programdaki tüm koşularda derinlik % — tek referans min/max (en iyi %100, en kötü %0) */
-    PROGRAM_GLOBAL_PCT_SPECS: [
+    /** Koşu içi derinlik % — o koşudaki tüm atların tüm derinliklerinde tek min/max (en iyi %100, en kötü %0) */
+    RACE_PCT_SPECS: [
         { depthsKey: 'test1Depths', valueKey: 'test1', maxDepthKey: 'maxDepthTest1', ortKey: 'test1OrtOzeti' },
         { depthsKey: 'test2Depths', valueKey: 'test2', maxDepthKey: 'maxDepthTest2', ortKey: 'test2OrtOzeti' },
         { depthsKey: 'test3Depths', valueKey: 'test3', maxDepthKey: 'maxDepthTest3', ortKey: 'test3OrtOzeti' },
@@ -1675,121 +1675,123 @@ const IstatistikEngine = {
         { depthsKey: 'test8Depths', valueKey: 'absTest8', maxDepthKey: 'maxDepthT8', ortKey: 'test8OrtOzeti' }
     ],
 
-    PROGRAM_GLOBAL_SON800_DR_SPECS: [
+    RACE_SON800_DR_SPECS: [
         { depthsKey: 'son800Dr1Depths', maxDepthKey: 'maxDepthDr1', ortKey: 'son800Dr1OrtOzeti' },
         { depthsKey: 'son800DrDepths', maxDepthKey: 'maxDepthDr', ortKey: 'son800DrOrtOzeti' }
     ],
 
-    _collectProgramValueBounds(packages, depthsKey, valueKey) {
+    _collectRaceValueBounds(pkg, depthsKey, valueKey) {
         let minVal = null;
         let maxVal = null;
-        for (const pkg of packages) {
-            for (const row of pkg.rows || []) {
-                for (const cell of row[depthsKey] || []) {
-                    if (!cell) continue;
-                    const v = cell[valueKey];
-                    if (v == null || Number.isNaN(v)) continue;
-                    if (minVal === null || v < minVal) minVal = v;
-                    if (maxVal === null || v > maxVal) maxVal = v;
-                }
+        for (const row of pkg.rows || []) {
+            for (const cell of row[depthsKey] || []) {
+                if (!cell) continue;
+                const v = cell[valueKey];
+                if (v == null || Number.isNaN(v)) continue;
+                if (minVal === null || v < minVal) minVal = v;
+                if (maxVal === null || v > maxVal) maxVal = v;
             }
         }
         return { minVal, maxVal };
     },
 
-    _applyProgramLinearPct(packages, spec) {
-        const { minVal, maxVal } = this._collectProgramValueBounds(
-            packages, spec.depthsKey, spec.valueKey
+    _applyRaceLinearPct(pkg, spec) {
+        const { minVal, maxVal } = this._collectRaceValueBounds(
+            pkg, spec.depthsKey, spec.valueKey
         );
         if (minVal === null || maxVal === null) return null;
-        for (const pkg of packages) {
+        const maxDepth = pkg[spec.maxDepthKey] || 0;
+        for (const row of pkg.rows || []) {
+            const depths = row[spec.depthsKey] || [];
+            for (let d = 0; d < depths.length; d++) {
+                const cell = depths[d];
+                if (!cell || cell[spec.valueKey] == null) continue;
+                cell.pct = AtSpeedUtils.pctLinearMinBest(cell[spec.valueKey], minVal, maxVal);
+                cell.isBest = cell[spec.valueKey] === minVal;
+            }
+            if (spec.ortKey) {
+                row[spec.ortKey] = this._computeDepthOrtOzeti(depths, maxDepth);
+            }
+        }
+        return { minVal, maxVal };
+    },
+
+    _applyRaceSon800DrPct(pkg) {
+        let minSon800 = null;
+        let maxSon800 = null;
+        let minDr = null;
+        let maxDr = null;
+        for (const spec of this.RACE_SON800_DR_SPECS) {
+            for (const row of pkg.rows || []) {
+                for (const cell of row[spec.depthsKey] || []) {
+                    if (!cell) continue;
+                    if (cell.son800Salise != null) {
+                        if (minSon800 === null || cell.son800Salise < minSon800) minSon800 = cell.son800Salise;
+                        if (maxSon800 === null || cell.son800Salise > maxSon800) maxSon800 = cell.son800Salise;
+                    }
+                    if (cell.drSl != null) {
+                        if (minDr === null || cell.drSl < minDr) minDr = cell.drSl;
+                        if (maxDr === null || cell.drSl > maxDr) maxDr = cell.drSl;
+                    }
+                }
+            }
+        }
+        if (minSon800 === null && minDr === null) return null;
+        for (const spec of this.RACE_SON800_DR_SPECS) {
             const maxDepth = pkg[spec.maxDepthKey] || 0;
             for (const row of pkg.rows || []) {
                 const depths = row[spec.depthsKey] || [];
                 for (let d = 0; d < depths.length; d++) {
                     const cell = depths[d];
-                    if (!cell || cell[spec.valueKey] == null) continue;
-                    cell.pct = AtSpeedUtils.pctLinearMinBest(cell[spec.valueKey], minVal, maxVal);
-                    cell.isBest = cell[spec.valueKey] === minVal;
+                    if (!cell) continue;
+                    const son800Pct = minSon800 != null && maxSon800 != null
+                        ? AtSpeedUtils.pctLinearMinBest(cell.son800Salise, minSon800, maxSon800)
+                        : null;
+                    const drPct = minDr != null && maxDr != null
+                        ? AtSpeedUtils.pctLinearMinBest(cell.drSl, minDr, maxDr)
+                        : null;
+                    if (son800Pct != null) cell.son800Pct = son800Pct;
+                    if (drPct != null) {
+                        cell.drPct = drPct;
+                        cell.dr1Pct = drPct;
+                    }
+                    if (son800Pct != null && drPct != null) {
+                        cell.pct = Math.round(Math.sqrt(son800Pct * drPct));
+                    }
+                    cell.isBest = cell.son800Salise === minSon800 && cell.drSl === minDr;
                 }
                 if (spec.ortKey) {
                     row[spec.ortKey] = this._computeDepthOrtOzeti(depths, maxDepth);
                 }
             }
         }
-        return { minVal, maxVal };
-    },
-
-    _applyProgramSon800DrPct(packages) {
-        let minSon800 = null;
-        let maxSon800 = null;
-        let minDr = null;
-        let maxDr = null;
-        for (const spec of this.PROGRAM_GLOBAL_SON800_DR_SPECS) {
-            for (const pkg of packages) {
-                for (const row of pkg.rows || []) {
-                    for (const cell of row[spec.depthsKey] || []) {
-                        if (!cell) continue;
-                        if (cell.son800Salise != null) {
-                            if (minSon800 === null || cell.son800Salise < minSon800) minSon800 = cell.son800Salise;
-                            if (maxSon800 === null || cell.son800Salise > maxSon800) maxSon800 = cell.son800Salise;
-                        }
-                        if (cell.drSl != null) {
-                            if (minDr === null || cell.drSl < minDr) minDr = cell.drSl;
-                            if (maxDr === null || cell.drSl > maxDr) maxDr = cell.drSl;
-                        }
-                    }
-                }
-            }
-        }
-        if (minSon800 === null && minDr === null) return null;
-        for (const spec of this.PROGRAM_GLOBAL_SON800_DR_SPECS) {
-            for (const pkg of packages) {
-                const maxDepth = pkg[spec.maxDepthKey] || 0;
-                for (const row of pkg.rows || []) {
-                    const depths = row[spec.depthsKey] || [];
-                    for (let d = 0; d < depths.length; d++) {
-                        const cell = depths[d];
-                        if (!cell) continue;
-                        const son800Pct = minSon800 != null && maxSon800 != null
-                            ? AtSpeedUtils.pctLinearMinBest(cell.son800Salise, minSon800, maxSon800)
-                            : null;
-                        const drPct = minDr != null && maxDr != null
-                            ? AtSpeedUtils.pctLinearMinBest(cell.drSl, minDr, maxDr)
-                            : null;
-                        if (son800Pct != null) cell.son800Pct = son800Pct;
-                        if (drPct != null) {
-                            cell.drPct = drPct;
-                            cell.dr1Pct = drPct;
-                        }
-                        if (son800Pct != null && drPct != null) {
-                            cell.pct = Math.round(Math.sqrt(son800Pct * drPct));
-                        }
-                        cell.isBest = cell.son800Salise === minSon800 && cell.drSl === minDr;
-                    }
-                    if (spec.ortKey) {
-                        row[spec.ortKey] = this._computeDepthOrtOzeti(depths, maxDepth);
-                    }
-                }
-            }
-        }
         return { minSon800, maxSon800, minDr, maxDr };
     },
 
-    /** Tüm koşu paketlerinde derinlik yüzdelerini program geneli min/max ile yeniden hesapla */
+    /** Tek koşu paketinde derinlik yüzdelerini koşu içi min/max ile yeniden hesapla */
+    applyRacePctScales(pkg) {
+        if (!pkg) return {};
+        const bounds = {};
+        const specs = [
+            ...this.RACE_PCT_SPECS,
+            ...(this.RACE_PCT_EXTRA_SPECS || this.PROGRAM_GLOBAL_PCT_EXTRA_SPECS || [])
+        ];
+        for (const spec of specs) {
+            const b = this._applyRaceLinearPct(pkg, spec);
+            if (b) bounds[spec.depthsKey] = b;
+        }
+        const drBounds = this._applyRaceSon800DrPct(pkg);
+        if (drBounds) bounds.son800Dr = drBounds;
+        return bounds;
+    },
+
+    /** @deprecated applyRacePctScales kullanın — her paket koşu içi ölçeklenir */
     applyProgramGlobalPctScales(packages) {
         if (!packages?.length) return {};
         const bounds = {};
-        const specs = [
-            ...this.PROGRAM_GLOBAL_PCT_SPECS,
-            ...(this.PROGRAM_GLOBAL_PCT_EXTRA_SPECS || [])
-        ];
-        for (const spec of specs) {
-            const b = this._applyProgramLinearPct(packages, spec);
-            if (b) bounds[spec.depthsKey] = b;
+        for (const pkg of packages) {
+            bounds[pkg.rows?.[0]?.no ?? packages.indexOf(pkg)] = this.applyRacePctScales(pkg);
         }
-        const drBounds = this._applyProgramSon800DrPct(packages);
-        if (drBounds) bounds.son800Dr = drBounds;
         return bounds;
     },
 

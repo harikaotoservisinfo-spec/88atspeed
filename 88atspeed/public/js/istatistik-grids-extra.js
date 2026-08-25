@@ -452,8 +452,8 @@
         return { maxDepth, byHorse };
     };
 
-    /** Program geneli min–max ölçek — ek derinlik grupları */
-    IE.PROGRAM_GLOBAL_PCT_EXTRA_SPECS = [
+    /** Koşu içi min–max ölçek — ek derinlik grupları */
+    IE.RACE_PCT_EXTRA_SPECS = [
         { depthsKey: 'f802Depths', valueKey: 'absOrt', maxDepthKey: 'maxDepthF802', ortKey: 'f802OrtOzeti' },
         { depthsKey: 'f803Depths', valueKey: 'absOrt', maxDepthKey: 'maxDepthF803', ortKey: 'f803OrtOzeti' },
         { depthsKey: 't9Depths', valueKey: 'absVal', maxDepthKey: 'maxDepthT9', ortKey: 't9OrtOzeti' },
