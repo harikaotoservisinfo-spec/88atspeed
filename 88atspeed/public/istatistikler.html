@@ -860,7 +860,7 @@
 
 <script src="js/utils.js?v=20260825be"></script>
 <script src="js/formula-engine.js?v=20260825be"></script>
-<script src="js/istatistik-engine.js?v=20260825be"></script>
+<script src="js/istatistik-engine.js?v=20260826a"></script>
 <script src="js/istatistik-grids-extra.js?v=20260825be"></script>
 <script src="js/istatistik-gosterim-flags.js?v=20260825be"></script>
 <script src="js/istatistik-tahmin-engine.js?v=20260825be"></script>
@@ -1253,8 +1253,8 @@ function resolveTahminMetricSection(metricId, pkg) {
     const core = {
         son8001: { maxDepth: pkg.maxDepth1, grpClass: 'istat-grp-son8001', label: 'SON800-1', subtitle: 'Derinlik bazlı rakip kıyası + ağ. ort.' },
         son8002: { maxDepth: pkg.maxDepth2, grpClass: 'istat-grp-son8002', label: 'SON800-2', subtitle: 'Derinlik bazlı rakip kıyası + ağ. ort.' },
-        oran1: { maxDepth: pkg.oranMaxDepth1, grpClass: 'istat-grp-son800oran1', label: '800-1 ORAN', subtitle: 'Ana: ' + (pkg.oranAnaDerece1 || '?') + ' (%100) + ağ. ort.' },
-        oran2: { maxDepth: pkg.oranMaxDepth2, grpClass: 'istat-grp-son800oran2', label: '800-2 ORAN', subtitle: 'Ana: ' + (pkg.oranAnaDerece2 || '?') + ' (%100) + ağ. ort.' },
+        oran1: { maxDepth: pkg.oranMaxDepth1, grpClass: 'istat-grp-son800oran1', label: '800-1 ORAN', subtitle: oranMetricSubtitle(pkg.oranAnaDerece1, pkg.oranKotuDerece1) },
+        oran2: { maxDepth: pkg.oranMaxDepth2, grpClass: 'istat-grp-son800oran2', label: '800-2 ORAN', subtitle: oranMetricSubtitle(pkg.oranAnaDerece2, pkg.oranKotuDerece2) },
         fark827: { maxDepth: pkg.maxDepthFark827, grpClass: 'istat-grp-f827', label: '800Δ·7', subtitle: 'Son 7 koşu |8002-8001| ort. 0\'a yakın = %100 + ağ. ort.' },
         ff: { maxDepth: pkg.maxDepthFf, grpClass: 'istat-grp-ffd', label: 'FFΔ', subtitle: 'FARKLARIN FARKI |0\'a| yakın = %100 + ağ. ort.' },
         t8: { maxDepth: pkg.maxDepthT8, grpClass: 'istat-grp-t8d', label: 'T8Δ', subtitle: 'TEST8 |0\'a| yakın = %100 + ağ. ort.' },
@@ -1506,13 +1506,25 @@ function formatSon800DepthCell(cell, label, depthLabel) {
     return '<span class="istat-pct ' + pctClass(cell.pct) + '" title="' + title.replace(/"/g, '&quot;') + '">%' + cell.pct + '</span>';
 }
 
+function oranMetricSubtitle(anaDerece, kotuDerece) {
+    const ana = AtSpeedUtils.escapeHtml(anaDerece || '?');
+    let s = 'Ana: ' + ana + ' (%100)';
+    if (kotuDerece && kotuDerece !== anaDerece) {
+        s += ' · En kötü: ' + AtSpeedUtils.escapeHtml(kotuDerece) + ' (%0)';
+    }
+    return s + ' + ağ. ort.';
+}
+
 function formatSon800OranCell(cell, label, depthLabel, anaDerece) {
     if (!cell || cell.pct === null) return '<span class="istat-pct istat-pct-none">—</span>';
     let title = label + ' · ' + depthLabel + ': ' + (cell.derece || '?');
     if (cell.tarih) title += ' (' + cell.tarih + ')';
     if (anaDerece) title += ' | Ana derece: ' + anaDerece + ' (%100)';
+    const kotu = cell.kotuDerece;
+    if (kotu && kotu !== anaDerece) title += ' | En kötü derece: ' + kotu + ' (%0)';
     title += ' → %' + cell.pct;
     if (cell.isBest) title += ' ★ ana derece';
+    if (cell.isWorst) title += ' ★ en kötü derece';
     return '<span class="istat-pct ' + pctClass(cell.pct) + '" title="' + title.replace(/"/g, '&quot;') + '">%' + cell.pct + '</span>';
 }
 
@@ -2091,7 +2103,7 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
         h = appendMetricGroupThColspan(h, {
             colspan: o1 + 4, grpClass: 'istat-grp-son800oran1',
             label: '800-1 ORAN',
-            subtitle: 'Ana: ' + AtSpeedUtils.escapeHtml(oranAna1 || '?') + ' (%100) + ağ. ort.'
+            subtitle: oranMetricSubtitle(oranAna1, pkg?.oranKotuDerece1)
         });
     } else {
         h = appendMetricGroupThRowspan(h, {
@@ -2103,7 +2115,7 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
         h = appendMetricGroupThColspan(h, {
             colspan: o2 + 4, grpClass: 'istat-grp-son800oran2',
             label: '800-2 ORAN',
-            subtitle: 'Ana: ' + AtSpeedUtils.escapeHtml(oranAna2 || '?') + ' (%100) + ağ. ort.'
+            subtitle: oranMetricSubtitle(oranAna2, pkg?.oranKotuDerece2)
         });
     } else {
         h = appendMetricGroupThRowspan(h, {
@@ -2382,8 +2394,14 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
         if (pkg.oranAnaDerece1) {
             html += '<span class="istatistik-race-badge">800-1 ana: ' + AtSpeedUtils.escapeHtml(pkg.oranAnaDerece1) + '</span>';
         }
+        if (pkg.oranKotuDerece1 && pkg.oranKotuDerece1 !== pkg.oranAnaDerece1) {
+            html += '<span class="istatistik-race-badge">800-1 en kötü: ' + AtSpeedUtils.escapeHtml(pkg.oranKotuDerece1) + '</span>';
+        }
         if (pkg.oranAnaDerece2) {
             html += '<span class="istatistik-race-badge">800-2 ana: ' + AtSpeedUtils.escapeHtml(pkg.oranAnaDerece2) + '</span>';
+        }
+        if (pkg.oranKotuDerece2 && pkg.oranKotuDerece2 !== pkg.oranAnaDerece2) {
+            html += '<span class="istatistik-race-badge">800-2 en kötü: ' + AtSpeedUtils.escapeHtml(pkg.oranKotuDerece2) + '</span>';
         }
         if (maxDepthFark827 > 0) {
             html += '<span class="istatistik-race-badge">800Δ·7: ' + maxDepthFark827 + ' derinlik</span>';

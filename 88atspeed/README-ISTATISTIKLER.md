@@ -72,7 +72,8 @@ Tablo render (koşu kartları, sticky # ve AT İSMİ sütunları)
 ### 3. 800-1 ORAN / 800-2 ORAN (turuncu/sarı — mevcut sütunlara ek)
 - **Fonksiyon:** `computeSon800AnaOranGrid(race, programTarih, alan)`
 - Koşunun **ana SON800 derecesi** (tüm derinliklerdeki en iyi süre) = %100
-- Her hücre: `(anaSalise / atSalise) × 100`
+- Koşunun **en kötü SON800 derecesi** (tüm derinliklerdeki en yüksek süre) = %0
+- Her hücre: `pctLinearMinBest(atSalise, anaSalise, kotuSalise)` — doğrusal min–max ölçek
 - Aynı derinlik sütun yapısı (SON, 1 ÖNCE …)
 
 ### 4. SON800·1DR/SL (mor — **derinlik bazlı**)

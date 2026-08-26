@@ -346,8 +346,8 @@ const IstatistikEngine = {
     },
 
     /**
-     * Yeni ORAN sütunları — koşunun ana SON800 derecesine göre %.
-     * Ana derece = alandaki tüm derinliklerdeki en düşük SON800 (tek referans %100).
+     * ORAN sütunları — koşudaki tüm SON800 değerlerinde min–max doğrusal ölçek.
+     * Ana derece (en düşük süre) = %100, en yüksek süre = %0; aradakiler doğrusal.
      */
     computeSon800AnaOranGrid(race, programTarih, alan = 'bir') {
         const { chains, maxDepth } = this._buildSon800Chains(race, programTarih, alan);
@@ -358,11 +358,17 @@ const IstatistikEngine = {
 
         let anaSalise = null;
         let anaDerece = null;
+        let kotuSalise = null;
+        let kotuDerece = null;
         for (const chain of chains.values()) {
             for (const item of chain) {
                 if (anaSalise === null || item.salise < anaSalise) {
                     anaSalise = item.salise;
                     anaDerece = item.derece;
+                }
+                if (kotuSalise === null || item.salise > kotuSalise) {
+                    kotuSalise = item.salise;
+                    kotuDerece = item.derece;
                 }
             }
         }
@@ -372,7 +378,7 @@ const IstatistikEngine = {
                 for (const [key, chain] of chains) {
                     if (!chain[d]) continue;
                     const e = chain[d];
-                    const pct = Math.round((anaSalise / e.salise) * 100);
+                    const pct = AtSpeedUtils.pctLinearMinBest(e.salise, anaSalise, kotuSalise);
                     byHorse.get(key)[d] = {
                         pct,
                         derece: e.derece,
@@ -380,14 +386,17 @@ const IstatistikEngine = {
                         salise: e.salise,
                         anaDerece,
                         anaSalise,
+                        kotuDerece,
+                        kotuSalise,
                         depth: d,
-                        isBest: e.salise === anaSalise
+                        isBest: e.salise === anaSalise,
+                        isWorst: e.salise === kotuSalise
                     };
                 }
             }
         }
 
-        return { maxDepth, anaDerece, anaSalise, byHorse };
+        return { maxDepth, anaDerece, anaSalise, kotuDerece, kotuSalise, byHorse };
     },
 
     /** GÖSTERİM FARK = birinci_dr/sl − at_dr/sl */
@@ -1702,6 +1711,8 @@ const IstatistikEngine = {
             oranMaxDepth2: oran2Grid.maxDepth,
             oranAnaDerece1: oran1Grid.anaDerece,
             oranAnaDerece2: oran2Grid.anaDerece,
+            oranKotuDerece1: oran1Grid.kotuDerece,
+            oranKotuDerece2: oran2Grid.kotuDerece,
             maxDepthFark827: fark827Grid.maxDepth,
             maxDepthFf: ffGrid.maxDepth,
             maxDepthT8: test8Grid.maxDepth,
