@@ -489,6 +489,14 @@
         .istatistik-table tbody tr:hover td.istat-gap-son8001-t1dr-twin-zero {
             background: #fb8c00 !important;
         }
+        /* Turuncu kural dışında + T1×DR SON·Δ <%25 → SON800-1 hücresi gri */
+        .istatistik-table td.istat-gap-son8001-t1dr-low-gray {
+            background: #9e9e9e !important;
+            box-shadow: inset 0 0 0 1px #757575;
+        }
+        .istatistik-table tbody tr:hover td.istat-gap-son8001-t1dr-low-gray {
+            background: #bdbdbd !important;
+        }
         .istatistik-table tbody tr:hover td.istat-grp-test2 { background: #dce0f5; }
         .istatistik-table tbody tr:hover td.istat-grp-test3 { background: #dcedc8; }
         .istatistik-table tbody tr:hover td.istat-grp-testozet { background: #fff9c4; }
@@ -942,14 +950,14 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260826s"></script>
-<script src="js/formula-engine.js?v=20260826s"></script>
-<script src="js/istatistik-engine.js?v=20260826s"></script>
-<script src="js/istatistik-grids-extra.js?v=20260826s"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260826s"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260826s"></script>
+<script src="js/utils.js?v=20260826t"></script>
+<script src="js/formula-engine.js?v=20260826t"></script>
+<script src="js/istatistik-engine.js?v=20260826t"></script>
+<script src="js/istatistik-grids-extra.js?v=20260826t"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260826t"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260826t"></script>
 <script>
-const ISTAT_BUILD = '20260826s';
+const ISTAT_BUILD = '20260826t';
 const TAHMIN_METRIC_ALL = '__hepsi__';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
@@ -1174,6 +1182,20 @@ function isSon8001T1drSonGapTwinZero(row) {
     return s800.gapPct === 0 && t1.gapPct === 0;
 }
 
+function getSon8001SonGapHighlight(row, depthIndex, cell) {
+    if (!row || depthIndex !== 0) {
+        return { tdExtra: '', twinZero: false, t1drLowGray: false };
+    }
+    const t1Gap = row.t1drDepths?.[0]?.gapPct;
+    if (isSon8001T1drSonGapTwinZero(row) && cell?.gapPct === 0) {
+        return { tdExtra: ' istat-gap-son8001-t1dr-twin-zero', twinZero: true, t1drLowGray: false };
+    }
+    if (!isSon8001T1drSonGapTwinZero(row) && t1Gap != null && t1Gap < 25) {
+        return { tdExtra: ' istat-gap-son8001-t1dr-low-gray', twinZero: false, t1drLowGray: true };
+    }
+    return { tdExtra: '', twinZero: false, t1drLowGray: false };
+}
+
 function formatGapDepthCell(cell, groupLabel, depthLabel, opts) {
     opts = opts || {};
     if (!cell || cell.gapPct == null) {
@@ -1196,6 +1218,9 @@ function formatGapDepthCell(cell, groupLabel, depthLabel, opts) {
         title += ' | ★ en iyi derece (Δ=0)';
         if (opts.twinZeroHighlight) {
             title += ' | ★ T1×DR SON·Δ de 0 (turuncu)';
+        }
+        if (opts.t1drLowGray) {
+            title += ' | T1×DR SON·Δ <%25 (gri)';
         }
     }
     return '<span class="istat-pct ' + cls + '" title="' + title.replace(/"/g, '&quot;') + '">%' + cell.gapPct + '</span>';
@@ -1242,13 +1267,13 @@ function renderRaceSelfDepthCells(depths, maxDepth, grpClass, opts) {
         const selfCls = grpClass + ' istat-self-depth';
         h += '<td class="' + depthTdClass(selfCls, cell) + '">'
             + wrapDepthCellInner(formatSelfDepthCell(cell, groupLabel, dl), cell) + '</td>';
-        const gapCls = grpClass + ' istat-gap-depth'
-            + ((d === 0 && twinZeroRow && cell?.gapPct === 0 && isSon8001T1drSonGapTwinZero(twinZeroRow))
-                ? ' istat-gap-son8001-t1dr-twin-zero' : '');
+        const gapHi = twinZeroRow ? getSon8001SonGapHighlight(twinZeroRow, d, cell) : null;
+        const gapCls = grpClass + ' istat-gap-depth' + (gapHi?.tdExtra || '');
         const gapInner = formatGapCell
             ? formatGapCell(cell, dl, d)
             : formatGapDepthCell(cell, groupLabel, dl, {
-                twinZeroHighlight: d === 0 && twinZeroRow && isSon8001T1drSonGapTwinZero(twinZeroRow) && cell?.gapPct === 0
+                twinZeroHighlight: !!gapHi?.twinZero,
+                t1drLowGray: !!gapHi?.t1drLowGray
             });
         h += '<td class="' + depthTdClass(gapCls, cell) + '">'
             + wrapDepthCellInner(gapInner, cell) + '</td>';
