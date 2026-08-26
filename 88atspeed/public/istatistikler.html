@@ -892,14 +892,14 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260826i"></script>
-<script src="js/formula-engine.js?v=20260826i"></script>
-<script src="js/istatistik-engine.js?v=20260826i"></script>
-<script src="js/istatistik-grids-extra.js?v=20260826i"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260826i"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260826i"></script>
+<script src="js/utils.js?v=20260826j"></script>
+<script src="js/formula-engine.js?v=20260826j"></script>
+<script src="js/istatistik-engine.js?v=20260826j"></script>
+<script src="js/istatistik-grids-extra.js?v=20260826j"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260826j"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260826j"></script>
 <script>
-const ISTAT_BUILD = '20260826i';
+const ISTAT_BUILD = '20260826j';
 const TAHMIN_METRIC_ALL = '__hepsi__';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
@@ -983,7 +983,7 @@ function appendDepthHeaderCols(h, grpClass, groupId, maxDepth) {
 }
 
 function depthMetricColspan(maxDepth) {
-    return maxDepth > 0 ? maxDepth * 4 + 4 : 0;
+    return maxDepth > 0 ? maxDepth * 3 + 4 : 0;
 }
 
 function metricHasSelfDepth(metricId) {
@@ -1004,8 +1004,7 @@ function appendDepthHeaderColsWithSelf(h, grpClass, groupId, maxDepth) {
         let cls = 'istat-th-metric istat-th-son800-depth ' + grpClass;
         if (d === 0) cls += ' istat-grp-start';
         const dl = son800DepthLabel(d);
-        h = appendColHeader(h, cls + ' istat-th-derece-depth', dl);
-        h = appendColHeader(h, cls + ' istat-th-race-pct', dl + '·K');
+        h = appendColHeader(h, cls, dl);
         h = appendColHeader(h, cls + ' istat-th-self-depth', dl + '·İÇ');
         h = appendColHeader(h, cls + ' istat-th-gap-depth', dl + '·Δ');
     }
@@ -1042,31 +1041,25 @@ function formatSelfDepthCell(cell, groupLabel, depthLabel) {
 }
 
 function renderRaceSelfDepthCells(depths, maxDepth, grpClass, opts) {
-    const formatDereceCell = opts.formatDereceCell;
-    const formatRacePctCell = opts.formatRacePctCell || opts.formatRaceCell;
+    const formatRaceCell = opts.formatRacePctCell || opts.formatRaceCell;
     const groupLabel = opts.groupLabel || '';
     const ortOzeti = opts.ortOzeti;
     const isGrpEnd = !!opts.isGrpEnd;
-    const emptyRow = () => {
+    if (maxDepth === 0) {
         let cls = grpClass + ' istat-son800-depth istat-grp-start';
         if (isGrpEnd) cls += ' istat-grp-end';
-        return '<td class="' + cls + '"><span class="istat-derece istat-derece-none">—</span></td>'
-            + '<td class="' + grpClass + ' istat-race-pct"><span class="istat-pct istat-pct-none">—</span></td>'
+        return '<td class="' + cls + '"><span class="istat-pct istat-pct-none">—</span></td>'
             + '<td class="' + grpClass + ' istat-self-depth"><span class="istat-pct istat-pct-none">—</span></td>'
             + '<td class="' + grpClass + ' istat-gap-depth"><span class="istat-pct istat-pct-none">—</span></td>';
-    };
-    if (maxDepth === 0) return emptyRow();
+    }
     let h = '';
     for (let d = 0; d < maxDepth; d++) {
         const cell = depths && depths[d] ? depths[d] : null;
         const dl = son800DepthLabel(d);
-        let cls = grpClass + ' istat-son800-depth istat-derece-depth';
+        let cls = grpClass + ' istat-son800-depth';
         if (d === 0) cls += ' istat-grp-start';
         h += '<td class="' + depthTdClass(cls, cell) + '">'
-            + wrapDepthCellInner(formatDereceCell(cell, dl), cell) + '</td>';
-        const raceCls = grpClass + ' istat-race-pct';
-        h += '<td class="' + depthTdClass(raceCls, cell) + '">'
-            + wrapDepthCellInner(formatRacePctCell(cell, dl), cell) + '</td>';
+            + wrapDepthCellInner(formatRaceCell(cell, dl), cell) + '</td>';
         const selfCls = grpClass + ' istat-self-depth';
         h += '<td class="' + depthTdClass(selfCls, cell) + '">'
             + wrapDepthCellInner(formatSelfDepthCell(cell, groupLabel, dl), cell) + '</td>';
@@ -1630,22 +1623,17 @@ function renderVisualScoreControls() {
     }
 }
 
-function formatSon800DereceCell(cell, label, depthLabel) {
-    return formatDereceDepthCell(cell, depthLabel, label, cell?.derece || null);
-}
-
 function formatSon800RacePctCell(cell, label, depthLabel) {
     if (!cell || cell.pct === null) return '<span class="istat-pct istat-pct-none">—</span>';
-    let title = label + ' · ' + depthLabel + ' · KOŞU ölçeği';
-    if (cell.derece) title += ': ' + cell.derece;
+    let title = label + ' · ' + depthLabel + ': ' + (cell.derece || '?');
     if (cell.tarih) title += ' (' + cell.tarih + ')';
-    title += ' | ' + cell.comparedCount + ' at · en iyi %100 → %' + cell.pct;
-    if (cell.isBest) title += ' ★ koşu en iyi';
+    title += ' | ' + cell.comparedCount + ' at kıyası → %' + cell.pct;
+    if (cell.isBest) title += ' (en iyi)';
     return '<span class="istat-pct ' + pctClass(cell.pct) + '" title="' + title.replace(/"/g, '&quot;') + '">%' + cell.pct + '</span>';
 }
 
-function formatSon800OranDereceCell(cell, label, depthLabel) {
-    return formatDereceDepthCell(cell, depthLabel, label, cell?.derece || null);
+function formatSon800DepthCell(cell, label, depthLabel) {
+    return formatSon800RacePctCell(cell, label, depthLabel);
 }
 
 function formatSon800OranRacePctCell(cell, label, depthLabel, anaDerece) {
@@ -1774,8 +1762,7 @@ function renderTest1DepthCells(depths, maxDepth, ortOzeti) {
         groupLabel: 'TEST1',
         ortOzeti,
         isGrpEnd: false,
-        formatDereceCell: (cell, dl) => formatTest1DereceCell(cell, dl),
-        formatRacePctCell: formatTest1DepthCell
+        formatRaceCell: formatTest1DepthCell
     });
 }
 
@@ -1800,8 +1787,7 @@ function renderTest2DepthCells(depths, maxDepth, ortOzeti) {
         groupLabel: 'TEST2',
         ortOzeti,
         isGrpEnd: false,
-        formatDereceCell: (cell, dl) => formatTest2DereceCell(cell, dl),
-        formatRacePctCell: formatTest2DepthCell
+        formatRaceCell: formatTest2DepthCell
     });
 }
 
@@ -1825,8 +1811,7 @@ function renderTest3DepthCells(depths, maxDepth, ortOzeti) {
         groupLabel: 'TEST3',
         ortOzeti,
         isGrpEnd: false,
-        formatDereceCell: (cell, dl) => formatTest3DereceCell(cell, dl),
-        formatRacePctCell: formatTest3DepthCell
+        formatRaceCell: formatTest3DepthCell
     });
 }
 
@@ -1870,8 +1855,7 @@ function renderTest123SiraliDepthCells(depths, maxDepth, ortOzeti) {
         groupLabel: 'TEST·SIRA',
         ortOzeti,
         isGrpEnd: false,
-        formatDereceCell: (cell, dl) => formatTest123SiraliDereceCell(cell, dl),
-        formatRacePctCell: formatTest123SiraliDepthCell
+        formatRaceCell: formatTest123SiraliDepthCell
     });
 }
 
@@ -1896,8 +1880,7 @@ function renderT1drDepthCells(depths, maxDepth, ortOzeti) {
         groupLabel: 'T1×DR',
         ortOzeti,
         isGrpEnd: false,
-        formatDereceCell: (cell, dl) => formatT1drDereceCell(cell, dl),
-        formatRacePctCell: formatT1drDepthCell
+        formatRaceCell: formatT1drDepthCell
     });
 }
 
@@ -1934,8 +1917,7 @@ function renderSon800DepthCells(depths, maxDepth, grpClass, label, ortOzeti) {
         groupLabel: label,
         ortOzeti,
         isGrpEnd: true,
-        formatDereceCell: (cell, dl) => formatSon800DereceCell(cell, label, dl),
-        formatRacePctCell: (cell, dl) => formatSon800RacePctCell(cell, label, dl)
+        formatRaceCell: (cell, dl) => formatSon800DepthCell(cell, label, dl)
     });
 }
 
@@ -1967,8 +1949,7 @@ function renderSon800OranCells(depths, maxDepth, grpClass, label, anaDerece, ort
         groupLabel: label,
         ortOzeti,
         isGrpEnd,
-        formatDereceCell: (cell, dl) => formatSon800OranDereceCell(cell, label, dl),
-        formatRacePctCell: (cell, dl) => formatSon800OranRacePctCell(cell, label, dl, anaDerece)
+        formatRaceCell: (cell, dl) => formatSon800OranRacePctCell(cell, label, dl, anaDerece)
     });
 }
 
@@ -2005,8 +1986,7 @@ function renderFark827DepthCells(depths, maxDepth, ortOzeti) {
         groupLabel: '800Δ·7',
         ortOzeti,
         isGrpEnd: false,
-        formatDereceCell: (cell, dl) => formatFark827DereceCell(cell, dl),
-        formatRacePctCell: formatFark827DepthCell
+        formatRaceCell: formatFark827DepthCell
     });
 }
 
@@ -2031,8 +2011,7 @@ function renderFfDepthCells(depths, maxDepth, ortOzeti) {
         groupLabel: 'FFΔ',
         ortOzeti,
         isGrpEnd: false,
-        formatDereceCell: (cell, dl) => formatFfDereceCell(cell, dl),
-        formatRacePctCell: formatFfDepthCell
+        formatRaceCell: formatFfDepthCell
     });
 }
 
@@ -2058,8 +2037,7 @@ function renderT8DepthCells(depths, maxDepth, ortOzeti) {
         groupLabel: 'T8Δ',
         ortOzeti,
         isGrpEnd: false,
-        formatDereceCell: (cell, dl) => formatT8DereceCell(cell, dl),
-        formatRacePctCell: formatT8DepthCell
+        formatRaceCell: formatT8DepthCell
     });
 }
 
