@@ -48,4 +48,30 @@ if (getVisibleDepth('son8002', 7, DEPTH_EXPAND_SCOPE_MAIN) !== 7) {
     process.exit(1);
 }
 
+// Turuncu (çift 0) dışında: ikisi de <%25
+metricDepthExpanded[depthExpandStateKey('son8001', DEPTH_EXPAND_SCOPE_MAIN)] = false;
+const row = {
+    son8001Depths: [{ gapPct: 10 }],
+    t1drDepths: [{ gapPct: 9 }]
+};
+const hiBoth = (() => {
+    const s800Gap = row.son8001Depths[0].gapPct;
+    const t1Gap = row.t1drDepths[0].gapPct;
+    return s800Gap < 25 && t1Gap < 25;
+})();
+const rowOneLow = {
+    son8001Depths: [{ gapPct: 46 }],
+    t1drDepths: [{ gapPct: 9 }]
+};
+const hiOne = (() => {
+    const s800Gap = rowOneLow.son8001Depths[0].gapPct;
+    const t1Gap = rowOneLow.t1drDepths[0].gapPct;
+    return s800Gap < 25 && t1Gap < 25;
+})();
+if (!hiBoth || hiOne) {
+    console.error('FAIL: neon yalnızca ikisi de <%25 iken', { hiBoth, hiOne });
+    process.exit(1);
+}
+
 console.log('OK depth toggle scopes: tahmin/main/metrics independent');
+console.log('OK neon rule: both SON800-1 and T1×DR SON·Δ <%25');

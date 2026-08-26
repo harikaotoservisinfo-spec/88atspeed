@@ -961,14 +961,14 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260826u"></script>
-<script src="js/formula-engine.js?v=20260826u"></script>
-<script src="js/istatistik-engine.js?v=20260826u"></script>
-<script src="js/istatistik-grids-extra.js?v=20260826u"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260826u"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260826u"></script>
+<script src="js/utils.js?v=20260826v"></script>
+<script src="js/formula-engine.js?v=20260826v"></script>
+<script src="js/istatistik-engine.js?v=20260826v"></script>
+<script src="js/istatistik-grids-extra.js?v=20260826v"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260826v"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260826v"></script>
 <script>
-const ISTAT_BUILD = '20260826u';
+const ISTAT_BUILD = '20260826v';
 const TAHMIN_METRIC_ALL = '__hepsi__';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
@@ -1197,11 +1197,15 @@ function getSon8001SonGapHighlight(row, depthIndex, cell) {
     if (!row || depthIndex !== 0) {
         return { tdExtra: '', twinZero: false, t1drLowGray: false };
     }
+    const s800Gap = row.son8001Depths?.[0]?.gapPct;
     const t1Gap = row.t1drDepths?.[0]?.gapPct;
     if (isSon8001T1drSonGapTwinZero(row) && cell?.gapPct === 0) {
         return { tdExtra: ' istat-gap-son8001-t1dr-twin-zero', twinZero: true, t1drLowGray: false };
     }
-    if (!isSon8001T1drSonGapTwinZero(row) && t1Gap != null && t1Gap < 25) {
+    // Turuncu (çift 0) kuralı dışında: HER İKİSİ de SON·Δ <%25 ise fosforlu yeşil
+    if (!isSon8001T1drSonGapTwinZero(row)
+        && s800Gap != null && t1Gap != null
+        && s800Gap < 25 && t1Gap < 25) {
         return { tdExtra: ' istat-gap-son8001-t1dr-low-neon', twinZero: false, t1drLowGray: true };
     }
     return { tdExtra: '', twinZero: false, t1drLowGray: false };
@@ -1231,7 +1235,7 @@ function formatGapDepthCell(cell, groupLabel, depthLabel, opts) {
             title += ' | ★ T1×DR SON·Δ de 0 (turuncu)';
         }
         if (opts.t1drLowGray) {
-            title += ' | T1×DR SON·Δ <%25 (fosforlu yeşil)';
+            title += ' | SON800-1 ve T1×DR SON·Δ ikisi <%25 (fosforlu yeşil)';
         }
     }
     return '<span class="istat-pct ' + cls + '" title="' + title.replace(/"/g, '&quot;') + '">%' + cell.gapPct + '</span>';
