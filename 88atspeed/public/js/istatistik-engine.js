@@ -1850,6 +1850,7 @@ const IstatistikEngine = {
             for (const row of rows) {
                 const depths = row[spec.depthsKey] || [];
                 let horseBest = null;
+                let horseBestDerece = null;
                 for (const cell of depths) {
                     if (!cell) continue;
                     const v = cell[valueKey];
@@ -1862,21 +1863,33 @@ const IstatistikEngine = {
                         horseBest = Math.min(horseBest, v);
                     }
                 }
+                if (horseBest != null) {
+                    for (const cell of depths) {
+                        if (!cell || cell[valueKey] == null) continue;
+                        if (cell[valueKey] !== horseBest) continue;
+                        horseBestDerece = cell.derece || cell.son800Derece || cell.t1drDerece
+                            || (cell.salise != null ? AtSpeedUtils.saliseToDerece(cell.salise) : null);
+                        if (horseBestDerece) break;
+                        if (scale === 'maxBest' && valueKey === 'rulePct') {
+                            horseBestDerece = '%' + cell.rulePct;
+                            break;
+                        }
+                        if (valueKey !== 'salise' && valueKey !== 'rulePct') {
+                            horseBestDerece = String(cell[valueKey]);
+                            break;
+                        }
+                    }
+                    if (!horseBestDerece && horseBest != null) {
+                        horseBestDerece = scale === 'maxBest' && valueKey === 'rulePct'
+                            ? '%' + horseBest
+                            : AtSpeedUtils.saliseToDerece(horseBest);
+                    }
+                }
                 for (const cell of depths) {
                     if (!cell || cell[valueKey] == null || horseBest == null) continue;
                     cell.gapSalise = Math.abs(cell[valueKey] - horseBest);
                     cell.horseBestVal = horseBest;
-                    if (cell[valueKey] === horseBest && cell.derece) {
-                        cell.horseBestDerece = cell.derece;
-                    }
-                }
-                if (horseBest != null) {
-                    for (const cell of depths) {
-                        if (cell?.horseBestDerece) continue;
-                        if (cell && cell[valueKey] === horseBest && cell.derece) {
-                            cell.horseBestDerece = cell.derece;
-                        }
-                    }
+                    cell.horseBestDerece = horseBestDerece;
                 }
             }
 

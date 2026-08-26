@@ -438,17 +438,14 @@
             box-shadow: inset 1px 0 0 rgba(0, 0, 0, 0.06);
         }
         .istatistik-table tbody tr:hover td.istat-self-depth { background: rgba(255, 255, 255, 0.65); }
-        .istatistik-table th.istat-th-race-pct,
-        .istatistik-table td.istat-race-pct {
-            background: rgba(255, 255, 255, 0.25);
+        .istatistik-table th.istat-th-best-depth,
+        .istatistik-table td.istat-best-depth {
+            background: rgba(255, 255, 255, 0.3);
             box-shadow: inset 1px 0 0 rgba(0, 0, 0, 0.05);
-        }
-        .istatistik-table tbody tr:hover td.istat-race-pct { background: rgba(255, 255, 255, 0.4); }
-        .istatistik-table th.istat-th-derece-depth,
-        .istatistik-table td.istat-derece-depth {
             font-weight: 700;
             font-variant-numeric: tabular-nums;
         }
+        .istatistik-table tbody tr:hover td.istat-best-depth { background: rgba(255, 255, 255, 0.45); }
         .istat-derece {
             display: inline-block;
             min-width: 52px;
@@ -892,14 +889,14 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260826j"></script>
-<script src="js/formula-engine.js?v=20260826j"></script>
-<script src="js/istatistik-engine.js?v=20260826j"></script>
-<script src="js/istatistik-grids-extra.js?v=20260826j"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260826j"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260826j"></script>
+<script src="js/utils.js?v=20260826k"></script>
+<script src="js/formula-engine.js?v=20260826k"></script>
+<script src="js/istatistik-engine.js?v=20260826k"></script>
+<script src="js/istatistik-grids-extra.js?v=20260826k"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260826k"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260826k"></script>
 <script>
-const ISTAT_BUILD = '20260826j';
+const ISTAT_BUILD = '20260826k';
 const TAHMIN_METRIC_ALL = '__hepsi__';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
@@ -983,7 +980,7 @@ function appendDepthHeaderCols(h, grpClass, groupId, maxDepth) {
 }
 
 function depthMetricColspan(maxDepth) {
-    return maxDepth > 0 ? maxDepth * 3 + 4 : 0;
+    return maxDepth > 0 ? maxDepth * 4 + 4 : 0;
 }
 
 function metricHasSelfDepth(metricId) {
@@ -1005,10 +1002,23 @@ function appendDepthHeaderColsWithSelf(h, grpClass, groupId, maxDepth) {
         if (d === 0) cls += ' istat-grp-start';
         const dl = son800DepthLabel(d);
         h = appendColHeader(h, cls, dl);
+        h = appendColHeader(h, cls + ' istat-th-best-depth', dl + '·Eİ');
         h = appendColHeader(h, cls + ' istat-th-self-depth', dl + '·İÇ');
         h = appendColHeader(h, cls + ' istat-th-gap-depth', dl + '·Δ');
     }
     return h;
+}
+
+function formatHorseBestDepthCell(cell, groupLabel, depthLabel, opts) {
+    if (!cell || cell.horseBestVal == null) {
+        return '<span class="istat-derece istat-derece-none">—</span>';
+    }
+    const text = opts?.formatBest
+        ? opts.formatBest(cell)
+        : (cell.horseBestDerece || AtSpeedUtils.saliseToDerece(cell.horseBestVal) || String(cell.horseBestVal));
+    let title = (groupLabel || '') + ' · ' + depthLabel + ' · atın en iyi derecesi: ' + text;
+    if (cell.tarih) title += ' | bu satır: ' + cell.tarih;
+    return '<span class="istat-derece" title="' + title.replace(/"/g, '&quot;') + '">' + AtSpeedUtils.escapeHtml(text) + '</span>';
 }
 
 function formatGapDepthCell(cell, groupLabel, depthLabel) {
@@ -1042,6 +1052,7 @@ function formatSelfDepthCell(cell, groupLabel, depthLabel) {
 
 function renderRaceSelfDepthCells(depths, maxDepth, grpClass, opts) {
     const formatRaceCell = opts.formatRacePctCell || opts.formatRaceCell;
+    const horseBestOpts = opts.horseBestOpts || null;
     const groupLabel = opts.groupLabel || '';
     const ortOzeti = opts.ortOzeti;
     const isGrpEnd = !!opts.isGrpEnd;
@@ -1049,6 +1060,7 @@ function renderRaceSelfDepthCells(depths, maxDepth, grpClass, opts) {
         let cls = grpClass + ' istat-son800-depth istat-grp-start';
         if (isGrpEnd) cls += ' istat-grp-end';
         return '<td class="' + cls + '"><span class="istat-pct istat-pct-none">—</span></td>'
+            + '<td class="' + grpClass + ' istat-best-depth"><span class="istat-derece istat-derece-none">—</span></td>'
             + '<td class="' + grpClass + ' istat-self-depth"><span class="istat-pct istat-pct-none">—</span></td>'
             + '<td class="' + grpClass + ' istat-gap-depth"><span class="istat-pct istat-pct-none">—</span></td>';
     }
@@ -1060,6 +1072,9 @@ function renderRaceSelfDepthCells(depths, maxDepth, grpClass, opts) {
         if (d === 0) cls += ' istat-grp-start';
         h += '<td class="' + depthTdClass(cls, cell) + '">'
             + wrapDepthCellInner(formatRaceCell(cell, dl), cell) + '</td>';
+        const bestCls = grpClass + ' istat-best-depth';
+        h += '<td class="' + depthTdClass(bestCls, cell) + '">'
+            + wrapDepthCellInner(formatHorseBestDepthCell(cell, groupLabel, dl, horseBestOpts), cell) + '</td>';
         const selfCls = grpClass + ' istat-self-depth';
         h += '<td class="' + depthTdClass(selfCls, cell) + '">'
             + wrapDepthCellInner(formatSelfDepthCell(cell, groupLabel, dl), cell) + '</td>';
@@ -1855,7 +1870,8 @@ function renderTest123SiraliDepthCells(depths, maxDepth, ortOzeti) {
         groupLabel: 'TEST·SIRA',
         ortOzeti,
         isGrpEnd: false,
-        formatRaceCell: formatTest123SiraliDepthCell
+        formatRaceCell: formatTest123SiraliDepthCell,
+        horseBestOpts: { formatBest: (cell) => '%' + cell.horseBestVal }
     });
 }
 
