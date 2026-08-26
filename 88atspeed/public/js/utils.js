@@ -95,6 +95,15 @@ const AtSpeedUtils = {
         return Math.round(Math.max(0, Math.min(100, pct)));
     },
 
+    /** 0–100 değerlerinin geometrik ortalaması (TEST·SIRA ile aynı mantık) */
+    pctGeometricMean(values) {
+        const valid = (values || []).filter(v => v != null && !Number.isNaN(v));
+        if (!valid.length) return null;
+        if (valid.length === 1) return Math.round(valid[0]);
+        const product = valid.reduce((a, b) => a * Math.max(0, b), 1);
+        return Math.round(Math.pow(product, 1 / valid.length));
+    },
+
     /** pctLinearMinBest tersi: yüzdeden ham değer (en iyi=min %100) */
     impliedValueFromPctMinBest(pct, minVal, maxVal) {
         if (pct == null || minVal == null || maxVal == null) return null;

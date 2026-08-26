@@ -79,7 +79,18 @@ if (d0.horseBestPct == null) {
     console.error('FAIL: horseBestPct hesaplanmalı', d0);
     process.exit(1);
 }
-console.log('At A horseBestPct:', d0.horseBestPct, 'horseBestDerece:', d0.horseBestDerece);
+if (d0.successPct == null || d0.successParts?.length < 2) {
+    console.error('FAIL: successPct hesaplanmalı', d0);
+    process.exit(1);
+}
+const manualSuccess = U.pctGeometricMean([
+    d0.pct, d0.horseBestPct, d0.selfPct, 100 - d0.gapPct
+]);
+if (d0.successPct !== manualSuccess) {
+    console.error('FAIL: successPct', d0.successPct, manualSuccess);
+    process.exit(1);
+}
+console.log('At A successPct:', d0.successPct, 'parts:', d0.successParts.map(p => p.label + '=' + p.val).join(' '));
 console.log('At A SON gapSalise:', d0.gapSalise, 'gapPct:', d0.gapPct);
 console.log('At A 1 ÖNCE gapSalise:', d1.gapSalise, 'gapPct:', d1.gapPct);
 console.log('OK');

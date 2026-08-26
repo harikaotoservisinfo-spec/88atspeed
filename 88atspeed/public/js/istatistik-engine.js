@@ -1926,7 +1926,33 @@ const IstatistikEngine = {
                     cell.isGapMin = minGap != null && cell.gapSalise === minGap;
                 }
             }
+
+            for (const row of rows) {
+                for (const cell of row[spec.depthsKey] || []) {
+                    if (!cell) continue;
+                    this._applyDepthSuccessPct(cell);
+                }
+            }
         }
+    },
+
+    /**
+     * SON·BS — dört sinyalin geometrik ortalaması (başarı şansı).
+     * SON, Eİ, İÇ yüksek = iyi; Δ düşük = iyi → yakınlık = 100 − Δ.
+     */
+    _applyDepthSuccessPct(cell) {
+        const yakınlık = cell.gapPct != null ? 100 - cell.gapPct : null;
+        const parts = [];
+        if (cell.pct != null) parts.push({ label: 'SON', val: cell.pct });
+        if (cell.horseBestPct != null) parts.push({ label: 'Eİ', val: cell.horseBestPct });
+        if (cell.selfPct != null) parts.push({ label: 'İÇ', val: cell.selfPct });
+        if (yakınlık != null) parts.push({ label: 'Yakınlık', val: yakınlık });
+        cell.successParts = parts;
+        if (parts.length < 2) {
+            cell.successPct = parts.length === 1 ? parts[0].val : null;
+            return;
+        }
+        cell.successPct = AtSpeedUtils.pctGeometricMean(parts.map(p => p.val));
     },
 
     _applyRaceSon800DrPct(pkg) {

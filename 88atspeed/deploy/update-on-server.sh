@@ -42,6 +42,6 @@ echo "📦 Branch: $BRANCH | Commit: $COMMIT_SHA"
 echo "🔍 Doğrulama:"
 curl -s http://127.0.0.1:3023/VERSION.txt
 echo ""
-curl -s "http://127.0.0.1:3023/istatistikler.html" | grep -oE '20260826l|horseBestPct|·Eİ' | head -5 || true
+curl -s "http://127.0.0.1:3023/istatistikler.html" | grep -oE '20260826m|·BS|successPct' | head -5 || true
 echo ""
 pm2 status 88atspeed
