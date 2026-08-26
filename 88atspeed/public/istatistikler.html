@@ -489,13 +489,24 @@
         .istatistik-table tbody tr:hover td.istat-gap-son8001-t1dr-twin-zero {
             background: #fb8c00 !important;
         }
-        /* Turuncu kural dışında + T1×DR SON·Δ <%25 → SON800-1 hücresi gri */
-        .istatistik-table td.istat-gap-son8001-t1dr-low-gray {
-            background: #9e9e9e !important;
-            box-shadow: inset 0 0 0 1px #757575;
+        /* Turuncu kural dışında + T1×DR SON·Δ <%25 → SON800-1 hücresi fosforlu yeşil */
+        .istatistik-table td.istat-gap-son8001-t1dr-low-neon {
+            background: #76ff03 !important;
+            box-shadow: inset 0 0 0 2px #33691e, 0 0 12px rgba(118, 255, 3, 0.75);
         }
-        .istatistik-table tbody tr:hover td.istat-gap-son8001-t1dr-low-gray {
-            background: #bdbdbd !important;
+        .istatistik-table td.istat-gap-son8001-t1dr-low-neon .istat-pct {
+            background: #76ff03 !important;
+            color: #1b5e20 !important;
+            box-shadow: 0 0 10px rgba(118, 255, 3, 0.9);
+        }
+        .istatistik-table tbody tr:hover td.istat-gap-son8001-t1dr-low-neon {
+            background: #b2ff59 !important;
+        }
+        .istatistik-table tbody tr:hover td.istat-gap-son8001-t1dr-low-neon .istat-pct {
+            background: #b2ff59 !important;
+        }
+        .istatistik-table td.istat-gap-son8001-t1dr-twin-zero .istat-pct {
+            background: rgba(255, 152, 0, 0.35) !important;
         }
         .istatistik-table tbody tr:hover td.istat-grp-test2 { background: #dce0f5; }
         .istatistik-table tbody tr:hover td.istat-grp-test3 { background: #dcedc8; }
@@ -950,14 +961,14 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260826t"></script>
-<script src="js/formula-engine.js?v=20260826t"></script>
-<script src="js/istatistik-engine.js?v=20260826t"></script>
-<script src="js/istatistik-grids-extra.js?v=20260826t"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260826t"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260826t"></script>
+<script src="js/utils.js?v=20260826u"></script>
+<script src="js/formula-engine.js?v=20260826u"></script>
+<script src="js/istatistik-engine.js?v=20260826u"></script>
+<script src="js/istatistik-grids-extra.js?v=20260826u"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260826u"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260826u"></script>
 <script>
-const ISTAT_BUILD = '20260826t';
+const ISTAT_BUILD = '20260826u';
 const TAHMIN_METRIC_ALL = '__hepsi__';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
@@ -1191,7 +1202,7 @@ function getSon8001SonGapHighlight(row, depthIndex, cell) {
         return { tdExtra: ' istat-gap-son8001-t1dr-twin-zero', twinZero: true, t1drLowGray: false };
     }
     if (!isSon8001T1drSonGapTwinZero(row) && t1Gap != null && t1Gap < 25) {
-        return { tdExtra: ' istat-gap-son8001-t1dr-low-gray', twinZero: false, t1drLowGray: true };
+        return { tdExtra: ' istat-gap-son8001-t1dr-low-neon', twinZero: false, t1drLowGray: true };
     }
     return { tdExtra: '', twinZero: false, t1drLowGray: false };
 }
@@ -1220,7 +1231,7 @@ function formatGapDepthCell(cell, groupLabel, depthLabel, opts) {
             title += ' | ★ T1×DR SON·Δ de 0 (turuncu)';
         }
         if (opts.t1drLowGray) {
-            title += ' | T1×DR SON·Δ <%25 (gri)';
+            title += ' | T1×DR SON·Δ <%25 (fosforlu yeşil)';
         }
     }
     return '<span class="istat-pct ' + cls + '" title="' + title.replace(/"/g, '&quot;') + '">%' + cell.gapPct + '</span>';
