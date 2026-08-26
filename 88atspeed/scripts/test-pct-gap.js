@@ -74,6 +74,12 @@ if (atC.son8001Depths[0].gapSalise !== 0) {
     process.exit(1);
 }
 
+// horseBestPct — atın en iyi derecesi koşu min/max skalasında
+if (d0.horseBestPct == null) {
+    console.error('FAIL: horseBestPct hesaplanmalı', d0);
+    process.exit(1);
+}
+console.log('At A horseBestPct:', d0.horseBestPct, 'horseBestDerece:', d0.horseBestDerece);
 console.log('At A SON gapSalise:', d0.gapSalise, 'gapPct:', d0.gapPct);
 console.log('At A 1 ÖNCE gapSalise:', d1.gapSalise, 'gapPct:', d1.gapPct);
 console.log('OK');

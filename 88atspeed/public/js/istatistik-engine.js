@@ -1846,6 +1846,9 @@ const IstatistikEngine = {
             const valueKey = spec.valueKey;
             const maxDepth = pkg[spec.maxDepthKey] || 0;
             const rows = pkg.rows || [];
+            const { minVal: raceMin, maxVal: raceMax } = this._collectRaceValueBounds(
+                pkg, spec.depthsKey, spec.valueKey
+            );
 
             for (const row of rows) {
                 const depths = row[spec.depthsKey] || [];
@@ -1862,6 +1865,12 @@ const IstatistikEngine = {
                     } else {
                         horseBest = Math.min(horseBest, v);
                     }
+                }
+                let horseBestPct = null;
+                if (horseBest != null && raceMin != null && raceMax != null) {
+                    horseBestPct = scale === 'maxBest'
+                        ? AtSpeedUtils.pctLinearMaxBest(horseBest, raceMin, raceMax)
+                        : AtSpeedUtils.pctLinearMinBest(horseBest, raceMin, raceMax);
                 }
                 if (horseBest != null) {
                     for (const cell of depths) {
@@ -1890,6 +1899,13 @@ const IstatistikEngine = {
                     cell.gapSalise = Math.abs(cell[valueKey] - horseBest);
                     cell.horseBestVal = horseBest;
                     cell.horseBestDerece = horseBestDerece;
+                    cell.horseBestPct = horseBestPct;
+                    cell.isHorseBestRaceBest = scale === 'maxBest'
+                        ? horseBest === raceMax
+                        : horseBest === raceMin;
+                    cell.isHorseBestRaceWorst = scale === 'maxBest'
+                        ? horseBest === raceMin
+                        : horseBest === raceMax;
                 }
             }
 
