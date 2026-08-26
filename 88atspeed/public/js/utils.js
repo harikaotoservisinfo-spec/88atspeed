@@ -95,6 +95,20 @@ const AtSpeedUtils = {
         return Math.round(Math.max(0, Math.min(100, pct)));
     },
 
+    /** pctLinearMinBest tersi: yüzdeden ham değer (en iyi=min %100) */
+    impliedValueFromPctMinBest(pct, minVal, maxVal) {
+        if (pct == null || minVal == null || maxVal == null) return null;
+        if (maxVal === minVal) return minVal;
+        return maxVal - (pct / 100) * (maxVal - minVal);
+    },
+
+    /** pctLinearMaxBest tersi: yüzdeden ham değer (en iyi=max %100) */
+    impliedValueFromPctMaxBest(pct, minVal, maxVal) {
+        if (pct == null || minVal == null || maxVal == null) return null;
+        if (maxVal === minVal) return minVal;
+        return minVal + (pct / 100) * (maxVal - minVal);
+    },
+
     getSortType(columnIndex) {
         const col = parseInt(columnIndex, 10);
         const types = {

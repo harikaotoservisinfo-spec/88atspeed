@@ -1836,6 +1836,58 @@ const IstatistikEngine = {
         }
     },
 
+    _impliedValueFromPct(pct, minVal, maxVal, scale = 'minBest') {
+        if (scale === 'maxBest') {
+            return AtSpeedUtils.impliedValueFromPctMaxBest(pct, minVal, maxVal);
+        }
+        return AtSpeedUtils.impliedValueFromPctMinBest(pct, minVal, maxVal);
+    },
+
+    /**
+     * SON vs SON·İÇ farkı: koşu ölçeğinde pct ile selfPct'nin ima ettiği süre farkı (salise).
+     * Her derinlik sütununda min fark %0, max fark %100.
+     */
+    _applyPctGapSpecs(pkg, specs) {
+        for (const spec of specs) {
+            const { minVal, maxVal } = this._collectRaceValueBounds(
+                pkg, spec.depthsKey, spec.valueKey
+            );
+            if (minVal === null || maxVal === null) continue;
+            const scale = spec.scale || 'minBest';
+            const maxDepth = pkg[spec.maxDepthKey] || 0;
+            const rows = pkg.rows || [];
+
+            for (const row of rows) {
+                for (const cell of row[spec.depthsKey] || []) {
+                    if (!cell || cell.pct == null || cell.selfPct == null) continue;
+                    const impliedRace = this._impliedValueFromPct(cell.pct, minVal, maxVal, scale);
+                    const impliedSelfOnRace = this._impliedValueFromPct(
+                        cell.selfPct, minVal, maxVal, scale
+                    );
+                    if (impliedRace == null || impliedSelfOnRace == null) continue;
+                    cell.gapSalise = Math.abs(impliedRace - impliedSelfOnRace);
+                }
+            }
+
+            for (let d = 0; d < maxDepth; d++) {
+                let minGap = null;
+                let maxGap = null;
+                for (const row of rows) {
+                    const cell = row[spec.depthsKey]?.[d];
+                    if (!cell || cell.gapSalise == null) continue;
+                    if (minGap === null || cell.gapSalise < minGap) minGap = cell.gapSalise;
+                    if (maxGap === null || cell.gapSalise > maxGap) maxGap = cell.gapSalise;
+                }
+                for (const row of rows) {
+                    const cell = row[spec.depthsKey]?.[d];
+                    if (!cell || cell.gapSalise == null) continue;
+                    cell.gapPct = AtSpeedUtils.pctLinearMaxBest(cell.gapSalise, minGap, maxGap);
+                    cell.isGapMax = maxGap != null && cell.gapSalise === maxGap;
+                }
+            }
+        }
+    },
+
     _applyRaceSon800DrPct(pkg) {
         let minSon800 = null;
         let maxSon800 = null;
@@ -1905,11 +1957,12 @@ const IstatistikEngine = {
 
         const selfSpecs = [
             ...specs,
-            { depthsKey: 'oran1Depths', valueKey: 'salise', scale: 'minBest' },
-            { depthsKey: 'oran2Depths', valueKey: 'salise', scale: 'minBest' },
-            { depthsKey: 'test123SiraliDepths', valueKey: 'rulePct', scale: 'maxBest' }
+            { depthsKey: 'oran1Depths', valueKey: 'salise', scale: 'minBest', maxDepthKey: 'oranMaxDepth1' },
+            { depthsKey: 'oran2Depths', valueKey: 'salise', scale: 'minBest', maxDepthKey: 'oranMaxDepth2' },
+            { depthsKey: 'test123SiraliDepths', valueKey: 'rulePct', scale: 'maxBest', maxDepthKey: 'maxDepthTest123Sirali' }
         ];
         this._applyHorseSelfPctSpecs(pkg, selfSpecs);
+        this._applyPctGapSpecs(pkg, selfSpecs);
         return bounds;
     },
 

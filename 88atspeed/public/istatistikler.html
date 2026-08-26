@@ -438,6 +438,12 @@
             box-shadow: inset 1px 0 0 rgba(0, 0, 0, 0.06);
         }
         .istatistik-table tbody tr:hover td.istat-self-depth { background: rgba(255, 255, 255, 0.65); }
+        .istatistik-table th.istat-th-gap-depth,
+        .istatistik-table td.istat-gap-depth {
+            background: rgba(0, 0, 0, 0.04);
+            box-shadow: inset 1px 0 0 rgba(0, 0, 0, 0.08);
+        }
+        .istatistik-table tbody tr:hover td.istat-gap-depth { background: rgba(0, 0, 0, 0.07); }
         .istatistik-table tbody tr:hover td.istat-grp-test2 { background: #dce0f5; }
         .istatistik-table tbody tr:hover td.istat-grp-test3 { background: #dcedc8; }
         .istatistik-table tbody tr:hover td.istat-grp-testozet { background: #fff9c4; }
@@ -865,14 +871,14 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260826e"></script>
-<script src="js/formula-engine.js?v=20260826e"></script>
-<script src="js/istatistik-engine.js?v=20260826e"></script>
-<script src="js/istatistik-grids-extra.js?v=20260826e"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260826e"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260826e"></script>
+<script src="js/utils.js?v=20260826f"></script>
+<script src="js/formula-engine.js?v=20260826f"></script>
+<script src="js/istatistik-engine.js?v=20260826f"></script>
+<script src="js/istatistik-grids-extra.js?v=20260826f"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260826f"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260826f"></script>
 <script>
-const ISTAT_BUILD = '20260826e';
+const ISTAT_BUILD = '20260826f';
 const TAHMIN_METRIC_ALL = '__hepsi__';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
@@ -956,7 +962,7 @@ function appendDepthHeaderCols(h, grpClass, groupId, maxDepth) {
 }
 
 function depthMetricColspan(maxDepth) {
-    return maxDepth > 0 ? maxDepth * 2 + 4 : 0;
+    return maxDepth > 0 ? maxDepth * 3 + 4 : 0;
 }
 
 function metricHasSelfDepth(metricId) {
@@ -970,8 +976,23 @@ function appendDepthHeaderColsWithSelf(h, grpClass, groupId, maxDepth) {
         const dl = son800DepthLabel(d);
         h = appendColHeader(h, cls, dl);
         h = appendColHeader(h, cls + ' istat-th-self-depth', dl + '·İÇ');
+        h = appendColHeader(h, cls + ' istat-th-gap-depth', dl + '·Δ');
     }
     return h;
+}
+
+function formatGapDepthCell(cell, groupLabel, depthLabel) {
+    if (!cell || cell.gapPct == null) {
+        return '<span class="istat-pct istat-pct-none" title="SON–İÇ fark ölçeği">—</span>';
+    }
+    let title = (groupLabel || '') + ' · ' + depthLabel + ' · SON–İÇ fark';
+    if (cell.tarih) title += ' (' + cell.tarih + ')';
+    if (cell.gapSalise != null) {
+        title += ' | fark: ' + AtSpeedUtils.saliseToDerece(cell.gapSalise);
+    }
+    title += ' → %' + cell.gapPct;
+    if (cell.isGapMax) title += ' ★ en büyük fark';
+    return '<span class="istat-pct ' + pctClass(cell.gapPct) + '" title="' + title.replace(/"/g, '&quot;') + '">%' + cell.gapPct + '</span>';
 }
 
 function formatSelfDepthCell(cell, groupLabel, depthLabel) {
@@ -994,7 +1015,8 @@ function renderRaceSelfDepthCells(depths, maxDepth, grpClass, opts) {
         let cls = grpClass + ' istat-son800-depth istat-grp-start';
         if (isGrpEnd) cls += ' istat-grp-end';
         return '<td class="' + cls + '"><span class="istat-pct istat-pct-none">—</span></td>'
-            + '<td class="' + grpClass + ' istat-self-depth"><span class="istat-pct istat-pct-none">—</span></td>';
+            + '<td class="' + grpClass + ' istat-self-depth"><span class="istat-pct istat-pct-none">—</span></td>'
+            + '<td class="' + grpClass + ' istat-gap-depth"><span class="istat-pct istat-pct-none">—</span></td>';
     }
     let h = '';
     for (let d = 0; d < maxDepth; d++) {
@@ -1006,6 +1028,9 @@ function renderRaceSelfDepthCells(depths, maxDepth, grpClass, opts) {
         const selfCls = grpClass + ' istat-self-depth';
         h += '<td class="' + depthTdClass(selfCls, cell) + '">'
             + wrapDepthCellInner(formatSelfDepthCell(cell, groupLabel, son800DepthLabel(d)), cell) + '</td>';
+        const gapCls = grpClass + ' istat-gap-depth';
+        h += '<td class="' + depthTdClass(gapCls, cell) + '">'
+            + wrapDepthCellInner(formatGapDepthCell(cell, groupLabel, son800DepthLabel(d)), cell) + '</td>';
     }
     return appendDepthOrtOzetiCells(h, grpClass, groupLabel, ortOzeti, isGrpEnd);
 }
