@@ -1941,7 +1941,7 @@ const IstatistikEngine = {
      * SON, Eİ, İÇ yüksek = iyi; Δ düşük = iyi → yakınlık = 100 − Δ.
      */
     _applyDepthSuccessPct(cell) {
-        const yakınlık = cell.gapPct != null ? 100 - cell.gapPct : null;
+        const yakınlık = this._depthSuccessYakinlik(cell);
         const parts = [];
         if (cell.pct != null) parts.push({ label: 'SON', val: cell.pct });
         if (cell.horseBestPct != null) parts.push({ label: 'Eİ', val: cell.horseBestPct });
@@ -1953,6 +1953,15 @@ const IstatistikEngine = {
             return;
         }
         cell.successPct = AtSpeedUtils.pctGeometricMean(parts.map(p => p.val));
+    },
+
+    /** Δ=0 → %100; sütunda eşit fark → nötr %100; aksi halde 100−Δ */
+    _depthSuccessYakinlik(cell) {
+        if (cell.gapSalise == null) return null;
+        if (cell.gapSalise === 0) return 100;
+        if (cell.gapPct == null) return null;
+        if (cell.isGapMin && cell.isGapMax) return 100;
+        return 100 - cell.gapPct;
     },
 
     _applyRaceSon800DrPct(pkg) {

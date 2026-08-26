@@ -84,7 +84,7 @@ if (d0.successPct == null || d0.successParts?.length < 2) {
     process.exit(1);
 }
 const manualSuccess = U.pctGeometricMean([
-    d0.pct, d0.horseBestPct, d0.selfPct, 100 - d0.gapPct
+    d0.pct, d0.horseBestPct, d0.selfPct, 100
 ]);
 if (d0.successPct !== manualSuccess) {
     console.error('FAIL: successPct', d0.successPct, manualSuccess);
