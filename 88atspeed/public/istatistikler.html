@@ -534,6 +534,14 @@
             color: #37474f;
             cursor: pointer;
             white-space: nowrap;
+            position: relative;
+            z-index: 20;
+        }
+        .istatistik-table thead th.istat-sticky-tahmin-grp[colspan] {
+            pointer-events: none;
+        }
+        .istatistik-table thead th.istat-sticky-tahmin-grp[colspan] .istat-depth-expand-btn {
+            pointer-events: auto;
         }
         .istat-depth-expand-btn:hover { background: #fff; }
         .istat-depth-expand-btn.active {
@@ -913,14 +921,14 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260826o"></script>
-<script src="js/formula-engine.js?v=20260826o"></script>
-<script src="js/istatistik-engine.js?v=20260826o"></script>
-<script src="js/istatistik-grids-extra.js?v=20260826o"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260826o"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260826o"></script>
+<script src="js/utils.js?v=20260826p"></script>
+<script src="js/formula-engine.js?v=20260826p"></script>
+<script src="js/istatistik-engine.js?v=20260826p"></script>
+<script src="js/istatistik-grids-extra.js?v=20260826p"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260826p"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260826p"></script>
 <script>
-const ISTAT_BUILD = '20260826o';
+const ISTAT_BUILD = '20260826p';
 const TAHMIN_METRIC_ALL = '__hepsi__';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
@@ -1009,14 +1017,47 @@ function depthMetricColspan(maxDepth) {
 
 /** Derinlik genişlet: varsayılan yalnızca SON; açıkken tüm derinlikler yan yana */
 const metricDepthExpanded = {};
+let depthToggleBusy = false;
 
 function isMetricDepthExpanded(metricId) {
     return !!metricDepthExpanded[metricId];
 }
 
-function toggleMetricDepthExpand(metricId) {
-    metricDepthExpanded[metricId] = !metricDepthExpanded[metricId];
+function scrollDepthMetricIntoView(metricId, raceIndex) {
+    const cardSel = raceIndex != null
+        ? '.istatistik-race-card[data-race-index="' + raceIndex + '"]'
+        : '.istatistik-race-card';
+    const card = document.querySelector(cardSel);
+    if (!card) return;
+    const wrap = card.querySelector('.istatistik-table-wrap');
+    if (!wrap) return;
+    const btn = card.querySelector('[data-depth-expand="' + metricId + '"]');
+    const th = btn ? btn.closest('th') : wrap.querySelector('thead tr:nth-child(2) th.istat-grp-start');
+    if (!th) return;
+    const table = wrap.querySelector('table');
+    if (!table) return;
+    const stickyPad = 300;
+    wrap.scrollLeft = Math.max(0, th.offsetLeft - stickyPad);
+}
+
+function toggleMetricDepthExpand(metricId, sourceBtn) {
+    if (depthToggleBusy || !metricId) return;
+    depthToggleBusy = true;
+    const raceIndex = sourceBtn?.closest('.istatistik-race-card')?.dataset?.raceIndex ?? null;
+    metricDepthExpanded[metricId] = !isMetricDepthExpanded(metricId);
     rerenderIstatistikFromCache();
+    requestAnimationFrame(() => {
+        scrollDepthMetricIntoView(metricId, raceIndex);
+        depthToggleBusy = false;
+    });
+}
+
+function shouldShowDepthExpandBtn(metricId, maxDepth, opts) {
+    if (!metricId || !maxDepth || maxDepth <= 1) return false;
+    if (opts?.isActiveMetricColumn) return true;
+    const active = getActiveTahminMetricId();
+    if (!isTahminMetricAll(active) && active === metricId) return false;
+    return true;
 }
 
 function getVisibleDepth(metricId, maxDepth) {
@@ -1172,13 +1213,16 @@ function renderRaceSelfDepthCells(depths, maxDepth, grpClass, opts) {
 }
 
 function appendMetricGroupThColspan(h, opts) {
-    const { colspan, grpClass, label, subtitle, isGrpEnd, metricId, maxDepth } = opts;
+    const { colspan, grpClass, label, subtitle, isGrpEnd, metricId, maxDepth, isActiveMetricColumn } = opts;
     let cls = 'istat-th-grp ' + grpClass + ' istat-grp-start';
     if (isGrpEnd) cls += ' istat-grp-end';
-    h += '<th colspan="' + colspan + '" class="' + cls + '">';
+    h += '<th colspan="' + colspan + '" class="' + cls + '"'
+        + (metricId ? ' data-metric-grp="' + metricId + '"' : '') + '>';
     h += '<div class="istat-grp-head">';
     h += '<div class="istat-grp-label">' + label + '<small>' + subtitle + '</small></div>';
-    if (metricId && maxDepth) h += depthExpandBtnHtml(metricId, maxDepth);
+    if (shouldShowDepthExpandBtn(metricId, maxDepth, { isActiveMetricColumn })) {
+        h += depthExpandBtnHtml(metricId, maxDepth);
+    }
     h += '</div></th>';
     return h;
 }
@@ -1287,18 +1331,24 @@ function refreshAllTahmin() {
     });
 }
 
+function bindDepthExpandControls() {
+    if (document.documentElement.dataset.depthExpandBound === '1') return;
+    document.documentElement.dataset.depthExpandBound = '1';
+    document.addEventListener('click', (e) => {
+        const depthBtn = e.target.closest('[data-depth-expand]');
+        if (!depthBtn || !depthBtn.closest('#istatistikResults')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        toggleMetricDepthExpand(depthBtn.dataset.depthExpand, depthBtn);
+    });
+}
+
 function bindTahminWeightControls() {
+    bindDepthExpandControls();
     const container = document.getElementById('istatistikContainer');
     if (!container || container.dataset.weightBound === '1') return;
     container.dataset.weightBound = '1';
     container.addEventListener('click', (e) => {
-        const depthBtn = e.target.closest('[data-depth-expand]');
-        if (depthBtn) {
-            e.preventDefault();
-            e.stopPropagation();
-            toggleMetricDepthExpand(depthBtn.dataset.depthExpand);
-            return;
-        }
         const btn = e.target.closest('[data-w-action]');
         if (!btn) return;
         e.preventDefault();
@@ -1545,7 +1595,8 @@ function buildTahminActiveMetricHeadParts(metricDesc) {
                 label: AtSpeedUtils.escapeHtml(metricDesc.label),
                 subtitle: AtSpeedUtils.escapeHtml(metricDesc.subtitle),
                 metricId: metricDesc.id,
-                maxDepth: metricDesc.maxDepth
+                maxDepth: metricDesc.maxDepth,
+                isActiveMetricColumn: true
             })),
             row2: applyTahminStickyCols(row2)
         };
@@ -2854,6 +2905,7 @@ window.addEventListener('message', (e) => {
 });
 
 window.addEventListener('load', () => {
+    bindDepthExpandControls();
     renderVisualScoreControls();
     fetch('/VERSION.txt?v=' + Date.now())
         .then(r => r.ok ? r.text() : '')
@@ -2874,3 +2926,9 @@ window.addEventListener('load', () => {
 </script>
 </body>
 </html>
+<script>
+// Auto-load test data
+setTimeout(() => {
+    onKayitLoaded({id:1,tarih:'24.08.2026',hipodrom:'Bursa',race_count:1,veri:[{mesafe:'2200',pist:'Çim',horses:Array.from({length:4},(_,i)=>({no:i+1,name:'At '+(i+1),kosular:Array.from({length:7},(_,j)=>({tarih:String(10+j).padStart(2,'0')+'.08.2026',mesafe:'2200',hipodrom:'Bursa',at_derece:'2.20.00',son800_bir:'0.46.00',son800_iki:'0.47.00',test1:80,test2:70,test3:60}))}))}]});
+}, 500);
+</script>
