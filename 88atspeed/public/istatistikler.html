@@ -921,14 +921,14 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260826p"></script>
-<script src="js/formula-engine.js?v=20260826p"></script>
-<script src="js/istatistik-engine.js?v=20260826p"></script>
-<script src="js/istatistik-grids-extra.js?v=20260826p"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260826p"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260826p"></script>
+<script src="js/utils.js?v=20260826q"></script>
+<script src="js/formula-engine.js?v=20260826q"></script>
+<script src="js/istatistik-engine.js?v=20260826q"></script>
+<script src="js/istatistik-grids-extra.js?v=20260826q"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260826q"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260826q"></script>
 <script>
-const ISTAT_BUILD = '20260826p';
+const ISTAT_BUILD = '20260826q';
 const TAHMIN_METRIC_ALL = '__hepsi__';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
@@ -1016,14 +1016,21 @@ function depthMetricColspan(maxDepth) {
 }
 
 /** Derinlik genişlet: varsayılan yalnızca SON; açıkken tüm derinlikler yan yana */
+const DEPTH_EXPAND_SCOPE_TAHMIN = 'tahmin';
+const DEPTH_EXPAND_SCOPE_MAIN = 'main';
 const metricDepthExpanded = {};
 let depthToggleBusy = false;
 
-function isMetricDepthExpanded(metricId) {
-    return !!metricDepthExpanded[metricId];
+function depthExpandStateKey(metricId, scope) {
+    return (scope || DEPTH_EXPAND_SCOPE_MAIN) + ':' + metricId;
 }
 
-function scrollDepthMetricIntoView(metricId, raceIndex) {
+function isMetricDepthExpanded(metricId, scope) {
+    return !!metricDepthExpanded[depthExpandStateKey(metricId, scope)];
+}
+
+function scrollDepthMetricIntoView(metricId, scope, raceIndex) {
+    const sc = scope || DEPTH_EXPAND_SCOPE_MAIN;
     const cardSel = raceIndex != null
         ? '.istatistik-race-card[data-race-index="' + raceIndex + '"]'
         : '.istatistik-race-card';
@@ -1031,59 +1038,53 @@ function scrollDepthMetricIntoView(metricId, raceIndex) {
     if (!card) return;
     const wrap = card.querySelector('.istatistik-table-wrap');
     if (!wrap) return;
-    const btn = card.querySelector('[data-depth-expand="' + metricId + '"]');
+    const btn = card.querySelector('[data-depth-expand="' + metricId + '"][data-depth-scope="' + sc + '"]');
     const th = btn ? btn.closest('th') : wrap.querySelector('thead tr:nth-child(2) th.istat-grp-start');
     if (!th) return;
-    const table = wrap.querySelector('table');
-    if (!table) return;
-    const stickyPad = 300;
+    const stickyPad = sc === DEPTH_EXPAND_SCOPE_TAHMIN ? 260 : 300;
     wrap.scrollLeft = Math.max(0, th.offsetLeft - stickyPad);
 }
 
-function toggleMetricDepthExpand(metricId, sourceBtn) {
+function toggleMetricDepthExpand(metricId, scope, sourceBtn) {
     if (depthToggleBusy || !metricId) return;
     depthToggleBusy = true;
+    const sc = scope || sourceBtn?.dataset?.depthScope || DEPTH_EXPAND_SCOPE_MAIN;
     const raceIndex = sourceBtn?.closest('.istatistik-race-card')?.dataset?.raceIndex ?? null;
-    metricDepthExpanded[metricId] = !isMetricDepthExpanded(metricId);
+    const key = depthExpandStateKey(metricId, sc);
+    metricDepthExpanded[key] = !isMetricDepthExpanded(metricId, sc);
     rerenderIstatistikFromCache();
     requestAnimationFrame(() => {
-        scrollDepthMetricIntoView(metricId, raceIndex);
+        scrollDepthMetricIntoView(metricId, sc, raceIndex);
         depthToggleBusy = false;
     });
 }
 
-function shouldShowDepthExpandBtn(metricId, maxDepth, opts) {
-    if (!metricId || !maxDepth || maxDepth <= 1) return false;
-    if (opts?.isActiveMetricColumn) return true;
-    const active = getActiveTahminMetricId();
-    if (!isTahminMetricAll(active) && active === metricId) return false;
-    return true;
-}
-
-function getVisibleDepth(metricId, maxDepth) {
+function getVisibleDepth(metricId, maxDepth, scope) {
     const md = maxDepth || 0;
     if (md <= 1) return md;
-    return isMetricDepthExpanded(metricId) ? md : 1;
+    return isMetricDepthExpanded(metricId, scope) ? md : 1;
 }
 
 function depthSubColsPerDepth(metricId) {
     return metricHasSelfDepth(metricId) ? 5 : 1;
 }
 
-function depthGroupColspan(metricId, maxDepth) {
-    const vd = getVisibleDepth(metricId, maxDepth);
+function depthGroupColspan(metricId, maxDepth, scope) {
+    const vd = getVisibleDepth(metricId, maxDepth, scope);
     if (!vd) return 0;
     return vd * depthSubColsPerDepth(metricId) + 4;
 }
 
-function depthExpandBtnHtml(metricId, maxDepth) {
+function depthExpandBtnHtml(metricId, maxDepth, scope) {
     if (!maxDepth || maxDepth <= 1) return '';
-    const exp = isMetricDepthExpanded(metricId);
+    const sc = scope || DEPTH_EXPAND_SCOPE_MAIN;
+    const exp = isMetricDepthExpanded(metricId, sc);
     const label = exp
         ? ('⊟ Yalnız SON')
         : ('⊞ +' + (maxDepth - 1) + ' derinlik');
     return '<button type="button" class="istat-depth-expand-btn' + (exp ? ' active' : '')
-        + '" data-depth-expand="' + metricId + '" title="SON · 1 ÖNCE · 2 ÖNCE… sütunlarını aç/kapat">'
+        + '" data-depth-expand="' + metricId + '" data-depth-scope="' + sc
+        + '" title="SON · 1 ÖNCE · 2 ÖNCE… sütunlarını aç/kapat">'
         + label + '</button>';
 }
 
@@ -1213,15 +1214,15 @@ function renderRaceSelfDepthCells(depths, maxDepth, grpClass, opts) {
 }
 
 function appendMetricGroupThColspan(h, opts) {
-    const { colspan, grpClass, label, subtitle, isGrpEnd, metricId, maxDepth, isActiveMetricColumn } = opts;
+    const { colspan, grpClass, label, subtitle, isGrpEnd, metricId, maxDepth, depthScope } = opts;
     let cls = 'istat-th-grp ' + grpClass + ' istat-grp-start';
     if (isGrpEnd) cls += ' istat-grp-end';
     h += '<th colspan="' + colspan + '" class="' + cls + '"'
         + (metricId ? ' data-metric-grp="' + metricId + '"' : '') + '>';
     h += '<div class="istat-grp-head">';
     h += '<div class="istat-grp-label">' + label + '<small>' + subtitle + '</small></div>';
-    if (shouldShowDepthExpandBtn(metricId, maxDepth, { isActiveMetricColumn })) {
-        h += depthExpandBtnHtml(metricId, maxDepth);
+    if (metricId && maxDepth > 1) {
+        h += depthExpandBtnHtml(metricId, maxDepth, depthScope);
     }
     h += '</div></th>';
     return h;
@@ -1339,7 +1340,7 @@ function bindDepthExpandControls() {
         if (!depthBtn || !depthBtn.closest('#istatistikResults')) return;
         e.preventDefault();
         e.stopPropagation();
-        toggleMetricDepthExpand(depthBtn.dataset.depthExpand, depthBtn);
+        toggleMetricDepthExpand(depthBtn.dataset.depthExpand, depthBtn.dataset.depthScope, depthBtn);
     });
 }
 
@@ -1583,20 +1584,20 @@ function buildTahminActiveMetricHeadParts(metricDesc) {
     }
     if (metricDesc.maxDepth > 0) {
         const selfDepth = metricHasSelfDepth(metricDesc.id);
-        const vd = getVisibleDepth(metricDesc.id, metricDesc.maxDepth);
+        const vd = getVisibleDepth(metricDesc.id, metricDesc.maxDepth, DEPTH_EXPAND_SCOPE_TAHMIN);
         let row2 = selfDepth
             ? appendDepthHeaderColsWithSelf('', metricDesc.grpClass, metricDesc.id, vd)
             : appendDepthHeaderCols('', metricDesc.grpClass, metricDesc.id, vd);
         row2 = appendOrtOzetiHeaderCols(row2, metricDesc.grpClass, metricDesc.id, true);
         return {
             row1: applyTahminStickyCols(appendMetricGroupThColspan('', {
-                colspan: depthGroupColspan(metricDesc.id, metricDesc.maxDepth),
+                colspan: depthGroupColspan(metricDesc.id, metricDesc.maxDepth, DEPTH_EXPAND_SCOPE_TAHMIN),
                 grpClass: metricDesc.grpClass + ' istat-tahmin-active-metric',
                 label: AtSpeedUtils.escapeHtml(metricDesc.label),
                 subtitle: AtSpeedUtils.escapeHtml(metricDesc.subtitle),
                 metricId: metricDesc.id,
                 maxDepth: metricDesc.maxDepth,
-                isActiveMetricColumn: true
+                depthScope: DEPTH_EXPAND_SCOPE_TAHMIN
             })),
             row2: applyTahminStickyCols(row2)
         };
@@ -1617,9 +1618,9 @@ function renderTahminActiveMetricCells(row, metricDesc, pkg) {
     }
     let inner = '';
     const id = metricDesc.id;
-    const vd = getVisibleDepth(id, metricDesc.maxDepth);
+    const vd = getVisibleDepth(id, metricDesc.maxDepth, DEPTH_EXPAND_SCOPE_TAHMIN);
     if (metricDesc.kind === 'extra') {
-        inner = renderExtraSectionCells(row, metricDesc.section, false);
+        inner = renderExtraSectionCells(row, metricDesc.section, false, DEPTH_EXPAND_SCOPE_TAHMIN);
     } else if (id === 'son8001') {
         inner = renderSon800DepthCells(row.son8001Depths, vd, metricDesc.grpClass, 'SON800-1', row.son8001OrtOzeti);
     } else if (id === 'son8002') {
@@ -2218,9 +2219,9 @@ function formatGenericDepthCell(cell, depthLabel, label) {
     return '<span class="istat-pct ' + pctClass(cell.pct) + '" title="' + title.replace(/"/g, '&quot;') + '">%' + cell.pct + '</span>';
 }
 
-function renderExtraSectionCells(row, section, isGrpEnd) {
+function renderExtraSectionCells(row, section, isGrpEnd, scope) {
     const maxDepth = section.maxDepth || 0;
-    const vd = getVisibleDepth(section.id, maxDepth);
+    const vd = getVisibleDepth(section.id, maxDepth, scope);
     const grp = extraGrpClass(section.tone);
     const depths = row[section.depthsKey];
     const ortOzeti = row[section.ortKey];
