@@ -832,7 +832,7 @@
         <strong>AĞ. ORT.1</strong> son 3 derinlik; <strong>AĞ. ORT.2</strong> son 2 derinlik;
         <strong>AĞ. ORT.3</strong> ağırlıklı özet (ORT.2×4 + ORT.1×2 + ORT.×1, eksik derinlik 0 sayılmaz).<br>
         <strong>TEST1:</strong> En iyi TEST1 = %100 derinlik kıyası + AĞ. ORT.; TAHMİN'de varsayılan sütun etkisi diğer grupların <strong>20 katı</strong> (%20).<br>
-        <strong>TEST·SIRA:</strong> TEST3≥TEST2≥TEST1 kuralı — tam uyan %100; diğerleri yakınlığa göre
+        <strong>TEST·SIRA:</strong> T3≥T2≥T1 kural skoru — koşuda en yüksek skor %100, en düşük skor %0; arada doğrusal ölçek
         derinlik kıyası + AĞ. ORT.<br>
         <strong>FFΔ:</strong> GÖSTERİM FARKLARIN FARKI — her derinlikte o noktadan geriye
         |sonFark−ilkFark| 0'a en yakın = %100; derinlik kıyası + AĞ. ORT.<br>
@@ -858,9 +858,9 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260825be"></script>
+<script src="js/utils.js?v=20260826b"></script>
 <script src="js/formula-engine.js?v=20260825be"></script>
-<script src="js/istatistik-engine.js?v=20260826a"></script>
+<script src="js/istatistik-engine.js?v=20260826b"></script>
 <script src="js/istatistik-grids-extra.js?v=20260825be"></script>
 <script src="js/istatistik-gosterim-flags.js?v=20260825be"></script>
 <script src="js/istatistik-tahmin-engine.js?v=20260825be"></script>
@@ -1263,7 +1263,7 @@ function resolveTahminMetricSection(metricId, pkg) {
         test1: { maxDepth: pkg.maxDepthTest1, grpClass: 'istat-grp-test1', label: 'TEST1', subtitle: 'En iyi TEST1 = %100, derinlik kıyası + ağ. ort.' },
         test2: { maxDepth: pkg.maxDepthTest2, grpClass: 'istat-grp-test2', label: 'TEST2', subtitle: 'En iyi TEST2 = %100 + ağ. ort.' },
         test3: { maxDepth: pkg.maxDepthTest3, grpClass: 'istat-grp-test3', label: 'TEST3', subtitle: 'En iyi TEST3 = %100 (SON800-2) + ağ. ort.' },
-        testsira: { maxDepth: pkg.maxDepthTest123Sirali, grpClass: 'istat-grp-testsira', label: 'TEST·SIRA', subtitle: 'TEST sıralı derinlik + ağ. ort.' },
+        testsira: { maxDepth: pkg.maxDepthTest123Sirali, grpClass: 'istat-grp-testsira', label: 'TEST·SIRA', subtitle: test123SiraliMetricSubtitle(pkg.testsiraMinRulePct, pkg.testsiraMaxRulePct) },
         t1dr: { maxDepth: pkg.maxDepthT1dr, grpClass: 'istat-grp-t1dr', label: 'T1×DR', subtitle: 'T1×DR derinlik + ağ. ort.' }
     };
     const c = core[metricId];
@@ -1506,6 +1506,15 @@ function formatSon800DepthCell(cell, label, depthLabel) {
     return '<span class="istat-pct ' + pctClass(cell.pct) + '" title="' + title.replace(/"/g, '&quot;') + '">%' + cell.pct + '</span>';
 }
 
+function test123SiraliMetricSubtitle(minRulePct, maxRulePct) {
+    const best = maxRulePct != null ? '%' + maxRulePct : '?';
+    let s = 'T3≥T2≥T1 · En iyi skor: ' + best + ' (%100)';
+    if (minRulePct != null && maxRulePct != null && minRulePct !== maxRulePct) {
+        s += ' · En kötü skor: %' + minRulePct + ' (%0)';
+    }
+    return s + ' + ağ. ort.';
+}
+
 function oranMetricSubtitle(anaDerece, kotuDerece) {
     const ana = AtSpeedUtils.escapeHtml(anaDerece || '?');
     let s = 'Ana: ' + ana + ' (%100)';
@@ -1691,9 +1700,13 @@ function formatTest123SiraliDepthCell(cell, depthLabel) {
     title += ' T3=' + (cell.test3 != null ? cell.test3.toFixed(2) : '?');
     title += ' | T1→T2 %' + cell.score12 + ' · T2→T3 %' + cell.score23;
     title += ' | kural skoru %' + cell.rulePct;
-    title += ' | ' + cell.comparedCount + ' at kıyası → %' + cell.pct;
+    if (cell.minRulePct != null && cell.maxRulePct != null && cell.minRulePct !== cell.maxRulePct) {
+        title += ' | Skala: %' + cell.minRulePct + ' (%0) – %' + cell.maxRulePct + ' (%100)';
+    }
+    title += ' | ' + cell.comparedCount + ' at → %' + cell.pct;
     if (cell.qualifies) title += ' ✓ T3≥T2≥T1';
-    if (cell.isBest) title += ' (en iyi)';
+    if (cell.isBest) title += ' ★ en iyi skor';
+    if (cell.isWorst) title += ' ★ en kötü skor';
     return '<span class="istat-pct ' + pctClass(cell.pct) + '" title="' + title.replace(/"/g, '&quot;') + '">%' + cell.pct + '</span>';
 }
 
@@ -2226,7 +2239,7 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
     if (ts > 0) {
         h = appendMetricGroupThColspan(h, {
             colspan: ts + 4, grpClass: 'istat-grp-testsira',
-            label: 'TEST·SIRA', subtitle: 'T3≥T2≥T1 kuralı + ağ. ort.'
+            label: 'TEST·SIRA', subtitle: test123SiraliMetricSubtitle(pkg?.testsiraMinRulePct, pkg?.testsiraMaxRulePct)
         });
     } else {
         h = appendMetricGroupThRowspan(h, {
@@ -2429,6 +2442,12 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
         }
         if (maxDepthTest123Sirali > 0) {
             html += '<span class="istatistik-race-badge">TEST·SIRA: ' + maxDepthTest123Sirali + ' derinlik</span>';
+            if (pkg.testsiraMaxRulePct != null) {
+                html += '<span class="istatistik-race-badge">TEST·SIRA en iyi: %' + pkg.testsiraMaxRulePct + '</span>';
+            }
+            if (pkg.testsiraMinRulePct != null && pkg.testsiraMinRulePct !== pkg.testsiraMaxRulePct) {
+                html += '<span class="istatistik-race-badge">TEST·SIRA en kötü: %' + pkg.testsiraMinRulePct + '</span>';
+            }
         }
         if (maxDepthT1dr > 0) {
             html += '<span class="istatistik-race-badge">T1×DR: ' + maxDepthT1dr + ' derinlik</span>';

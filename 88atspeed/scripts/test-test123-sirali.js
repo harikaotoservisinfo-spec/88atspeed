@@ -6,6 +6,7 @@ global.AtSpeedUtils = require('../public/js/utils.js');
 eval(fs.readFileSync(path.join(__dirname, '../public/js/istatistik-engine.js'), 'utf8') + '\n; global.IstatistikEngine = IstatistikEngine;');
 
 const IE = global.IstatistikEngine;
+const U = global.AtSpeedUtils;
 
 // Görseldeki örnek değerlere yakın salise hesabı
 const race = {
@@ -66,14 +67,30 @@ if (skor2.rulePct >= 100) {
 const pkg = IE.buildRaceIstatistikPackage(race, 'İstanbul', '24.08.2026');
 const uyan = pkg.rows.find(r => r.name === 'Kural Uyan');
 const bozuk = pkg.rows.find(r => r.name === 'Kural Bozuk');
+const kismi = pkg.rows.find(r => r.name === 'Kısmi Uyan');
 
-if (!uyan?.test123SiraliDepths[0] || uyan.test123SiraliDepths[0].pct !== 100) {
-    console.error('FAIL: qualifying horse field pct should be 100');
+if (pkg.testsiraMaxRulePct !== 100 || pkg.testsiraMinRulePct == null) {
+    console.error('FAIL: testsira skala meta', pkg.testsiraMinRulePct, pkg.testsiraMaxRulePct);
     process.exit(1);
 }
 
-if (!bozuk?.test123SiraliDepths[0] || bozuk.test123SiraliDepths[0].pct >= 100) {
-    console.error('FAIL: non-qualifier field pct should be < 100');
+if (!uyan?.test123SiraliDepths[0] || uyan.test123SiraliDepths[0].pct !== 100) {
+    console.error('FAIL: en iyi kural skoru %100 olmalı', uyan?.test123SiraliDepths[0]);
+    process.exit(1);
+}
+
+if (!bozuk?.test123SiraliDepths[0] || bozuk.test123SiraliDepths[0].pct !== 0) {
+    console.error('FAIL: en kötü kural skoru %0 olmalı', bozuk?.test123SiraliDepths[0]);
+    process.exit(1);
+}
+
+const expectedKismi = U.pctLinearMaxBest(
+    kismi.test123SiraliDepths[0].rulePct,
+    pkg.testsiraMinRulePct,
+    pkg.testsiraMaxRulePct
+);
+if (kismi.test123SiraliDepths[0].pct !== expectedKismi) {
+    console.error('FAIL: kısmi uyan doğrusal ölçek', kismi.test123SiraliDepths[0].pct, expectedKismi);
     process.exit(1);
 }
 
@@ -82,6 +99,8 @@ if (!uyan.test123SiraliOrtOzeti?.agirlikli || uyan.test123SiraliOrtOzeti.agirlik
     process.exit(1);
 }
 
+console.log('Skala: %' + pkg.testsiraMinRulePct + ' – %' + pkg.testsiraMaxRulePct);
 console.log('Kural Uyan:', uyan.test123SiraliDepths[0].pct + '%', 'rulePct=' + uyan.test123SiraliDepths[0].rulePct);
 console.log('Kural Bozuk:', bozuk.test123SiraliDepths[0].pct + '%', 'rulePct=' + bozuk.test123SiraliDepths[0].rulePct);
+console.log('Kısmi Uyan:', kismi.test123SiraliDepths[0].pct + '%', 'rulePct=' + kismi.test123SiraliDepths[0].rulePct);
 console.log('OK');

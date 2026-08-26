@@ -1187,8 +1187,8 @@ const IstatistikEngine = {
     },
 
     /**
-     * TEST3≥TEST2≥TEST1 derinlik bazlı rakip kıyası (SON, 1 ÖNCE …).
-     * Kuralı tam sağlayan = %100 skor; diğerleri yakınlığa göre alan içi %.
+     * TEST3≥TEST2≥TEST1 derinlik grid — koşu genelinde kural skoru min–max doğrusal ölçek.
+     * En yüksek rulePct = %100, en düşük rulePct = %0.
      */
     computeTest123SiraliDepthGrid(race, programTarih) {
         const { chains, maxDepth } = this._buildTest123SiraliChains(race, programTarih);
@@ -1197,22 +1197,29 @@ const IstatistikEngine = {
             byHorse.set(key, new Array(maxDepth).fill(null));
         }
 
+        let minRulePct = null;
+        let maxRulePct = null;
+        for (const chain of chains.values()) {
+            for (const item of chain) {
+                if (item.rulePct == null) continue;
+                if (minRulePct === null || item.rulePct < minRulePct) minRulePct = item.rulePct;
+                if (maxRulePct === null || item.rulePct > maxRulePct) maxRulePct = item.rulePct;
+            }
+        }
+
+        if (minRulePct === null || maxRulePct === null) {
+            return { maxDepth, minRulePct, maxRulePct, byHorse };
+        }
+
         for (let d = 0; d < maxDepth; d++) {
             const atDepth = [];
             for (const [key, chain] of chains) {
-                if (chain[d]) {
-                    atDepth.push({ key, ...chain[d] });
-                }
+                if (chain[d]) atDepth.push({ key, ...chain[d] });
             }
-            if (!atDepth.length) continue;
-
-            const bestRulePct = Math.max(...atDepth.map(e => e.rulePct));
             const comparedCount = atDepth.length;
 
             for (const e of atDepth) {
-                const pct = bestRulePct > 0
-                    ? Math.round((e.rulePct / bestRulePct) * 100)
-                    : null;
+                const pct = AtSpeedUtils.pctLinearMaxBest(e.rulePct, minRulePct, maxRulePct);
                 byHorse.get(e.key)[d] = {
                     pct,
                     rulePct: e.rulePct,
@@ -1226,14 +1233,17 @@ const IstatistikEngine = {
                     son800Derece: e.son800Derece,
                     tarih: e.tarih,
                     mesafe: e.mesafe,
+                    minRulePct,
+                    maxRulePct,
                     comparedCount,
                     depth: d,
-                    isBest: e.rulePct === bestRulePct
+                    isBest: e.rulePct === maxRulePct,
+                    isWorst: e.rulePct === minRulePct
                 };
             }
         }
 
-        return { maxDepth, byHorse };
+        return { maxDepth, minRulePct, maxRulePct, byHorse };
     },
 
     /** Geçmiş koşudan T1×DR (TEST1 × DR/1DR) — GÖSTERİM ile aynı */
@@ -1722,6 +1732,8 @@ const IstatistikEngine = {
             maxDepthTest2: test2Grid.maxDepth,
             maxDepthTest3: test3Grid.maxDepth,
             maxDepthTest123Sirali: test123SiraliGrid.maxDepth,
+            testsiraMinRulePct: test123SiraliGrid.minRulePct,
+            testsiraMaxRulePct: test123SiraliGrid.maxRulePct,
             maxDepthT1dr: t1drGrid.maxDepth,
             rows
         };
