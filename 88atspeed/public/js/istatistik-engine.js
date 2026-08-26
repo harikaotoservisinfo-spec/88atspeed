@@ -1793,6 +1793,49 @@ const IstatistikEngine = {
         return { minVal, maxVal };
     },
 
+    /**
+     * Atın kendi derinlikleri içinde min–max ölçek (selfPct).
+     * minBest: en düşük değer %100; maxBest: en yüksek değer %100.
+     */
+    _applyHorseSelfPctOnRows(rows, depthsKey, valueKey, scale = 'minBest') {
+        if (!rows?.length) return;
+        for (const row of rows) {
+            const depths = row[depthsKey] || [];
+            let minVal = null;
+            let maxVal = null;
+            for (const cell of depths) {
+                if (!cell) continue;
+                const v = cell[valueKey];
+                if (v == null || Number.isNaN(v)) continue;
+                if (minVal === null || v < minVal) minVal = v;
+                if (maxVal === null || v > maxVal) maxVal = v;
+            }
+            if (minVal === null || maxVal === null) continue;
+            for (const cell of depths) {
+                if (!cell || cell[valueKey] == null) continue;
+                const v = cell[valueKey];
+                if (scale === 'maxBest') {
+                    cell.selfPct = AtSpeedUtils.pctLinearMaxBest(v, minVal, maxVal);
+                    cell.isSelfBest = v === maxVal;
+                } else {
+                    cell.selfPct = AtSpeedUtils.pctLinearMinBest(v, minVal, maxVal);
+                    cell.isSelfBest = v === minVal;
+                }
+            }
+        }
+    },
+
+    _applyHorseSelfPctSpecs(pkg, specs) {
+        for (const spec of specs) {
+            this._applyHorseSelfPctOnRows(
+                pkg.rows,
+                spec.depthsKey,
+                spec.valueKey,
+                spec.scale || 'minBest'
+            );
+        }
+    },
+
     _applyRaceSon800DrPct(pkg) {
         let minSon800 = null;
         let maxSon800 = null;
@@ -1859,6 +1902,14 @@ const IstatistikEngine = {
         }
         const drBounds = this._applyRaceSon800DrPct(pkg);
         if (drBounds) bounds.son800Dr = drBounds;
+
+        const selfSpecs = [
+            ...specs,
+            { depthsKey: 'oran1Depths', valueKey: 'salise', scale: 'minBest' },
+            { depthsKey: 'oran2Depths', valueKey: 'salise', scale: 'minBest' },
+            { depthsKey: 'test123SiraliDepths', valueKey: 'rulePct', scale: 'maxBest' }
+        ];
+        this._applyHorseSelfPctSpecs(pkg, selfSpecs);
         return bounds;
     },
 
