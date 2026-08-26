@@ -468,6 +468,19 @@
             box-shadow: inset 1px 0 0 rgba(0, 0, 0, 0.08);
         }
         .istatistik-table tbody tr:hover td.istat-gap-depth { background: rgba(0, 0, 0, 0.07); }
+        /* SON800-1 · SON·Δ = %0 → atın en iyi derecesi (fark 0) */
+        @keyframes istat-gap-zero-blink {
+            0%, 100% { color: #b71c1c; text-shadow: 0 0 6px rgba(244, 67, 54, 0.85); opacity: 1; }
+            50% { color: #ff5252; text-shadow: none; opacity: 0.3; }
+        }
+        .istat-pct-gap-zero-blink {
+            color: #c62828 !important;
+            font-weight: 900 !important;
+            animation: istat-gap-zero-blink 0.85s ease-in-out infinite;
+        }
+        .istatistik-table tbody tr:hover .istat-pct-gap-zero-blink {
+            animation: istat-gap-zero-blink 0.85s ease-in-out infinite;
+        }
         .istatistik-table tbody tr:hover td.istat-grp-test2 { background: #dce0f5; }
         .istatistik-table tbody tr:hover td.istat-grp-test3 { background: #dcedc8; }
         .istatistik-table tbody tr:hover td.istat-grp-testozet { background: #fff9c4; }
@@ -921,14 +934,14 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260826q"></script>
-<script src="js/formula-engine.js?v=20260826q"></script>
-<script src="js/istatistik-engine.js?v=20260826q"></script>
-<script src="js/istatistik-grids-extra.js?v=20260826q"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260826q"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260826q"></script>
+<script src="js/utils.js?v=20260826r"></script>
+<script src="js/formula-engine.js?v=20260826r"></script>
+<script src="js/istatistik-engine.js?v=20260826r"></script>
+<script src="js/istatistik-grids-extra.js?v=20260826r"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260826r"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260826r"></script>
 <script>
-const ISTAT_BUILD = '20260826q';
+const ISTAT_BUILD = '20260826r';
 const TAHMIN_METRIC_ALL = '__hepsi__';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
@@ -1161,7 +1174,12 @@ function formatGapDepthCell(cell, groupLabel, depthLabel) {
     title += ' → %' + cell.gapPct;
     if (cell.isGapMin) title += ' ★ en yakın (en iyi)';
     if (cell.isGapMax) title += ' ★ en uzak fark';
-    return '<span class="istat-pct ' + pctClass(cell.gapPct) + '" title="' + title.replace(/"/g, '&quot;') + '">%' + cell.gapPct + '</span>';
+    let cls = pctClass(cell.gapPct);
+    if (groupLabel === 'SON800-1' && cell.gapPct === 0) {
+        cls += ' istat-pct-gap-zero-blink';
+        title += ' | ★ en iyi derece (Δ=0)';
+    }
+    return '<span class="istat-pct ' + cls + '" title="' + title.replace(/"/g, '&quot;') + '">%' + cell.gapPct + '</span>';
 }
 
 function formatSelfDepthCell(cell, groupLabel, depthLabel) {
