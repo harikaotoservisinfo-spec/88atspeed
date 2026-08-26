@@ -1,4 +1,4 @@
-/* SON–İÇ fark (Δ) sütunu — koşu ölçeğinde pct vs selfPct süre farkı */
+/* SON·Δ — derinlik değeri ile atın kendi en iyi değeri arasındaki salise farkı */
 const fs = require('fs');
 const path = require('path');
 
@@ -24,6 +24,12 @@ const race = {
                 { tarih: '18.08.2026', mesafe: '1400', at_derece: '1.35.00', son800_bir: '0.47.00', son800_iki: '0.48.00' },
                 { tarih: '08.08.2026', mesafe: '1400', at_derece: '1.37.00', son800_bir: '0.49.00', son800_iki: '0.50.00' }
             ]
+        },
+        {
+            no: 3, name: 'At C',
+            kosular: [
+                { tarih: '15.08.2026', mesafe: '1400', at_derece: '1.38.00', son800_bir: '0.52.00', son800_iki: '0.53.00' }
+            ]
         }
     ]
 };
@@ -35,17 +41,25 @@ const atA = pkg.rows.find(r => r.name === 'At A');
 const d0 = atA.son8001Depths[0];
 const d1 = atA.son8001Depths[1];
 
-if (d0.gapSalise == null || d0.gapPct == null) {
-    console.error('FAIL: gapSalise/gapPct hesaplanmalı', d0);
+// At A SON = en iyi (0.48) → fark 0
+if (d0.gapSalise !== 0) {
+    console.error('FAIL: en iyi derinlikte fark 0 olmalı', d0);
     process.exit(1);
 }
 
-const allDepth0 = pkg.rows.map(r => r.son8001Depths[0]).filter(Boolean);
-const gaps = allDepth0.map(c => c.gapSalise);
+// At A 1 ÖNCE = 0.50, en iyi 0.48 → fark 200 salise
+const expectedGap1 = Math.abs(d1.salise - d0.salise);
+if (d1.gapSalise !== expectedGap1) {
+    console.error('FAIL: 1 ÖNCE fark', d1.gapSalise, expectedGap1);
+    process.exit(1);
+}
+
+const allDepth1 = pkg.rows.map(r => r.son8001Depths[1]).filter(Boolean);
+const gaps = allDepth1.map(c => c.gapSalise);
 const minGap = Math.min(...gaps);
 const maxGap = Math.max(...gaps);
 
-for (const cell of allDepth0) {
+for (const cell of allDepth1) {
     const expected = U.pctLinearMaxBest(cell.gapSalise, minGap, maxGap);
     if (cell.gapPct !== expected) {
         console.error('FAIL: gapPct ölçek', cell.gapPct, expected, cell);
@@ -53,30 +67,13 @@ for (const cell of allDepth0) {
     }
 }
 
-const maxCell = allDepth0.find(c => c.gapSalise === maxGap);
-if (maxCell.gapPct !== 100) {
-    console.error('FAIL: en büyük fark %100 olmalı', maxCell);
+// At C tek derinlik → fark 0, gapPct 100 (tek değer)
+const atC = pkg.rows.find(r => r.name === 'At C');
+if (atC.son8001Depths[0].gapSalise !== 0) {
+    console.error('FAIL: tek derinlik fark 0', atC.son8001Depths[0]);
     process.exit(1);
 }
 
-const minCell = allDepth0.find(c => c.gapSalise === minGap);
-if (minCell.gapPct !== 100 && minGap !== maxGap) {
-    // min gap should be 0% when there's spread
-    if (minCell.gapPct !== 0) {
-        console.error('FAIL: en küçük fark %0 olmalı', minCell);
-        process.exit(1);
-    }
-}
-
-// Tek derinlikli at: pct === selfPct → fark 0
-const atB = pkg.rows.find(r => r.name === 'At B');
-const bOnly = atB.son8001Depths.find((_, i, arr) => arr.length === 1 || i === 0);
-// At B has 2 depths, check that gap exists when scales differ
-if (d0.pct === d0.selfPct && d0.gapSalise !== 0) {
-    console.error('FAIL: aynı pct/selfPct ise fark 0', d0);
-    process.exit(1);
-}
-
-console.log('At A SON pct:', d0.pct, 'selfPct:', d0.selfPct, 'gapSalise:', d0.gapSalise, 'gapPct:', d0.gapPct);
+console.log('At A SON gapSalise:', d0.gapSalise, 'gapPct:', d0.gapPct);
 console.log('At A 1 ÖNCE gapSalise:', d1.gapSalise, 'gapPct:', d1.gapPct);
 console.log('OK');

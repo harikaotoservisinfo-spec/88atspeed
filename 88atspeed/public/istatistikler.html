@@ -871,14 +871,14 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260826f"></script>
-<script src="js/formula-engine.js?v=20260826f"></script>
-<script src="js/istatistik-engine.js?v=20260826f"></script>
-<script src="js/istatistik-grids-extra.js?v=20260826f"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260826f"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260826f"></script>
+<script src="js/utils.js?v=20260826g"></script>
+<script src="js/formula-engine.js?v=20260826g"></script>
+<script src="js/istatistik-engine.js?v=20260826g"></script>
+<script src="js/istatistik-grids-extra.js?v=20260826g"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260826g"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260826g"></script>
 <script>
-const ISTAT_BUILD = '20260826f';
+const ISTAT_BUILD = '20260826g';
 const TAHMIN_METRIC_ALL = '__hepsi__';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
@@ -983,15 +983,19 @@ function appendDepthHeaderColsWithSelf(h, grpClass, groupId, maxDepth) {
 
 function formatGapDepthCell(cell, groupLabel, depthLabel) {
     if (!cell || cell.gapPct == null) {
-        return '<span class="istat-pct istat-pct-none" title="SON–İÇ fark ölçeği">—</span>';
+        return '<span class="istat-pct istat-pct-none" title="En iyi dereceden fark ölçeği">—</span>';
     }
-    let title = (groupLabel || '') + ' · ' + depthLabel + ' · SON–İÇ fark';
+    let title = (groupLabel || '') + ' · ' + depthLabel + ' · en iyi dereceden fark';
     if (cell.tarih) title += ' (' + cell.tarih + ')';
     if (cell.gapSalise != null) {
         title += ' | fark: ' + AtSpeedUtils.saliseToDerece(cell.gapSalise);
     }
+    if (cell.horseBestVal != null && cell.derece) {
+        title += ' | en iyi: ' + (cell.horseBestDerece || AtSpeedUtils.saliseToDerece(cell.horseBestVal));
+    }
     title += ' → %' + cell.gapPct;
-    if (cell.isGapMax) title += ' ★ en büyük fark';
+    if (cell.isGapMin) title += ' ★ en yakın (en iyi)';
+    if (cell.isGapMax) title += ' ★ en uzak fark';
     return '<span class="istat-pct ' + pctClass(cell.gapPct) + '" title="' + title.replace(/"/g, '&quot;') + '">%' + cell.gapPct + '</span>';
 }
 

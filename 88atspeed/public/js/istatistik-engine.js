@@ -1836,36 +1836,47 @@ const IstatistikEngine = {
         }
     },
 
-    _impliedValueFromPct(pct, minVal, maxVal, scale = 'minBest') {
-        if (scale === 'maxBest') {
-            return AtSpeedUtils.impliedValueFromPctMaxBest(pct, minVal, maxVal);
-        }
-        return AtSpeedUtils.impliedValueFromPctMinBest(pct, minVal, maxVal);
-    },
-
     /**
-     * SON vs SON·İÇ farkı: koşu ölçeğinde pct ile selfPct'nin ima ettiği süre farkı (salise).
+     * SON·Δ: derinlikteki değer ile atın kendi en iyi değeri arasındaki salise farkı.
      * Her derinlik sütununda min fark %0, max fark %100.
      */
     _applyPctGapSpecs(pkg, specs) {
         for (const spec of specs) {
-            const { minVal, maxVal } = this._collectRaceValueBounds(
-                pkg, spec.depthsKey, spec.valueKey
-            );
-            if (minVal === null || maxVal === null) continue;
             const scale = spec.scale || 'minBest';
+            const valueKey = spec.valueKey;
             const maxDepth = pkg[spec.maxDepthKey] || 0;
             const rows = pkg.rows || [];
 
             for (const row of rows) {
-                for (const cell of row[spec.depthsKey] || []) {
-                    if (!cell || cell.pct == null || cell.selfPct == null) continue;
-                    const impliedRace = this._impliedValueFromPct(cell.pct, minVal, maxVal, scale);
-                    const impliedSelfOnRace = this._impliedValueFromPct(
-                        cell.selfPct, minVal, maxVal, scale
-                    );
-                    if (impliedRace == null || impliedSelfOnRace == null) continue;
-                    cell.gapSalise = Math.abs(impliedRace - impliedSelfOnRace);
+                const depths = row[spec.depthsKey] || [];
+                let horseBest = null;
+                for (const cell of depths) {
+                    if (!cell) continue;
+                    const v = cell[valueKey];
+                    if (v == null || Number.isNaN(v)) continue;
+                    if (horseBest === null) {
+                        horseBest = v;
+                    } else if (scale === 'maxBest') {
+                        horseBest = Math.max(horseBest, v);
+                    } else {
+                        horseBest = Math.min(horseBest, v);
+                    }
+                }
+                for (const cell of depths) {
+                    if (!cell || cell[valueKey] == null || horseBest == null) continue;
+                    cell.gapSalise = Math.abs(cell[valueKey] - horseBest);
+                    cell.horseBestVal = horseBest;
+                    if (cell[valueKey] === horseBest && cell.derece) {
+                        cell.horseBestDerece = cell.derece;
+                    }
+                }
+                if (horseBest != null) {
+                    for (const cell of depths) {
+                        if (cell?.horseBestDerece) continue;
+                        if (cell && cell[valueKey] === horseBest && cell.derece) {
+                            cell.horseBestDerece = cell.derece;
+                        }
+                    }
                 }
             }
 
@@ -1883,6 +1894,7 @@ const IstatistikEngine = {
                     if (!cell || cell.gapSalise == null) continue;
                     cell.gapPct = AtSpeedUtils.pctLinearMaxBest(cell.gapSalise, minGap, maxGap);
                     cell.isGapMax = maxGap != null && cell.gapSalise === maxGap;
+                    cell.isGapMin = minGap != null && cell.gapSalise === minGap;
                 }
             }
         }
