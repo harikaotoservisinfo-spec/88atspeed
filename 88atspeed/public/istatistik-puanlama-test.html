@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Puanlama Test — SON800-1 + T1×DR</title>
-    <link href="css/theme.css?v=20260827m" rel="stylesheet">
+    <link href="css/theme.css?v=20260827o" rel="stylesheet">
     <style>
         body { margin: 0; background: var(--bg-page, #f5f5f5); font-family: Inter, sans-serif; }
         .ptest-wrap { padding: 16px 20px 32px; max-width: 100%; }
@@ -77,6 +77,16 @@
         }
         .ptest-bitis-sort-select:focus { outline: none; border-color: #7b1fa2; }
         .ptest-bitis-sort-select:disabled { opacity: 0.5; cursor: wait; }
+        .ptest-th-son-delta-inner {
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            line-height: 1.15; min-width: 108px;
+        }
+        .ptest-son-delta-sort-select {
+            width: 100%; max-width: 118px; padding: 2px 3px; font-size: 9px; font-weight: 700;
+            border: 1px solid #4dd0e1; border-radius: 4px; background: #fff; cursor: pointer;
+        }
+        .ptest-son-delta-sort-select:focus { outline: none; border-color: #7b1fa2; }
+        .ptest-son-delta-sort-select:disabled { opacity: 0.5; cursor: wait; }
         .ptest-status-done { color: #2e7d32; font-weight: 600; }
         .ptest-status-busy { color: #6a1b9a; font-weight: 600; }
         .ptest-table .ptest-th-cikan { background: #ffecb3; }
@@ -149,11 +159,11 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260827m"></script>
-<script src="js/istatistik-engine.js?v=20260827m"></script>
-<script src="js/istatistik-grids-extra.js?v=20260827m"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260827m"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260827m"></script>
+<script src="js/utils.js?v=20260827o"></script>
+<script src="js/istatistik-engine.js?v=20260827o"></script>
+<script src="js/istatistik-grids-extra.js?v=20260827o"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260827o"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260827o"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -167,6 +177,7 @@ let kayitCountLoaded = 0;
 let cikanPanelOpen = false;
 let cikanMetaList = [];
 let bitisSortMode = 0;
+let sonDeltaSortMode = '0';
 let isTableProcessing = false;
 let activeBitisLookup = null;
 
@@ -230,6 +241,72 @@ function gapSpan(row, cell) {
     if (!cell || cell.gapPct == null) return pctSpan(null);
     const blink = cell.gapPct === 0 ? ' ptest-gap-zero-blink' : '';
     return pctSpan(cell.gapPct, blink);
+}
+
+/** SON·Δ görsel kural seçicileri — id = select value */
+const SON_DELTA_SORT_RULES = [
+    { id: '0', label: '0 — kapalı' },
+    { id: 'turuncuHucre', label: '1 — turuncu hücre' },
+    { id: 'yesilHucre', label: '2 — yeşil hücre' },
+    { id: 'turuncuCevre', label: '3 — turuncu çevre' },
+    { id: 'kirmiziIc', label: '4 — kırmızı iç' },
+    { id: 'sariYazi', label: '5 — sarı yazı' },
+    { id: 'yanipSonen0', label: '6 — yanıp sönen %0' },
+    { id: 'acikYesilIc', label: '7 — açık yeşil iç' },
+    { id: 'koyuYesilIc', label: '8 — koyu yeşil iç' },
+    { id: 'gri', label: '9 — gri (—)' }
+];
+
+function sonDeltaSortRuleLabel(id) {
+    const rule = SON_DELTA_SORT_RULES.find(r => r.id === id);
+    return rule ? rule.label : id;
+}
+
+function sonDeltaCell(entry) {
+    return entry.row.son8001Depths?.[0] || null;
+}
+
+function sonDeltaVisualFlags(entry) {
+    const row = entry.row;
+    const cell = sonDeltaCell(entry);
+    const gap = cell?.gapPct;
+    const tdCls = gapTdClass(row, cell).trim();
+    const isTwin = tdCls === 'ptest-gap-twin-zero';
+    const isNeon = tdCls === 'ptest-gap-neon';
+    let pc = 'none';
+    if (gap != null) pc = pctClass(gap).replace('ptest-pct-', '');
+    return {
+        turuncuHucre: isTwin,
+        yesilHucre: isNeon,
+        turuncuCevre: isTwin,
+        kirmiziIc: gap != null && pc === 'low' && !isTwin && !isNeon,
+        sariYazi: gap != null && pc === 'mid',
+        yanipSonen0: gap === 0,
+        acikYesilIc: gap != null && pc === 'good',
+        koyuYesilIc: gap != null && pc === 'high',
+        gri: gap == null
+    };
+}
+
+function sonDeltaMatchesRule(entry, ruleId) {
+    if (!ruleId || ruleId === '0') return true;
+    const flags = sonDeltaVisualFlags(entry);
+    return !!flags[ruleId];
+}
+
+function compareSonDeltaRule(a, b, ruleId) {
+    const ma = sonDeltaMatchesRule(a, ruleId) ? 0 : 1;
+    const mb = sonDeltaMatchesRule(b, ruleId) ? 0 : 1;
+    return ma - mb;
+}
+
+function countSonDeltaRuleMatches(ruleId) {
+    if (!ruleId || ruleId === '0') return 0;
+    let n = 0;
+    for (const entry of flatEntries) {
+        if (sonDeltaMatchesRule(entry, ruleId)) n++;
+    }
+    return n;
 }
 
 function tahminHtml(tahmin) {
@@ -364,9 +441,7 @@ function renderExportBody(entries) {
 
 function buildExportHtml(entries) {
     const now = new Date();
-    const modeLabel = bitisSortMode === 1
-        ? '1 — tüm liste bitiş sırasına göre (1 en üstte)'
-        : '0 — normal (tarih → hipodrom → koşu → yükleme sırası)';
+    const modeLabel = activeSortSummary();
     const html = '<!DOCTYPE html>\n<html lang="tr">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
         '<title>Puanlama Test — Renkli dışa aktarım</title>\n<style>' + EXPORT_CSS + '</style>\n</head>\n<body>\n' +
         '<div class="export-meta">\n<h1>🧪 Puanlama Test — Renkli tablo</h1>\n' +
@@ -391,7 +466,8 @@ function downloadTextExport() {
     const entries = flatEntries.slice();
     sortFlatEntries(entries);
     const { html, now } = buildExportHtml(entries);
-    const modeSlug = bitisSortMode === 1 ? 'bitis-sira-1' : 'normal-0';
+    const modeSlug = (bitisSortMode === 1 ? 'bitis-1' : 'bitis-0')
+        + (sonDeltaSortMode !== '0' ? '-delta-' + sonDeltaSortMode : '');
     const ts = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const blob = new Blob(['\ufeff' + html], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -491,11 +567,30 @@ function compareBitisGlobal(a, b) {
 function sortFlatEntries(flat) {
     if (!activeBitisLookup) rebuildBitisLookup();
     flat.sort((a, b) => {
-        if (bitisSortMode === 1) return compareBitisGlobal(a, b);
-        const meta = compareRaceMeta(a, b);
-        if (meta !== 0) return meta;
+        if (bitisSortMode === 1) {
+            const bitisCmp = compareBitisGlobal(a, b);
+            if (bitisCmp !== 0) return bitisCmp;
+        }
+        if (sonDeltaSortMode && sonDeltaSortMode !== '0') {
+            const deltaCmp = compareSonDeltaRule(a, b, sonDeltaSortMode);
+            if (deltaCmp !== 0) return deltaCmp;
+        }
+        if (bitisSortMode !== 1) {
+            const meta = compareRaceMeta(a, b);
+            if (meta !== 0) return meta;
+        }
         return compareDefaultWithinRace(a, b);
     });
+}
+
+function activeSortSummary() {
+    const parts = [];
+    if (bitisSortMode === 1) parts.push('bitiş(1)');
+    if (sonDeltaSortMode && sonDeltaSortMode !== '0') {
+        parts.push('SON·Δ:' + sonDeltaSortRuleLabel(sonDeltaSortMode).replace(/^[^—]+—\s*/, ''));
+    }
+    if (!parts.length) parts.push('normal(0)');
+    return parts.join(' → ');
 }
 
 function syncBitisInputsToMap() {
@@ -516,9 +611,11 @@ function formatDoneStatus(extra) {
     const filled = countFilledBitisFromEntries();
     const sortable = countSortableBitis();
     const cikan = countCikanHorses();
-    const modeLabel = bitisSortMode === 1 ? 'bitiş sırası (1) — tüm 1\'ler üstte' : 'normal (0)';
+    const deltaMatch = sonDeltaSortMode !== '0' ? countSonDeltaRuleMatches(sonDeltaSortMode) : 0;
+    let sortLabel = activeSortSummary();
+    if (deltaMatch) sortLabel += ' (' + deltaMatch + ' eşleşme)';
     return '✅ ' + flatEntries.length + ' satır · ' + filled + ' bitiş · ' + sortable +
-        ' sıralanabilir · ' + cikan + ' çıkan · ' + modeLabel + (extra ? ' · ' + extra : '');
+        ' sıralanabilir · ' + cikan + ' çıkan · sıra: ' + sortLabel + (extra ? ' · ' + extra : '');
 }
 
 function renderTableBodyOnly() {
@@ -544,11 +641,12 @@ function renderTableBodyOnly() {
 async function applySortAndRender() {
     if (!flatEntries.length || isTableProcessing) return;
     isTableProcessing = true;
-    const sel = document.getElementById('bitisSortSelect');
-    if (sel) sel.disabled = true;
+    const bitisSel = document.getElementById('bitisSortSelect');
+    const deltaSel = document.getElementById('sonDeltaSortSelect');
+    if (bitisSel) bitisSel.disabled = true;
+    if (deltaSel) deltaSel.disabled = true;
 
-    const modeLabel = bitisSortMode === 1 ? 'tüm liste bitiş sırasına göre (1→2→3…)' : 'normal sıraya';
-    setProcessStatus('⏳ ' + flatEntries.length + ' satır ' + modeLabel + ' sıralanıyor…', true);
+    setProcessStatus('⏳ ' + flatEntries.length + ' satır sıralanıyor (' + activeSortSummary() + ')…', true);
 
     syncBitisInputsToMap();
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -564,10 +662,8 @@ async function applySortAndRender() {
         setProcessStatus('❌ ' + AtSpeedUtils.escapeHtml(err.message), false);
     } finally {
         isTableProcessing = false;
-        if (sel) {
-            sel.disabled = false;
-            sel.value = String(bitisSortMode);
-        }
+        bindBitisSortSelect();
+        bindSonDeltaSortSelect();
     }
 }
 
@@ -579,6 +675,18 @@ function bindBitisSortSelect() {
     sel.onchange = () => {
         if (isTableProcessing) return;
         bitisSortMode = parseInt(sel.value, 10) === 1 ? 1 : 0;
+        applySortAndRender();
+    };
+}
+
+function bindSonDeltaSortSelect() {
+    const sel = document.getElementById('sonDeltaSortSelect');
+    if (!sel) return;
+    sel.value = sonDeltaSortMode;
+    sel.disabled = isTableProcessing;
+    sel.onchange = () => {
+        if (isTableProcessing) return;
+        sonDeltaSortMode = sel.value || '0';
         applySortAndRender();
     };
 }
@@ -608,11 +716,20 @@ function renderHead() {
     h += '<th colspan="5" class="ptest-th-grp ptest-th-s800">SON800-1 · SON derinlik</th>';
     h += '<th colspan="4" class="ptest-th-grp ptest-th-t1">T1×DR · SON derinlik</th>';
     h += '</tr><tr>';
-    h += '<th class="ptest-th-s800">SON</th><th class="ptest-th-s800">SON·Eİ</th><th class="ptest-th-s800">SON·İÇ</th><th class="ptest-th-s800">SON·Δ</th><th class="ptest-th-s800">SON·BS</th>';
+    h += '<th class="ptest-th-s800">SON</th><th class="ptest-th-s800">SON·Eİ</th><th class="ptest-th-s800">SON·İÇ</th>';
+    h += '<th class="ptest-th-s800"><div class="ptest-th-son-delta-inner">SON·Δ';
+    h += '<select id="sonDeltaSortSelect" class="ptest-son-delta-sort-select" title="0: kapalı · 1+: eşleşen SON·Δ renk kuralı en üstte (BİTİŞ sonrası)">';
+    for (const rule of SON_DELTA_SORT_RULES) {
+        h += '<option value="' + rule.id + '"' + (sonDeltaSortMode === rule.id ? ' selected' : '') + '>'
+            + AtSpeedUtils.escapeHtml(rule.label) + '</option>';
+    }
+    h += '</select></div></th>';
+    h += '<th class="ptest-th-s800">SON·BS</th>';
     h += '<th class="ptest-th-t1">SON·Eİ</th><th class="ptest-th-t1">SON·İÇ</th><th class="ptest-th-t1">SON·Δ</th><th class="ptest-th-t1">SON·BS</th>';
     h += '</tr>';
     document.getElementById('gridHead').innerHTML = h;
     bindBitisSortSelect();
+    bindSonDeltaSortSelect();
 }
 
 function depthSon(cell, field) {
@@ -721,7 +838,7 @@ function bindTableEvents() {
             input.classList.toggle('ptest-bitis-filled', input.value.trim() !== '');
         });
         input.addEventListener('change', () => {
-            if (bitisSortMode === 1) applySortAndRender();
+            if (bitisSortMode === 1 || (sonDeltaSortMode && sonDeltaSortMode !== '0')) applySortAndRender();
         });
     });
     document.querySelectorAll('.ptest-cikan-btn').forEach(btn => {
@@ -867,9 +984,8 @@ function updateSummaryMeta() {
         : (Object.keys(collectBitisFromDom()).length || Object.keys(savedBitisMap).length);
     const cikan = countCikanHorses();
     if (kayitCountLoaded && flatEntries.length) {
-        const modeLabel = bitisSortMode === 1 ? 'bitiş(1)' : 'normal(0)';
         el.textContent = kayitCountLoaded + ' kayıt · ' + flatEntries.length + ' at satırı · ' +
-            filled + ' bitiş · ' + cikan + ' çıkan · sıra:' + modeLabel;
+            filled + ' bitiş · ' + cikan + ' çıkan · sıra:' + activeSortSummary();
     }
 }
 
