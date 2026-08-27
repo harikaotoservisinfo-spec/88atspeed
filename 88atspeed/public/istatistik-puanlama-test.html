@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Puanlama Test — SON800-1 + T1×DR</title>
-    <link href="css/theme.css?v=20260827z" rel="stylesheet">
+    <link href="css/theme.css?v=20260828a" rel="stylesheet">
     <style>
         body { margin: 0; background: var(--bg-page, #f5f5f5); font-family: Inter, sans-serif; }
         .ptest-wrap { padding: 16px 20px 32px; max-width: 100%; }
@@ -87,6 +87,12 @@
         }
         .ptest-son-delta-sort-select:focus { outline: none; border-color: #7b1fa2; }
         .ptest-son-delta-sort-select:disabled { opacity: 0.5; cursor: wait; }
+        .ptest-t1-delta-sort-select {
+            margin-top: 3px; width: 100%; max-width: 118px; font-size: 10px; font-weight: 700;
+            border: 1px solid #ef6c00; border-radius: 4px; padding: 2px 3px; background: #fff3e0; color: #e65100;
+        }
+        .ptest-t1-delta-sort-select:focus { outline: none; border-color: #e65100; }
+        .ptest-t1-delta-sort-select:disabled { opacity: 0.5; cursor: wait; }
         .ptest-status-done { color: #2e7d32; font-weight: 600; }
         .ptest-status-busy { color: #6a1b9a; font-weight: 600; }
         .ptest-table .ptest-th-cikan { background: #ffecb3; }
@@ -313,11 +319,11 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260827z"></script>
-<script src="js/istatistik-engine.js?v=20260827z"></script>
-<script src="js/istatistik-grids-extra.js?v=20260827z"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260827z"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260827z"></script>
+<script src="js/utils.js?v=20260828a"></script>
+<script src="js/istatistik-engine.js?v=20260828a"></script>
+<script src="js/istatistik-grids-extra.js?v=20260828a"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260828a"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260828a"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -332,6 +338,7 @@ let cikanPanelOpen = false;
 let cikanMetaList = [];
 let bitisSortMode = 0;
 let sonDeltaSortMode = '0';
+let t1SonDeltaSortMode = '0';
 let isTableProcessing = false;
 let activeBitisLookup = null;
 
@@ -420,9 +427,11 @@ function sonDeltaCell(entry) {
     return entry.row.son8001Depths?.[0] || null;
 }
 
-function sonDeltaVisualFlags(entry) {
-    const row = entry.row;
-    const cell = sonDeltaCell(entry);
+function t1SonDeltaCell(entry) {
+    return entry.row.t1drDepths?.[0] || null;
+}
+
+function deltaVisualFlagsForCell(row, cell) {
     const gap = cell?.gapPct;
     const tdCls = gapTdClass(row, cell).trim();
     const isTwin = tdCls === 'ptest-gap-twin-zero';
@@ -440,6 +449,14 @@ function sonDeltaVisualFlags(entry) {
         koyuYesilIc: gap != null && pc === 'high',
         gri: gap == null
     };
+}
+
+function sonDeltaVisualFlags(entry) {
+    return deltaVisualFlagsForCell(entry.row, sonDeltaCell(entry));
+}
+
+function t1SonDeltaVisualFlags(entry) {
+    return deltaVisualFlagsForCell(entry.row, t1SonDeltaCell(entry));
 }
 
 function sonDeltaMatchesRule(entry, ruleId) {
@@ -506,6 +523,53 @@ function pctFmt(n, total) {
 
 function sonDeltaGapPct(entry) {
     return entry.row.son8001Depths?.[0]?.gapPct ?? null;
+}
+
+function t1SonDeltaGapPct(entry) {
+    return entry.row.t1drDepths?.[0]?.gapPct ?? null;
+}
+
+function isT1SonDeltaBlink(entry) {
+    return t1SonDeltaGapPct(entry) === 0;
+}
+
+/** T1×DR · SON·Δ seçici — sarı → %0 → yeşil katman sırası */
+const T1_SON_DELTA_SORT_RULES = [
+    { id: '0', label: '0 — kapalı' },
+    { id: 'sariZeroYesil', label: '1 — sarı→%0→yeşil' }
+];
+
+function t1SonDeltaSortRuleLabel(id) {
+    const rule = T1_SON_DELTA_SORT_RULES.find(r => r.id === id);
+    return rule ? rule.label : id;
+}
+
+/** T1·Δ katman: 0=sarı, 1=%0, 2=yeşil hücre, 3=diğer */
+function t1SonDeltaSortTier(entry) {
+    const flags = t1SonDeltaVisualFlags(entry);
+    const g = t1SonDeltaGapPct(entry);
+    if (flags.sariYazi) return 0;
+    if (g === 0) return 1;
+    if (flags.yesilHucre) return 2;
+    return 3;
+}
+
+function compareGapAsc(ga, gb) {
+    if (ga == null && gb == null) return 0;
+    if (ga == null) return 1;
+    if (gb == null) return -1;
+    return ga - gb;
+}
+
+function compareT1SonDeltaSort(a, b) {
+    if (!t1SonDeltaSortMode || t1SonDeltaSortMode === '0') return 0;
+    if (t1SonDeltaSortMode === 'sariZeroYesil') {
+        const ta = t1SonDeltaSortTier(a);
+        const tb = t1SonDeltaSortTier(b);
+        if (ta !== tb) return ta - tb;
+        return compareGapAsc(t1SonDeltaGapPct(a), t1SonDeltaGapPct(b));
+    }
+    return 0;
 }
 
 function isSonDeltaBlink(entry) {
@@ -587,7 +651,7 @@ function yesilEntriesForBucket(bucket) {
     return out;
 }
 
-const PTEST_BUILD = '20260827z';
+const PTEST_BUILD = '20260828a';
 
 function s800SonBsPct(entry) {
     return entry.row.son8001Depths?.[0]?.successPct ?? null;
@@ -1032,7 +1096,8 @@ function downloadTextExport() {
     sortFlatEntries(entries);
     const { html, now } = buildExportHtml(entries);
     const modeSlug = (bitisSortMode === 1 ? 'bitis-1' : 'bitis-0')
-        + (sonDeltaSortMode !== '0' ? '-delta-' + sonDeltaSortMode : '');
+        + (sonDeltaSortMode !== '0' ? '-s800d-' + sonDeltaSortMode : '')
+        + (t1SonDeltaSortMode !== '0' ? '-t1d-' + t1SonDeltaSortMode : '');
     const ts = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const blob = new Blob(['\ufeff' + html], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -1141,6 +1206,10 @@ function sortFlatEntries(flat) {
             const deltaCmp = compareSonDeltaRule(a, b, sonDeltaSortMode);
             if (deltaCmp !== 0) return deltaCmp;
         }
+        if (t1SonDeltaSortMode && t1SonDeltaSortMode !== '0') {
+            const t1Cmp = compareT1SonDeltaSort(a, b);
+            if (t1Cmp !== 0) return t1Cmp;
+        }
         if (bitisSortMode !== 1 && !yesilDeltaMode) {
             const meta = compareRaceMeta(a, b);
             if (meta !== 0) return meta;
@@ -1159,7 +1228,12 @@ function activeSortSummary() {
     if (sonDeltaSortMode && sonDeltaSortMode !== '0') {
         let lbl = sonDeltaSortRuleLabel(sonDeltaSortMode).replace(/^[^—]+—\s*/, '');
         if (sonDeltaSortMode === 'yesilHucre') lbl += ' · bitiş→yanıp sönen→Δ↑';
-        parts.push('SON·Δ:' + lbl);
+        parts.push('SON800·Δ:' + lbl);
+    }
+    if (t1SonDeltaSortMode && t1SonDeltaSortMode !== '0') {
+        let lbl = t1SonDeltaSortRuleLabel(t1SonDeltaSortMode).replace(/^[^—]+—\s*/, '');
+        if (t1SonDeltaSortMode === 'sariZeroYesil') lbl += ' · değer↑';
+        parts.push('T1·Δ:' + lbl);
     }
     if (!parts.length) parts.push('normal(0)');
     return parts.join(' → ');
@@ -1184,8 +1258,10 @@ function formatDoneStatus(extra) {
     const sortable = countSortableBitis();
     const cikan = countCikanHorses();
     const deltaMatch = sonDeltaSortMode !== '0' ? countSonDeltaRuleMatches(sonDeltaSortMode) : 0;
+    const t1TierMatch = t1SonDeltaSortMode === 'sariZeroYesil' ? flatEntries.length : 0;
     let sortLabel = activeSortSummary();
-    if (deltaMatch) sortLabel += ' (' + deltaMatch + ' eşleşme)';
+    if (deltaMatch) sortLabel += ' (' + deltaMatch + ' SON800 eşleşme)';
+    if (t1TierMatch && t1SonDeltaSortMode === 'sariZeroYesil') sortLabel += ' · T1 katman sırası';
     return '✅ ' + flatEntries.length + ' satır · ' + filled + ' bitiş · ' + sortable +
         ' sıralanabilir · ' + cikan + ' çıkan · sıra: ' + sortLabel + (extra ? ' · ' + extra : '');
 }
@@ -1237,6 +1313,7 @@ async function applySortAndRender() {
         isTableProcessing = false;
         bindBitisSortSelect();
         bindSonDeltaSortSelect();
+        bindT1SonDeltaSortSelect();
     }
 }
 
@@ -1260,6 +1337,18 @@ function bindSonDeltaSortSelect() {
     sel.onchange = () => {
         if (isTableProcessing) return;
         sonDeltaSortMode = sel.value || '0';
+        applySortAndRender();
+    };
+}
+
+function bindT1SonDeltaSortSelect() {
+    const sel = document.getElementById('t1SonDeltaSortSelect');
+    if (!sel) return;
+    sel.value = t1SonDeltaSortMode;
+    sel.disabled = isTableProcessing;
+    sel.onchange = () => {
+        if (isTableProcessing) return;
+        t1SonDeltaSortMode = sel.value || '0';
         applySortAndRender();
     };
 }
@@ -1298,11 +1387,20 @@ function renderHead() {
     }
     h += '</select></div></th>';
     h += '<th class="ptest-th-s800">SON·BS</th>';
-    h += '<th class="ptest-th-t1">SON·Eİ</th><th class="ptest-th-t1">SON·İÇ</th><th class="ptest-th-t1">SON·Δ</th><th class="ptest-th-t1">SON·BS</th>';
+    h += '<th class="ptest-th-t1">SON·Eİ</th><th class="ptest-th-t1">SON·İÇ</th>';
+    h += '<th class="ptest-th-t1"><div class="ptest-th-son-delta-inner">SON·Δ';
+    h += '<select id="t1SonDeltaSortSelect" class="ptest-t1-delta-sort-select" title="0: kapalı · 1: sarı (değer↑)→%0→yeşil hücre (değer↑) · SON800·Δ seçicisinden bağımsız">';
+    for (const rule of T1_SON_DELTA_SORT_RULES) {
+        h += '<option value="' + rule.id + '"' + (t1SonDeltaSortMode === rule.id ? ' selected' : '') + '>'
+            + AtSpeedUtils.escapeHtml(rule.label) + '</option>';
+    }
+    h += '</select></div></th>';
+    h += '<th class="ptest-th-t1">SON·BS</th>';
     h += '</tr>';
     document.getElementById('gridHead').innerHTML = h;
     bindBitisSortSelect();
     bindSonDeltaSortSelect();
+    bindT1SonDeltaSortSelect();
 }
 
 function depthSon(cell, field) {
@@ -1403,6 +1501,7 @@ async function renderTableAsync(doneExtra) {
         isTableProcessing = false;
         bindBitisSortSelect();
         bindSonDeltaSortSelect();
+        bindT1SonDeltaSortSelect();
     }
 }
 
@@ -1414,7 +1513,8 @@ function bindTableEvents() {
         });
         input.addEventListener('change', () => {
             renderTuruncuReport();
-            if (bitisSortMode === 1 || (sonDeltaSortMode && sonDeltaSortMode !== '0')) applySortAndRender();
+            if (bitisSortMode === 1 || (sonDeltaSortMode && sonDeltaSortMode !== '0')
+                || (t1SonDeltaSortMode && t1SonDeltaSortMode !== '0')) applySortAndRender();
         });
     });
     document.querySelectorAll('.ptest-cikan-btn').forEach(btn => {
