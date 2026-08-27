@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Puanlama Test — SON800-1 + T1×DR</title>
-    <link href="css/theme.css?v=20260828d" rel="stylesheet">
+    <link href="css/theme.css?v=20260828e" rel="stylesheet">
     <style>
         body { margin: 0; background: var(--bg-page, #f5f5f5); font-family: Inter, sans-serif; }
         .ptest-wrap { padding: 16px 20px 32px; max-width: 100%; }
@@ -297,6 +297,17 @@
             background: #fff8e1; border: 1px solid #ffcc80;
         }
         .ptest-t1-indicator-block .ptest-report-item strong { color: #e65100; }
+        .ptest-t1-sari-delta-wrap { margin-bottom: 16px; }
+        .ptest-t1-sari-delta-wrap .ptest-report-meta-global {
+            margin-bottom: 10px; padding: 8px 10px; background: #fff8e1;
+            border-radius: 6px; font-size: 13px; color: #e65100; font-weight: 700;
+        }
+        .ptest-report-panel.ptest-report-t1-sari-delta {
+            border: 3px solid #f9a825;
+            background: linear-gradient(180deg, #fffde7 0%, #fff 120px);
+            box-shadow: 0 4px 14px rgba(249, 168, 37, 0.14);
+        }
+        .ptest-report-t1-sari-delta h3 { color: #f57f17; font-size: 15px; margin: 0 0 8px; }
     </style>
 </head>
 <body>
@@ -379,15 +390,28 @@
             <div class="ptest-report-grid" id="yesilReportGrid"></div>
         </div>
     </div>
-    <div class="ptest-gosterge-section-title">T1×DR · SON derinlik göstergeleri</div>
+    <div class="ptest-gosterge-section-title">T1×DR · SON·Δ sarı yazı göstergeleri</div>
+    <div class="ptest-t1-sari-delta-wrap" id="t1SariDeltaIndicatorsWrap">
+        <div class="ptest-report-meta-global" id="t1SariDeltaGlobalMeta"></div>
+        <div class="ptest-report-panel ptest-report-t1-sari-delta" id="t1SariDeltaPanel">
+            <h3>🟡 T1×DR · SON·Δ sarı yazı — %1 … %24 (tek tek)
+                <span class="ptest-report-build-tag" id="t1SariDeltaBuildTag"></span>
+            </h3>
+            <p class="ptest-report-meta" style="margin:0 0 12px;color:#f57f17">
+                T1×DR · SON derinlik · sarı yazı · her Δ değeri için ayrı bitiş başarı raporu
+            </p>
+            <div id="t1SariDeltaIndicatorsContent"></div>
+        </div>
+    </div>
+    <div class="ptest-gosterge-section-title">T1×DR · SON derinlik — diğer göstergeler</div>
     <div class="ptest-t1-indicators-wrap" id="t1IndicatorsWrap">
         <div class="ptest-report-meta-global" id="t1IndicatorsGlobalMeta"></div>
         <div class="ptest-report-panel ptest-report-t1-indicators" id="t1IndicatorsPanel">
-            <h3>🟡 T1×DR · SON derinlik — gösterge alanı
+            <h3>🟡 T1×DR · SON derinlik — ek gösterge alanı
                 <span class="ptest-report-build-tag" id="t1IndicatorsBuildTag"></span>
             </h3>
             <p class="ptest-report-meta" style="margin:0 0 12px;color:#e65100">
-                T1×DR sütunu özel kırılımlar · bitiş raporlarından ayrı panel
+                Sarı %1–%24 dışındaki T1×DR kırılımları buraya eklenecek
             </p>
             <div id="t1IndicatorsContent"></div>
         </div>
@@ -396,11 +420,11 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260828d"></script>
-<script src="js/istatistik-engine.js?v=20260828d"></script>
-<script src="js/istatistik-grids-extra.js?v=20260828d"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260828d"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260828d"></script>
+<script src="js/utils.js?v=20260828e"></script>
+<script src="js/istatistik-engine.js?v=20260828e"></script>
+<script src="js/istatistik-grids-extra.js?v=20260828e"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260828e"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260828e"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -806,21 +830,29 @@ function updateGostergeTabVisibility() {
     if (content) content.classList.toggle('hidden', !hasData);
 }
 
-const PTEST_BUILD = '20260828d';
+const PTEST_BUILD = '20260828e';
 
-/** T1×DR · SON derinlik — ayrı gösterge alanı tanımları */
-const T1_DR_INDICATORS = [
-    {
-        id: 'sariDelta1_24',
-        title: 'Sarı · SON·Δ %1 – %24',
-        hint: 'T1×DR · SON·Δ sarı yazı · değer %1 ile %24 arası',
+function t1SariSonDeltaMatchesPct(entry, pct) {
+    if (!t1SonDeltaVisualFlags(entry).sariYazi) return false;
+    return t1SonDeltaGapPct(entry) === pct;
+}
+
+/** T1×DR · SON·Δ sarı yazı — %1 … %24 tek tek gösterge */
+const T1_SARI_SON_DELTA_INDICATORS = Array.from({ length: 24 }, (_, i) => {
+    const pct = i + 1;
+    return {
+        id: 'sariDelta' + pct,
+        pct,
+        title: 'Sarı · SON·Δ %' + pct,
+        hint: 'T1×DR · SON·Δ sarı yazı · tam %' + pct,
         matchEntry(entry) {
-            const g = t1SonDeltaGapPct(entry);
-            if (g == null || g < 1 || g > 24) return false;
-            return t1SonDeltaVisualFlags(entry).sariYazi;
+            return t1SariSonDeltaMatchesPct(entry, pct);
         }
-    }
-];
+    };
+});
+
+/** T1×DR · SON derinlik — diğer göstergeler (sarı %1–%24 dışı) */
+const T1_DR_INDICATORS = [];
 
 function s800SonBsPct(entry) {
     return entry.row.son8001Depths?.[0]?.successPct ?? null;
@@ -1022,21 +1054,10 @@ function renderYesilRaceRankReport() {
     return YESIL_RACE_DELTA_BUCKETS.length;
 }
 
-function renderT1Indicators() {
-    const wrap = document.getElementById('t1IndicatorsWrap');
-    const panel = document.getElementById('t1IndicatorsPanel');
-    const content = document.getElementById('t1IndicatorsContent');
-    const globalMeta = document.getElementById('t1IndicatorsGlobalMeta');
-    const tag = document.getElementById('t1IndicatorsBuildTag');
-    if (!wrap || !content || !panel) return 0;
-    if (!flatEntries.length) return 0;
-    if (tag) tag.textContent = 'build ' + PTEST_BUILD;
-    if (globalMeta) {
-        globalMeta.textContent = '📈 T1×DR göstergeleri · ' + T1_DR_INDICATORS.length + ' gösterge'
-            + ' · build ' + PTEST_BUILD;
-    }
+function renderT1IndicatorBlocks(indicators, contentEl) {
+    if (!contentEl) return 0;
     let h = '';
-    for (const ind of T1_DR_INDICATORS) {
+    for (const ind of indicators) {
         const matched = [];
         for (const entry of flatEntries) {
             if (ind.matchEntry(entry)) matched.push(entry);
@@ -1049,8 +1070,36 @@ function renderT1Indicators() {
         h += '<div class="ptest-report-grid">' + renderBitisStatsGridHtml(stats) + '</div>';
         h += '</div>';
     }
-    content.innerHTML = h || '<p>Gösterge yok</p>';
-    return T1_DR_INDICATORS.length;
+    contentEl.innerHTML = h || '<p>Gösterge yok</p>';
+    return indicators.length;
+}
+
+function renderT1SariDeltaIndicators() {
+    const content = document.getElementById('t1SariDeltaIndicatorsContent');
+    const globalMeta = document.getElementById('t1SariDeltaGlobalMeta');
+    const tag = document.getElementById('t1SariDeltaBuildTag');
+    if (!content) return 0;
+    if (!flatEntries.length) return 0;
+    if (tag) tag.textContent = 'build ' + PTEST_BUILD;
+    if (globalMeta) {
+        globalMeta.textContent = '📈 T1×DR · SON·Δ sarı yazı · ' + T1_SARI_SON_DELTA_INDICATORS.length
+            + ' gösterge (%1–%24) · build ' + PTEST_BUILD;
+    }
+    return renderT1IndicatorBlocks(T1_SARI_SON_DELTA_INDICATORS, content);
+}
+
+function renderT1Indicators() {
+    const content = document.getElementById('t1IndicatorsContent');
+    const globalMeta = document.getElementById('t1IndicatorsGlobalMeta');
+    const tag = document.getElementById('t1IndicatorsBuildTag');
+    if (!content) return 0;
+    if (!flatEntries.length) return 0;
+    if (tag) tag.textContent = 'build ' + PTEST_BUILD;
+    if (globalMeta) {
+        globalMeta.textContent = '📈 T1×DR ek göstergeler · ' + T1_DR_INDICATORS.length + ' gösterge'
+            + ' · build ' + PTEST_BUILD;
+    }
+    return renderT1IndicatorBlocks(T1_DR_INDICATORS, content);
 }
 
 function buildColorBitisReport(ruleId) {
@@ -1128,6 +1177,7 @@ function renderTuruncuReport() {
     if (raceRankGroups) {
         globalMeta.textContent += ' · Koşu içi BS: ' + raceRankGroups + ' grup';
     }
+    renderT1SariDeltaIndicators();
     renderT1Indicators();
 }
 
