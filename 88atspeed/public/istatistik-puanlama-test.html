@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Puanlama Test — SON800-1 + T1×DR</title>
-    <link href="css/theme.css?v=20260827b" rel="stylesheet">
+    <link href="css/theme.css?v=20260827c" rel="stylesheet">
     <style>
         body { margin: 0; background: var(--bg-page, #f5f5f5); font-family: Inter, sans-serif; }
         .ptest-wrap { padding: 16px 20px 32px; max-width: 100%; }
@@ -31,7 +31,7 @@
         }
         .ptest-table {
             border-collapse: separate; border-spacing: 0;
-            font-size: 12px; min-width: 1160px; width: 100%;
+            font-size: 12px; min-width: 1240px; width: 100%;
         }
         .ptest-table th, .ptest-table td {
             padding: 5px 7px; border-bottom: 1px solid #eceff1;
@@ -47,6 +47,7 @@
         .ptest-table .ptest-th-t1 { background: #ffe0b2; }
         .ptest-table .ptest-th-bitis { background: #fff9c4; }
         .ptest-table td.ptest-meta-col { background: #fafafa; font-weight: 600; color: #37474f; }
+        .ptest-table td.ptest-hipodrom { text-align: left; font-weight: 700; color: #4a148c; min-width: 72px; }
         .ptest-table td.ptest-at { text-align: left; font-weight: 600; max-width: 160px; }
         .ptest-table tbody tr:nth-child(even) td { filter: brightness(0.99); }
         .ptest-table tbody tr:hover td { filter: brightness(0.97); }
@@ -96,20 +97,20 @@
     <div class="ptest-table-wrap">
         <table class="ptest-table" id="grid">
             <thead id="gridHead"></thead>
-            <tbody id="gridBody"><tr><td colspan="15" style="padding:24px;color:#789">&quot;Tüm kayıtları yükle&quot; butonuna basın</td></tr></tbody>
+            <tbody id="gridBody"><tr><td colspan="16" style="padding:24px;color:#789">&quot;Tüm kayıtları yükle&quot; butonuna basın</td></tr></tbody>
         </table>
     </div>
 </div>
 
-<script src="js/utils.js?v=20260827b"></script>
-<script src="js/istatistik-engine.js?v=20260827b"></script>
-<script src="js/istatistik-grids-extra.js?v=20260827b"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260827b"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260827b"></script>
+<script src="js/utils.js?v=20260827c"></script>
+<script src="js/istatistik-engine.js?v=20260827c"></script>
+<script src="js/istatistik-grids-extra.js?v=20260827c"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260827c"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260827c"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
-const COL_COUNT = 15;
+const COL_COUNT = 16;
 let savedBitisMap = {};
 
 function rowKey(entry) {
@@ -167,6 +168,7 @@ function bitisInputHtml(entry) {
 function renderHead() {
     let h = '<tr>';
     h += '<th rowspan="2" class="ptest-meta-col">TARİH</th>';
+    h += '<th rowspan="2" class="ptest-meta-col">HİPODROM</th>';
     h += '<th rowspan="2" class="ptest-meta-col">KOŞU</th>';
     h += '<th rowspan="2">#</th>';
     h += '<th rowspan="2" class="ptest-at">AT İSMİ</th>';
@@ -192,6 +194,7 @@ function renderRow(entry) {
     const t0 = row.t1drDepths?.[0] || null;
     let h = '<tr>';
     h += '<td class="ptest-meta-col">' + AtSpeedUtils.escapeHtml(entry.tarih) + '</td>';
+    h += '<td class="ptest-meta-col ptest-hipodrom">' + AtSpeedUtils.escapeHtml(entry.hipodrom || '—') + '</td>';
     h += '<td class="ptest-meta-col">' + entry.raceNo + '</td>';
     h += '<td>' + AtSpeedUtils.escapeHtml(String(row.no ?? '—')) + '</td>';
     h += '<td class="ptest-at">' + AtSpeedUtils.escapeHtml(row.name || '—') + '</td>';
@@ -328,6 +331,8 @@ async function loadAllKayitlar() {
             const ta = a.tarih.split('.').reverse().join('');
             const tb = b.tarih.split('.').reverse().join('');
             if (ta !== tb) return ta.localeCompare(tb);
+            const hipCmp = String(a.hipodrom || '').localeCompare(String(b.hipodrom || ''), 'tr');
+            if (hipCmp !== 0) return hipCmp;
             if (a.raceNo !== b.raceNo) return a.raceNo - b.raceNo;
             const na = parseInt(a.row.no, 10);
             const nb = parseInt(b.row.no, 10);
@@ -338,7 +343,7 @@ async function loadAllKayitlar() {
         let html = '';
         let lastKey = '';
         for (const entry of flat) {
-            const key = entry.tarih + '|' + entry.raceNo + '|' + entry.kayitId;
+            const key = entry.tarih + '|' + entry.hipodrom + '|' + entry.raceNo + '|' + entry.kayitId;
             if (lastKey && lastKey !== key) {
                 html += '<tr class="ptest-sep"><td colspan="' + COL_COUNT + '"></td></tr>';
             }
