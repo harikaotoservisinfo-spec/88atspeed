@@ -505,6 +505,47 @@
         .istatistik-table tbody tr:hover td.istat-gap-son8001-t1dr-low-neon .istat-pct {
             background: #b2ff59 !important;
         }
+        /* Değişim Skoru senaryo renkleri — yalnız seçili alan (son8001 / t1dr) */
+        .istatistik-table td.degisim-scenario-muthis {
+            background: #76ff03 !important;
+            box-shadow: inset 0 0 0 2px #33691e, 0 0 10px rgba(118, 255, 3, 0.65);
+        }
+        .istatistik-table td.degisim-scenario-muthis .istat-pct {
+            background: #76ff03 !important;
+            color: #1b5e20 !important;
+        }
+        .istatistik-table td.degisim-scenario-ikili {
+            background: #ff9800 !important;
+            box-shadow: inset 0 0 0 2px #ef6c00;
+        }
+        .istatistik-table td.degisim-scenario-ikili .istat-pct {
+            background: rgba(255, 152, 0, 0.35) !important;
+        }
+        .istatistik-table td.degisim-scenario-cift {
+            background: #bbdefb !important;
+            box-shadow: inset 0 0 0 2px #42a5f5;
+        }
+        .istatistik-table td.degisim-scenario-cift .istat-pct {
+            background: rgba(187, 222, 251, 0.85) !important;
+            color: #0d47a1 !important;
+        }
+        .istatistik-table td.degisim-scenario-son800 {
+            background: #ffcdd2 !important;
+            box-shadow: inset 0 0 0 2px #e53935;
+        }
+        .istatistik-table td.degisim-scenario-son800 .istat-pct {
+            background: #ffebee !important;
+            color: #b71c1c !important;
+        }
+        .istatistik-table td.degisim-scenario-dusuk {
+            background: #eeeeee !important;
+            box-shadow: inset 0 0 0 2px #9e9e9e;
+        }
+        .istatistik-table td.degisim-scenario-dusuk .istat-pct {
+            background: #f5f5f5 !important;
+            color: #757575 !important;
+        }
+        .istat-tahmin-degisim { font-size: 10px; color: #546e7a; display: block; margin-top: 2px; }
         .istatistik-table td.istat-gap-son8001-t1dr-twin-zero .istat-pct {
             background: rgba(255, 152, 0, 0.35) !important;
         }
@@ -961,14 +1002,15 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260827f"></script>
-<script src="js/formula-engine.js?v=20260826v"></script>
-<script src="js/istatistik-engine.js?v=20260826v"></script>
-<script src="js/istatistik-grids-extra.js?v=20260826v"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260826v"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260826v"></script>
+<script src="js/utils.js?v=20260827n"></script>
+<script src="js/formula-engine.js?v=20260827n"></script>
+<script src="js/istatistik-engine.js?v=20260827n"></script>
+<script src="js/istatistik-grids-extra.js?v=20260827n"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260827n"></script>
+<script src="js/degisim-skoru-engine.js?v=20260827n"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260827n"></script>
 <script>
-const ISTAT_BUILD = '20260826v';
+const ISTAT_BUILD = '20260827n';
 const TAHMIN_METRIC_ALL = '__hepsi__';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
@@ -1006,8 +1048,12 @@ function formatTahminCell(tahmin, horseCount) {
     if (!tahmin || tahmin.rank == null || tahmin.pct == null) {
         return '<span class="istat-pct istat-pct-none">—</span>';
     }
-    return '<span class="istat-tahmin-rank">' + tahmin.rank + '.</span>'
-        + '<span class="istat-tahmin-pct">%' + tahmin.pct + '</span>';
+    let inner = '<span class="istat-tahmin-rank">' + tahmin.rank + '.</span>'
+        + '<span class="istat-tahmin-pct">' + (tahmin.degisimSkoru ? tahmin.pct + '/100' : '%' + tahmin.pct) + '</span>';
+    if (tahmin.degisimSkoru?.scenario?.label) {
+        inner += '<span class="istat-tahmin-degisim">' + AtSpeedUtils.escapeHtml(tahmin.degisimSkoru.scenario.label) + '</span>';
+    }
+    return inner;
 }
 
 function renderTahminCell(tahmin, horseCount, horseNo) {
@@ -1017,11 +1063,20 @@ function renderTahminCell(tahmin, horseCount, horseNo) {
     if (!tahmin || tahmin.rank == null) {
         return '<td class="' + cls + '"' + attrs + '>' + inner + '</td>';
     }
-    let title = 'TAHMİN · ' + tahmin.rank + '. sıra | Skor ' + (tahmin.score ?? '?');
-    title += ' (göreli %' + tahmin.pct + ', ' + tahmin.metricCount + ' sinyal)';
-    if (tahmin.topTerms?.length) {
-        title += ' | ';
-        title += tahmin.topTerms.slice(0, 6).map(t => t.label + ' +' + t.points).join(' · ');
+    let title;
+    if (tahmin.degisimSkoru) {
+        const ds = tahmin.degisimSkoru;
+        title = 'Değişim Skoru · ' + tahmin.rank + '. | ' + ds.scenario.label
+            + ' | ' + ds.normalized + '/100 (ham ' + ds.raw + ')';
+        title += ' | Δ:' + ds.components.degisimPts + ' BS:' + ds.components.perfPts
+            + ' İÇ:' + ds.components.icPts + ' Eİ:' + ds.components.eiPts + ' SON:' + ds.components.tekilPts;
+    } else {
+        title = 'TAHMİN · ' + tahmin.rank + '. sıra | Skor ' + (tahmin.score ?? '?');
+        title += ' (göreli %' + tahmin.pct + ', ' + tahmin.metricCount + ' sinyal)';
+        if (tahmin.topTerms?.length) {
+            title += ' | ';
+            title += tahmin.topTerms.slice(0, 6).map(t => t.label + ' +' + t.points).join(' · ');
+        }
     }
     return '<td class="' + cls + '"' + attrs + ' title="' + title.replace(/"/g, '&quot;') + '">' + inner + '</td>';
 }
@@ -1194,6 +1249,9 @@ function isSon8001T1drSonGapTwinZero(row) {
 }
 
 function getSon8001SonGapHighlight(row, depthIndex, cell) {
+    if (typeof DegisimSkoruEngine !== 'undefined' && DegisimSkoruEngine.shouldUseForTahmin()) {
+        return { tdExtra: '', twinZero: false, t1drLowGray: false };
+    }
     if (!row || depthIndex !== 0) {
         return { tdExtra: '', twinZero: false, t1drLowGray: false };
     }
@@ -1252,6 +1310,25 @@ function formatSelfDepthCell(cell, groupLabel, depthLabel) {
     return '<span class="istat-pct ' + pctClass(cell.selfPct) + '" title="' + title.replace(/"/g, '&quot;') + '">%' + cell.selfPct + '</span>';
 }
 
+function getDegisimRenderOpts(row, metricId) {
+    if (typeof DegisimSkoruEngine === 'undefined') return {};
+    if (!DegisimSkoruEngine.shouldUseForTahmin()) return {};
+    if (!DegisimSkoruEngine.isActiveMetric(metricId)) return {};
+    const ds = row?.degisimSkoru;
+    if (!ds?.scenario) return {};
+    return {
+        degisimScenario: ds.scenario,
+        degisimMetricId: metricId
+    };
+}
+
+function degisimSubcolClass(opts, subcol, depthIndex) {
+    if (!opts?.degisimScenario || depthIndex !== 0 || !opts.degisimMetricId) return '';
+    const cols = DegisimSkoruEngine.highlightColsForMetric(opts.degisimMetricId);
+    if (!cols.includes(subcol)) return '';
+    return ' ' + opts.degisimScenario.cls;
+}
+
 function renderRaceSelfDepthCells(depths, maxDepth, grpClass, opts) {
     const formatRaceCell = opts.formatRacePctCell || opts.formatRaceCell;
     const formatGapCell = opts.formatGapCell;
@@ -1276,14 +1353,14 @@ function renderRaceSelfDepthCells(depths, maxDepth, grpClass, opts) {
         if (d === 0) cls += ' istat-grp-start';
         h += '<td class="' + depthTdClass(cls, cell) + '">'
             + wrapDepthCellInner(formatRaceCell(cell, dl), cell) + '</td>';
-        const bestCls = grpClass + ' istat-best-depth';
+        const bestCls = grpClass + ' istat-best-depth' + degisimSubcolClass(opts, 'best', d);
         h += '<td class="' + depthTdClass(bestCls, cell) + '">'
             + wrapDepthCellInner(formatHorseBestDepthCell(cell, groupLabel, dl), cell) + '</td>';
-        const selfCls = grpClass + ' istat-self-depth';
+        const selfCls = grpClass + ' istat-self-depth' + degisimSubcolClass(opts, 'self', d);
         h += '<td class="' + depthTdClass(selfCls, cell) + '">'
             + wrapDepthCellInner(formatSelfDepthCell(cell, groupLabel, dl), cell) + '</td>';
-        const gapHi = twinZeroRow ? getSon8001SonGapHighlight(twinZeroRow, d, cell) : null;
-        const gapCls = grpClass + ' istat-gap-depth' + (gapHi?.tdExtra || '');
+        const gapHi = (!opts.degisimScenario && twinZeroRow) ? getSon8001SonGapHighlight(twinZeroRow, d, cell) : null;
+        const gapCls = grpClass + ' istat-gap-depth' + degisimSubcolClass(opts, 'gap', d) + (gapHi?.tdExtra || '');
         const gapInner = formatGapCell
             ? formatGapCell(cell, dl, d)
             : formatGapDepthCell(cell, groupLabel, dl, {
@@ -1292,7 +1369,7 @@ function renderRaceSelfDepthCells(depths, maxDepth, grpClass, opts) {
             });
         h += '<td class="' + depthTdClass(gapCls, cell) + '">'
             + wrapDepthCellInner(gapInner, cell) + '</td>';
-        const successCls = grpClass + ' istat-success-depth';
+        const successCls = grpClass + ' istat-success-depth' + degisimSubcolClass(opts, 'success', d);
         h += '<td class="' + depthTdClass(successCls, cell) + '">'
             + wrapDepthCellInner(formatSuccessDepthCell(cell, groupLabel, dl), cell) + '</td>';
     }
@@ -1479,7 +1556,8 @@ function bindTahminWeightControls() {
         soloBtn.addEventListener('click', () => {
             IstatistikTahminEngine.setCalcMode(IstatistikTahminEngine.CALC_MODE_SOLO);
             updateTahminModeUi();
-            if (istatRaceCache.length) refreshAllTahmin();
+            renderVisualScoreControls();
+            if (istatRaceCache.length) rerenderIstatistikFromCache();
         });
     }
     const allBtn = document.getElementById('tahminModeAllBtn');
@@ -1487,7 +1565,8 @@ function bindTahminWeightControls() {
         allBtn.addEventListener('click', () => {
             IstatistikTahminEngine.setCalcMode(IstatistikTahminEngine.CALC_MODE_ALL);
             updateTahminModeUi();
-            if (istatRaceCache.length) refreshAllTahmin();
+            renderVisualScoreControls();
+            if (istatRaceCache.length) rerenderIstatistikFromCache();
         });
     }
     const metricZero = document.getElementById('tahminMetricZeroBtn');
@@ -1734,7 +1813,7 @@ function renderTahminActiveMetricCells(row, metricDesc, pkg) {
     } else if (id === 'testsira') {
         inner = renderTest123SiraliDepthCells(row.test123SiraliDepths, vd, row.test123SiraliOrtOzeti);
     } else if (id === 't1dr') {
-        inner = renderT1drDepthCells(row.t1drDepths, vd, row.t1drOrtOzeti);
+        inner = renderT1drDepthCells(row.t1drDepths, vd, row.t1drOrtOzeti, row);
     } else {
         inner = '<td class="' + metricDesc.grpClass + '"><span class="istat-pct istat-pct-none">—</span></td>';
     }
@@ -1777,7 +1856,11 @@ function updateTahminModeUi() {
         if (isTahminMetricAll(selected)) {
             calcHint.textContent = 'Hepsi görünümü — tüm metrik grupları tabloda; etki düzenlemek için grup seçin';
         } else if (mode === TE.CALC_MODE_SOLO) {
-            calcHint.textContent = 'Hesap: yalnızca «' + selected + '» (diğer alanlar 0)';
+            if (typeof DegisimSkoruEngine !== 'undefined' && DegisimSkoruEngine.isActiveMetric(selected)) {
+                calcHint.textContent = 'Değişim Skoru: yalnızca «' + selected + '» (SON800+T1×DR metodolojisi)';
+            } else {
+                calcHint.textContent = 'Hesap: yalnızca «' + selected + '» (diğer alanlar 0)';
+            }
         } else {
             calcHint.textContent = active.length
                 ? 'Hesap: kayıtlı ' + active.length + ' alan (' + active.join(', ') + ')'
@@ -1832,6 +1915,32 @@ function renderVisualScoreControls() {
         return;
     }
     TE.ensureDraft(metricId);
+    if (typeof DegisimSkoruEngine !== 'undefined'
+        && TE.getCalcMode() === TE.CALC_MODE_SOLO
+        && DegisimSkoruEngine.isActiveMetric(metricId)) {
+        const cols = DegisimSkoruEngine.highlightColsForMetric(metricId).join(', ');
+        grid.innerHTML = '<div class="istat-gos-section"><strong>📊 Değişim Skoru metodolojisi</strong>'
+            + '<p><strong>' + AtSpeedUtils.escapeHtml(metricId) + '</strong> seçili · '
+            + 'TAHMİN sütunu 0–100 puan ve senaryo renkleri bu grupta uygulanır.</p>'
+            + '<p>Renklendirilen alt sütunlar: <code>' + AtSpeedUtils.escapeHtml(cols) + '</code></p>'
+            + '<ul style="margin:8px 0 0;padding-left:18px;font-size:12px;color:#546e7a">'
+            + '<li>80–100 · Neon yeşil · Müthiş Yükseliş (iki Δ &lt;%25)</li>'
+            + '<li>60–79 · Turuncu · İkili Düşüş (iki Δ = %0)</li>'
+            + '<li>40–59 · Pastel mavi · Çift Yönlü Değişim (büyük Δ farkı)</li>'
+            + '<li>20–39 · Kırmızı · Sadece SON800·Δ = %0</li>'
+            + '<li>0–19 · Gri · Düşük performans</li>'
+            + '</ul>'
+            + '<p style="margin-top:8px;font-size:11px;color:#789">«Tüm kayıtlılar» modunda birleşik tahmin yakında eklenecek.</p>'
+            + '</div>';
+        const hint = document.getElementById('tahminMetricHint');
+        if (hint) hint.textContent = '📊 Değişim Skoru aktif — TAHMİN = 0–100 puan';
+        const saveBtn = document.getElementById('tahminMetricSaveBtn');
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.classList.remove('dirty');
+        }
+        return;
+    }
     const cat = TE.getMetricSelectorCatalog(metricId);
     let h = '<div class="istat-gos-section"><strong>'
         + AtSpeedUtils.escapeHtml(cat.title) + ' — '
@@ -2125,12 +2234,13 @@ function formatT1drDepthCell(cell, depthLabel) {
     return '<span class="istat-pct ' + pctClass(cell.pct) + '" title="' + title.replace(/"/g, '&quot;') + '">%' + cell.pct + '</span>';
 }
 
-function renderT1drDepthCells(depths, maxDepth, ortOzeti) {
+function renderT1drDepthCells(depths, maxDepth, ortOzeti, row) {
     return renderRaceSelfDepthCells(depths, maxDepth, 'istat-grp-t1dr', {
         groupLabel: 'T1×DR',
         ortOzeti,
         isGrpEnd: false,
-        formatRaceCell: formatT1drDepthCell
+        formatRaceCell: formatT1drDepthCell,
+        ...getDegisimRenderOpts(row, 't1dr')
     });
 }
 
@@ -2163,12 +2273,14 @@ function renderSon800DrslKorelasyonCells(depths, maxDepth, ortOzeti) {
 }
 
 function renderSon800DepthCells(depths, maxDepth, grpClass, label, ortOzeti, row) {
+    const metricId = label === 'SON800-1' ? 'son8001' : 'son8002';
     return renderRaceSelfDepthCells(depths, maxDepth, grpClass, {
         groupLabel: label,
         ortOzeti,
         isGrpEnd: true,
         twinZeroRow: label === 'SON800-1' ? row : null,
-        formatRaceCell: (cell, dl) => formatSon800DepthCell(cell, label, dl)
+        formatRaceCell: (cell, dl) => formatSon800DepthCell(cell, label, dl),
+        ...getDegisimRenderOpts(row, metricId)
     });
 }
 
@@ -2877,7 +2989,7 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
             html += renderTest3DepthCells(row.test3Depths, getVisibleDepth('test3', maxDepthTest3), row.test3OrtOzeti);
             html += renderTestOzetCells(row);
             html += renderTest123SiraliDepthCells(row.test123SiraliDepths, getVisibleDepth('testsira', maxDepthTest123Sirali), row.test123SiraliOrtOzeti);
-            html += renderT1drDepthCells(row.t1drDepths, getVisibleDepth('t1dr', maxDepthT1dr), row.t1drOrtOzeti);
+            html += renderT1drDepthCells(row.t1drDepths, getVisibleDepth('t1dr', maxDepthT1dr), row.t1drOrtOzeti, row);
             for (let si = 0; si < extraSections.length; si++) {
                 html += renderExtraSectionCells(row, extraSections[si], si === extraSections.length - 1);
             }

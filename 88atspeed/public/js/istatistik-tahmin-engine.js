@@ -1472,6 +1472,9 @@ const IstatistikTahminEngine = {
     },
 
     attachRaceTahmin(pkg, influences) {
+        if (typeof DegisimSkoruEngine !== 'undefined' && DegisimSkoruEngine.shouldUseForTahmin()) {
+            return DegisimSkoruEngine.attachRaceTahmin(pkg);
+        }
         const extraSections = pkg.extraSections || [];
         if (influences == null) influences = this.getCalculationWeights(extraSections);
         const scored = pkg.rows.map(row => ({
