@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Puanlama Test — SON800-1 + T1×DR</title>
-    <link href="css/theme.css?v=20260827o" rel="stylesheet">
+    <link href="css/theme.css?v=20260827p" rel="stylesheet">
     <style>
         body { margin: 0; background: var(--bg-page, #f5f5f5); font-family: Inter, sans-serif; }
         .ptest-wrap { padding: 16px 20px 32px; max-width: 100%; }
@@ -133,6 +133,23 @@
         }
         .ptest-gap-zero-blink { animation: ptest-gap-blink 0.85s ease-in-out infinite; color: #c62828 !important; font-weight: 900 !important; }
         .ptest-sep td { background: #f3e5f5 !important; height: 4px; padding: 0; border: none; }
+        .ptest-report-panel {
+            margin-bottom: 10px; padding: 12px 14px; background: #fff;
+            border: 1px solid #ffcc80; border-radius: 8px; font-size: 12px;
+        }
+        .ptest-report-panel.hidden { display: none; }
+        .ptest-report-panel h3 { margin: 0 0 10px; font-size: 14px; color: #e65100; }
+        .ptest-report-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 8px 16px;
+        }
+        .ptest-report-item {
+            padding: 8px 10px; background: #fff8e1; border: 1px solid #ffe082;
+            border-radius: 6px;
+        }
+        .ptest-report-item strong { display: block; font-size: 18px; color: #e65100; margin-top: 2px; }
+        .ptest-report-item span { font-size: 11px; color: #546e7a; }
+        .ptest-report-meta { margin-bottom: 8px; font-size: 12px; color: #546e7a; }
     </style>
 </head>
 <body>
@@ -147,6 +164,11 @@
         <span class="ptest-meta" id="summaryMeta">Henüz yüklenmedi</span>
     </div>
     <div class="ptest-status" id="status"></div>
+    <div class="ptest-report-panel hidden" id="turuncuReportPanel">
+        <h3>📊 Turuncu hücre (SON·Δ) — bitiş raporu</h3>
+        <div class="ptest-report-meta" id="turuncuReportMeta"></div>
+        <div class="ptest-report-grid" id="turuncuReportGrid"></div>
+    </div>
     <div class="ptest-cikan-panel hidden" id="cikanPanel">
         <h3>🚫 Çıkan atlar — koşudan hariç tutuldu, metrikler yeniden hesaplandı</h3>
         <div class="ptest-cikan-list" id="cikanList"></div>
@@ -159,11 +181,11 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260827o"></script>
-<script src="js/istatistik-engine.js?v=20260827o"></script>
-<script src="js/istatistik-grids-extra.js?v=20260827o"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260827o"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260827o"></script>
+<script src="js/utils.js?v=20260827p"></script>
+<script src="js/istatistik-engine.js?v=20260827p"></script>
+<script src="js/istatistik-grids-extra.js?v=20260827p"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260827p"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260827p"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -307,6 +329,77 @@ function countSonDeltaRuleMatches(ruleId) {
         if (sonDeltaMatchesRule(entry, ruleId)) n++;
     }
     return n;
+}
+
+function countUniqueRaces() {
+    const races = new Set();
+    for (const entry of flatEntries) {
+        races.add(String(entry.kayitId) + '|' + entry.raceNo);
+    }
+    return races.size;
+}
+
+function pctFmt(n, total) {
+    if (!total) return '—';
+    return (Math.round((n / total) * 1000) / 10).toFixed(1) + '%';
+}
+
+function buildTuruncuBitisReport() {
+    syncBitisInputsToMap();
+    rebuildBitisLookup();
+    const turuncu = [];
+    for (const entry of flatEntries) {
+        if (sonDeltaMatchesRule(entry, 'turuncuHucre')) turuncu.push(entry);
+    }
+    let withBitis = 0;
+    let b1 = 0, b12 = 0, b123 = 0, b4 = 0, bOut = 0;
+    for (const entry of turuncu) {
+        const b = bitisValueForSort(entry);
+        if (b == null || b < 1) continue;
+        withBitis++;
+        if (b === 1) b1++;
+        if (b <= 2) b12++;
+        if (b <= 3) b123++;
+        if (b === 4) b4++;
+        if (b >= 5) bOut++;
+    }
+    return {
+        totalRaces: countUniqueRaces(),
+        turuncuRows: turuncu.length,
+        withBitis,
+        b1, b12, b123, b4, bOut
+    };
+}
+
+function renderTuruncuReport() {
+    const panel = document.getElementById('turuncuReportPanel');
+    const meta = document.getElementById('turuncuReportMeta');
+    const grid = document.getElementById('turuncuReportGrid');
+    if (!panel || !meta || !grid) return;
+    if (!flatEntries.length) {
+        panel.classList.add('hidden');
+        return;
+    }
+    const r = buildTuruncuBitisReport();
+    panel.classList.remove('hidden');
+    meta.textContent = 'Toplam yarış: ' + r.totalRaces
+        + ' · Turuncu hücre at satırı: ' + r.turuncuRows
+        + ' · Bitiş bilgisi olan turuncu: ' + r.withBitis;
+    const total = r.withBitis;
+    const items = [
+        { label: '1. bitirme', count: r.b1, sub: 'yalnızca birincilik' },
+        { label: '1. veya 2.', count: r.b12, sub: 'ilk iki' },
+        { label: '1., 2. veya 3.', count: r.b123, sub: 'ilk üç' },
+        { label: '4. bitirme', count: r.b4, sub: 'yalnızca dördüncülük' },
+        { label: 'İlk 4 dışı (5+)', count: r.bOut, sub: 'beşinci ve sonrası' }
+    ];
+    grid.innerHTML = items.map(it =>
+        '<div class="ptest-report-item">'
+        + '<span>' + AtSpeedUtils.escapeHtml(it.label) + '</span>'
+        + '<strong>' + pctFmt(it.count, total) + '</strong>'
+        + '<span>' + it.count + ' / ' + total + ' · ' + AtSpeedUtils.escapeHtml(it.sub) + '</span>'
+        + '</div>'
+    ).join('');
 }
 
 function tahminHtml(tahmin) {
@@ -636,6 +729,7 @@ function renderTableBodyOnly() {
     bindTableEvents();
     renderCikanPanel();
     updateSummaryMeta();
+    renderTuruncuReport();
 }
 
 async function applySortAndRender() {
@@ -829,6 +923,7 @@ async function renderTableAsync(doneExtra) {
     } finally {
         isTableProcessing = false;
         bindBitisSortSelect();
+        bindSonDeltaSortSelect();
     }
 }
 
