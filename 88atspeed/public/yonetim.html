@@ -2,58 +2,14 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Yönetim - 88ATSPEED</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="css/theme.css?v=20260821c" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; background: transparent; color: #fff; }
-        .yonetim-controls { background: rgba(30,30,60,0.8); border-radius: 20px; padding: 20px; margin-bottom: 20px; display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; }
-        .control-group { display: flex; flex-direction: column; gap: 8px; }
-        .control-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; color: #ff9800; }
-        .yonetim-btn { padding: 12px 20px; font-size: 14px; font-weight: 600; border-radius: 12px; cursor: pointer; background: linear-gradient(135deg, #ff9800, #f44336); color: white; min-width: 160px; border: none; }
-        .yonetim-btn:hover { opacity: 0.9; transform: translateY(-2px); }
-        .save-btn { background: linear-gradient(135deg, #2196F3, #1976D2); }
-        .excel-btn { background: linear-gradient(135deg, #4CAF50, #2E7D32); }
-        .upload-btn { background: linear-gradient(135deg, #9C27B0, #6A1B9A); }
-        .hide-btn { background: linear-gradient(135deg, #607D8B, #455A64); }
-        .show-btn { background: linear-gradient(135deg, #4CAF50, #2E7D32); }
-        .results-table { background: rgba(30,30,60,0.6); border-radius: 20px; overflow-x: auto; padding: 15px; }
-        table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); border-right: 1px solid rgba(255,255,255,0.05); vertical-align: top; }
-        th { background: rgba(0,0,0,0.4); color: #ff9800; font-weight: 600; position: sticky; top: 0; white-space: nowrap; }
         td { white-space: nowrap; cursor: pointer; }
-        td:hover { background: rgba(255,152,0,0.2); }
-        .formula-input { background: #1a1a3e; border: 1px solid #4CAF50; color: #4CAF50; font-family: monospace; padding: 4px 6px; border-radius: 6px; width: 100%; font-size: 11px; }
-        .col-formula-input { background: #0a2a4a; border: 1px solid #ff9800; color: #ff9800; font-family: monospace; font-size: 10px; width: 100%; text-align: center; padding: 4px; border-radius: 6px; }
-        .status { padding: 12px; border-radius: 12px; margin-bottom: 15px; text-align: center; }
-        .status-loading { background: rgba(255,152,0,0.2); color: #ff9800; }
-        .status-success { background: rgba(76,175,80,0.2); color: #4CAF50; }
-        .status-error { background: rgba(244,67,54,0.2); color: #f44336; }
-        .status-warning { background: rgba(255,152,0,0.2); color: #ff9800; }
-        .empty { text-align: center; padding: 60px; color: rgba(255,255,255,0.5); }
-        .kayit-listesi { background: rgba(0,0,0,0.3); border-radius: 12px; padding: 10px; margin-bottom: 15px; max-height: 200px; overflow-y: auto; }
-        .kayit-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; margin: 3px 0; background: rgba(255,255,255,0.05); border-radius: 8px; cursor: pointer; font-size: 12px; }
-        .kayit-item:hover { background: rgba(255,152,0,0.2); }
-        .kayit-item.selected { background: rgba(255,152,0,0.4); }
-        .race-card { background: rgba(30,30,60,0.4); border-radius: 16px; margin-bottom: 20px; overflow: hidden; }
-        .race-header { background: linear-gradient(135deg, rgba(255,152,0,0.2), rgba(76,175,80,0.1)); padding: 10px 15px; font-weight: bold; font-size: 14px; }
-        .add-col-btn { background: #4CAF50; color: white; border: none; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; margin-left: 10px; }
-        .delete-col-btn { background: #f44336; color: white; border: none; padding: 2px 6px; border-radius: 4px; cursor: pointer; font-size: 10px; margin-left: 5px; }
-        .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1a1a3e; padding: 20px; border-radius: 12px; z-index: 1000; display: none; min-width: 400px; }
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 999; display: none; }
-        .formula-help { font-size: 10px; color: #aaa; margin-top: 5px; display: flex; gap: 10px; flex-wrap: wrap; }
-        .formula-tag { background: #0a2a4a; padding: 2px 6px; border-radius: 4px; cursor: pointer; }
-        .formula-tag:hover { background: #ff9800; color: #000; }
-        .excel-buttons { display: flex; gap: 10px; }
-        .file-input { display: none; }
-        .formula-panel { background: rgba(0,0,0,0.3); border-radius: 12px; padding: 10px; margin-bottom: 15px; }
-        .btn-special { background: #ff9800; color: #000; }
-        .btn-special:hover { background: #ff5722; color: #fff; }
-        .dynamic-buttons { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
-        .kosu-buton { background: #2196F3; color: white; padding: 3px 8px; border-radius: 12px; font-size: 10px; cursor: pointer; }
-        .kosu-buton:hover { background: #0b7dda; }
-        .son800-buton { background: #4CAF50; color: white; padding: 3px 8px; border-radius: 12px; font-size: 10px; cursor: pointer; }
-        .son800-buton:hover { background: #2E7D32; }
-        .hidden-col { display: none; }
+        td:hover { background: var(--accent-soft); }
+        .yonetim-controls { justify-content: flex-start; }
     </style>
 </head>
 <body>
@@ -77,10 +33,11 @@
 </div>
 <div id="saveModal" class="modal-overlay"></div>
 <div id="saveModalContent" class="modal"><h3 style="margin-bottom:15px;">💾 Çalışmayı Kaydet</h3>
-<div class="control-group" style="margin-bottom:15px;"><div class="control-label">ÇALIŞMA ADI</div><input type="text" id="calismaAdi" style="padding:8px; border-radius:8px; background:#0f3460; color:white; border:none; width:100%;"></div>
-<div class="control-group" style="margin-bottom:15px;"><div class="control-label">AÇIKLAMA</div><textarea id="calismaAciklama" rows="3" style="padding:8px; border-radius:8px; background:#0f3460; color:white; border:none; width:100%;"></textarea></div>
-<div style="display:flex; gap:10px; justify-content:flex-end;"><button id="saveModalClose" style="padding:8px 20px; border-radius:8px; background:#555; color:white; border:none;">İPTAL</button><button id="saveModalConfirm" style="padding:8px 20px; border-radius:8px; background:#4CAF50; color:white; border:none;">KAYDET</button></div>
+<div class="control-group" style="margin-bottom:15px;"><div class="control-label">ÇALIŞMA ADI</div><input type="text" id="calismaAdi" style="width:100%;"></div>
+<div class="control-group" style="margin-bottom:15px;"><div class="control-label">AÇIKLAMA</div><textarea id="calismaAciklama" rows="3" style="width:100%;"></textarea></div>
+<div style="display:flex; gap:10px; justify-content:flex-end;"><button id="saveModalClose" class="yonetim-btn hide-btn" style="min-width:auto;">İPTAL</button><button id="saveModalConfirm" class="yonetim-btn save-btn" style="min-width:auto;">KAYDET</button></div>
 </div>
+<script src="js/utils.js?v=20260827f"></script>
 <script>
 // Global değişkenler
 window.currentKarsilastirmaData = null;
@@ -356,19 +313,35 @@ async function listKayitlar(apiUrl,tur){
         for(let i=0;i<kayitlar.length;i++){
             let k=kayitlar[i];
             let kayitAdi=k.ad||(k.tarih+' - '+k.hipodrom);
-            html+='<div class="kayit-item" data-id="'+k.id+'" data-tur="'+tur+'" data-adi="'+kayitAdi+'"><span>📅 '+kayitAdi+' | 🕐 '+k.kayit_tarihi+'</span><span style="color:#ff9800;">📂 Seç →</span></div>';
+            if(tur==='hesaplama'){
+                html+=AtSpeedUtils.hesaplamaKayitListItemHtml(k,'🕐 '+AtSpeedUtils.escapeHtml(k.kayit_tarihi||''));
+            }else{
+                html+='<div class="kayit-item" data-id="'+k.id+'" data-tur="'+tur+'" data-adi="'+kayitAdi+'"><span>📅 '+kayitAdi+' | 🕐 '+k.kayit_tarihi+'</span><span class="kayit-item-action">Seç →</span></div>';
+            }
         }
         kld.innerHTML=html;
         kld.style.display='block';
         document.getElementById('calismaListesi').style.display='none';
-        document.querySelectorAll('.kayit-item').forEach(item=>{
-            item.onclick=async()=>{
-                let id=item.dataset.id,tur2=item.dataset.tur;
+        if(tur==='hesaplama'){
+            AtSpeedUtils.bindHesaplamaKayitList(kld,async(id,item)=>{
                 document.querySelectorAll('.kayit-item').forEach(i=>i.classList.remove('selected'));
                 item.classList.add('selected');
-                await loadKayit(id,tur2);
-            };
-        });
+                await loadKayit(id,tur);
+            },()=>{
+                const left=kld.querySelectorAll('.kayit-item').length;
+                sd.innerHTML=left?'<div class="status status-success">✅ '+left+' kayıt kaldı</div>':'<div class="status status-error">⚠️ Hiç kayıt yok</div>';
+                if(!left) kld.innerHTML='<div class="empty">⚠️ Hiç kayıt bulunamadı</div>';
+            });
+        }else{
+            document.querySelectorAll('.kayit-item').forEach(item=>{
+                item.onclick=async()=>{
+                    let id=item.dataset.id,tur2=item.dataset.tur;
+                    document.querySelectorAll('.kayit-item').forEach(i=>i.classList.remove('selected'));
+                    item.classList.add('selected');
+                    await loadKayit(id,tur2);
+                };
+            });
+        }
         sd.innerHTML='<div class="status status-success">✅ '+kayitlar.length+' kayıt bulundu.</div>';
     }catch(e){sd.innerHTML='<div class="status status-error">❌ Hata: '+e.message+'</div>';}
 }
