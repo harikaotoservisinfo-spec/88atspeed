@@ -371,6 +371,25 @@
         .ptest-gosterge-loading-sub { font-size: 11px; color: #546e7a; line-height: 1.4; }
         .ptest-gosterge-busy .ptest-gosterge-metric-tab-btn,
         .ptest-gosterge-busy .ptest-gosterge-mode-btn { pointer-events: none; opacity: 0.55; }
+        .ptest-scoring-panel {
+            margin-bottom: 14px; padding: 12px 14px; background: #f3e5f5; border: 1px solid #ce93d8;
+            border-radius: 10px;
+        }
+        .ptest-scoring-panel h3 { margin: 0 0 8px; font-size: 13px; color: #4a148c; }
+        .ptest-scoring-meta { font-size: 11px; color: #546e7a; margin-bottom: 10px; }
+        .ptest-scoring-metric-block {
+            margin-bottom: 8px; background: #fff; border: 1px solid #e1bee7; border-radius: 8px;
+        }
+        .ptest-scoring-metric-summary {
+            cursor: pointer; padding: 8px 10px; font-weight: 700; font-size: 12px; color: #6a1b9a;
+        }
+        .ptest-scoring-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+        .ptest-scoring-table th, .ptest-scoring-table td {
+            padding: 4px 6px; border-top: 1px solid #eceff1; text-align: center;
+        }
+        .ptest-scoring-table th { background: #fafafa; }
+        .ptest-scoring-table td:nth-child(2) { text-align: left; }
+        .ptest-scoring-empty { color: #789; font-size: 11px; margin: 0; }
         .ptest-t1-sari-tier-wrap { margin-top: 10px; padding-top: 10px; border-top: 2px dashed #cfd8dc; }
         .ptest-t1-sari-tier-heading { font-size: 11px; font-weight: 800; margin-bottom: 6px; }
         .ptest-t1-sari-tier-subgroup {
@@ -651,6 +670,10 @@
         Veri yükleyin — göstergeler &quot;Tüm kayıtları yükle&quot; sonrası görünür
     </div>
     <div id="gostergeContentWrap" class="hidden ptest-gosterge-compact">
+    <div class="ptest-scoring-panel" id="gostergeScoringPanel">
+        <h3>🏆 TAHMİN · Gösterge başarı puanlama merdiveni</h3>
+        <div id="gostergeScoringLadder">Bitiş verisi yüklendikten sonra metrik gruplarına göre en başarılı göstergeler listelenir.</div>
+    </div>
     <div id="gostergeLoadingOverlay" class="ptest-gosterge-loading hidden" aria-live="polite">
         <div class="ptest-gosterge-loading-box">
             <div class="ptest-gosterge-spinner"></div>
@@ -674,13 +697,14 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260829a"></script>
-<script src="js/istatistik-engine.js?v=20260829a"></script>
-<script src="js/istatistik-grids-extra.js?v=20260829a"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260829a"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260829a"></script>
-<script src="js/ptest-gosterge-engine.js?v=20260829a"></script>
-<script src="js/ptest-gosterge-depth-engine.js?v=20260829a"></script>
+<script src="js/utils.js?v=20260829b"></script>
+<script src="js/istatistik-engine.js?v=20260829b"></script>
+<script src="js/istatistik-grids-extra.js?v=20260829b"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260829b"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260829b"></script>
+<script src="js/ptest-gosterge-scoring-engine.js?v=20260829b"></script>
+<script src="js/ptest-gosterge-engine.js?v=20260829b"></script>
+<script src="js/ptest-gosterge-depth-engine.js?v=20260829b"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -1163,7 +1187,7 @@ function updateGostergeTabVisibility() {
     if (content) content.classList.toggle('hidden', !hasData);
 }
 
-const PTEST_BUILD = '20260829a';
+const PTEST_BUILD = '20260829b';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
@@ -1198,6 +1222,11 @@ function hideGostergeLoading() {
 
 function scheduleGostergeRefresh() {
     invalidateGostergeCache();
+    applyGostergeTahminScoring();
+    if (ptestViewTab === 'tablo') {
+        renderTableBodyOnly();
+        updateSummaryMeta();
+    }
     if (ptestViewTab !== 'gosterge') return;
     clearTimeout(gostergeBitisDebounce);
     gostergeBitisDebounce = setTimeout(() => renderTuruncuReport(), 500);
@@ -1277,6 +1306,22 @@ function initGostergeDepthMetricTabs() {
         });
     }
     PtestGostergeDepthEngine.switchDepthMetricTab(ptestDepthMetricTab);
+}
+
+function getPtestScoringHost() {
+    return {
+        ...getPtestGostergeHost(),
+        bitisValueForSort
+    };
+}
+
+function applyGostergeTahminScoring() {
+    const host = getPtestScoringHost();
+    PtestGostergeScoringEngine.calibrate(flatEntries, host);
+    PtestGostergeScoringEngine.applyToFlatEntries(flatEntries);
+    const ladderEl = document.getElementById('gostergeScoringLadder');
+    if (ladderEl) ladderEl.innerHTML = PtestGostergeScoringEngine.renderCalibrationHtml();
+    invalidateGostergeCache();
 }
 
 function getPtestGostergeHost() {
@@ -2149,7 +2194,7 @@ function renderExportHead() {
     h += '<th rowspan="2" class="meta-col">KOŞU</th>';
     h += '<th rowspan="2" class="at">AT İSMİ</th>';
     h += '<th rowspan="2" class="th-bitis">BİTİŞ</th>';
-    h += '<th rowspan="2">TAHMİN</th>';
+    h += '<th rowspan="2">TAHMİN<small>Gösterge başarı skoru</small></th>';
     h += '<th colspan="5" class="th-grp th-s800">SON800-1 · SON derinlik</th>';
     h += '<th colspan="4" class="th-grp th-t1">T1×DR · SON derinlik</th>';
     h += '</tr><tr>';
@@ -2585,7 +2630,7 @@ function renderHead() {
         h += '<option value="' + p + '"' + (bitisFilterPos === p ? ' selected' : '') + '>' + p + '.</option>';
     }
     h += '</select></div></th>';
-    h += '<th rowspan="2">TAHMİN</th>';
+    h += '<th rowspan="2">TAHMİN<small>Gösterge başarı skoru</small></th>';
     h += '<th colspan="5" class="ptest-th-grp ptest-th-s800">SON800-1 · SON derinlik</th>';
     h += '<th colspan="4" class="ptest-th-grp ptest-th-t1">T1×DR · SON derinlik</th>';
     h += '</tr><tr>';
@@ -2674,7 +2719,6 @@ function buildFlatFromCache() {
         });
         if (raceEntries.length) IE.applyProgramGlobalPctScales(raceEntries.map(e => e.pkg));
         for (const { race, raceNo, pkg } of raceEntries) {
-            TE.attachRaceTahmin(pkg);
             const exSet = getCikanSet(kayit.id, raceNo);
             for (const horse of (race.horses || [])) {
                 if (exSet.has(String(horse.no))) {
@@ -2709,6 +2753,7 @@ function buildFlatFromCache() {
     rebuildBitisLookup();
     sortFlatEntries(flat);
     flatEntries = flat;
+    applyGostergeTahminScoring();
     resetGostergePanels();
     return flat;
 }
