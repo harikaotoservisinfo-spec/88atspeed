@@ -680,7 +680,16 @@ const PtestGostergeEngine = (function () {
         ensureMetricPanels,
         switchMetricTab,
         renderMetricGosterge,
-        pid
+        pid,
+        _YESIL_SON_DELTA_BUCKETS: YESIL_SON_DELTA_BUCKETS,
+        _YESIL_RACE_DELTA_BUCKETS: YESIL_RACE_DELTA_BUCKETS,
+        _YESIL_T1_BS_BUCKETS: YESIL_T1_BS_BUCKETS,
+        _YESIL_DELTA_SORT_BUCKETS: YESIL_DELTA_SORT_BUCKETS,
+        _T1_DR_SON_BS_RANGE_BUCKETS: T1_DR_SON_BS_RANGE_BUCKETS,
+        _BITIS_REPORT_SECTIONS: BITIS_REPORT_SECTIONS,
+        _renderBitisStatsGridHtml: renderBitisStatsGridHtml,
+        _renderRaceRankStatsGridHtml: renderRaceRankStatsGridHtml,
+        _renderReportSubgroupsHtml: renderReportSubgroupsHtml
     };
 })();
 

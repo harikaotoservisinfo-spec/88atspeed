@@ -321,6 +321,31 @@
             border-color: #4a148c;
         }
         .ptest-metric-panel.hidden { display: none !important; }
+        .ptest-gosterge-mode-tabs {
+            display: flex; gap: 8px; margin-bottom: 10px;
+        }
+        .ptest-gosterge-mode-btn {
+            padding: 8px 14px; border-radius: 8px; border: 2px solid #7b1fa2;
+            background: #fff; font-weight: 700; font-size: 12px; color: #6a1b9a; cursor: pointer;
+        }
+        .ptest-gosterge-mode-btn.active {
+            background: #7b1fa2; color: #fff;
+        }
+        .ptest-gosterge-mode-panel.hidden { display: none !important; }
+        .ptest-depth-mode-hint {
+            font-size: 11px; color: #546e7a; margin: 0 0 12px; padding: 8px 10px;
+            background: #eceff1; border-radius: 6px; border-left: 3px solid #7b1fa2;
+        }
+        .ptest-depth-pair-block {
+            margin-bottom: 12px; border: 1px solid #cfd8dc; border-radius: 8px;
+            background: #fafafa; padding: 0 10px 10px;
+        }
+        .ptest-depth-pair-summary {
+            cursor: pointer; font-weight: 800; font-size: 12px; color: #4a148c;
+            padding: 10px 4px; list-style: none;
+        }
+        .ptest-depth-pair-summary::-webkit-details-marker { display: none; }
+        .ptest-depth-metric-tab-btn { font-size: 10px; padding: 6px 10px; }
         .ptest-t1-sari-tier-wrap { margin-top: 10px; padding-top: 10px; border-top: 2px dashed #cfd8dc; }
         .ptest-t1-sari-tier-heading { font-size: 11px; font-weight: 800; margin-bottom: 6px; }
         .ptest-t1-sari-tier-subgroup {
@@ -601,18 +626,29 @@
         Veri yükleyin — göstergeler &quot;Tüm kayıtları yükle&quot; sonrası görünür
     </div>
     <div id="gostergeContentWrap" class="hidden ptest-gosterge-compact">
+    <div class="ptest-gosterge-mode-tabs">
+        <button type="button" class="ptest-gosterge-mode-btn active" data-gosterge-mode="sonDelta" id="gostergeModeSonDeltaBtn">SON · Δ göstergeleri</button>
+        <button type="button" class="ptest-gosterge-mode-btn" data-gosterge-mode="depthPair" id="gostergeModeDepthPairBtn">Derinlik gelişme (SON↔1ÖNCE…)</button>
+    </div>
+    <div id="gostergeModeSonDelta" class="ptest-gosterge-mode-panel">
     <div class="ptest-gosterge-metric-tabs" id="gostergeMetricTabs"></div>
     <div id="gostergeMetricPanels"></div>
+    </div>
+    <div id="gostergeModeDepthPair" class="ptest-gosterge-mode-panel hidden">
+    <div class="ptest-gosterge-metric-tabs" id="gostergeDepthMetricTabs"></div>
+    <div id="gostergeDepthMetricPanels"></div>
+    </div>
     </div>
     </div>
 </div>
 
-<script src="js/utils.js?v=20260828l"></script>
-<script src="js/istatistik-engine.js?v=20260828l"></script>
-<script src="js/istatistik-grids-extra.js?v=20260828l"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260828l"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260828l"></script>
-<script src="js/ptest-gosterge-engine.js?v=20260828l"></script>
+<script src="js/utils.js?v=20260828n"></script>
+<script src="js/istatistik-engine.js?v=20260828n"></script>
+<script src="js/istatistik-grids-extra.js?v=20260828n"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260828n"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260828n"></script>
+<script src="js/ptest-gosterge-engine.js?v=20260828n"></script>
+<script src="js/ptest-gosterge-depth-engine.js?v=20260828n"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -1092,8 +1128,69 @@ function updateGostergeTabVisibility() {
     if (content) content.classList.toggle('hidden', !hasData);
 }
 
-const PTEST_BUILD = '20260828l';
+const PTEST_BUILD = '20260828n';
+
+function resetGostergePanels() {
+    const depthPanels = document.getElementById('gostergeDepthMetricPanels');
+    const metricPanels = document.getElementById('gostergeMetricPanels');
+    if (depthPanels) {
+        depthPanels.innerHTML = '';
+        delete depthPanels.dataset.depthBuilt;
+    }
+    if (metricPanels) {
+        metricPanels.innerHTML = '';
+        delete metricPanels.dataset.built;
+    }
+    const depthTabs = document.getElementById('gostergeDepthMetricTabs');
+    if (depthTabs) depthTabs.innerHTML = '';
+}
 let ptestGostergeMetricTab = 'son8001';
+let ptestGostergeMode = 'sonDelta';
+let ptestDepthMetricTab = 'son8001';
+
+function initGostergeModeTabs() {
+    const btns = document.querySelectorAll('.ptest-gosterge-mode-btn');
+    if (!btns.length || document.getElementById('gostergeContentWrap')?.dataset.modeBound === '1') return;
+    document.getElementById('gostergeContentWrap').dataset.modeBound = '1';
+    btns.forEach(btn => {
+        btn.onclick = () => {
+            ptestGostergeMode = btn.dataset.gostergeMode === 'depthPair' ? 'depthPair' : 'sonDelta';
+            btns.forEach(b => b.classList.toggle('active', b.dataset.gostergeMode === ptestGostergeMode));
+            document.getElementById('gostergeModeSonDelta')?.classList.toggle('hidden', ptestGostergeMode !== 'sonDelta');
+            document.getElementById('gostergeModeDepthPair')?.classList.toggle('hidden', ptestGostergeMode !== 'depthPair');
+            renderTuruncuReport();
+        };
+    });
+}
+
+function initGostergeDepthMetricTabs() {
+    const tabsEl = document.getElementById('gostergeDepthMetricTabs');
+    const panelsEl = document.getElementById('gostergeDepthMetricPanels');
+    if (!tabsEl || !panelsEl) return;
+    const metrics = PtestGostergeDepthEngine.allMetrics(flatEntries);
+    if (!metrics.some(m => m.id === ptestDepthMetricTab)) {
+        ptestDepthMetricTab = metrics[0]?.id || 'son8001';
+    }
+    let th = '';
+    for (const m of metrics) {
+        const active = m.id === ptestDepthMetricTab ? ' active' : '';
+        th += '<button type="button" class="ptest-gosterge-metric-tab-btn ptest-depth-metric-tab-btn' + active
+            + '" data-ptest-depth-metric="' + m.id + '">' + AtSpeedUtils.escapeHtml(m.label) + '</button>';
+    }
+    tabsEl.innerHTML = th;
+    PtestGostergeDepthEngine.ensureDepthPanels(panelsEl, flatEntries);
+    tabsEl.querySelectorAll('.ptest-depth-metric-tab-btn').forEach(btn => {
+        btn.onclick = () => {
+            ptestDepthMetricTab = btn.dataset.ptestDepthMetric || 'son8001';
+            PtestGostergeDepthEngine.switchDepthMetricTab(ptestDepthMetricTab);
+            tabsEl.querySelectorAll('.ptest-depth-metric-tab-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.ptestDepthMetric === ptestDepthMetricTab);
+            });
+            renderTuruncuReport();
+        };
+    });
+    PtestGostergeDepthEngine.switchDepthMetricTab(ptestDepthMetricTab);
+}
 
 function getPtestGostergeHost() {
     return {
@@ -1820,8 +1917,16 @@ function renderColorReportSection(section) {
 
 function renderTuruncuReport() {
     updateGostergeTabVisibility();
-    initGostergeMetricTabs();
+    initGostergeModeTabs();
     if (!flatEntries.length) return;
+    if (ptestGostergeMode === 'depthPair') {
+        initGostergeDepthMetricTabs();
+        const metrics = PtestGostergeDepthEngine.allMetrics(flatEntries);
+        const spec = metrics.find(m => m.id === ptestDepthMetricTab) || metrics[0];
+        if (spec) PtestGostergeDepthEngine.renderDepthMetricGosterge(spec, getPtestGostergeHost(), PTEST_BUILD);
+        return;
+    }
+    initGostergeMetricTabs();
     const spec = PtestGostergeEngine.METRICS.find(m => m.id === ptestGostergeMetricTab)
         || PtestGostergeEngine.METRICS[0];
     const ctx = PtestGostergeEngine.createContext(spec, getPtestGostergeHost());
@@ -2455,6 +2560,11 @@ function buildFlatFromCache() {
                 }
             }
             for (const row of pkg.rows) {
+                row._extraSectionMeta = (pkg.extraSections || []).map(sec => ({
+                    id: sec.id,
+                    label: sec.label,
+                    depthsKey: sec.depthsKey
+                }));
                 flat.push({
                     row,
                     tarih: kayit.tarih,
@@ -2469,6 +2579,7 @@ function buildFlatFromCache() {
     rebuildBitisLookup();
     sortFlatEntries(flat);
     flatEntries = flat;
+    resetGostergePanels();
     return flat;
 }
 
@@ -2741,6 +2852,7 @@ async function clearAllKayitlar() {
         document.getElementById('exportTxtBtn').disabled = true;
         document.getElementById('toggleCikanBtn').classList.add('hidden');
         document.getElementById('cikanPanel').classList.add('hidden');
+        resetGostergePanels();
         hideBitisReportPanels();
         updateGostergeTabVisibility();
         document.getElementById('summaryMeta').textContent = '0 kayıt';
