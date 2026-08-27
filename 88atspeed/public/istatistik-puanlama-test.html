@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Puanlama Test — SON800-1 + T1×DR</title>
-    <link href="css/theme.css?v=20260828h" rel="stylesheet">
+    <link href="css/theme.css?v=20260828i" rel="stylesheet">
     <style>
         body { margin: 0; background: var(--bg-page, #f5f5f5); font-family: Inter, sans-serif; }
         .ptest-wrap { padding: 16px 20px 32px; max-width: 100%; }
@@ -368,6 +368,28 @@
             padding: 6px 8px; background: #fff; border: 1px solid #90caf9;
         }
         .ptest-t1-sari-bscombo-subgroup .ptest-report-item strong { color: #1565c0; font-size: 15px; }
+        .ptest-t1-sari-t1bs-nested-wrap {
+            margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ffb74d;
+        }
+        .ptest-t1-sari-t1bs-nested-heading {
+            font-size: 11px; font-weight: 800; color: #e65100; margin-bottom: 8px;
+        }
+        .ptest-t1-sari-t1bs-nested-subgroup {
+            margin-bottom: 10px; padding: 8px 8px 6px; background: #fff3e0;
+            border: 1px solid #ffb74d; border-radius: 5px;
+        }
+        .ptest-t1-sari-t1bs-nested-subgroup:last-child { margin-bottom: 0; }
+        .ptest-t1-sari-t1bs-nested-subgroup-title {
+            font-size: 12px; font-weight: 800; color: #e65100; margin-bottom: 3px;
+        }
+        .ptest-t1-sari-t1bs-nested-subgroup-meta {
+            font-size: 10px; color: #f57c00; margin-bottom: 6px; font-weight: 600;
+        }
+        .ptest-t1-sari-t1bs-nested-subgroup .ptest-report-grid { gap: 5px 8px; }
+        .ptest-t1-sari-t1bs-nested-subgroup .ptest-report-item {
+            padding: 5px 6px; background: #fff; border: 1px solid #ffcc80;
+        }
+        .ptest-t1-sari-t1bs-nested-subgroup .ptest-report-item strong { color: #e65100; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -480,11 +502,11 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260828h"></script>
-<script src="js/istatistik-engine.js?v=20260828h"></script>
-<script src="js/istatistik-grids-extra.js?v=20260828h"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260828h"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260828h"></script>
+<script src="js/utils.js?v=20260828i"></script>
+<script src="js/istatistik-engine.js?v=20260828i"></script>
+<script src="js/istatistik-grids-extra.js?v=20260828i"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260828i"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260828i"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -958,7 +980,7 @@ function updateGostergeTabVisibility() {
     if (content) content.classList.toggle('hidden', !hasData);
 }
 
-const PTEST_BUILD = '20260828h';
+const PTEST_BUILD = '20260828i';
 
 function t1SariSonDeltaMatchesPct(entry, pct) {
     if (!t1SonDeltaVisualFlags(entry).sariYazi) return false;
@@ -1022,16 +1044,16 @@ const S800_YESIL_BLINK_ZERO_BUCKET = {
     blink: true
 };
 
-/** T1 sarı + SON800 yeşil yanıp sönen %0 + SON·BS kırılımları */
+/** T1 sarı + SON800 yeşil yanıp sönen %0 + SON800 · SON·BS kırılımları */
 const T1_SARI_S800_BS_BUCKETS = [
-    { label: 'SON·BS tam %100', bsTest: bs => bs === 100 },
-    { label: 'SON·BS %95 – %99', bsTest: bs => bs >= 95 && bs <= 99 },
-    { label: 'SON·BS %91 – %94', bsTest: bs => bs >= 91 && bs <= 94 },
-    { label: 'SON·BS %90 – %95', bsTest: bs => bs >= 90 && bs <= 95 },
-    { label: 'SON·BS %85 – %89', bsTest: bs => bs >= 85 && bs <= 89 },
-    { label: 'SON·BS %80 – %84', bsTest: bs => bs >= 80 && bs <= 84 },
-    { label: 'SON·BS %75 – %79', bsTest: bs => bs >= 75 && bs <= 79 },
-    { label: 'SON·BS %75 altı', bsTest: bs => bs != null && bs < 75 }
+    { label: 'SON800 · SON·BS tam %100', bsTest: bs => bs === 100 },
+    { label: 'SON800 · SON·BS %95 – %99', bsTest: bs => bs >= 95 && bs <= 99 },
+    { label: 'SON800 · SON·BS %91 – %94', bsTest: bs => bs >= 91 && bs <= 94 },
+    { label: 'SON800 · SON·BS %90 – %95', bsTest: bs => bs >= 90 && bs <= 95 },
+    { label: 'SON800 · SON·BS %85 – %89', bsTest: bs => bs >= 85 && bs <= 89 },
+    { label: 'SON800 · SON·BS %80 – %84', bsTest: bs => bs >= 80 && bs <= 84 },
+    { label: 'SON800 · SON·BS %75 – %79', bsTest: bs => bs >= 75 && bs <= 79 },
+    { label: 'SON800 · SON·BS %75 altı', bsTest: bs => bs != null && bs < 75 }
 ];
 
 function matchesT1SariS800YesilBlinkZero(entry, t1Pct) {
@@ -1067,6 +1089,7 @@ function renderT1SariS800BlinkZeroBsSubgroupsHtml(t1Pct) {
             + ' · SON800 · Δ yeşil yanıp sönen %0 · ' + stats.matchedRows + ' satır · '
             + stats.withBitis + ' bitiş bilgisi</div>';
         h += '<div class="ptest-report-grid">' + renderBitisStatsGridHtml(stats) + '</div>';
+        h += renderT1DrSonBsNestedHtml(t1Pct, bsBucket);
         h += '</div>';
     }
     h += '</div>';
@@ -1155,7 +1178,52 @@ function t1SonDepthBsPct(entry) {
     return v != null ? v : null;
 }
 
-/** T1×DR · SON·BS alt kırılımları — her SON·Δ aralığı için aynı 8 grup */
+/** T1×DR · SON·BS aralık kırılımları — sarı+SON800 combo alt göstergeleri */
+const T1_DR_SON_BS_RANGE_BUCKETS = [
+    { label: 'T1×DR · SON·BS tam %100', bsTest: bs => bs === 100 },
+    { label: 'T1×DR · SON·BS %95 – %99', bsTest: bs => bs >= 95 && bs <= 99 },
+    { label: 'T1×DR · SON·BS %91 – %94', bsTest: bs => bs >= 91 && bs <= 94 },
+    { label: 'T1×DR · SON·BS %90 – %95', bsTest: bs => bs >= 90 && bs <= 95 },
+    { label: 'T1×DR · SON·BS %85 – %89', bsTest: bs => bs >= 85 && bs <= 89 },
+    { label: 'T1×DR · SON·BS %80 – %84', bsTest: bs => bs >= 80 && bs <= 84 },
+    { label: 'T1×DR · SON·BS %75 – %79', bsTest: bs => bs >= 75 && bs <= 79 },
+    { label: 'T1×DR · SON·BS %75 altı', bsTest: bs => bs != null && bs < 75 }
+];
+
+function entriesForT1SariS800BlinkZeroBsT1Bs(t1Pct, s800BsBucket, t1BsBucket) {
+    const out = [];
+    for (const entry of flatEntries) {
+        if (!matchesT1SariS800YesilBlinkZero(entry, t1Pct)) continue;
+        const s800bs = s800SonBsPct(entry);
+        if (s800bs == null || !s800BsBucket.bsTest(s800bs)) continue;
+        const t1bs = t1SonDepthBsPct(entry);
+        if (t1bs == null || !t1BsBucket.bsTest(t1bs)) continue;
+        out.push(entry);
+    }
+    return out;
+}
+
+function renderT1DrSonBsNestedHtml(t1Pct, s800BsBucket) {
+    let h = '<div class="ptest-t1-sari-t1bs-nested-wrap">';
+    h += '<div class="ptest-t1-sari-t1bs-nested-heading">🟠 T1×DR · SON·BS alt kırılımları · '
+        + AtSpeedUtils.escapeHtml(s800BsBucket.label) + '</div>';
+    for (const t1BsBucket of T1_DR_SON_BS_RANGE_BUCKETS) {
+        const entries = entriesForT1SariS800BlinkZeroBsT1Bs(t1Pct, s800BsBucket, t1BsBucket);
+        const stats = buildBitisStatsFromEntries(entries);
+        h += '<div class="ptest-t1-sari-t1bs-nested-subgroup">';
+        h += '<div class="ptest-t1-sari-t1bs-nested-subgroup-title">'
+            + AtSpeedUtils.escapeHtml(t1BsBucket.label) + '</div>';
+        h += '<div class="ptest-t1-sari-t1bs-nested-subgroup-meta">T1 sarı %' + t1Pct
+            + ' · SON800 · Δ yeşil yanıp sönen %0 · ' + AtSpeedUtils.escapeHtml(s800BsBucket.label)
+            + ' · ' + stats.matchedRows + ' satır · ' + stats.withBitis + ' bitiş bilgisi</div>';
+        h += '<div class="ptest-report-grid">' + renderBitisStatsGridHtml(stats) + '</div>';
+        h += '</div>';
+    }
+    h += '</div>';
+    return h;
+}
+
+/** T1×DR · SON·BS alt kırılımları — yeşil hücre detay raporu için 8 grup */
 const YESIL_T1_BS_BUCKETS = [
     { label: 'T1×DR · SON·BS kırmızı iç · tam %0', bsTest: bs => bs === 0 },
     { label: 'T1×DR · SON·BS tam %100', bsTest: bs => bs === 100 },
@@ -1302,8 +1370,9 @@ function renderT1SariDeltaIndicators() {
     if (tag) tag.textContent = 'build ' + PTEST_BUILD;
     if (globalMeta) {
         globalMeta.textContent = '📈 T1×DR · SON·Δ sarı yazı · ' + T1_SARI_SON_DELTA_INDICATORS.length
-            + ' gösterge · ' + YESIL_RACE_DELTA_BUCKETS.length + ' yeşil Δ + '
-            + T1_SARI_S800_BS_BUCKETS.length + ' BS kırılım'
+            + ' gösterge · ' + YESIL_RACE_DELTA_BUCKETS.length + ' yeşil Δ · '
+            + T1_SARI_S800_BS_BUCKETS.length + ' SON800 BS × '
+            + T1_DR_SON_BS_RANGE_BUCKETS.length + ' T1 BS alt kırılım'
             + ' · build ' + PTEST_BUILD;
     }
     let h = '';
