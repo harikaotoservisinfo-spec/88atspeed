@@ -961,7 +961,7 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260826v"></script>
+<script src="js/utils.js?v=20260827f"></script>
 <script src="js/formula-engine.js?v=20260826v"></script>
 <script src="js/istatistik-engine.js?v=20260826v"></script>
 <script src="js/istatistik-grids-extra.js?v=20260826v"></script>
@@ -2954,18 +2954,21 @@ document.getElementById('kayitlariGetirBtn').onclick = async () => {
         }
         let html = '<div class="kayit-listesi-title">📋 HESAPLAMA KAYITLARI</div>';
         for (const k of result.kayitlar) {
-            html += '<div class="kayit-item" data-id="' + k.id + '">';
-            html += '<span>📅 ' + AtSpeedUtils.escapeHtml(k.tarih) + ' | 🏟️ ' + AtSpeedUtils.escapeHtml(k.hipodrom);
-            html += ' | 🏁 ' + k.race_count + ' koşu</span>';
-            html += '<span class="kayit-item-action">Yükle →</span></div>';
+            html += AtSpeedUtils.hesaplamaKayitListItemHtml(k, '🏁 ' + k.race_count + ' koşu');
         }
         kayitListesiDiv.innerHTML = html;
         kayitListesiDiv.style.display = 'block';
-        kayitListesiDiv.querySelectorAll('.kayit-item').forEach(item => {
-            item.onclick = async () => {
-                await loadKayitById(item.dataset.id);
-                kayitListesiDiv.style.display = 'none';
-            };
+        AtSpeedUtils.bindHesaplamaKayitList(kayitListesiDiv, async (id) => {
+            await loadKayitById(id);
+            kayitListesiDiv.style.display = 'none';
+        }, () => {
+            const left = kayitListesiDiv.querySelectorAll('.kayit-item').length;
+            if (left) {
+                setStatus('<div class="status status-success">✅ ' + left + ' kayıt kaldı</div>');
+            } else {
+                kayitListesiDiv.innerHTML = '<div class="empty">Kayıt yok</div>';
+                setStatus('<div class="status status-error">⚠️ Hiç kayıt yok</div>');
+            }
         });
         setStatus('<div class="status status-success">✅ ' + result.kayitlar.length + ' kayıt listelendi</div>');
     } catch (error) {

@@ -37,6 +37,7 @@
 <div class="control-group" style="margin-bottom:15px;"><div class="control-label">AÇIKLAMA</div><textarea id="calismaAciklama" rows="3" style="width:100%;"></textarea></div>
 <div style="display:flex; gap:10px; justify-content:flex-end;"><button id="saveModalClose" class="yonetim-btn hide-btn" style="min-width:auto;">İPTAL</button><button id="saveModalConfirm" class="yonetim-btn save-btn" style="min-width:auto;">KAYDET</button></div>
 </div>
+<script src="js/utils.js?v=20260827f"></script>
 <script>
 // Global değişkenler
 window.currentKarsilastirmaData = null;
@@ -312,19 +313,35 @@ async function listKayitlar(apiUrl,tur){
         for(let i=0;i<kayitlar.length;i++){
             let k=kayitlar[i];
             let kayitAdi=k.ad||(k.tarih+' - '+k.hipodrom);
-            html+='<div class="kayit-item" data-id="'+k.id+'" data-tur="'+tur+'" data-adi="'+kayitAdi+'"><span>📅 '+kayitAdi+' | 🕐 '+k.kayit_tarihi+'</span><span class="kayit-item-action">Seç →</span></div>';
+            if(tur==='hesaplama'){
+                html+=AtSpeedUtils.hesaplamaKayitListItemHtml(k,'🕐 '+AtSpeedUtils.escapeHtml(k.kayit_tarihi||''));
+            }else{
+                html+='<div class="kayit-item" data-id="'+k.id+'" data-tur="'+tur+'" data-adi="'+kayitAdi+'"><span>📅 '+kayitAdi+' | 🕐 '+k.kayit_tarihi+'</span><span class="kayit-item-action">Seç →</span></div>';
+            }
         }
         kld.innerHTML=html;
         kld.style.display='block';
         document.getElementById('calismaListesi').style.display='none';
-        document.querySelectorAll('.kayit-item').forEach(item=>{
-            item.onclick=async()=>{
-                let id=item.dataset.id,tur2=item.dataset.tur;
+        if(tur==='hesaplama'){
+            AtSpeedUtils.bindHesaplamaKayitList(kld,async(id,item)=>{
                 document.querySelectorAll('.kayit-item').forEach(i=>i.classList.remove('selected'));
                 item.classList.add('selected');
-                await loadKayit(id,tur2);
-            };
-        });
+                await loadKayit(id,tur);
+            },()=>{
+                const left=kld.querySelectorAll('.kayit-item').length;
+                sd.innerHTML=left?'<div class="status status-success">✅ '+left+' kayıt kaldı</div>':'<div class="status status-error">⚠️ Hiç kayıt yok</div>';
+                if(!left) kld.innerHTML='<div class="empty">⚠️ Hiç kayıt bulunamadı</div>';
+            });
+        }else{
+            document.querySelectorAll('.kayit-item').forEach(item=>{
+                item.onclick=async()=>{
+                    let id=item.dataset.id,tur2=item.dataset.tur;
+                    document.querySelectorAll('.kayit-item').forEach(i=>i.classList.remove('selected'));
+                    item.classList.add('selected');
+                    await loadKayit(id,tur2);
+                };
+            });
+        }
         sd.innerHTML='<div class="status status-success">✅ '+kayitlar.length+' kayıt bulundu.</div>';
     }catch(e){sd.innerHTML='<div class="status status-error">❌ Hata: '+e.message+'</div>';}
 }

@@ -597,7 +597,7 @@
 <div id="gosterimResults" class="results-table"><div class="empty">🏇 HESAPLAMA KAYITLARI butonuna tıklayın</div></div>
 </div>
 
-<script src="js/utils.js?v=20260824w"></script>
+<script src="js/utils.js?v=20260827f"></script>
 <script src="js/formula-engine.js?v=20260824w"></script>
 <script>
 let currentHesaplamaData = null;
@@ -669,21 +669,22 @@ document.getElementById('kayitlariGetirBtn').onclick = async () => {
         
         let html = '<div class="kayit-listesi-title">📋 HESAPLAMA KAYITLARI</div>';
         for (let i = 0; i < result.kayitlar.length; i++) {
-            const k = result.kayitlar[i];
-            html += `<div class="kayit-item" data-id="${k.id}">
-                        <span>📅 ${AtSpeedUtils.escapeHtml(k.tarih)} | 🏟️ ${AtSpeedUtils.escapeHtml(k.hipodrom)} | 🐎 ${k.total_horses} at | 🕐 ${AtSpeedUtils.escapeHtml(k.kayit_tarihi)}</span>
-                        <span class="kayit-item-action">Yükle →</span>
-                    </div>`;
+            html += AtSpeedUtils.hesaplamaKayitListItemHtml(result.kayitlar[i]);
         }
         kayitListesiDiv.innerHTML = html;
         kayitListesiDiv.style.display = 'block';
-        
-        document.querySelectorAll('.kayit-item').forEach(item => {
-            item.onclick = async () => {
-                const id = item.dataset.id;
-                await loadKayit(id);
-                kayitListesiDiv.style.display = 'none';
-            };
+
+        AtSpeedUtils.bindHesaplamaKayitList(kayitListesiDiv, async (id) => {
+            await loadKayit(id);
+            kayitListesiDiv.style.display = 'none';
+        }, () => {
+            const left = kayitListesiDiv.querySelectorAll('.kayit-item').length;
+            if (left) {
+                statusDiv.innerHTML = '<div class="status status-success">✅ ' + left + ' kayıt kaldı</div>';
+            } else {
+                kayitListesiDiv.innerHTML = '<div class="empty">⚠️ Hiç hesaplama kaydı bulunamadı</div>';
+                statusDiv.innerHTML = '<div class="status status-error">⚠️ Hiç kayıt yok</div>';
+            }
         });
         
         statusDiv.innerHTML = '<div class="status status-success">✅ ' + result.kayitlar.length + ' kayıt bulundu</div>';

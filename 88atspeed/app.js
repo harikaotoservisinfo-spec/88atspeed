@@ -832,6 +832,62 @@ app.get('/api/hesaplama-kayit/:id', (req, res) => {
     });
 });
 
+function parsePuanlamaStore(raw) {
+    if (!raw || typeof raw !== 'object') return { bitis: {}, cikan: {} };
+    const isLegacy = !raw.bitis && !raw.cikan
+        && Object.values(raw).some(v => typeof v === 'number');
+    if (isLegacy) return { bitis: raw, cikan: {} };
+    return { bitis: raw.bitis || {}, cikan: raw.cikan || {} };
+}
+
+function purgePuanlamaKayitId(kayitId, callback) {
+    const prefix = String(kayitId) + '|';
+    db.get(`SELECT veri FROM puanlama_bitis_sonuclari WHERE id = 1`, [], (err, row) => {
+        if (err) return callback(err);
+        if (!row?.veri) return callback(null);
+        let store;
+        try {
+            store = parsePuanlamaStore(JSON.parse(row.veri));
+        } catch (_) {
+            return callback(null);
+        }
+        const bitis = {};
+        for (const [k, v] of Object.entries(store.bitis)) {
+            if (!k.startsWith(prefix)) bitis[k] = v;
+        }
+        const cikan = {};
+        for (const [k, v] of Object.entries(store.cikan)) {
+            if (!k.startsWith(prefix)) cikan[k] = v;
+        }
+        const veri = JSON.stringify({ bitis, cikan });
+        const sql = `INSERT INTO puanlama_bitis_sonuclari (id, veri, guncelleme) VALUES (1, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(id) DO UPDATE SET veri = excluded.veri, guncelleme = CURRENT_TIMESTAMP`;
+        db.run(sql, [veri], callback);
+    });
+}
+
+app.delete('/api/hesaplama-kayit/:id', (req, res) => {
+    const id = req.params.id;
+    db.run(`DELETE FROM hesaplama_kayitlari WHERE id = ?`, [id], function(err) {
+        if (err) {
+            res.json({ success: false, error: err.message });
+            return;
+        }
+        if (this.changes === 0) {
+            res.json({ success: false, error: 'Kayıt bulunamadı' });
+            return;
+        }
+        purgePuanlamaKayitId(id, (errP) => {
+            if (errP) {
+                res.json({ success: false, error: errP.message });
+                return;
+            }
+            console.log('🗑 Hesaplama kaydı silindi ID:', id);
+            res.json({ success: true, deletedId: parseInt(id, 10) });
+        });
+    });
+});
+
 app.post('/api/hesaplama-kayitlar-temizle', (req, res) => {
     if (req.body?.onay !== 'SIL') {
         res.json({ success: false, error: 'Onay için body.onay = "SIL" gerekli' });

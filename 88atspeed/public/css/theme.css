@@ -322,6 +322,43 @@ textarea { height: auto; min-height: 80px; }
 
 .kayit-item-action { color: var(--accent); font-weight: 700; white-space: nowrap; font-size: 12px; }
 
+.kayit-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.kayit-load-btn {
+    border: none;
+    background: transparent;
+    color: var(--accent);
+    font-weight: 700;
+    white-space: nowrap;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 4px 6px;
+}
+
+.kayit-load-btn:hover { text-decoration: underline; }
+
+.kayit-delete-btn {
+    border: 1px solid #ef9a9a;
+    background: #ffebee;
+    color: #c62828;
+    font-weight: 700;
+    font-size: 11px;
+    white-space: nowrap;
+    border-radius: 6px;
+    padding: 4px 8px;
+    cursor: pointer;
+}
+
+.kayit-delete-btn:hover {
+    background: #ffcdd2;
+    border-color: #e53935;
+}
+
 /* Koşu kartları */
 .race-card {
     background: var(--bg-card);

@@ -201,6 +201,59 @@ const AtSpeedUtils = {
                 tarih, hipodromId, hipodromAdi
             }, '*');
         });
+    },
+
+    async deleteHesaplamaKayit(id, label) {
+        const msg = (label || 'Bu kayıt') +
+            ' kalıcı olarak silinecek (puanlama verileri dahil).\n\nOnaylamak için SIL yazın:';
+        if (prompt(msg) !== 'SIL') return { cancelled: true };
+        const res = await fetch('/api/hesaplama-kayit/' + id, { method: 'DELETE' });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Silinemedi');
+        return json;
+    },
+
+    bindHesaplamaKayitList(container, onLoad, onChange) {
+        if (!container) return;
+        container.querySelectorAll('.kayit-item').forEach(item => {
+            const loadBtn = item.querySelector('[data-action="load"]');
+            const deleteBtn = item.querySelector('[data-action="delete"]');
+            if (loadBtn) {
+                loadBtn.onclick = async (e) => {
+                    e.stopPropagation();
+                    await onLoad(item.dataset.id, item);
+                };
+            }
+            if (deleteBtn) {
+                deleteBtn.onclick = async (e) => {
+                    e.stopPropagation();
+                    try {
+                        const result = await AtSpeedUtils.deleteHesaplamaKayit(
+                            item.dataset.id,
+                            item.dataset.label
+                        );
+                        if (result.cancelled) return;
+                        item.remove();
+                        onChange?.();
+                    } catch (err) {
+                        alert('Silme hatası: ' + err.message);
+                    }
+                };
+            }
+        });
+    },
+
+    hesaplamaKayitListItemHtml(k, extraMeta) {
+        const label = (k.tarih || '') + ' · ' + (k.hipodrom || '');
+        const meta = extraMeta ||
+            ('🐎 ' + (k.total_horses ?? '—') + ' at | 🕐 ' + AtSpeedUtils.escapeHtml(k.kayit_tarihi || ''));
+        return '<div class="kayit-item" data-id="' + k.id + '" data-label="' + AtSpeedUtils.escapeHtml(label) + '">' +
+            '<span>📅 ' + AtSpeedUtils.escapeHtml(k.tarih) + ' | 🏟️ ' + AtSpeedUtils.escapeHtml(k.hipodrom) +
+            ' | ' + meta + '</span>' +
+            '<div class="kayit-item-actions">' +
+            '<button type="button" class="kayit-delete-btn" data-action="delete" title="Kaydı sil">🗑 Sil</button>' +
+            '<button type="button" class="kayit-load-btn" data-action="load">Yükle →</button>' +
+            '</div></div>';
     }
 };
 
