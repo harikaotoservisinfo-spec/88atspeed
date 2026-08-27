@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Puanlama Test — SON800-1 + T1×DR</title>
-    <link href="css/theme.css?v=20260827k" rel="stylesheet">
+    <link href="css/theme.css?v=20260827l" rel="stylesheet">
     <style>
         body { margin: 0; background: var(--bg-page, #f5f5f5); font-family: Inter, sans-serif; }
         .ptest-wrap { padding: 16px 20px 32px; max-width: 100%; }
@@ -131,6 +131,7 @@
         <h1>🧪 Puanlama test — tüm kayıtlar · SON800-1 + T1×DR (SON derinlik)</h1>
         <button type="button" class="ptest-btn" id="loadAllBtn">Tüm kayıtları yükle</button>
         <button type="button" class="ptest-btn ptest-btn-success" id="saveAllBtn" disabled>💾 Kaydet</button>
+        <button type="button" class="ptest-btn ptest-btn-outline" id="exportTxtBtn" disabled title="Seçili BİTİŞ sırasına göre (0 veya 1) tüm tabloyu .txt olarak indir">📥 TXT İndir</button>
         <button type="button" class="ptest-btn ptest-btn-danger" id="clearAllBtn">🗑 Tüm kayıtları sil</button>
         <button type="button" class="ptest-btn ptest-btn-outline hidden" id="toggleCikanBtn">👁 Çıkan atlar (0)</button>
         <span class="ptest-meta" id="summaryMeta">Henüz yüklenmedi</span>
@@ -148,11 +149,11 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260827k"></script>
-<script src="js/istatistik-engine.js?v=20260827k"></script>
-<script src="js/istatistik-grids-extra.js?v=20260827k"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260827k"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260827k"></script>
+<script src="js/utils.js?v=20260827l"></script>
+<script src="js/istatistik-engine.js?v=20260827l"></script>
+<script src="js/istatistik-grids-extra.js?v=20260827l"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260827l"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260827l"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -234,6 +235,92 @@ function gapSpan(row, cell) {
 function tahminHtml(tahmin) {
     if (!tahmin || tahmin.rank == null || tahmin.pct == null) return '<span class="ptest-pct ptest-pct-none">—</span>';
     return '<span class="ptest-tahmin-rank">' + tahmin.rank + '.</span><span class="ptest-pct ' + pctClass(tahmin.pct) + '">%' + tahmin.pct + '</span>';
+}
+
+const EXPORT_HEADERS = [
+    'TARİH', 'HİPODROM', 'KOŞU', 'AT İSMİ', 'BİTİŞ', 'TAHMİN',
+    'SON800·SON', 'SON800·Eİ', 'SON800·İÇ', 'SON800·Δ', 'SON800·BS',
+    'T1×DR·Eİ', 'T1×DR·İÇ', 'T1×DR·Δ', 'T1×DR·BS'
+];
+
+function formatPctText(val) {
+    if (val == null) return '—';
+    return '%' + val;
+}
+
+function formatTahminText(tahmin) {
+    if (!tahmin || tahmin.rank == null || tahmin.pct == null) return '—';
+    return tahmin.rank + '. %' + tahmin.pct;
+}
+
+function escapeTsvField(s) {
+    const str = String(s ?? '');
+    if (/[\t\r\n"]/.test(str)) return '"' + str.replace(/"/g, '""') + '"';
+    return str;
+}
+
+function entryToTsvLine(entry) {
+    const { row } = entry;
+    const s0 = row.son8001Depths?.[0] || null;
+    const t0 = row.t1drDepths?.[0] || null;
+    const bitis = bitisValueForDisplay(entry);
+    const fields = [
+        entry.tarih,
+        entry.hipodrom || '—',
+        entry.raceNo,
+        row.name || '—',
+        bitis != null ? bitis : '',
+        formatTahminText(row.tahmin),
+        formatPctText(depthSon(s0, 'pct')),
+        formatPctText(depthSon(s0, 'horseBestPct')),
+        formatPctText(depthSon(s0, 'selfPct')),
+        formatPctText(depthSon(s0, 'gapPct')),
+        formatPctText(depthSon(s0, 'successPct')),
+        formatPctText(depthSon(t0, 'horseBestPct')),
+        formatPctText(depthSon(t0, 'selfPct')),
+        formatPctText(depthSon(t0, 'gapPct')),
+        formatPctText(depthSon(t0, 'successPct'))
+    ];
+    return fields.map(escapeTsvField).join('\t');
+}
+
+function buildExportText(entries) {
+    const now = new Date();
+    const modeLabel = bitisSortMode === 1
+        ? '1 — tüm liste bitiş sırasına göre (1 en üstte)'
+        : '0 — normal (tarih → hipodrom → koşu → yükleme sırası)';
+    const lines = [
+        '# Puanlama Test — TXT dışa aktarım',
+        '# Oluşturulma: ' + now.toLocaleString('tr-TR'),
+        '# BİTİŞ sıralama seçici: ' + modeLabel,
+        '# Hesaplama kayıtları: ' + kayitCountLoaded,
+        '# Tablo satırları: ' + entries.length,
+        '# Çıkan at (tabloda yok): ' + countCikanHorses(),
+        '#',
+        EXPORT_HEADERS.join('\t')
+    ];
+    for (const entry of entries) lines.push(entryToTsvLine(entry));
+    return { text: '\ufeff' + lines.join('\n') + '\n', now };
+}
+
+function downloadTextExport() {
+    if (!flatEntries.length || isTableProcessing) return;
+    syncBitisInputsToMap();
+    const entries = flatEntries.slice();
+    sortFlatEntries(entries);
+    const { text, now } = buildExportText(entries);
+    const modeSlug = bitisSortMode === 1 ? 'bitis-sira-1' : 'normal-0';
+    const ts = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'puanlama-test-' + modeSlug + '-' + entries.length + 'satir-' + ts + '.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setProcessStatus(formatDoneStatus('TXT indirildi · ' + modeSlug), false);
 }
 
 function setProcessStatus(html, isBusy) {
@@ -707,9 +794,11 @@ function updateSummaryMeta() {
 async function loadAllKayitlar() {
     const btn = document.getElementById('loadAllBtn');
     const saveBtn = document.getElementById('saveAllBtn');
+    const exportBtn = document.getElementById('exportTxtBtn');
     const status = document.getElementById('status');
     btn.disabled = true;
     saveBtn.disabled = true;
+    exportBtn.disabled = true;
     status.innerHTML = '<span style="color:#6a1b9a">⏳ Kayıt listesi alınıyor…</span>';
     renderHead();
     kayitCache.clear();
@@ -739,6 +828,7 @@ async function loadAllKayitlar() {
         buildFlatFromCache();
         await renderTableAsync('ilk yükleme');
         saveBtn.disabled = false;
+        exportBtn.disabled = false;
     } catch (err) {
         status.innerHTML = '<span style="color:#c62828">❌ ' + AtSpeedUtils.escapeHtml(err.message) + '</span>';
         document.getElementById('gridBody').innerHTML = '<tr><td colspan="' + COL_COUNT + '">Hata</td></tr>';
@@ -777,6 +867,7 @@ async function clearAllKayitlar() {
         document.getElementById('gridBody').innerHTML =
             '<tr><td colspan="' + COL_COUNT + '" style="padding:24px;color:#789">Kayıt yok — HESAPLAMA sekmesinden yeni veri kaydedin</td></tr>';
         document.getElementById('saveAllBtn').disabled = true;
+        document.getElementById('exportTxtBtn').disabled = true;
         document.getElementById('toggleCikanBtn').classList.add('hidden');
         document.getElementById('cikanPanel').classList.add('hidden');
         document.getElementById('summaryMeta').textContent = '0 kayıt';
@@ -791,6 +882,7 @@ async function clearAllKayitlar() {
 
 document.getElementById('loadAllBtn').onclick = loadAllKayitlar;
 document.getElementById('saveAllBtn').onclick = saveAllSettings;
+document.getElementById('exportTxtBtn').onclick = downloadTextExport;
 document.getElementById('clearAllBtn').onclick = clearAllKayitlar;
 document.getElementById('toggleCikanBtn').onclick = () => {
     cikanPanelOpen = !cikanPanelOpen;
