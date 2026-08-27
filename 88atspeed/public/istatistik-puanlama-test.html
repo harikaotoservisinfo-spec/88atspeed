@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Puanlama Test — SON800-1 + T1×DR</title>
-    <link href="css/theme.css?v=20260828a" rel="stylesheet">
+    <link href="css/theme.css?v=20260828b" rel="stylesheet">
     <style>
         body { margin: 0; background: var(--bg-page, #f5f5f5); font-family: Inter, sans-serif; }
         .ptest-wrap { padding: 16px 20px 32px; max-width: 100%; }
@@ -77,6 +77,12 @@
         }
         .ptest-bitis-sort-select:focus { outline: none; border-color: #7b1fa2; }
         .ptest-bitis-sort-select:disabled { opacity: 0.5; cursor: wait; }
+        .ptest-bitis-filter-select {
+            width: 100%; max-width: 72px; padding: 2px 3px; font-size: 9px; font-weight: 700;
+            border: 1px solid #f9a825; border-radius: 4px; background: #fffde7; cursor: pointer;
+        }
+        .ptest-bitis-filter-select:focus { outline: none; border-color: #7b1fa2; }
+        .ptest-bitis-filter-select:disabled { opacity: 0.5; cursor: wait; }
         .ptest-th-son-delta-inner {
             display: flex; flex-direction: column; align-items: center; gap: 4px;
             line-height: 1.15; min-width: 108px;
@@ -319,11 +325,11 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260828a"></script>
-<script src="js/istatistik-engine.js?v=20260828a"></script>
-<script src="js/istatistik-grids-extra.js?v=20260828a"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260828a"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260828a"></script>
+<script src="js/utils.js?v=20260828b"></script>
+<script src="js/istatistik-engine.js?v=20260828b"></script>
+<script src="js/istatistik-grids-extra.js?v=20260828b"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260828b"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260828b"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -337,6 +343,7 @@ let kayitCountLoaded = 0;
 let cikanPanelOpen = false;
 let cikanMetaList = [];
 let bitisSortMode = 0;
+let bitisFilterPos = 0;
 let sonDeltaSortMode = '0';
 let t1SonDeltaSortMode = '0';
 let isTableProcessing = false;
@@ -404,11 +411,23 @@ function gapSpan(row, cell) {
     return pctSpan(cell.gapPct, blink);
 }
 
+/** Yeşil hücre — SON·Δ aralık seçicileri (SON800-1 · SON·Δ) */
+const YESIL_DELTA_SORT_BUCKETS = [
+    { id: 'yesilTam0', label: '2·0 — yeşil · Tam %0', gapTest: g => g === 0 },
+    { id: 'yesil5', label: '2·1 — yeşil · %5\'e kadar', gapTest: g => g > 0 && g <= 5 },
+    { id: 'yesil10', label: '2·2 — yeşil · %10\'a kadar', gapTest: g => g > 5 && g <= 10 },
+    { id: 'yesil15', label: '2·3 — yeşil · %15\'e kadar', gapTest: g => g > 10 && g <= 15 },
+    { id: 'yesil15_20', label: '2·4 — yeşil · %15–20', gapTest: g => g > 15 && g <= 20 },
+    { id: 'yesil20_25', label: '2·5 — yeşil · %20–25', gapTest: g => g > 20 && g <= 25 },
+    { id: 'yesil25plus', label: '2·6 — yeşil · %25+', gapTest: g => g > 25 }
+];
+
 /** SON·Δ görsel kural seçicileri — id = select value */
 const SON_DELTA_SORT_RULES = [
     { id: '0', label: '0 — kapalı' },
     { id: 'turuncuHucre', label: '1 — turuncu hücre' },
-    { id: 'yesilHucre', label: '2 — yeşil hücre' },
+    { id: 'yesilHucre', label: '2 — yeşil hücre (tümü)' },
+    ...YESIL_DELTA_SORT_BUCKETS,
     { id: 'turuncuCevre', label: '3 — turuncu çevre' },
     { id: 'kirmiziIc', label: '4 — kırmızı iç' },
     { id: 'sariYazi', label: '5 — sarı yazı' },
@@ -417,6 +436,16 @@ const SON_DELTA_SORT_RULES = [
     { id: 'koyuYesilIc', label: '8 — koyu yeşil iç' },
     { id: 'gri', label: '9 — gri (—)' }
 ];
+
+function isYesilDeltaRuleId(ruleId) {
+    if (!ruleId || ruleId === '0') return false;
+    if (ruleId === 'yesilHucre') return true;
+    return YESIL_DELTA_SORT_BUCKETS.some(b => b.id === ruleId);
+}
+
+function yesilDeltaBucketById(ruleId) {
+    return YESIL_DELTA_SORT_BUCKETS.find(b => b.id === ruleId) || null;
+}
 
 function sonDeltaSortRuleLabel(id) {
     const rule = SON_DELTA_SORT_RULES.find(r => r.id === id);
@@ -461,6 +490,12 @@ function t1SonDeltaVisualFlags(entry) {
 
 function sonDeltaMatchesRule(entry, ruleId) {
     if (!ruleId || ruleId === '0') return true;
+    const bucket = yesilDeltaBucketById(ruleId);
+    if (bucket) {
+        if (!sonDeltaVisualFlags(entry).yesilHucre) return false;
+        const g = sonDeltaGapPct(entry);
+        return g != null && bucket.gapTest(g);
+    }
     const flags = sonDeltaVisualFlags(entry);
     return !!flags[ruleId];
 }
@@ -492,11 +527,37 @@ function compareSonDeltaRule(a, b, ruleId) {
     const ma = sonDeltaMatchesRule(a, ruleId) ? 0 : 1;
     const mb = sonDeltaMatchesRule(b, ruleId) ? 0 : 1;
     if (ma !== mb) return ma - mb;
-    if (ruleId === 'yesilHucre') {
+    if (isYesilDeltaRuleId(ruleId)) {
         if (ma === 0) return compareYesilHucreSubSort(a, b);
         return compareBitisOnly(a, b);
     }
     return 0;
+}
+
+function maxBitisPosition() {
+    if (!activeBitisLookup) rebuildBitisLookup();
+    let max = 0;
+    for (const entry of flatEntries) {
+        const b = bitisValueForSort(entry);
+        if (b != null && b > max) max = b;
+    }
+    return max;
+}
+
+function compareBitisFilterPos(a, b) {
+    if (!bitisFilterPos) return 0;
+    const ma = bitisValueForSort(a) === bitisFilterPos ? 0 : 1;
+    const mb = bitisValueForSort(b) === bitisFilterPos ? 0 : 1;
+    return ma - mb;
+}
+
+function countBitisFilterMatches() {
+    if (!bitisFilterPos) return 0;
+    let n = 0;
+    for (const entry of flatEntries) {
+        if (bitisValueForSort(entry) === bitisFilterPos) n++;
+    }
+    return n;
 }
 
 function countSonDeltaRuleMatches(ruleId) {
@@ -527,10 +588,6 @@ function sonDeltaGapPct(entry) {
 
 function t1SonDeltaGapPct(entry) {
     return entry.row.t1drDepths?.[0]?.gapPct ?? null;
-}
-
-function isT1SonDeltaBlink(entry) {
-    return t1SonDeltaGapPct(entry) === 0;
 }
 
 /** T1×DR · SON·Δ seçici — sarı → %0 → yeşil katman sırası */
@@ -651,7 +708,7 @@ function yesilEntriesForBucket(bucket) {
     return out;
 }
 
-const PTEST_BUILD = '20260828a';
+const PTEST_BUILD = '20260828b';
 
 function s800SonBsPct(entry) {
     return entry.row.son8001Depths?.[0]?.successPct ?? null;
@@ -1097,7 +1154,8 @@ function downloadTextExport() {
     const { html, now } = buildExportHtml(entries);
     const modeSlug = (bitisSortMode === 1 ? 'bitis-1' : 'bitis-0')
         + (sonDeltaSortMode !== '0' ? '-s800d-' + sonDeltaSortMode : '')
-        + (t1SonDeltaSortMode !== '0' ? '-t1d-' + t1SonDeltaSortMode : '');
+        + (t1SonDeltaSortMode !== '0' ? '-t1d-' + t1SonDeltaSortMode : '')
+        + (bitisFilterPos ? '-bf-' + bitisFilterPos : '');
     const ts = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const blob = new Blob(['\ufeff' + html], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -1196,7 +1254,7 @@ function compareBitisGlobal(a, b) {
 
 function sortFlatEntries(flat) {
     if (!activeBitisLookup) rebuildBitisLookup();
-    const yesilDeltaMode = sonDeltaSortMode === 'yesilHucre';
+    const yesilDeltaMode = isYesilDeltaRuleId(sonDeltaSortMode);
     flat.sort((a, b) => {
         if (bitisSortMode === 1 && !yesilDeltaMode) {
             const bitisCmp = compareBitisGlobal(a, b);
@@ -1205,6 +1263,10 @@ function sortFlatEntries(flat) {
         if (sonDeltaSortMode && sonDeltaSortMode !== '0') {
             const deltaCmp = compareSonDeltaRule(a, b, sonDeltaSortMode);
             if (deltaCmp !== 0) return deltaCmp;
+        }
+        if (bitisFilterPos) {
+            const bf = compareBitisFilterPos(a, b);
+            if (bf !== 0) return bf;
         }
         if (t1SonDeltaSortMode && t1SonDeltaSortMode !== '0') {
             const t1Cmp = compareT1SonDeltaSort(a, b);
@@ -1225,9 +1287,10 @@ function sortFlatEntries(flat) {
 function activeSortSummary() {
     const parts = [];
     if (bitisSortMode === 1) parts.push('bitiş(1)');
+    if (bitisFilterPos) parts.push('bitiş=' + bitisFilterPos);
     if (sonDeltaSortMode && sonDeltaSortMode !== '0') {
         let lbl = sonDeltaSortRuleLabel(sonDeltaSortMode).replace(/^[^—]+—\s*/, '');
-        if (sonDeltaSortMode === 'yesilHucre') lbl += ' · bitiş→yanıp sönen→Δ↑';
+        if (isYesilDeltaRuleId(sonDeltaSortMode)) lbl += ' · bitiş→yanıp sönen→Δ↑';
         parts.push('SON800·Δ:' + lbl);
     }
     if (t1SonDeltaSortMode && t1SonDeltaSortMode !== '0') {
@@ -1258,9 +1321,11 @@ function formatDoneStatus(extra) {
     const sortable = countSortableBitis();
     const cikan = countCikanHorses();
     const deltaMatch = sonDeltaSortMode !== '0' ? countSonDeltaRuleMatches(sonDeltaSortMode) : 0;
+    const bitisFilterMatch = countBitisFilterMatches();
     const t1TierMatch = t1SonDeltaSortMode === 'sariZeroYesil' ? flatEntries.length : 0;
     let sortLabel = activeSortSummary();
     if (deltaMatch) sortLabel += ' (' + deltaMatch + ' SON800 eşleşme)';
+    if (bitisFilterMatch) sortLabel += ' (' + bitisFilterMatch + ' bitiş=' + bitisFilterPos + ')';
     if (t1TierMatch && t1SonDeltaSortMode === 'sariZeroYesil') sortLabel += ' · T1 katman sırası';
     return '✅ ' + flatEntries.length + ' satır · ' + filled + ' bitiş · ' + sortable +
         ' sıralanabilir · ' + cikan + ' çıkan · sıra: ' + sortLabel + (extra ? ' · ' + extra : '');
@@ -1292,8 +1357,10 @@ async function applySortAndRender() {
     isTableProcessing = true;
     const bitisSel = document.getElementById('bitisSortSelect');
     const deltaSel = document.getElementById('sonDeltaSortSelect');
+    const bitisFilterSel = document.getElementById('bitisFilterSelect');
     if (bitisSel) bitisSel.disabled = true;
     if (deltaSel) deltaSel.disabled = true;
+    if (bitisFilterSel) bitisFilterSel.disabled = true;
 
     setProcessStatus('⏳ ' + flatEntries.length + ' satır sıralanıyor (' + activeSortSummary() + ')…', true);
 
@@ -1353,6 +1420,20 @@ function bindT1SonDeltaSortSelect() {
     };
 }
 
+function bindBitisFilterSelect() {
+    const sel = document.getElementById('bitisFilterSelect');
+    if (!sel) return;
+    const max = maxBitisPosition();
+    if (bitisFilterPos > max) bitisFilterPos = 0;
+    sel.value = String(bitisFilterPos);
+    sel.disabled = isTableProcessing;
+    sel.onchange = () => {
+        if (isTableProcessing) return;
+        bitisFilterPos = parseInt(sel.value, 10) || 0;
+        applySortAndRender();
+    };
+}
+
 function bitisInputHtml(entry) {
     const key = rowKey(entry);
     const val = bitisValueForDisplay(entry);
@@ -1370,9 +1451,16 @@ function renderHead() {
     h += '<th rowspan="2" class="ptest-at">AT İSMİ</th>';
     h += '<th rowspan="2" class="ptest-th-cikan">ÇIKAR</th>';
     h += '<th rowspan="2" class="ptest-th-bitis"><div class="ptest-th-bitis-inner">BİTİŞ';
-    h += '<select id="bitisSortSelect" class="ptest-bitis-sort-select" title="0: tarih/koşu sırası · 1: tüm liste bitiş sırasına göre (1 en üstte)">';
+    h += '<select id="bitisSortSelect" class="ptest-bitis-sort-select" title="0: tarih/koşu · 1: global bitiş sırası">';
     h += '<option value="0"' + (bitisSortMode === 0 ? ' selected' : '') + '>0</option>';
     h += '<option value="1"' + (bitisSortMode === 1 ? ' selected' : '') + '>1</option>';
+    h += '</select>';
+    h += '<select id="bitisFilterSelect" class="ptest-bitis-filter-select" title="Bitiş kırılımı — seçilen sıra en üstte">';
+    h += '<option value="0"' + (bitisFilterPos === 0 ? ' selected' : '') + '>tümü</option>';
+    const maxBitis = maxBitisPosition();
+    for (let p = 1; p <= maxBitis; p++) {
+        h += '<option value="' + p + '"' + (bitisFilterPos === p ? ' selected' : '') + '>' + p + '.</option>';
+    }
     h += '</select></div></th>';
     h += '<th rowspan="2">TAHMİN</th>';
     h += '<th colspan="5" class="ptest-th-grp ptest-th-s800">SON800-1 · SON derinlik</th>';
@@ -1399,6 +1487,7 @@ function renderHead() {
     h += '</tr>';
     document.getElementById('gridHead').innerHTML = h;
     bindBitisSortSelect();
+    bindBitisFilterSelect();
     bindSonDeltaSortSelect();
     bindT1SonDeltaSortSelect();
 }
@@ -1513,7 +1602,7 @@ function bindTableEvents() {
         });
         input.addEventListener('change', () => {
             renderTuruncuReport();
-            if (bitisSortMode === 1 || (sonDeltaSortMode && sonDeltaSortMode !== '0')
+            if (bitisSortMode === 1 || bitisFilterPos || (sonDeltaSortMode && sonDeltaSortMode !== '0')
                 || (t1SonDeltaSortMode && t1SonDeltaSortMode !== '0')) applySortAndRender();
         });
     });
