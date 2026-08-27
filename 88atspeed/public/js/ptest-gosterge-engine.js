@@ -395,10 +395,73 @@ const PtestGostergeEngine = (function () {
         return h;
     }
 
-    function renderMetricGosterge(ctx, host, buildTag) {
+    function yieldToMain(sync) {
+        if (sync) return Promise.resolve();
+        return new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
+    }
+
+    /** Tek geçişte tüm kova dizinleri — 5000+ satırda tekrarlı filter maliyetini düşürür */
+    function buildGostergeIndex(ctx, flatEntries) {
+        const byRule = { turuncuHucre: [], turuncuCevre: [], yesilHucre: [] };
+        const yesilBySonBucket = YESIL_SON_DELTA_BUCKETS.map(() => []);
+        const turuncuBySonBucket = YESIL_SON_DELTA_BUCKETS.map(() => []);
+        const sariBySonBucket = YESIL_SON_DELTA_BUCKETS.map(() => []);
+        const yesilByRaceBucket = YESIL_RACE_DELTA_BUCKETS.map(() => []);
+        const t1SariByPct = Array.from({ length: 26 }, () => []);
+
+        for (const entry of flatEntries) {
+            const g = ctx.primaryGapPct(entry);
+            const flags = ctx.primaryVisualFlags(entry);
+
+            for (const ruleId of Object.keys(byRule)) {
+                if (ctx.primaryMatchesRule(entry, ruleId)) byRule[ruleId].push(entry);
+            }
+
+            if (ctx.primaryMatchesRule(entry, 'yesilHucre') && g != null) {
+                for (let i = 0; i < YESIL_SON_DELTA_BUCKETS.length; i++) {
+                    const b = YESIL_SON_DELTA_BUCKETS[i];
+                    if (b.gapTest(g) && ctx.yesilBucketBlinkMatch(entry, b)) yesilBySonBucket[i].push(entry);
+                }
+                for (let i = 0; i < YESIL_RACE_DELTA_BUCKETS.length; i++) {
+                    if (YESIL_RACE_DELTA_BUCKETS[i].gapTest(g)) yesilByRaceBucket[i].push(entry);
+                }
+            }
+
+            if (ctx.primaryMatchesRule(entry, 'turuncuHucre') && g != null) {
+                for (let i = 0; i < YESIL_SON_DELTA_BUCKETS.length; i++) {
+                    const b = YESIL_SON_DELTA_BUCKETS[i];
+                    if (b.gapTest(g) && ctx.yesilBucketBlinkMatch(entry, b)) turuncuBySonBucket[i].push(entry);
+                }
+            }
+
+            if (flags.sariYazi && g != null) {
+                for (let i = 0; i < YESIL_SON_DELTA_BUCKETS.length; i++) {
+                    const b = YESIL_SON_DELTA_BUCKETS[i];
+                    if (b.gapTest(g) && ctx.yesilBucketBlinkMatch(entry, b)) sariBySonBucket[i].push(entry);
+                }
+            }
+
+            for (let pct = 1; pct <= 25; pct++) {
+                if (ctx.t1SariMatchesPct(entry, pct)) t1SariByPct[pct].push(entry);
+            }
+        }
+
+        return { byRule, yesilBySonBucket, turuncuBySonBucket, sariBySonBucket, yesilByRaceBucket, t1SariByPct };
+    }
+
+    async function renderMetricGostergeAsync(ctx, host, buildTag, opts) {
+        opts = opts || {};
+        const sync = !!opts.sync;
+        const isCancelled = opts.isCancelled || (() => false);
+        const onProgress = opts.onProgress || (() => {});
+
         const mid = ctx.spec.id;
         const flatEntries = host.flatEntries;
         if (!flatEntries.length) return;
+
+        const index = buildGostergeIndex(ctx, flatEntries);
+        const tiers = ctx.buildColorTiers();
+        const primaryBsBuckets = ctx.primaryBsBuckets();
 
         const setTag = id => {
             const el = document.getElementById(id);
@@ -410,33 +473,9 @@ const PtestGostergeEngine = (function () {
             pid(mid, 'sariDetailTag'), pid(mid, 'sariBsTag'), pid(mid, 't1SariTag')
         ].forEach(setTag);
 
-        function yesilEntriesForBucket(bucket) {
+        function entriesForTierDeltaAndBs(sourceEntries, tierMatch, deltaBucket, bsBucket) {
             const out = [];
-            for (const entry of flatEntries) {
-                if (!ctx.primaryMatchesRule(entry, 'yesilHucre')) continue;
-                const g = ctx.primaryGapPct(entry);
-                if (g == null || !bucket.gapTest(g)) continue;
-                if (!ctx.yesilBucketBlinkMatch(entry, bucket)) continue;
-                out.push(entry);
-            }
-            return out;
-        }
-
-        function tierEntriesForDelta(t1Pct, tierMatch, bucket) {
-            const out = [];
-            for (const entry of flatEntries) {
-                if (!ctx.t1SariMatchesPct(entry, t1Pct)) continue;
-                if (!tierMatch(entry)) continue;
-                const g = ctx.primaryGapPct(entry);
-                if (g == null || !bucket.gapTest(g)) continue;
-                out.push(entry);
-            }
-            return out;
-        }
-
-        function entriesForTierDeltaAndBs(tierMatch, deltaBucket, bsBucket) {
-            const out = [];
-            for (const entry of flatEntries) {
+            for (const entry of sourceEntries) {
                 if (!tierMatch(entry)) continue;
                 const g = ctx.primaryGapPct(entry);
                 if (g == null || !deltaBucket.gapTest(g)) continue;
@@ -448,6 +487,18 @@ const PtestGostergeEngine = (function () {
             return out;
         }
 
+        function tierEntriesForDelta(t1Pct, tierMatch, bucket) {
+            const out = [];
+            for (const entry of index.t1SariByPct[t1Pct]) {
+                if (!tierMatch(entry)) continue;
+                const g = ctx.primaryGapPct(entry);
+                if (g == null || !bucket.gapTest(g)) continue;
+                out.push(entry);
+            }
+            return out;
+        }
+
+        onProgress('Özet raporlar…');
         const globalMeta = document.getElementById(pid(mid, 'bitisGlobalMeta'));
         if (globalMeta) {
             globalMeta.textContent = '📊 Bitiş raporları · ' + ctx.spec.label
@@ -457,33 +508,57 @@ const PtestGostergeEngine = (function () {
         }
 
         for (const sec of BITIS_REPORT_SECTIONS) {
+            if (isCancelled()) return;
             const meta = document.getElementById(pid(mid, sec.suffix + 'Meta'));
             const grid = document.getElementById(pid(mid, sec.suffix + 'Grid'));
             if (!meta || !grid) continue;
-            const matched = flatEntries.filter(e => ctx.primaryMatchesRule(e, sec.ruleId));
+            const matched = index.byRule[sec.ruleId] || [];
             const r = host.buildBitisStatsFromEntries(matched);
             meta.textContent = sec.rowLabel + ' at satırı: ' + r.matchedRows + ' · Bitiş bilgisi olan: ' + r.withBitis
                 + (BITIS_REPORT_RULE_HINTS[sec.ruleId] || '');
             grid.innerHTML = renderBitisStatsGridHtml(r);
         }
 
-        const yesilEl = document.getElementById(pid(mid, 'yesilDetail'));
-        if (yesilEl) {
-            yesilEl.innerHTML = renderReportSubgroupsHtml(YESIL_SON_DELTA_BUCKETS, yesilEntriesForBucket, host) || '<p>Veri yok</p>';
-        }
+        await yieldToMain(sync);
+        if (isCancelled()) return;
 
+        onProgress('Yeşil / turuncu / sarı Δ detay…');
+        function renderIndexedSubgroups(buckets, indexed) {
+            let out = '';
+            for (let i = 0; i < buckets.length; i++) {
+                const stats = host.buildBitisStatsFromEntries(indexed[i]);
+                out += '<div class="ptest-report-subgroup">';
+                out += '<div class="ptest-report-subgroup-title">' + AtSpeedUtils.escapeHtml(buckets[i].label) + '</div>';
+                out += '<div class="ptest-report-subgroup-meta">' + stats.matchedRows + ' satır · ' + stats.withBitis + ' bitiş</div>';
+                out += '<div class="ptest-stats-wrap">' + renderBitisStatsGridHtml(stats) + '</div></div>';
+            }
+            return out;
+        }
+        const yesilEl = document.getElementById(pid(mid, 'yesilDetail'));
+        if (yesilEl) yesilEl.innerHTML = renderIndexedSubgroups(YESIL_SON_DELTA_BUCKETS, index.yesilBySonBucket) || '<p>Veri yok</p>';
+        const turuncuEl = document.getElementById(pid(mid, 'turuncuDetail'));
+        if (turuncuEl) turuncuEl.innerHTML = renderIndexedSubgroups(YESIL_SON_DELTA_BUCKETS, index.turuncuBySonBucket) || '<p>Veri yok</p>';
+        const sariEl = document.getElementById(pid(mid, 'sariDetail'));
+        if (sariEl) sariEl.innerHTML = renderIndexedSubgroups(YESIL_SON_DELTA_BUCKETS, index.sariBySonBucket) || '<p>Veri yok</p>';
+
+        await yieldToMain(sync);
+        if (isCancelled()) return;
+
+        onProgress('BS kırılımları…');
         const yesilBsEl = document.getElementById(pid(mid, 'yesilBsDetail'));
         if (yesilBsEl) {
             let h = '';
-            for (const deltaBucket of YESIL_SON_DELTA_BUCKETS) {
-                const parentStats = host.buildBitisStatsFromEntries(yesilEntriesForBucket(deltaBucket));
+            for (let bi = 0; bi < YESIL_SON_DELTA_BUCKETS.length; bi++) {
+                const deltaBucket = YESIL_SON_DELTA_BUCKETS[bi];
+                const bucketEntries = index.yesilBySonBucket[bi];
+                const parentStats = host.buildBitisStatsFromEntries(bucketEntries);
                 h += '<div class="ptest-report-delta-section"><div class="ptest-report-delta-section-title">'
                     + AtSpeedUtils.escapeHtml(deltaBucket.label) + '</div>';
                 h += '<div class="ptest-report-delta-section-meta">' + parentStats.matchedRows + ' satır · '
                     + parentStats.withBitis + ' bitiş</div>';
                 h += renderReportSubgroupsHtml(YESIL_T1_BS_BUCKETS, bsBucket => {
                     const out = [];
-                    for (const entry of yesilEntriesForBucket(deltaBucket)) {
+                    for (const entry of bucketEntries) {
                         const bs = ctx.t1BsPct(entry);
                         if (bs == null || !bsBucket.bsTest(bs)) continue;
                         out.push(entry);
@@ -491,20 +566,57 @@ const PtestGostergeEngine = (function () {
                     return out;
                 }, host);
                 h += '</div>';
+                if (!sync && bi % 3 === 2) {
+                    yesilBsEl.innerHTML = h;
+                    await yieldToMain(false);
+                    if (isCancelled()) return;
+                }
             }
             yesilBsEl.innerHTML = h || '<p>Veri yok</p>';
         }
 
+        const turuncuBsEl = document.getElementById(pid(mid, 'turuncuBsDetail'));
+        if (turuncuBsEl) {
+            let h = '';
+            for (let bi = 0; bi < YESIL_SON_DELTA_BUCKETS.length; bi++) {
+                const deltaBucket = YESIL_SON_DELTA_BUCKETS[bi];
+                h += '<div class="ptest-report-delta-section"><div class="ptest-report-delta-section-title">'
+                    + AtSpeedUtils.escapeHtml(deltaBucket.label) + '</div>';
+                h += renderReportSubgroupsHtml(YESIL_T1_BS_BUCKETS, bsBucket =>
+                    entriesForTierDeltaAndBs(index.turuncuBySonBucket[bi],
+                        e => ctx.primaryMatchesRule(e, 'turuncuHucre'), deltaBucket, bsBucket), host);
+                h += '</div>';
+            }
+            turuncuBsEl.innerHTML = h || '<p>Veri yok</p>';
+        }
+
+        const sariBsEl = document.getElementById(pid(mid, 'sariBsDetail'));
+        if (sariBsEl) {
+            let h = '';
+            for (let bi = 0; bi < YESIL_SON_DELTA_BUCKETS.length; bi++) {
+                const deltaBucket = YESIL_SON_DELTA_BUCKETS[bi];
+                h += '<div class="ptest-report-delta-section"><div class="ptest-report-delta-section-title">'
+                    + AtSpeedUtils.escapeHtml(deltaBucket.label) + '</div>';
+                h += renderReportSubgroupsHtml(YESIL_T1_BS_BUCKETS, bsBucket =>
+                    entriesForTierDeltaAndBs(index.sariBySonBucket[bi],
+                        e => ctx.primaryVisualFlags(e).sariYazi, deltaBucket, bsBucket), host);
+                h += '</div>';
+            }
+            sariBsEl.innerHTML = h || '<p>Veri yok</p>';
+        }
+
+        await yieldToMain(sync);
+        if (isCancelled()) return;
+
+        onProgress('Koşu içi BS sıralaması…');
         const raceEl = document.getElementById(pid(mid, 'yesilRaceDetail'));
         if (raceEl) {
             const raceGroups = host.buildRaceEntryGroups();
             let h = '';
-            for (const bucket of YESIL_RACE_DELTA_BUCKETS) {
+            for (let i = 0; i < YESIL_RACE_DELTA_BUCKETS.length; i++) {
+                const bucket = YESIL_RACE_DELTA_BUCKETS[i];
                 const rankItems = [];
-                for (const entry of flatEntries) {
-                    if (!ctx.primaryMatchesRule(entry, 'yesilHucre')) continue;
-                    const g = ctx.primaryGapPct(entry);
-                    if (g == null || !bucket.gapTest(g)) continue;
+                for (const entry of index.yesilByRaceBucket[i]) {
                     const rk = host.raceKey(entry.kayitId, entry.raceNo);
                     const { rank, field } = host.computeMetricRankInRace(entry, raceGroups.get(rk) || [], ctx.primaryBsPct);
                     rankItems.push({ rank, field });
@@ -519,68 +631,10 @@ const PtestGostergeEngine = (function () {
             raceEl.innerHTML = h || '<p>Veri yok</p>';
         }
 
-        function turuncuEntriesForBucket(bucket) {
-            const out = [];
-            for (const entry of flatEntries) {
-                if (!ctx.primaryMatchesRule(entry, 'turuncuHucre')) continue;
-                const g = ctx.primaryGapPct(entry);
-                if (g == null || !bucket.gapTest(g)) continue;
-                if (!ctx.yesilBucketBlinkMatch(entry, bucket)) continue;
-                out.push(entry);
-            }
-            return out;
-        }
+        await yieldToMain(sync);
+        if (isCancelled()) return;
 
-        function sariYaziEntriesForBucket(bucket) {
-            const out = [];
-            for (const entry of flatEntries) {
-                if (!ctx.primaryVisualFlags(entry).sariYazi) continue;
-                const g = ctx.primaryGapPct(entry);
-                if (g == null || !bucket.gapTest(g)) continue;
-                if (!ctx.yesilBucketBlinkMatch(entry, bucket)) continue;
-                out.push(entry);
-            }
-            return out;
-        }
-
-        const turuncuEl = document.getElementById(pid(mid, 'turuncuDetail'));
-        if (turuncuEl) {
-            turuncuEl.innerHTML = renderReportSubgroupsHtml(YESIL_SON_DELTA_BUCKETS, turuncuEntriesForBucket, host) || '<p>Veri yok</p>';
-        }
-
-        const turuncuBsEl = document.getElementById(pid(mid, 'turuncuBsDetail'));
-        if (turuncuBsEl) {
-            let h = '';
-            for (const deltaBucket of YESIL_SON_DELTA_BUCKETS) {
-                h += '<div class="ptest-report-delta-section"><div class="ptest-report-delta-section-title">'
-                    + AtSpeedUtils.escapeHtml(deltaBucket.label) + '</div>';
-                h += renderReportSubgroupsHtml(YESIL_T1_BS_BUCKETS, bsBucket =>
-                    entriesForTierDeltaAndBs(e => ctx.primaryMatchesRule(e, 'turuncuHucre'), deltaBucket, bsBucket), host);
-                h += '</div>';
-            }
-            turuncuBsEl.innerHTML = h || '<p>Veri yok</p>';
-        }
-
-        const sariEl = document.getElementById(pid(mid, 'sariDetail'));
-        if (sariEl) {
-            sariEl.innerHTML = renderReportSubgroupsHtml(YESIL_SON_DELTA_BUCKETS, sariYaziEntriesForBucket, host) || '<p>Veri yok</p>';
-        }
-
-        const sariBsEl = document.getElementById(pid(mid, 'sariBsDetail'));
-        if (sariBsEl) {
-            let h = '';
-            for (const deltaBucket of YESIL_SON_DELTA_BUCKETS) {
-                h += '<div class="ptest-report-delta-section"><div class="ptest-report-delta-section-title">'
-                    + AtSpeedUtils.escapeHtml(deltaBucket.label) + '</div>';
-                h += renderReportSubgroupsHtml(YESIL_T1_BS_BUCKETS, bsBucket =>
-                    entriesForTierDeltaAndBs(e => ctx.primaryVisualFlags(e).sariYazi, deltaBucket, bsBucket), host);
-                h += '</div>';
-            }
-            sariBsEl.innerHTML = h || '<p>Veri yok</p>';
-        }
-
-        const tiers = ctx.buildColorTiers();
-        const primaryBsBuckets = ctx.primaryBsBuckets();
+        onProgress('T1×DR sarı %1–25…');
         const t1SariContent = document.getElementById(pid(mid, 't1SariContent'));
         const t1SariGlobalMeta = document.getElementById(pid(mid, 't1SariGlobalMeta'));
         if (t1SariGlobalMeta) {
@@ -589,9 +643,12 @@ const PtestGostergeEngine = (function () {
                 + primaryBsBuckets.length + ' BS × ' + T1_DR_SON_BS_RANGE_BUCKETS.length + ' T1 BS · build ' + buildTag;
         }
         if (t1SariContent) {
+            t1SariContent.innerHTML = '';
             let h = '';
             for (let pct = 1; pct <= 25; pct++) {
-                const matched = flatEntries.filter(e => ctx.t1SariMatchesPct(e, pct));
+                if (isCancelled()) return;
+                onProgress('T1 sarı %' + pct + ' / 25…');
+                const matched = index.t1SariByPct[pct];
                 const stats = host.buildBitisStatsFromEntries(matched);
                 h += '<div class="ptest-t1-indicator-block">';
                 h += '<div class="ptest-t1-indicator-title">Sarı · SON·Δ %' + pct + '</div>';
@@ -620,7 +677,7 @@ const PtestGostergeEngine = (function () {
                         + AtSpeedUtils.escapeHtml(ctx.spec.label) + ' · ' + AtSpeedUtils.escapeHtml(tier.comboLabel)
                         + ' · SON·BS kırılımları</div>';
                     for (const bsBucket of primaryBsBuckets) {
-                        const bsEntries = flatEntries.filter(e => {
+                        const bsEntries = matched.filter(e => {
                             if (!tier.comboMatch(e, pct)) return false;
                             const bs = ctx.primaryBsPct(e);
                             return bs != null && bsBucket.bsTest(bs);
@@ -650,9 +707,18 @@ const PtestGostergeEngine = (function () {
                     h += '</div>';
                 }
                 h += '</div>';
+                if (!sync) {
+                    t1SariContent.innerHTML = h;
+                    await yieldToMain(false);
+                }
             }
             t1SariContent.innerHTML = h || '<p>Gösterge yok</p>';
         }
+        onProgress('Tamamlandı');
+    }
+
+    function renderMetricGosterge(ctx, host, buildTag) {
+        return renderMetricGostergeAsync(ctx, host, buildTag, { sync: true });
     }
 
     function ensureMetricPanels(container) {
@@ -680,6 +746,7 @@ const PtestGostergeEngine = (function () {
         ensureMetricPanels,
         switchMetricTab,
         renderMetricGosterge,
+        renderMetricGostergeAsync,
         pid,
         _YESIL_SON_DELTA_BUCKETS: YESIL_SON_DELTA_BUCKETS,
         _YESIL_RACE_DELTA_BUCKETS: YESIL_RACE_DELTA_BUCKETS,

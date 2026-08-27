@@ -331,9 +331,13 @@ const PtestGostergeDepthEngine = (function () {
         h += '<p class="ptest-depth-mode-hint">Her blok: komşu derinlik çifti (yeni ↔ eski) arasındaki % fark · olumlu = yeni &gt; eski · aynı renk/Δ mantığı</p>';
         for (const pair of DEPTH_PAIRS) {
             const p = pair.index;
-            h += '<details class="ptest-depth-pair-block" open>';
+            const openAttr = p === 0 ? ' open' : '';
+            h += '<details class="ptest-depth-pair-block"' + openAttr + ' data-depth-pair="' + p + '">';
             h += '<summary class="ptest-depth-pair-summary">' + AtSpeedUtils.escapeHtml(pair.label) + '</summary>';
-            h += '<div class="ptest-depth-pair-inner" id="' + pid(mid, p, 'inner') + '"></div>';
+            h += '<div class="ptest-depth-pair-inner" id="' + pid(mid, p, 'inner') + '"'
+                + (p === 0 ? '' : ' data-lazy="1"') + '>'
+                + (p === 0 ? '' : '<p class="ptest-depth-lazy-hint">Açılınca yüklenecek…</p>')
+                + '</div>';
             h += '</details>';
         }
         h += '</div>';
@@ -569,16 +573,78 @@ const PtestGostergeDepthEngine = (function () {
         inner.innerHTML = h;
     }
 
-    function renderDepthMetricGosterge(spec, host, buildTag) {
-        attachExtraMeta(host.flatEntries);
+    const depthScalesCache = new Map();
+
+    function getDepthScales(spec, flatEntries) {
+        const key = spec.id + ':' + flatEntries.length;
+        if (depthScalesCache.has(key)) return depthScalesCache.get(key);
         const scales = {
-            primary: buildGlobalPairScales(host.flatEntries, spec.primaryKey, DEPTH_PAIRS.length),
-            cross: buildGlobalPairScales(host.flatEntries, spec.crossKey, DEPTH_PAIRS.length)
+            primary: buildGlobalPairScales(flatEntries, spec.primaryKey, DEPTH_PAIRS.length),
+            cross: buildGlobalPairScales(flatEntries, spec.crossKey, DEPTH_PAIRS.length)
         };
+        depthScalesCache.set(key, scales);
+        return scales;
+    }
+
+    function bindDepthPairLazy(panelEl, spec, host, buildTag, opts) {
+        if (!panelEl || panelEl.dataset.lazyBound === '1') return;
+        panelEl.dataset.lazyBound = '1';
+        const scales = getDepthScales(spec, host.flatEntries);
+        panelEl.querySelectorAll('.ptest-depth-pair-block').forEach(block => {
+            block.addEventListener('toggle', async () => {
+                if (!block.open) return;
+                const inner = block.querySelector('.ptest-depth-pair-inner');
+                if (!inner || inner.dataset.rendered === '1' || inner.dataset.loading === '1') return;
+                inner.dataset.loading = '1';
+                const pairIndex = parseInt(block.dataset.depthPair, 10) || 0;
+                const ctx = createPairContext(spec, pairIndex, host, scales);
+                if (opts?.onProgress) opts.onProgress(DEPTH_PAIRS[pairIndex]?.label + ' yükleniyor…');
+                await yieldToMain(false);
+                renderPairBlock(ctx, host, buildTag);
+                inner.dataset.rendered = '1';
+                delete inner.dataset.loading;
+            });
+        });
+    }
+
+    function yieldToMain(sync) {
+        if (sync) return Promise.resolve();
+        return new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
+    }
+
+    async function renderDepthMetricGostergeAsync(spec, host, buildTag, opts) {
+        opts = opts || {};
+        const sync = !!opts.sync;
+        const isCancelled = opts.isCancelled || (() => false);
+        const onProgress = opts.onProgress || (() => {});
+
+        attachExtraMeta(host.flatEntries);
+        const panel = document.getElementById(panelId(spec.id));
+        if (!panel) return;
+
+        const scales = getDepthScales(spec, host.flatEntries);
+        bindDepthPairLazy(panel, spec, host, buildTag, opts);
+
         for (const pair of DEPTH_PAIRS) {
+            if (isCancelled()) return;
+            const inner = document.getElementById(pid(spec.id, pair.index, 'inner'));
+            if (!inner) continue;
+            if (!sync && pair.index > 0 && inner.dataset.lazy === '1') {
+                inner.innerHTML = '<p class="ptest-depth-lazy-hint">Açılınca yüklenecek…</p>';
+                inner.dataset.rendered = '';
+                continue;
+            }
+            onProgress(pair.label + '…');
             const ctx = createPairContext(spec, pair.index, host, scales);
             renderPairBlock(ctx, host, buildTag);
+            inner.dataset.rendered = '1';
+            if (!sync && pair.index === 0) await yieldToMain(false);
         }
+        onProgress('Tamamlandı');
+    }
+
+    function renderDepthMetricGosterge(spec, host, buildTag) {
+        return renderDepthMetricGostergeAsync(spec, host, buildTag, { sync: true });
     }
 
     function ensureDepthPanels(container, flatEntries) {
@@ -608,6 +674,7 @@ const PtestGostergeDepthEngine = (function () {
         ensureDepthPanels,
         switchDepthMetricTab,
         renderDepthMetricGosterge,
+        renderDepthMetricGostergeAsync,
         panelId
     };
 })();

@@ -346,6 +346,31 @@
         }
         .ptest-depth-pair-summary::-webkit-details-marker { display: none; }
         .ptest-depth-metric-tab-btn { font-size: 10px; padding: 6px 10px; }
+        .ptest-depth-lazy-hint { color: #789; font-style: italic; padding: 12px; margin: 0; }
+        #gostergeContentWrap { position: relative; }
+        .ptest-gosterge-loading {
+            position: absolute; inset: 0; z-index: 50;
+            background: rgba(255, 255, 255, 0.88);
+            display: flex; align-items: flex-start; justify-content: center;
+            padding-top: 48px;
+        }
+        .ptest-gosterge-loading.hidden { display: none !important; }
+        .ptest-gosterge-loading-box {
+            background: #fff; border: 2px solid #7b1fa2; border-radius: 12px;
+            padding: 20px 28px; max-width: 420px; width: 90%;
+            box-shadow: 0 8px 32px rgba(74, 20, 140, 0.18);
+            text-align: center;
+        }
+        .ptest-gosterge-spinner {
+            width: 36px; height: 36px; margin: 0 auto 12px;
+            border: 4px solid #e1bee7; border-top-color: #7b1fa2;
+            border-radius: 50%; animation: ptest-spin 0.8s linear infinite;
+        }
+        @keyframes ptest-spin { to { transform: rotate(360deg); } }
+        .ptest-gosterge-loading-title { font-weight: 800; color: #4a148c; font-size: 14px; margin-bottom: 6px; }
+        .ptest-gosterge-loading-sub { font-size: 11px; color: #546e7a; line-height: 1.4; }
+        .ptest-gosterge-busy .ptest-gosterge-metric-tab-btn,
+        .ptest-gosterge-busy .ptest-gosterge-mode-btn { pointer-events: none; opacity: 0.55; }
         .ptest-t1-sari-tier-wrap { margin-top: 10px; padding-top: 10px; border-top: 2px dashed #cfd8dc; }
         .ptest-t1-sari-tier-heading { font-size: 11px; font-weight: 800; margin-bottom: 6px; }
         .ptest-t1-sari-tier-subgroup {
@@ -626,6 +651,13 @@
         Veri yükleyin — göstergeler &quot;Tüm kayıtları yükle&quot; sonrası görünür
     </div>
     <div id="gostergeContentWrap" class="hidden ptest-gosterge-compact">
+    <div id="gostergeLoadingOverlay" class="ptest-gosterge-loading hidden" aria-live="polite">
+        <div class="ptest-gosterge-loading-box">
+            <div class="ptest-gosterge-spinner"></div>
+            <div class="ptest-gosterge-loading-title" id="gostergeLoadingTitle">Göstergeler hesaplanıyor…</div>
+            <div class="ptest-gosterge-loading-sub" id="gostergeLoadingSub">Lütfen bekleyin — büyük veri setlerinde bu işlem birkaç saniye sürebilir.</div>
+        </div>
+    </div>
     <div class="ptest-gosterge-mode-tabs">
         <button type="button" class="ptest-gosterge-mode-btn active" data-gosterge-mode="sonDelta" id="gostergeModeSonDeltaBtn">SON · Δ göstergeleri</button>
         <button type="button" class="ptest-gosterge-mode-btn" data-gosterge-mode="depthPair" id="gostergeModeDepthPairBtn">Derinlik gelişme (SON↔1ÖNCE…)</button>
@@ -642,13 +674,13 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260828n"></script>
-<script src="js/istatistik-engine.js?v=20260828n"></script>
-<script src="js/istatistik-grids-extra.js?v=20260828n"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260828n"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260828n"></script>
-<script src="js/ptest-gosterge-engine.js?v=20260828n"></script>
-<script src="js/ptest-gosterge-depth-engine.js?v=20260828n"></script>
+<script src="js/utils.js?v=20260829a"></script>
+<script src="js/istatistik-engine.js?v=20260829a"></script>
+<script src="js/istatistik-grids-extra.js?v=20260829a"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260829a"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260829a"></script>
+<script src="js/ptest-gosterge-engine.js?v=20260829a"></script>
+<script src="js/ptest-gosterge-depth-engine.js?v=20260829a"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -1112,6 +1144,9 @@ function switchPtestViewTab(tabId) {
     const gosterge = document.getElementById('ptestTabGosterge');
     if (tablo) tablo.classList.toggle('hidden', ptestViewTab !== 'tablo');
     if (gosterge) gosterge.classList.toggle('hidden', ptestViewTab !== 'gosterge');
+    if (ptestViewTab === 'gosterge' && flatEntries.length) {
+        renderTuruncuReport();
+    }
 }
 
 function bindPtestViewTabs() {
@@ -1128,9 +1163,48 @@ function updateGostergeTabVisibility() {
     if (content) content.classList.toggle('hidden', !hasData);
 }
 
-const PTEST_BUILD = '20260828n';
+const PTEST_BUILD = '20260829a';
+let gostergeRenderGen = 0;
+let gostergeDataRev = 0;
+let gostergeBitisDebounce = null;
+const gostergeRenderedRev = new Map();
+
+function gostergeCacheKey() {
+    return ptestGostergeMode + ':' + (ptestGostergeMode === 'depthPair' ? ptestDepthMetricTab : ptestGostergeMetricTab);
+}
+
+function invalidateGostergeCache() {
+    gostergeDataRev++;
+    gostergeRenderedRev.clear();
+}
+
+function showGostergeLoading(title, sub) {
+    const wrap = document.getElementById('gostergeContentWrap');
+    const overlay = document.getElementById('gostergeLoadingOverlay');
+    const titleEl = document.getElementById('gostergeLoadingTitle');
+    const subEl = document.getElementById('gostergeLoadingSub');
+    if (titleEl) titleEl.textContent = title || 'Göstergeler hesaplanıyor…';
+    if (subEl) subEl.textContent = sub || 'Lütfen bekleyin — büyük veri setlerinde bu işlem birkaç saniye sürebilir.';
+    if (overlay) overlay.classList.remove('hidden');
+    if (wrap) wrap.classList.add('ptest-gosterge-busy');
+}
+
+function hideGostergeLoading() {
+    const wrap = document.getElementById('gostergeContentWrap');
+    const overlay = document.getElementById('gostergeLoadingOverlay');
+    if (overlay) overlay.classList.add('hidden');
+    if (wrap) wrap.classList.remove('ptest-gosterge-busy');
+}
+
+function scheduleGostergeRefresh() {
+    invalidateGostergeCache();
+    if (ptestViewTab !== 'gosterge') return;
+    clearTimeout(gostergeBitisDebounce);
+    gostergeBitisDebounce = setTimeout(() => renderTuruncuReport(), 500);
+}
 
 function resetGostergePanels() {
+    invalidateGostergeCache();
     const depthPanels = document.getElementById('gostergeDepthMetricPanels');
     const metricPanels = document.getElementById('gostergeMetricPanels');
     if (depthPanels) {
@@ -1171,24 +1245,37 @@ function initGostergeDepthMetricTabs() {
     if (!metrics.some(m => m.id === ptestDepthMetricTab)) {
         ptestDepthMetricTab = metrics[0]?.id || 'son8001';
     }
-    let th = '';
-    for (const m of metrics) {
-        const active = m.id === ptestDepthMetricTab ? ' active' : '';
-        th += '<button type="button" class="ptest-gosterge-metric-tab-btn ptest-depth-metric-tab-btn' + active
-            + '" data-ptest-depth-metric="' + m.id + '">' + AtSpeedUtils.escapeHtml(m.label) + '</button>';
+    const metricsFp = metrics.map(m => m.id).join(',');
+    if (tabsEl.dataset.metricsFp !== metricsFp) {
+        let th = '';
+        for (const m of metrics) {
+            const active = m.id === ptestDepthMetricTab ? ' active' : '';
+            th += '<button type="button" class="ptest-gosterge-metric-tab-btn ptest-depth-metric-tab-btn' + active
+                + '" data-ptest-depth-metric="' + m.id + '">' + AtSpeedUtils.escapeHtml(m.label) + '</button>';
+        }
+        tabsEl.innerHTML = th;
+        tabsEl.dataset.metricsFp = metricsFp;
+        delete panelsEl.dataset.depthBuilt;
+        panelsEl.innerHTML = '';
     }
-    tabsEl.innerHTML = th;
     PtestGostergeDepthEngine.ensureDepthPanels(panelsEl, flatEntries);
-    tabsEl.querySelectorAll('.ptest-depth-metric-tab-btn').forEach(btn => {
-        btn.onclick = () => {
+    if (tabsEl.dataset.bound !== '1') {
+        tabsEl.dataset.bound = '1';
+        tabsEl.addEventListener('click', (e) => {
+            const btn = e.target.closest('.ptest-depth-metric-tab-btn');
+            if (!btn) return;
             ptestDepthMetricTab = btn.dataset.ptestDepthMetric || 'son8001';
             PtestGostergeDepthEngine.switchDepthMetricTab(ptestDepthMetricTab);
             tabsEl.querySelectorAll('.ptest-depth-metric-tab-btn').forEach(b => {
                 b.classList.toggle('active', b.dataset.ptestDepthMetric === ptestDepthMetricTab);
             });
             renderTuruncuReport();
-        };
-    });
+        });
+    } else {
+        tabsEl.querySelectorAll('.ptest-depth-metric-tab-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.ptestDepthMetric === ptestDepthMetricTab);
+        });
+    }
     PtestGostergeDepthEngine.switchDepthMetricTab(ptestDepthMetricTab);
 }
 
@@ -1207,26 +1294,32 @@ function getPtestGostergeHost() {
 function initGostergeMetricTabs() {
     const tabsEl = document.getElementById('gostergeMetricTabs');
     const panelsEl = document.getElementById('gostergeMetricPanels');
-    if (!tabsEl || !panelsEl || tabsEl.dataset.bound === '1') return;
-    tabsEl.dataset.bound = '1';
-    let th = '';
-    for (const m of PtestGostergeEngine.METRICS) {
-        const active = m.id === ptestGostergeMetricTab ? ' active' : '';
-        th += '<button type="button" class="ptest-gosterge-metric-tab-btn' + active
-            + '" data-ptest-metric="' + m.id + '">' + AtSpeedUtils.escapeHtml(m.label) + '</button>';
-    }
-    tabsEl.innerHTML = th;
-    PtestGostergeEngine.ensureMetricPanels(panelsEl);
-    tabsEl.querySelectorAll('.ptest-gosterge-metric-tab-btn').forEach(btn => {
-        btn.onclick = () => {
+    if (!tabsEl || !panelsEl) return;
+    if (tabsEl.dataset.bound !== '1') {
+        tabsEl.dataset.bound = '1';
+        let th = '';
+        for (const m of PtestGostergeEngine.METRICS) {
+            const active = m.id === ptestGostergeMetricTab ? ' active' : '';
+            th += '<button type="button" class="ptest-gosterge-metric-tab-btn' + active
+                + '" data-ptest-metric="' + m.id + '">' + AtSpeedUtils.escapeHtml(m.label) + '</button>';
+        }
+        tabsEl.innerHTML = th;
+        PtestGostergeEngine.ensureMetricPanels(panelsEl);
+        tabsEl.addEventListener('click', (e) => {
+            const btn = e.target.closest('.ptest-gosterge-metric-tab-btn');
+            if (!btn || btn.classList.contains('ptest-depth-metric-tab-btn')) return;
             ptestGostergeMetricTab = btn.dataset.ptestMetric || 'son8001';
             PtestGostergeEngine.switchMetricTab(ptestGostergeMetricTab);
-            tabsEl.querySelectorAll('.ptest-gosterge-metric-tab-btn').forEach(b => {
+            tabsEl.querySelectorAll('.ptest-gosterge-metric-tab-btn:not(.ptest-depth-metric-tab-btn)').forEach(b => {
                 b.classList.toggle('active', b.dataset.ptestMetric === ptestGostergeMetricTab);
             });
             renderTuruncuReport();
-        };
-    });
+        });
+    } else {
+        tabsEl.querySelectorAll('.ptest-gosterge-metric-tab-btn:not(.ptest-depth-metric-tab-btn)').forEach(b => {
+            b.classList.toggle('active', b.dataset.ptestMetric === ptestGostergeMetricTab);
+        });
+    }
     PtestGostergeEngine.switchMetricTab(ptestGostergeMetricTab);
 }
 
@@ -1915,22 +2008,59 @@ function renderColorReportSection(section) {
     grid.innerHTML = renderBitisStatsGridHtml(r);
 }
 
-function renderTuruncuReport() {
+async function renderTuruncuReport() {
     updateGostergeTabVisibility();
     initGostergeModeTabs();
     if (!flatEntries.length) return;
-    if (ptestGostergeMode === 'depthPair') {
-        initGostergeDepthMetricTabs();
-        const metrics = PtestGostergeDepthEngine.allMetrics(flatEntries);
-        const spec = metrics.find(m => m.id === ptestDepthMetricTab) || metrics[0];
-        if (spec) PtestGostergeDepthEngine.renderDepthMetricGosterge(spec, getPtestGostergeHost(), PTEST_BUILD);
-        return;
+    if (ptestViewTab !== 'gosterge') return;
+
+    const cacheKey = gostergeCacheKey();
+    if (gostergeRenderedRev.get(cacheKey) === gostergeDataRev) return;
+
+    const gen = ++gostergeRenderGen;
+    const rowCount = flatEntries.length;
+    showGostergeLoading(
+        'Göstergeler hesaplanıyor…',
+        rowCount + ' at satırı · ' + (ptestGostergeMode === 'depthPair' ? 'Derinlik gelişme' : 'SON·Δ')
+            + ' · lütfen bekleyin'
+    );
+
+    await new Promise(r => requestAnimationFrame(() => setTimeout(r, 16)));
+    if (gen !== gostergeRenderGen) return;
+
+    const host = getPtestGostergeHost();
+    const renderOpts = {
+        isCancelled: () => gen !== gostergeRenderGen,
+        onProgress: (msg) => {
+            if (gen !== gostergeRenderGen) return;
+            const subEl = document.getElementById('gostergeLoadingSub');
+            if (subEl) subEl.textContent = msg + ' · ' + rowCount + ' satır';
+        }
+    };
+
+    try {
+        if (ptestGostergeMode === 'depthPair') {
+            initGostergeDepthMetricTabs();
+            const metrics = PtestGostergeDepthEngine.allMetrics(flatEntries);
+            const spec = metrics.find(m => m.id === ptestDepthMetricTab) || metrics[0];
+            if (spec) await PtestGostergeDepthEngine.renderDepthMetricGostergeAsync(spec, host, PTEST_BUILD, renderOpts);
+        } else {
+            initGostergeMetricTabs();
+            const spec = PtestGostergeEngine.METRICS.find(m => m.id === ptestGostergeMetricTab)
+                || PtestGostergeEngine.METRICS[0];
+            const ctx = PtestGostergeEngine.createContext(spec, host);
+            await PtestGostergeEngine.renderMetricGostergeAsync(ctx, host, PTEST_BUILD, renderOpts);
+        }
+        if (gen !== gostergeRenderGen) return;
+        gostergeRenderedRev.set(cacheKey, gostergeDataRev);
+    } catch (err) {
+        if (gen === gostergeRenderGen) {
+            const subEl = document.getElementById('gostergeLoadingSub');
+            if (subEl) subEl.textContent = 'Hata: ' + err.message;
+        }
+    } finally {
+        if (gen === gostergeRenderGen) hideGostergeLoading();
     }
-    initGostergeMetricTabs();
-    const spec = PtestGostergeEngine.METRICS.find(m => m.id === ptestGostergeMetricTab)
-        || PtestGostergeEngine.METRICS[0];
-    const ctx = PtestGostergeEngine.createContext(spec, getPtestGostergeHost());
-    PtestGostergeEngine.renderMetricGosterge(ctx, getPtestGostergeHost(), PTEST_BUILD);
 }
 
 function hideBitisReportPanels() {
@@ -2614,10 +2744,9 @@ function bindTableEvents() {
     document.querySelectorAll('.ptest-bitis-input').forEach(input => {
         input.addEventListener('input', () => {
             input.classList.toggle('ptest-bitis-filled', input.value.trim() !== '');
-            renderTuruncuReport();
         });
         input.addEventListener('change', () => {
-            renderTuruncuReport();
+            scheduleGostergeRefresh();
             if (bitisSortMode === 1 || bitisFilterPos || (sonDeltaSortMode && sonDeltaSortMode !== '0')
                 || (t1SonDeltaSortMode && t1SonDeltaSortMode !== '0')
                 || (sonBsSortMode && sonBsSortMode !== '0')
