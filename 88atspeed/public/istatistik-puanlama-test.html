@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Puanlama Test — SON800-1 + T1×DR</title>
-    <link href="css/theme.css?v=20260827v" rel="stylesheet">
+    <link href="css/theme.css?v=20260827w" rel="stylesheet">
     <style>
         body { margin: 0; background: var(--bg-page, #f5f5f5); font-family: Inter, sans-serif; }
         .ptest-wrap { padding: 16px 20px 32px; max-width: 100%; }
@@ -182,11 +182,29 @@
         .ptest-report-green-detail h3,
         .ptest-report-green-bs-detail h3 { color: #1b5e20; font-size: 15px; }
         .ptest-report-green-bs-detail h3 { color: #0d47a1; }
-        .ptest-report-green-detail .ptest-report-scroll,
-        .ptest-report-green-bs-detail .ptest-report-scroll {
+        .ptest-report-green-detail .ptest-report-scroll {
             max-height: min(70vh, 920px); overflow: auto;
             padding-right: 4px;
         }
+        .ptest-report-green-bs-detail .ptest-report-scroll {
+            max-height: min(85vh, 1200px); overflow: auto;
+            padding-right: 4px;
+        }
+        .ptest-report-delta-section {
+            margin-bottom: 18px; padding: 12px 12px 4px;
+            background: #fff; border: 2px solid #90caf9; border-radius: 8px;
+        }
+        .ptest-report-delta-section-title {
+            font-size: 14px; font-weight: 900; color: #0d47a1; margin-bottom: 4px;
+        }
+        .ptest-report-delta-section-meta {
+            font-size: 11px; color: #546e7a; margin-bottom: 10px; font-weight: 600;
+        }
+        .ptest-report-green-bs-detail .ptest-report-subgroup {
+            background: #e3f2fd; border-color: #64b5f6;
+        }
+        .ptest-report-green-bs-detail .ptest-report-subgroup-title { color: #1565c0; }
+        .ptest-report-green-bs-detail .ptest-report-subgroup-meta { color: #1976d2; }
         .ptest-report-build-tag {
             float: right; font-size: 10px; font-weight: 700; color: #7b1fa2;
             background: #f3e5f5; padding: 2px 6px; border-radius: 4px;
@@ -228,11 +246,11 @@
             <div class="ptest-report-scroll ptest-report-yesil-detail" id="yesilReportDetail"></div>
         </div>
         <div class="ptest-report-panel ptest-report-green-bs-detail" id="yesilBlinkBsDetailPanel">
-            <h3>🟢 Yeşil hücre · yanıp sönen %0 — T1×DR · SON·BS bitiş raporu (8 grup)
+            <h3>🟢 Yeşil hücre — SON·Δ + T1×DR · SON·BS bitiş raporu (14×8 grup)
                 <span class="ptest-report-build-tag" id="yesilBlinkBsBuildTag"></span>
             </h3>
             <p class="ptest-report-meta" style="margin:0 0 10px;color:#1565c0">
-                Yeşil hücre + SON·Δ yanıp sönen %0 · T1×DR · SON derinlik · SON·BS kırılımları
+                Her SON·Δ aralığı (Tam %0 · %5 · %10 · %15 · %15–20 · %20–25 · %25+ · yanıp sönen) → 8 T1×DR · SON·BS kırılımı
             </p>
             <div class="ptest-report-scroll ptest-report-yesil-bs-detail" id="yesilBlinkBsReportDetail"></div>
         </div>
@@ -264,11 +282,11 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260827v"></script>
-<script src="js/istatistik-engine.js?v=20260827v"></script>
-<script src="js/istatistik-grids-extra.js?v=20260827v"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260827v"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260827v"></script>
+<script src="js/utils.js?v=20260827w"></script>
+<script src="js/istatistik-engine.js?v=20260827w"></script>
+<script src="js/istatistik-grids-extra.js?v=20260827w"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260827w"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260827w"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -510,19 +528,15 @@ function yesilEntriesForBucket(bucket) {
     return out;
 }
 
-const PTEST_BUILD = '20260827v';
-
-function isYesilHucreBlinkZero(entry) {
-    return sonDeltaMatchesRule(entry, 'yesilHucre') && sonDeltaGapPct(entry) === 0;
-}
+const PTEST_BUILD = '20260827w';
 
 function t1SonDepthBsPct(entry) {
     const v = entry.row.t1drDepths?.[0]?.successPct;
     return v != null ? v : null;
 }
 
-/** Yeşil hücre + SON·Δ yanıp sönen %0 → T1×DR · SON·BS aralıkları */
-const YESIL_BLINK_T1_BS_BUCKETS = [
+/** T1×DR · SON·BS alt kırılımları — her SON·Δ aralığı için aynı 8 grup */
+const YESIL_T1_BS_BUCKETS = [
     { label: 'T1×DR · SON·BS kırmızı iç · tam %0', bsTest: bs => bs === 0 },
     { label: 'T1×DR · SON·BS tam %100', bsTest: bs => bs === 100 },
     { label: 'T1×DR · SON·BS %90 – %99', bsTest: bs => bs >= 90 && bs <= 99 },
@@ -533,12 +547,15 @@ const YESIL_BLINK_T1_BS_BUCKETS = [
     { label: 'T1×DR · SON·BS %1 – %49', bsTest: bs => bs >= 1 && bs <= 49 }
 ];
 
-function yesilBlinkEntriesForBsBucket(bucket) {
+function yesilEntriesForDeltaAndBs(deltaBucket, bsBucket) {
     const out = [];
     for (const entry of flatEntries) {
-        if (!isYesilHucreBlinkZero(entry)) continue;
+        if (!sonDeltaMatchesRule(entry, 'yesilHucre')) continue;
+        const g = sonDeltaGapPct(entry);
+        if (g == null || !deltaBucket.gapTest(g)) continue;
+        if (!yesilBucketBlinkMatch(entry, deltaBucket)) continue;
         const bs = t1SonDepthBsPct(entry);
-        if (bs == null || !bucket.bsTest(bs)) continue;
+        if (bs == null || !bsBucket.bsTest(bs)) continue;
         out.push(entry);
     }
     return out;
@@ -563,22 +580,35 @@ function renderYesilDetailedReport() {
     const el = document.getElementById('yesilReportDetail');
     const panel = document.getElementById('yesilDetailPanel');
     const tag = document.getElementById('yesilDetailBuildTag');
-    if (!el || !panel) return;
+    if (!el || !panel) return 0;
     if (tag) tag.textContent = 'build ' + PTEST_BUILD;
     el.innerHTML = renderReportSubgroupsHtml(YESIL_SON_DELTA_BUCKETS, yesilEntriesForBucket) || '<p>Veri yok</p>';
     panel.classList.toggle('hidden', !flatEntries.length);
     return YESIL_SON_DELTA_BUCKETS.length;
 }
 
-function renderYesilBlinkBsDetailedReport() {
+function renderYesilDeltaBsDetailedReport() {
     const el = document.getElementById('yesilBlinkBsReportDetail');
     const panel = document.getElementById('yesilBlinkBsDetailPanel');
     const tag = document.getElementById('yesilBlinkBsBuildTag');
     if (!el || !panel) return 0;
     if (tag) tag.textContent = 'build ' + PTEST_BUILD;
-    el.innerHTML = renderReportSubgroupsHtml(YESIL_BLINK_T1_BS_BUCKETS, yesilBlinkEntriesForBsBucket) || '<p>Veri yok</p>';
+    let h = '';
+    for (const deltaBucket of YESIL_SON_DELTA_BUCKETS) {
+        const parentEntries = yesilEntriesForBucket(deltaBucket);
+        const parentStats = buildBitisStatsFromEntries(parentEntries);
+        h += '<div class="ptest-report-delta-section">';
+        h += '<div class="ptest-report-delta-section-title">' + AtSpeedUtils.escapeHtml(deltaBucket.label) + '</div>';
+        h += '<div class="ptest-report-delta-section-meta">'
+            + parentStats.matchedRows + ' satır · ' + parentStats.withBitis + ' bitiş bilgisi'
+            + ' · yeşil hücre · SON·Δ</div>';
+        h += renderReportSubgroupsHtml(YESIL_T1_BS_BUCKETS, bsBucket =>
+            yesilEntriesForDeltaAndBs(deltaBucket, bsBucket));
+        h += '</div>';
+    }
+    el.innerHTML = h || '<p>Veri yok</p>';
     panel.classList.toggle('hidden', !flatEntries.length);
-    return YESIL_BLINK_T1_BS_BUCKETS.length;
+    return YESIL_SON_DELTA_BUCKETS.length * YESIL_T1_BS_BUCKETS.length;
 }
 
 function buildColorBitisReport(ruleId) {
@@ -646,12 +676,12 @@ function renderTuruncuReport() {
         renderColorReportSection(section);
     }
     const detailGroups = renderYesilDetailedReport();
-    const bsGroups = renderYesilBlinkBsDetailedReport();
+    const bsGroups = renderYesilDeltaBsDetailedReport();
     if (detailGroups) {
         globalMeta.textContent += ' · Yeşil Δ detay: ' + detailGroups + ' grup';
     }
     if (bsGroups) {
-        globalMeta.textContent += ' · Yeşil BS detay: ' + bsGroups + ' grup';
+        globalMeta.textContent += ' · Yeşil BS detay: 14×8 = ' + bsGroups + ' alt grup';
     }
 }
 
