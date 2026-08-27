@@ -968,7 +968,7 @@
 <script src="js/istatistik-gosterim-flags.js?v=20260826v"></script>
 <script src="js/istatistik-tahmin-engine.js?v=20260826v"></script>
 <script>
-const ISTAT_BUILD = '20260826v';
+const ISTAT_BUILD = '20260827a';
 const TAHMIN_METRIC_ALL = '__hepsi__';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
@@ -3017,9 +3017,3 @@ window.addEventListener('load', () => {
 </script>
 </body>
 </html>
-<script>
-// Auto-load test data
-setTimeout(() => {
-    onKayitLoaded({id:1,tarih:'24.08.2026',hipodrom:'Bursa',race_count:1,veri:[{mesafe:'2200',pist:'Çim',horses:Array.from({length:4},(_,i)=>({no:i+1,name:'At '+(i+1),kosular:Array.from({length:7},(_,j)=>({tarih:String(10+j).padStart(2,'0')+'.08.2026',mesafe:'2200',hipodrom:'Bursa',at_derece:'2.20.00',son800_bir:'0.46.00',son800_iki:'0.47.00',test1:80,test2:70,test3:60}))}))}]});
-}, 500);
-</script>
