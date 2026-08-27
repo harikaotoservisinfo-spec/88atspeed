@@ -182,7 +182,33 @@ const GostergeScoringEngine = (function () {
         return out;
     }
 
-    function calibrate(flatEntries, host) {
+    function yieldToMain() {
+        return new Promise(resolve => setTimeout(resolve, 0));
+    }
+
+    function buildLiveMatchers(metrics, host, depthScales) {
+        const liveHost = {
+            flatEntries: host.flatEntries,
+            buildBitisStatsFromEntries: host.buildBitisStatsFromEntries,
+            bitisValueForSort: host.bitisValueForSort
+        };
+        const out = {};
+        for (const m of metrics) {
+            let ctx;
+            let prefix = '';
+            if (m.mode === 'depthPair') {
+                ctx = createDepthCtx(m.spec, m.pairIndex, liveHost, depthScales);
+                prefix = '[' + m.pairLabel + '] ';
+            } else {
+                ctx = createSonCtx(m.spec, liveHost);
+            }
+            const catalog = buildRuleCatalog(ctx, prefix);
+            out[m.id] = new Map(catalog.map(r => [r.id, r.match]));
+        }
+        return out;
+    }
+
+    async function calibrate(flatEntries, host) {
         if (!flatEntries?.length || !host?.buildBitisStatsFromEntries) {
             calibration = null;
             return null;
@@ -197,14 +223,19 @@ const GostergeScoringEngine = (function () {
             if (host.bitisValueForSort?.(entry) != null) bitisRows++;
         }
 
-        for (const m of metrics) {
+        for (let i = 0; i < metrics.length; i++) {
+            const m = metrics[i];
             ladders[m.id] = calibrateMetricEntry(m, flatEntries, host, depthScales);
+            if (i > 0 && i % 4 === 0) await yieldToMain();
         }
+
+        const liveMatchers = buildLiveMatchers(metrics, host, depthScales);
 
         calibration = {
             ladders,
             metrics,
             depthScales,
+            liveMatchers,
             bitisRows,
             totalRows: flatEntries.length,
             successBlend: { ...SUCCESS_BLEND },
@@ -228,21 +259,8 @@ const GostergeScoringEngine = (function () {
     function scoreEntryForMetric(entry, m, ladder) {
         if (!ladder?.length) return { score: 0, bestRule: null, hits: [] };
 
-        let ctx;
-        if (m.mode === 'depthPair' && calibration?.depthScales) {
-            ctx = createDepthCtx(m.spec, m.pairIndex, {
-                flatEntries: [entry],
-                buildBitisStatsFromEntries: () => ({ matchedRows: 0, withBitis: 0, b1: 0, b12: 0, b123: 0, b4: 0, bOut: 0 })
-            }, calibration.depthScales);
-        } else {
-            ctx = createSonCtx(m.spec, {
-                flatEntries: [entry],
-                buildBitisStatsFromEntries: () => ({ matchedRows: 0, withBitis: 0, b1: 0, b12: 0, b123: 0, b4: 0, bOut: 0 })
-            });
-        }
-
-        const liveCatalog = buildRuleCatalog(ctx, m.mode === 'depthPair' ? '[' + m.pairLabel + '] ' : '');
-        const matchById = new Map(liveCatalog.map(r => [r.id, r.match]));
+        const matchById = calibration?.liveMatchers?.[m.id];
+        if (!matchById) return { score: 0, bestRule: null, hits: [] };
 
         let best = null;
         const hits = [];
@@ -381,7 +399,8 @@ const GostergeScoringEngine = (function () {
         const kayitlar = listJson.kayitlar || [];
 
         const flat = [];
-        for (const meta of kayitlar) {
+        for (let ki = 0; ki < kayitlar.length; ki++) {
+            const meta = kayitlar[ki];
             const res = await fetch('/api/hesaplama-kayit/' + meta.id);
             const json = await res.json();
             if (!json.success || !json.kayit?.veri) continue;
@@ -412,6 +431,7 @@ const GostergeScoringEngine = (function () {
                     });
                 }
             }
+            if (ki > 0 && ki % 3 === 0) await yieldToMain();
         }
         return { flatEntries: flat, bitisMap };
     }
@@ -433,7 +453,7 @@ const GostergeScoringEngine = (function () {
     async function loadAndCalibrateFromApi(buildBitisStatsFromEntries) {
         const { flatEntries, bitisMap } = await buildFlatEntriesFromApi({ IE: IstatistikEngine });
         const host = makeBitisHost(flatEntries, bitisMap, buildBitisStatsFromEntries);
-        return calibrate(flatEntries, host);
+        return await calibrate(flatEntries, host);
     }
 
     function renderCalibrationHtml() {

@@ -1315,9 +1315,9 @@ function getPtestScoringHost() {
     };
 }
 
-function applyGostergeTahminScoring() {
+async function applyGostergeTahminScoring() {
     const host = getPtestScoringHost();
-    GostergeScoringEngine.calibrate(flatEntries, host);
+    await GostergeScoringEngine.calibrate(flatEntries, host);
     GostergeScoringEngine.applyToFlatEntries(flatEntries);
     const ladderEl = document.getElementById('gostergeScoringLadder');
     if (ladderEl) ladderEl.innerHTML = GostergeScoringEngine.renderCalibrationHtml();
