@@ -675,7 +675,11 @@ const PtestGostergeDepthEngine = (function () {
         switchDepthMetricTab,
         renderDepthMetricGosterge,
         renderDepthMetricGostergeAsync,
-        panelId
+        panelId,
+        createPairContext,
+        buildGlobalPairScales,
+        pairDiff,
+        pairCells
     };
 })();
 

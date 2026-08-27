@@ -893,6 +893,20 @@
             text-align: center;
             line-height: 1.2;
         }
+        .ptest-scoring-meta { font-size: 11px; color: #546e7a; margin: 8px 0 10px; }
+        .ptest-scoring-metric-block {
+            margin: 6px 0; border: 1px solid #e1bee7; border-radius: 6px; background: #fafafa;
+        }
+        .ptest-scoring-metric-summary {
+            cursor: pointer; padding: 6px 10px; font-size: 11px; font-weight: 700; color: #4a148c;
+        }
+        .ptest-scoring-table { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 6px; }
+        .ptest-scoring-table th, .ptest-scoring-table td {
+            border: 1px solid #eee; padding: 3px 5px; text-align: center;
+        }
+        .ptest-scoring-table th { background: #f3e5f5; }
+        .ptest-scoring-table td:nth-child(2) { text-align: left; }
+        .ptest-scoring-empty { color: #789; font-size: 11px; margin: 0; }
     </style>
 </head>
 <body>
@@ -903,11 +917,19 @@
         <button type="button" id="tahminAgirlikSifirlaBtn" class="istatistik-btn" title="Tüm genel ve %100 ek etkilerini varsayılana sıfırla">↺ Etki sıfırla</button>
         <span id="istatistikBuild" class="istatistik-build" title="Yüklü sürüm"></span>
     </div>
+    <details class="istat-gosterim-controls" id="gostergeScoringPanel">
+        <summary>🏆 TAHMİN · Gösterge başarı puanlama (PUANLAMA TEST bitiş verisi)</summary>
+        <p class="istat-gos-depth-note">PUANLAMA TEST’te girilen bitiş sıralarından öğrenilen gösterge merdiveni kullanılır.
+            Her metrik grubu için SON·Δ + derinlik çifti (SON↔1ÖNCE…) göstergeleri ayrı sıralanır.
+            Başarı ağırlığı: <strong>%80 birincilik</strong>, %12 ilk iki, %8 ilk üç.</p>
+        <div id="gostergeScoringStatus" class="istat-gos-metric-hint">Kalibrasyon yükleniyor…</div>
+        <div id="gostergeScoringLadderIstat"></div>
+    </details>
     <details class="istat-gosterim-controls" id="gosterimWeightPanel" open>
-        <summary>TAHMİN görsel profil etkileri (kenar + renk + trend)</summary>
-        <p class="istat-gos-depth-note">Görsel profiller <strong>derinlik ağırlıklıdır</strong> — SON koşuda tam etki,
-        eski derinliklerde azalır. Bu kural <strong>tüm metrik gruplarında</strong> (SON800, TEST, T8, Ş+M…)
-        aynı şekilde geçerlidir; her grubun slider değerleri ayrı kaydedilir.</p>
+        <summary>TAHMİN görsel profil etkileri (kenar + renk + trend) — yedek mod</summary>
+        <p class="istat-gos-depth-note">Gösterge puanlama aktif değilse (yeterli bitiş yok) bu slider’lar devreye girer.
+            Görsel profiller <strong>derinlik ağırlıklıdır</strong> — SON koşuda tam etki,
+            eski derinliklerde azalır.</p>
         <div class="istat-gos-metric-picker">
             <label for="tahminMetricSelect">Metrik grubu</label>
             <select id="tahminMetricSelect" class="istat-gos-metric-select" title="Her metrik grubunun etkileri ayrı kaydedilir"></select>
@@ -943,12 +965,10 @@
         |TEST8| 0'a en yakın = %100; derinlik kıyası + AĞ. ORT.<br>
         <strong>Ek gruplar (800Δ·2/3, T9Δ, DR/1DR, TEST4–7, FARK, Ş+M…):</strong>
         GÖSTERİM ve Tahminim kurallarındaki eksik sütunlar — hepsi derinlik % + AĞ. ORT.1/2/3.<br>
-        <strong>TAHMİN:</strong> GÖSTERİM görsel profilleri (mavi/kırmızı kenar, sarı/yeşil kombinasyonları)
-        ve son 3 derinlik % trendi başarı sıralamasını belirler. Görsel profil puanları
-        <strong>derinlik ağırlıklıdır</strong> — SON koşudaki mavi kenar, 6 ÖNCE’dekinden çok daha etkilidir.
-        Üst panelden <strong>metrik grubu</strong>
-        seçin (SON800-1, T8Δ, …); her grubun puan etkileri <strong>ayrı kaydedilir</strong> ve sonraki
-        açılışta korunur.<br>
+        <strong>TAHMİN:</strong> Öncelikle PUANLAMA TEST bitiş verisinden öğrenilen <strong>gösterge başarı puanı</strong>
+        (SON·Δ + derinlik gelişme çiftleri, metrik grubu bazlı). Yeterli bitiş yoksa üst paneldeki
+        görsel profil slider’ları (yedek mod) kullanılır.
+        Üst panelden <strong>metrik grubu</strong> seçin (SON800-1, T8Δ, …); yedek modda her grubun puan etkileri <strong>ayrı kaydedilir</strong>.<br>
         <strong>T1×DR:</strong> TEST1 × DR/1DR — o gün koşan atlar arasında en düşük T1×DR = %100;
         derinlik kıyası + AĞ. ORT.<br>
         <strong>Son 3 ay / 1 ay / 15 gün:</strong> Program tarihine göre dönem içi koşu sayısının,
@@ -961,14 +981,17 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260827g"></script>
-<script src="js/formula-engine.js?v=20260826v"></script>
-<script src="js/istatistik-engine.js?v=20260826v"></script>
-<script src="js/istatistik-grids-extra.js?v=20260826v"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260826v"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260826v"></script>
+<script src="js/utils.js?v=20260829c"></script>
+<script src="js/formula-engine.js?v=20260829c"></script>
+<script src="js/istatistik-engine.js?v=20260829c"></script>
+<script src="js/istatistik-grids-extra.js?v=20260829c"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260829c"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260829c"></script>
+<script src="js/ptest-gosterge-engine.js?v=20260829c"></script>
+<script src="js/ptest-gosterge-depth-engine.js?v=20260829c"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260829c"></script>
 <script>
-const ISTAT_BUILD = '20260827b';
+const ISTAT_BUILD = '20260829c';
 const TAHMIN_METRIC_ALL = '__hepsi__';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
@@ -1334,16 +1357,73 @@ function updateMetricWeightBarEl(el, weightId) {
     el.classList.toggle('istat-metric-weight-off', etki === 0);
 }
 
+function buildIstatBitisStatsFromEntries(entries) {
+    let withBitis = 0, b1 = 0, b12 = 0, b123 = 0, b4 = 0, bOut = 0;
+    for (const entry of entries) {
+        const b = entry._bitisPos;
+        if (b == null || b < 1) continue;
+        withBitis++;
+        if (b === 1) b1++;
+        if (b <= 2) b12++;
+        if (b <= 3) b123++;
+        if (b === 4) b4++;
+        if (b >= 5) bOut++;
+    }
+    return { matchedRows: entries.length, withBitis, b1, b12, b123, b4, bOut };
+}
+
+let gostergeCalibrationPromise = null;
+
+function attachRaceTahminForPkg(pkg, teWeights) {
+    if (typeof GostergeScoringEngine !== 'undefined' && GostergeScoringEngine.isCalibrated()) {
+        return GostergeScoringEngine.attachRaceTahmin(pkg);
+    }
+    return IstatistikTahminEngine.attachRaceTahmin(pkg, teWeights);
+}
+
+async function ensureGostergeCalibration(force) {
+    if (!force && GostergeScoringEngine.isCalibrated()) return GostergeScoringEngine.getCalibration();
+    if (!force && gostergeCalibrationPromise) return gostergeCalibrationPromise;
+    gostergeCalibrationPromise = (async () => {
+        const statusEl = document.getElementById('gostergeScoringStatus');
+        const ladderEl = document.getElementById('gostergeScoringLadderIstat');
+        try {
+            if (statusEl) statusEl.textContent = '⏳ PUANLAMA TEST bitiş verileri yükleniyor…';
+            const cal = await GostergeScoringEngine.loadAndCalibrateFromApi(buildIstatBitisStatsFromEntries);
+            if (statusEl) {
+                if (cal && cal.bitisRows >= GostergeScoringEngine.MIN_RULE_SAMPLE) {
+                    statusEl.textContent = '✅ Gösterge puanlama aktif · ' + cal.bitisRows
+                        + ' bitişli satır · %80 birincilik ağırlıklı';
+                } else {
+                    statusEl.textContent = '⚠️ Yeterli bitiş yok — görsel profil (yedek) modu kullanılır';
+                }
+            }
+            if (ladderEl && cal) {
+                ladderEl.innerHTML = GostergeScoringEngine.renderCalibrationHtml();
+            }
+            return cal;
+        } catch (err) {
+            if (statusEl) statusEl.textContent = '⚠️ Kalibrasyon yüklenemedi: ' + err.message;
+            if (ladderEl) ladderEl.innerHTML = '';
+            return null;
+        } finally {
+            gostergeCalibrationPromise = null;
+        }
+    })();
+    return gostergeCalibrationPromise;
+}
+
 function patchTahminCellEl(cell, tahmin, horseCount) {
     if (!cell) return;
     cell.className = 'istat-tahmin istat-sticky-tahmin ' + tahminRankClass(tahmin?.rank, horseCount);
     cell.innerHTML = formatTahminCell(tahmin, horseCount);
     if (tahmin && tahmin.rank != null) {
         let title = 'TAHMİN · ' + tahmin.rank + '. sıra | Skor ' + (tahmin.score ?? '?');
-        title += ' (göreli %' + tahmin.pct + ', ' + tahmin.metricCount + ' sinyal)';
+        if (tahmin.source === 'gosterge') title += ' · gösterge başarı';
+        title += ' (göreli %' + tahmin.pct + ', ' + (tahmin.metricCount ?? tahmin.topTerms?.length ?? 0) + ' sinyal)';
         if (tahmin.topTerms?.length) {
             title += ' | ';
-            title += tahmin.topTerms.slice(0, 6).map(t => t.label + ' +' + t.points).join(' · ');
+            title += tahmin.topTerms.slice(0, 6).map(t => (t.label || t.ruleLabel) + ' +' + t.points).join(' · ');
         }
         cell.title = title;
     } else {
@@ -1398,7 +1478,7 @@ function refreshAllTahmin() {
         }
     }
     istatRaceCache.forEach((entry, raceIndex) => {
-        TE.attachRaceTahmin(entry.pkg, weights);
+        attachRaceTahminForPkg(entry.pkg, weights);
         const card = document.querySelector('.istatistik-race-card[data-race-index="' + raceIndex + '"]');
         if (!card) return;
         const badge = card.querySelector('[data-tahmin-badge]');
@@ -2766,7 +2846,7 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
     let html = '<div class="istatistik-stack">';
     for (let i = 0; i < raceEntries.length; i++) {
         const { race, raceNo, mesafeGosterim, hedefMesafe, pkg } = raceEntries[i];
-        IstatistikTahminEngine.attachRaceTahmin(pkg);
+        attachRaceTahminForPkg(pkg);
         istatRaceCache.push({ pkg, horseCount: pkg.rows.length });
         const rows = pkg.rows;
         const maxDepth1 = pkg.maxDepth1;
@@ -3015,6 +3095,9 @@ window.addEventListener('message', (e) => {
 window.addEventListener('load', () => {
     bindDepthExpandControls();
     renderVisualScoreControls();
+    ensureGostergeCalibration().then(() => {
+        if (istatRaceCache.length) refreshAllTahmin();
+    });
     fetch('/VERSION.txt?v=' + Date.now())
         .then(r => r.ok ? r.text() : '')
         .then(t => {

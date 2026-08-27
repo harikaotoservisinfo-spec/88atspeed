@@ -697,14 +697,14 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260829b"></script>
-<script src="js/istatistik-engine.js?v=20260829b"></script>
-<script src="js/istatistik-grids-extra.js?v=20260829b"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260829b"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260829b"></script>
-<script src="js/ptest-gosterge-scoring-engine.js?v=20260829b"></script>
-<script src="js/ptest-gosterge-engine.js?v=20260829b"></script>
-<script src="js/ptest-gosterge-depth-engine.js?v=20260829b"></script>
+<script src="js/utils.js?v=20260829c"></script>
+<script src="js/istatistik-engine.js?v=20260829c"></script>
+<script src="js/istatistik-grids-extra.js?v=20260829c"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260829c"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260829c"></script>
+<script src="js/ptest-gosterge-engine.js?v=20260829c"></script>
+<script src="js/ptest-gosterge-depth-engine.js?v=20260829c"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260829c"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -1187,7 +1187,7 @@ function updateGostergeTabVisibility() {
     if (content) content.classList.toggle('hidden', !hasData);
 }
 
-const PTEST_BUILD = '20260829b';
+const PTEST_BUILD = '20260829c';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
@@ -1317,10 +1317,10 @@ function getPtestScoringHost() {
 
 function applyGostergeTahminScoring() {
     const host = getPtestScoringHost();
-    PtestGostergeScoringEngine.calibrate(flatEntries, host);
-    PtestGostergeScoringEngine.applyToFlatEntries(flatEntries);
+    GostergeScoringEngine.calibrate(flatEntries, host);
+    GostergeScoringEngine.applyToFlatEntries(flatEntries);
     const ladderEl = document.getElementById('gostergeScoringLadder');
-    if (ladderEl) ladderEl.innerHTML = PtestGostergeScoringEngine.renderCalibrationHtml();
+    if (ladderEl) ladderEl.innerHTML = GostergeScoringEngine.renderCalibrationHtml();
     invalidateGostergeCache();
 }
 
@@ -2114,7 +2114,11 @@ function hideBitisReportPanels() {
 
 function tahminHtml(tahmin) {
     if (!tahmin || tahmin.rank == null || tahmin.pct == null) return '<span class="ptest-pct ptest-pct-none">—</span>';
-    return '<span class="ptest-tahmin-rank">' + tahmin.rank + '.</span><span class="ptest-pct ' + pctClass(tahmin.pct) + '">%' + tahmin.pct + '</span>';
+    const top = tahmin.topTerms?.[0];
+    const title = top
+        ? ' title="' + AtSpeedUtils.escapeHtml(top.metricLabel + ' · #' + top.ruleRank + ' ' + top.ruleLabel).replace(/"/g, '&quot;') + '"'
+        : '';
+    return '<span class="ptest-tahmin-rank"' + title + '>' + tahmin.rank + '.</span><span class="ptest-pct ' + pctClass(tahmin.pct) + '">%' + tahmin.pct + '</span>';
 }
 
 const EXPORT_COL_COUNT = 15;
