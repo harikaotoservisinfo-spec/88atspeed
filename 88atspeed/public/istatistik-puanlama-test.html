@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Puanlama Test — SON800-1 + T1×DR</title>
-    <link href="css/theme.css?v=20260828i" rel="stylesheet">
+    <link href="css/theme.css?v=20260828j" rel="stylesheet">
     <style>
         body { margin: 0; background: var(--bg-page, #f5f5f5); font-family: Inter, sans-serif; }
         .ptest-wrap { padding: 16px 20px 32px; max-width: 100%; }
@@ -197,6 +197,100 @@
         .ptest-report-grid {
             display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
             gap: 8px 16px;
+        }
+        /* —— Gösterge: kompakt tablo düzeni —— */
+        .ptest-gosterge-compact { font-size: 11px; }
+        .ptest-stats-wrap { max-width: 272px; width: 100%; }
+        .ptest-stats-table {
+            width: 100%; border-collapse: collapse; table-layout: fixed;
+            font-size: 11px; font-variant-numeric: tabular-nums;
+        }
+        .ptest-stats-table thead th {
+            padding: 3px 5px; background: #eceff1; font-size: 9px; font-weight: 800;
+            text-transform: uppercase; letter-spacing: 0.03em; color: #546e7a;
+            border-bottom: 1px solid #cfd8dc;
+        }
+        .ptest-stats-table thead th:nth-child(2),
+        .ptest-stats-table thead th:nth-child(3) { text-align: right; }
+        .ptest-stats-table tbody td {
+            padding: 3px 5px; border-bottom: 1px solid #f0f4f8; vertical-align: middle;
+        }
+        .ptest-stats-table tbody tr:last-child td { border-bottom: none; }
+        .ptest-stats-table tbody tr:hover td { background: rgba(0,0,0,0.02); }
+        .ptest-stats-label {
+            color: #37474f; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .ptest-stats-pct { font-weight: 800; text-align: right; white-space: nowrap; }
+        .ptest-stats-n { text-align: right; color: #789; font-size: 10px; white-space: nowrap; }
+        .ptest-gosterge-compact .ptest-report-meta { margin-bottom: 4px; font-size: 10px; }
+        .ptest-gosterge-compact .ptest-report-panel {
+            margin-bottom: 8px; padding: 8px 10px;
+        }
+        .ptest-gosterge-compact .ptest-report-panel h3 { font-size: 12px; margin-bottom: 6px; }
+        .ptest-gosterge-summary-row {
+            display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        .ptest-gosterge-summary-row .ptest-report-panel {
+            flex: 1 1 260px; max-width: 300px; margin-bottom: 0;
+        }
+        .ptest-gosterge-subgrid {
+            display: grid !important;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 8px; align-items: start; align-content: start;
+        }
+        .ptest-gosterge-compact .ptest-report-delta-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 8px; margin-bottom: 12px; padding: 8px 8px 4px;
+        }
+        .ptest-gosterge-compact .ptest-report-delta-section-title,
+        .ptest-gosterge-compact .ptest-report-delta-section-meta {
+            grid-column: 1 / -1;
+        }
+        .ptest-gosterge-compact .ptest-report-delta-section-title { font-size: 12px; margin-bottom: 2px; }
+        .ptest-gosterge-compact .ptest-report-delta-section-meta { font-size: 10px; margin-bottom: 4px; }
+        .ptest-gosterge-compact .ptest-report-subgroup {
+            margin-bottom: 0; padding: 6px 8px;
+        }
+        .ptest-gosterge-compact .ptest-report-subgroup-title { font-size: 11px; margin-bottom: 2px; }
+        .ptest-gosterge-compact .ptest-report-subgroup-meta { font-size: 10px; margin-bottom: 4px; }
+        #t1SariDeltaIndicatorsContent {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 10px; align-items: start;
+        }
+        .ptest-gosterge-compact .ptest-t1-indicator-block {
+            margin-bottom: 0; padding: 8px 10px;
+        }
+        .ptest-gosterge-compact .ptest-t1-indicator-title { font-size: 12px; margin-bottom: 2px; }
+        .ptest-gosterge-compact .ptest-t1-indicator-meta { font-size: 10px; margin-bottom: 6px; }
+        .ptest-gosterge-compact .ptest-t1-sari-yesil-wrap,
+        .ptest-gosterge-compact .ptest-t1-sari-bscombo-wrap {
+            margin-top: 8px; padding-top: 8px;
+        }
+        .ptest-gosterge-compact .ptest-t1-sari-yesil-heading,
+        .ptest-gosterge-compact .ptest-t1-sari-bscombo-heading { font-size: 10px; margin-bottom: 6px; }
+        .ptest-gosterge-compact .ptest-t1-sari-yesil-subgroup,
+        .ptest-gosterge-compact .ptest-t1-sari-bscombo-subgroup {
+            margin-bottom: 6px; padding: 6px 8px;
+        }
+        .ptest-gosterge-compact .ptest-t1-sari-yesil-subgroup-title,
+        .ptest-gosterge-compact .ptest-t1-sari-bscombo-subgroup-title { font-size: 11px; margin-bottom: 2px; }
+        .ptest-gosterge-compact .ptest-t1-sari-yesil-subgroup-meta,
+        .ptest-gosterge-compact .ptest-t1-sari-bscombo-subgroup-meta { font-size: 10px; margin-bottom: 4px; }
+        .ptest-gosterge-compact .ptest-t1-sari-t1bs-nested-wrap { margin-top: 6px; padding-top: 6px; }
+        .ptest-gosterge-compact .ptest-t1-sari-t1bs-nested-heading { font-size: 10px; margin-bottom: 4px; }
+        .ptest-gosterge-compact .ptest-t1-sari-t1bs-nested-subgroup {
+            margin-bottom: 6px; padding: 5px 6px;
+        }
+        .ptest-gosterge-compact .ptest-t1-sari-t1bs-nested-subgroup-title { font-size: 10px; }
+        .ptest-gosterge-compact .ptest-t1-sari-t1bs-nested-subgroup-meta { font-size: 9px; margin-bottom: 3px; }
+        .ptest-gosterge-compact .ptest-report-meta-global {
+            font-size: 11px; padding: 6px 8px; margin-bottom: 8px;
+        }
+        .ptest-gosterge-compact .ptest-gosterge-section-title {
+            font-size: 11px; margin: 10px 0 6px;
         }
         .ptest-report-item {
             padding: 8px 10px; border-radius: 6px;
@@ -424,7 +518,7 @@
     <div class="ptest-gosterge-empty" id="gostergeEmptyMsg" style="padding:24px;color:#789;text-align:center">
         Veri yükleyin — göstergeler &quot;Tüm kayıtları yükle&quot; sonrası görünür
     </div>
-    <div id="gostergeContentWrap" class="hidden">
+    <div id="gostergeContentWrap" class="hidden ptest-gosterge-compact">
     <div class="ptest-gosterge-section-title">Bitiş raporları · SON800-1</div>
     <div class="ptest-reports-wrap" id="bitisReportsWrap">
         <div class="ptest-report-meta-global" id="bitisReportsGlobalMeta"></div>
@@ -435,7 +529,7 @@
             <p class="ptest-report-meta" style="margin:0 0 10px;color:#33691e">
                 Tam %0 · %5'e kadar · %10 · %15 · %15–20 · %20–25 · %25+ — her biri yanıp sönen varyantı ile
             </p>
-            <div class="ptest-report-scroll ptest-report-yesil-detail" id="yesilReportDetail"></div>
+            <div class="ptest-report-scroll ptest-report-yesil-detail ptest-gosterge-subgrid" id="yesilReportDetail"></div>
         </div>
         <div class="ptest-report-panel ptest-report-green-bs-detail" id="yesilBlinkBsDetailPanel">
             <h3>🟢 Yeşil hücre — SON·Δ + T1×DR · SON·BS bitiş raporu (14×8 grup)
@@ -444,7 +538,7 @@
             <p class="ptest-report-meta" style="margin:0 0 10px;color:#1565c0">
                 Her SON·Δ aralığı (Tam %0 · %5 · %10 · %15 · %15–20 · %20–25 · %25+ · yanıp sönen) → 8 T1×DR · SON·BS kırılımı
             </p>
-            <div class="ptest-report-scroll ptest-report-yesil-bs-detail" id="yesilBlinkBsReportDetail"></div>
+            <div class="ptest-report-scroll ptest-report-yesil-bs-detail ptest-gosterge-subgrid" id="yesilBlinkBsReportDetail"></div>
         </div>
         <div class="ptest-report-panel ptest-report-green-race-detail" id="yesilRaceRankPanel">
             <h3>🟢 Yeşil hücre — koşu içi SON·BS sıralaması (7 grup)
@@ -454,22 +548,24 @@
                 Yeşil hücre · aynı koşudaki diğer atlara göre SON800-1 · SON·BS sırası
                 (Tam %0 · %5 · %10 · %15 · %15–20 · %20–25 · %25+)
             </p>
-            <div class="ptest-report-scroll ptest-report-yesil-race-detail" id="yesilRaceRankReportDetail"></div>
+            <div class="ptest-report-scroll ptest-report-yesil-race-detail ptest-gosterge-subgrid" id="yesilRaceRankReportDetail"></div>
         </div>
+        <div class="ptest-gosterge-summary-row">
         <div class="ptest-report-panel ptest-report-orange" id="turuncuReportPanel">
             <h3>🟠 Turuncu hücre (SON·Δ) — bitiş raporu</h3>
             <div class="ptest-report-meta" id="turuncuReportMeta"></div>
-            <div class="ptest-report-grid" id="turuncuReportGrid"></div>
+            <div class="ptest-stats-wrap" id="turuncuReportGrid"></div>
         </div>
         <div class="ptest-report-panel ptest-report-orange-border" id="turuncuCevreReportPanel">
             <h3>🔶 Turuncu çevre (SON·Δ) — bitiş raporu</h3>
             <div class="ptest-report-meta" id="turuncuCevreReportMeta"></div>
-            <div class="ptest-report-grid" id="turuncuCevreReportGrid"></div>
+            <div class="ptest-stats-wrap" id="turuncuCevreReportGrid"></div>
         </div>
         <div class="ptest-report-panel ptest-report-green" id="yesilReportPanel">
             <h3>🟢 Yeşil hücre (SON·Δ) — özet bitiş raporu</h3>
             <div class="ptest-report-meta" id="yesilReportMeta"></div>
-            <div class="ptest-report-grid" id="yesilReportGrid"></div>
+            <div class="ptest-stats-wrap" id="yesilReportGrid"></div>
+        </div>
         </div>
     </div>
     <div class="ptest-gosterge-section-title">T1×DR · SON·Δ sarı yazı göstergeleri</div>
@@ -502,11 +598,11 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260828i"></script>
-<script src="js/istatistik-engine.js?v=20260828i"></script>
-<script src="js/istatistik-grids-extra.js?v=20260828i"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260828i"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260828i"></script>
+<script src="js/utils.js?v=20260828j"></script>
+<script src="js/istatistik-engine.js?v=20260828j"></script>
+<script src="js/istatistik-grids-extra.js?v=20260828j"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260828j"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260828j"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -905,6 +1001,18 @@ function buildBitisStatsFromEntries(entries) {
     return { matchedRows: entries.length, withBitis, b1, b12, b123, b4, bOut };
 }
 
+function renderStatsTableHtml(items, total) {
+    let h = '<table class="ptest-stats-table"><thead><tr>'
+        + '<th>Metrik</th><th>%</th><th>n/N</th></tr></thead><tbody>';
+    for (const it of items) {
+        const sub = it.sub ? ' title="' + AtSpeedUtils.escapeHtml(it.sub).replace(/"/g, '&quot;') + '"' : '';
+        h += '<tr><td class="ptest-stats-label"' + sub + '>' + AtSpeedUtils.escapeHtml(it.label) + '</td>'
+            + '<td class="ptest-stats-pct">' + pctFmt(it.count, total) + '</td>'
+            + '<td class="ptest-stats-n">' + it.count + '/' + total + '</td></tr>';
+    }
+    return h + '</tbody></table>';
+}
+
 function renderBitisStatsGridHtml(stats) {
     const total = stats.withBitis;
     const items = [
@@ -914,13 +1022,7 @@ function renderBitisStatsGridHtml(stats) {
         { label: '4. bitirme', count: stats.b4, sub: 'yalnızca dördüncülük' },
         { label: 'İlk 4 dışı (5+)', count: stats.bOut, sub: 'beşinci ve sonrası' }
     ];
-    return items.map(it =>
-        '<div class="ptest-report-item">'
-        + '<span>' + AtSpeedUtils.escapeHtml(it.label) + '</span>'
-        + '<strong>' + pctFmt(it.count, total) + '</strong>'
-        + '<span>' + it.count + ' / ' + total + ' · ' + AtSpeedUtils.escapeHtml(it.sub) + '</span>'
-        + '</div>'
-    ).join('');
+    return renderStatsTableHtml(items, total);
 }
 
 /** Yeşil hücre içinde SON·Δ aralığı + yanıp sönen alt grupları */
@@ -980,7 +1082,7 @@ function updateGostergeTabVisibility() {
     if (content) content.classList.toggle('hidden', !hasData);
 }
 
-const PTEST_BUILD = '20260828i';
+const PTEST_BUILD = '20260828j';
 
 function t1SariSonDeltaMatchesPct(entry, pct) {
     if (!t1SonDeltaVisualFlags(entry).sariYazi) return false;
@@ -1009,7 +1111,7 @@ function renderT1SariYesilSonDeltaSubgroupsHtml(t1Pct) {
         h += '<div class="ptest-t1-sari-yesil-subgroup-meta">T1 sarı %' + t1Pct
             + ' · SON·Δ yeşil · ' + stats.matchedRows + ' satır · '
             + stats.withBitis + ' bitiş bilgisi</div>';
-        h += '<div class="ptest-report-grid">' + renderBitisStatsGridHtml(stats) + '</div>';
+        h += '<div class="ptest-stats-wrap">' + renderBitisStatsGridHtml(stats) + '</div>';
         h += '</div>';
     }
     h += '</div>';
@@ -1088,7 +1190,7 @@ function renderT1SariS800BlinkZeroBsSubgroupsHtml(t1Pct) {
         h += '<div class="ptest-t1-sari-bscombo-subgroup-meta">T1 sarı %' + t1Pct
             + ' · SON800 · Δ yeşil yanıp sönen %0 · ' + stats.matchedRows + ' satır · '
             + stats.withBitis + ' bitiş bilgisi</div>';
-        h += '<div class="ptest-report-grid">' + renderBitisStatsGridHtml(stats) + '</div>';
+        h += '<div class="ptest-stats-wrap">' + renderBitisStatsGridHtml(stats) + '</div>';
         h += renderT1DrSonBsNestedHtml(t1Pct, bsBucket);
         h += '</div>';
     }
@@ -1164,13 +1266,7 @@ function renderRaceRankStatsGridHtml(stats) {
         { label: 'Koşuda SON·BS 4.', count: stats.b4, sub: 'aynı koşu sıralaması' },
         { label: 'Koşuda SON·BS 5+', count: stats.bOut, sub: 'alt sıralar' }
     ];
-    return items.map(it =>
-        '<div class="ptest-report-item">'
-        + '<span>' + AtSpeedUtils.escapeHtml(it.label) + '</span>'
-        + '<strong>' + pctFmt(it.count, total) + '</strong>'
-        + '<span>' + it.count + ' / ' + total + ' · ' + AtSpeedUtils.escapeHtml(it.sub) + '</span>'
-        + '</div>'
-    ).join('');
+    return renderStatsTableHtml(items, total);
 }
 
 function t1SonDepthBsPct(entry) {
@@ -1216,7 +1312,7 @@ function renderT1DrSonBsNestedHtml(t1Pct, s800BsBucket) {
         h += '<div class="ptest-t1-sari-t1bs-nested-subgroup-meta">T1 sarı %' + t1Pct
             + ' · SON800 · Δ yeşil yanıp sönen %0 · ' + AtSpeedUtils.escapeHtml(s800BsBucket.label)
             + ' · ' + stats.matchedRows + ' satır · ' + stats.withBitis + ' bitiş bilgisi</div>';
-        h += '<div class="ptest-report-grid">' + renderBitisStatsGridHtml(stats) + '</div>';
+        h += '<div class="ptest-stats-wrap">' + renderBitisStatsGridHtml(stats) + '</div>';
         h += '</div>';
     }
     h += '</div>';
@@ -1258,7 +1354,7 @@ function renderReportSubgroupsHtml(buckets, entriesFn) {
         h += '<div class="ptest-report-subgroup-title">' + AtSpeedUtils.escapeHtml(bucket.label) + '</div>';
         h += '<div class="ptest-report-subgroup-meta">'
             + stats.matchedRows + ' satır · ' + stats.withBitis + ' bitiş bilgisi</div>';
-        h += '<div class="ptest-report-grid">' + renderBitisStatsGridHtml(stats) + '</div>';
+        h += '<div class="ptest-stats-wrap">' + renderBitisStatsGridHtml(stats) + '</div>';
         h += '</div>';
     }
     return h;
@@ -1329,7 +1425,7 @@ function renderYesilRaceRankReport() {
         h += '<div class="ptest-report-delta-section-meta">'
             + stats.matchedRows + ' yeşil at · ' + stats.withBitis + ' koşu içi sıra hesaplı'
             + ' · ortalama ' + avgField + ' at/koşu</div>';
-        h += '<div class="ptest-report-grid">' + renderRaceRankStatsGridHtml(stats) + '</div>';
+        h += '<div class="ptest-stats-wrap">' + renderRaceRankStatsGridHtml(stats) + '</div>';
         h += '</div>';
     }
     el.innerHTML = h || '<p>Veri yok</p>';
@@ -1354,7 +1450,7 @@ function renderT1IndicatorBlocks(indicators, contentEl, emptyMsg) {
         h += '<div class="ptest-t1-indicator-title">' + AtSpeedUtils.escapeHtml(ind.title) + '</div>';
         h += '<div class="ptest-t1-indicator-meta">' + AtSpeedUtils.escapeHtml(ind.hint)
             + ' · ' + stats.matchedRows + ' satır · ' + stats.withBitis + ' bitiş bilgisi</div>';
-        h += '<div class="ptest-report-grid">' + renderBitisStatsGridHtml(stats) + '</div>';
+        h += '<div class="ptest-stats-wrap">' + renderBitisStatsGridHtml(stats) + '</div>';
         h += '</div>';
     }
     contentEl.innerHTML = h || '<p>Gösterge yok</p>';
@@ -1386,7 +1482,7 @@ function renderT1SariDeltaIndicators() {
         h += '<div class="ptest-t1-indicator-title">' + AtSpeedUtils.escapeHtml(ind.title) + '</div>';
         h += '<div class="ptest-t1-indicator-meta">' + AtSpeedUtils.escapeHtml(ind.hint)
             + ' · ' + stats.matchedRows + ' satır · ' + stats.withBitis + ' bitiş bilgisi</div>';
-        h += '<div class="ptest-report-grid">' + renderBitisStatsGridHtml(stats) + '</div>';
+        h += '<div class="ptest-stats-wrap">' + renderBitisStatsGridHtml(stats) + '</div>';
         h += renderT1SariYesilSonDeltaSubgroupsHtml(ind.pct);
         h += renderT1SariS800BlinkZeroBsSubgroupsHtml(ind.pct);
         h += '</div>';
