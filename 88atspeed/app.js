@@ -975,28 +975,41 @@ app.get('/api/puanlama-bitis-sonuclari', (req, res) => {
             res.json({ success: false, error: err.message });
             return;
         }
-        let sonuclar = {};
+        let parsed = {};
         if (row?.veri) {
-            try { sonuclar = JSON.parse(row.veri); } catch (_) { sonuclar = {}; }
+            try { parsed = JSON.parse(row.veri); } catch (_) { parsed = {}; }
         }
-        res.json({ success: true, sonuclar, guncelleme: row?.guncelleme || null });
+        const isLegacy = parsed && !parsed.bitis && !parsed.cikan
+            && Object.values(parsed).some(v => typeof v === 'number');
+        const sonuclar = isLegacy ? parsed : (parsed.bitis || {});
+        const cikanAtlar = isLegacy ? {} : (parsed.cikan || {});
+        res.json({ success: true, sonuclar, cikanAtlar, guncelleme: row?.guncelleme || null });
     });
 });
 
 app.post('/api/puanlama-bitis-sonuclari', (req, res) => {
     const sonuclar = req.body?.sonuclar;
+    const cikanAtlar = req.body?.cikanAtlar;
     if (!sonuclar || typeof sonuclar !== 'object') {
         res.json({ success: false, error: 'Geçersiz veri' });
         return;
     }
-    const veri = JSON.stringify(sonuclar);
+    const wrapped = {
+        bitis: sonuclar,
+        cikan: cikanAtlar && typeof cikanAtlar === 'object' ? cikanAtlar : {}
+    };
+    const veri = JSON.stringify(wrapped);
     const sql = `INSERT INTO puanlama_bitis_sonuclari (id, veri, guncelleme) VALUES (1, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(id) DO UPDATE SET veri = excluded.veri, guncelleme = CURRENT_TIMESTAMP`;
     db.run(sql, [veri], function(err) {
         if (err) {
             res.json({ success: false, error: err.message });
         } else {
-            res.json({ success: true, count: Object.keys(sonuclar).length });
+            res.json({
+                success: true,
+                count: Object.keys(sonuclar).length,
+                cikanRaceCount: Object.keys(wrapped.cikan).length
+            });
         }
     });
 });

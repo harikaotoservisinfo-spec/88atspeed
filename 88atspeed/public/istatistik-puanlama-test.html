@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Puanlama Test — SON800-1 + T1×DR</title>
-    <link href="css/theme.css?v=20260827c" rel="stylesheet">
+    <link href="css/theme.css?v=20260827d" rel="stylesheet">
     <style>
         body { margin: 0; background: var(--bg-page, #f5f5f5); font-family: Inter, sans-serif; }
         .ptest-wrap { padding: 16px 20px 32px; max-width: 100%; }
@@ -19,19 +19,36 @@
             background: linear-gradient(135deg, #7b1fa2, #4a148c);
             color: #fff; font-weight: 700; cursor: pointer; font-size: 13px;
         }
-        .ptest-btn-success {
-            background: linear-gradient(135deg, #43a047, #2e7d32);
+        .ptest-btn-success { background: linear-gradient(135deg, #43a047, #2e7d32); }
+        .ptest-btn-outline {
+            background: #fff; color: #6a1b9a; border: 1px solid #ce93d8;
         }
         .ptest-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .ptest-meta { font-size: 12px; color: #546e7a; }
         .ptest-status { margin-bottom: 10px; font-size: 13px; }
+        .ptest-cikan-panel {
+            margin-bottom: 10px; padding: 10px 12px; background: #fff3e0;
+            border: 1px solid #ffcc80; border-radius: 8px; font-size: 12px;
+        }
+        .ptest-cikan-panel.hidden { display: none; }
+        .ptest-cikan-panel h3 { margin: 0 0 8px; font-size: 13px; color: #e65100; }
+        .ptest-cikan-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .ptest-cikan-chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 8px; background: #fff; border: 1px solid #ffb74d;
+            border-radius: 999px; font-size: 11px;
+        }
+        .ptest-cikan-restore {
+            border: none; background: #ffe0b2; color: #bf360c;
+            border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; font-weight: 700;
+        }
         .ptest-table-wrap {
-            overflow: auto; max-height: calc(100vh - 140px);
+            overflow: auto; max-height: calc(100vh - 180px);
             border: 1px solid #cfd8dc; border-radius: 8px; background: #fff;
         }
         .ptest-table {
             border-collapse: separate; border-spacing: 0;
-            font-size: 12px; min-width: 1240px; width: 100%;
+            font-size: 12px; min-width: 1280px; width: 100%;
         }
         .ptest-table th, .ptest-table td {
             padding: 5px 7px; border-bottom: 1px solid #eceff1;
@@ -46,6 +63,7 @@
         .ptest-table .ptest-th-s800 { background: #b2ebf2; }
         .ptest-table .ptest-th-t1 { background: #ffe0b2; }
         .ptest-table .ptest-th-bitis { background: #fff9c4; }
+        .ptest-table .ptest-th-cikan { background: #ffecb3; }
         .ptest-table td.ptest-meta-col { background: #fafafa; font-weight: 600; color: #37474f; }
         .ptest-table td.ptest-hipodrom { text-align: left; font-weight: 700; color: #4a148c; min-width: 72px; }
         .ptest-table td.ptest-at { text-align: left; font-weight: 600; max-width: 160px; }
@@ -73,6 +91,12 @@
         .ptest-bitis-input.ptest-bitis-filled {
             background: #e8f5e9; border-color: #66bb6a; color: #1b5e20;
         }
+        .ptest-cikan-btn {
+            border: none; background: #ffebee; color: #c62828;
+            border-radius: 4px; padding: 3px 7px; cursor: pointer;
+            font-size: 12px; font-weight: 800; line-height: 1;
+        }
+        .ptest-cikan-btn:hover { background: #ffcdd2; }
         .ptest-gap-twin-zero { background: #ff9800 !important; box-shadow: inset 0 0 0 2px #ef6c00; }
         .ptest-gap-twin-zero .ptest-pct { background: rgba(255,152,0,0.35) !important; }
         .ptest-gap-neon { background: #76ff03 !important; box-shadow: inset 0 0 0 2px #33691e, 0 0 8px rgba(118,255,3,0.6); }
@@ -90,31 +114,67 @@
     <div class="ptest-toolbar">
         <h1>🧪 Puanlama test — tüm kayıtlar · SON800-1 + T1×DR (SON derinlik)</h1>
         <button type="button" class="ptest-btn" id="loadAllBtn">Tüm kayıtları yükle</button>
-        <button type="button" class="ptest-btn ptest-btn-success" id="saveBitisBtn" disabled>💾 Bitiş sıralarını kaydet</button>
+        <button type="button" class="ptest-btn ptest-btn-success" id="saveAllBtn" disabled>💾 Kaydet</button>
+        <button type="button" class="ptest-btn ptest-btn-outline hidden" id="toggleCikanBtn">👁 Çıkan atlar (0)</button>
         <span class="ptest-meta" id="summaryMeta">Henüz yüklenmedi</span>
     </div>
     <div class="ptest-status" id="status"></div>
+    <div class="ptest-cikan-panel hidden" id="cikanPanel">
+        <h3>🚫 Çıkan atlar — koşudan hariç tutuldu, metrikler yeniden hesaplandı</h3>
+        <div class="ptest-cikan-list" id="cikanList"></div>
+    </div>
     <div class="ptest-table-wrap">
         <table class="ptest-table" id="grid">
             <thead id="gridHead"></thead>
-            <tbody id="gridBody"><tr><td colspan="16" style="padding:24px;color:#789">&quot;Tüm kayıtları yükle&quot; butonuna basın</td></tr></tbody>
+            <tbody id="gridBody"><tr><td colspan="17" style="padding:24px;color:#789">&quot;Tüm kayıtları yükle&quot; butonuna basın</td></tr></tbody>
         </table>
     </div>
 </div>
 
-<script src="js/utils.js?v=20260827c"></script>
-<script src="js/istatistik-engine.js?v=20260827c"></script>
-<script src="js/istatistik-grids-extra.js?v=20260827c"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260827c"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260827c"></script>
+<script src="js/utils.js?v=20260827d"></script>
+<script src="js/istatistik-engine.js?v=20260827d"></script>
+<script src="js/istatistik-grids-extra.js?v=20260827d"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260827d"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260827d"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
-const COL_COUNT = 16;
+const COL_COUNT = 17;
+
 let savedBitisMap = {};
+let savedCikanMap = {};
+let kayitCache = new Map();
+let flatEntries = [];
+let kayitCountLoaded = 0;
+let cikanPanelOpen = false;
+let cikanMetaList = [];
 
 function rowKey(entry) {
     return String(entry.kayitId) + '|' + entry.raceNo + '|' + String(entry.row.no ?? '');
+}
+
+function raceKey(kayitId, raceNo) {
+    return String(kayitId) + '|' + raceNo;
+}
+
+function getCikanSet(kayitId, raceNo) {
+    const arr = savedCikanMap[raceKey(kayitId, raceNo)] || [];
+    return new Set(arr.map(String));
+}
+
+function countCikanHorses() {
+    let n = 0;
+    for (const arr of Object.values(savedCikanMap)) n += (arr || []).length;
+    return n;
+}
+
+function raceWithoutCikan(race, kayitId, raceNo) {
+    const ex = getCikanSet(kayitId, raceNo);
+    if (!ex.size) return race;
+    return {
+        ...race,
+        horses: (race.horses || []).filter(h => !ex.has(String(h.no)))
+    };
 }
 
 function pctClass(pct) {
@@ -172,6 +232,7 @@ function renderHead() {
     h += '<th rowspan="2" class="ptest-meta-col">KOŞU</th>';
     h += '<th rowspan="2">#</th>';
     h += '<th rowspan="2" class="ptest-at">AT İSMİ</th>';
+    h += '<th rowspan="2" class="ptest-th-cikan">ÇIKAR</th>';
     h += '<th rowspan="2" class="ptest-th-bitis">BİTİŞ</th>';
     h += '<th rowspan="2">TAHMİN</th>';
     h += '<th colspan="5" class="ptest-th-grp ptest-th-s800">SON800-1 · SON derinlik</th>';
@@ -192,12 +253,14 @@ function renderRow(entry) {
     const { row } = entry;
     const s0 = row.son8001Depths?.[0] || null;
     const t0 = row.t1drDepths?.[0] || null;
-    let h = '<tr>';
+    const rk = raceKey(entry.kayitId, entry.raceNo);
+    let h = '<tr data-row-key="' + AtSpeedUtils.escapeHtml(rowKey(entry)) + '">';
     h += '<td class="ptest-meta-col">' + AtSpeedUtils.escapeHtml(entry.tarih) + '</td>';
     h += '<td class="ptest-meta-col ptest-hipodrom">' + AtSpeedUtils.escapeHtml(entry.hipodrom || '—') + '</td>';
     h += '<td class="ptest-meta-col">' + entry.raceNo + '</td>';
     h += '<td>' + AtSpeedUtils.escapeHtml(String(row.no ?? '—')) + '</td>';
     h += '<td class="ptest-at">' + AtSpeedUtils.escapeHtml(row.name || '—') + '</td>';
+    h += '<td><button type="button" class="ptest-cikan-btn" data-race-key="' + AtSpeedUtils.escapeHtml(rk) + '" data-horse-no="' + AtSpeedUtils.escapeHtml(String(row.no ?? '')) + '" data-horse-name="' + AtSpeedUtils.escapeHtml(row.name || '') + '" title="Çıkan at — koşudan çıkar, metrikler yeniden hesaplanır">✕</button></td>';
     h += '<td>' + bitisInputHtml(entry) + '</td>';
     h += '<td>' + tahminHtml(row.tahmin) + '</td>';
     h += '<td>' + pctSpan(depthSon(s0, 'pct')) + '</td>';
@@ -213,11 +276,111 @@ function renderRow(entry) {
     return h;
 }
 
-function bindBitisInputs() {
+function buildFlatFromCache() {
+    const flat = [];
+    cikanMetaList = [];
+    for (const kayit of kayitCache.values()) {
+        const races = kayit.veri || [];
+        const raceEntries = races.map((race, i) => {
+            const raceNo = race.raceNo || (i + 1);
+            const filtered = raceWithoutCikan(race, kayit.id, raceNo);
+            const pkg = IE.buildRaceIstatistikPackage(filtered, kayit.hipodrom, kayit.tarih);
+            return { race, raceNo, pkg, filtered };
+        });
+        if (raceEntries.length) IE.applyProgramGlobalPctScales(raceEntries.map(e => e.pkg));
+        for (const { race, raceNo, pkg } of raceEntries) {
+            TE.attachRaceTahmin(pkg);
+            const exSet = getCikanSet(kayit.id, raceNo);
+            for (const horse of (race.horses || [])) {
+                if (exSet.has(String(horse.no))) {
+                    cikanMetaList.push({
+                        kayitId: kayit.id,
+                        raceNo,
+                        tarih: kayit.tarih,
+                        hipodrom: kayit.hipodrom,
+                        horseNo: String(horse.no),
+                        horseName: horse.name || '—',
+                        raceKey: raceKey(kayit.id, raceNo)
+                    });
+                }
+            }
+            for (const row of pkg.rows) {
+                flat.push({ row, tarih: kayit.tarih, raceNo, hipodrom: kayit.hipodrom, kayitId: kayit.id });
+            }
+        }
+    }
+    flat.sort((a, b) => {
+        const ta = a.tarih.split('.').reverse().join('');
+        const tb = b.tarih.split('.').reverse().join('');
+        if (ta !== tb) return ta.localeCompare(tb);
+        const hipCmp = String(a.hipodrom || '').localeCompare(String(b.hipodrom || ''), 'tr');
+        if (hipCmp !== 0) return hipCmp;
+        if (a.raceNo !== b.raceNo) return a.raceNo - b.raceNo;
+        const na = parseInt(a.row.no, 10);
+        const nb = parseInt(b.row.no, 10);
+        if (!isNaN(na) && !isNaN(nb)) return na - nb;
+        return String(a.row.name).localeCompare(String(b.row.name), 'tr');
+    });
+    flatEntries = flat;
+    return flat;
+}
+
+function renderTable() {
+    const body = document.getElementById('gridBody');
+    let html = '';
+    let lastKey = '';
+    for (const entry of flatEntries) {
+        const key = entry.tarih + '|' + entry.hipodrom + '|' + entry.raceNo + '|' + entry.kayitId;
+        if (lastKey && lastKey !== key) {
+            html += '<tr class="ptest-sep"><td colspan="' + COL_COUNT + '"></td></tr>';
+        }
+        html += renderRow(entry);
+        lastKey = key;
+    }
+    body.innerHTML = html || '<tr><td colspan="' + COL_COUNT + '">Satır yok</td></tr>';
+    bindTableEvents();
+    renderCikanPanel();
+    updateSummaryMeta();
+}
+
+function bindTableEvents() {
     document.querySelectorAll('.ptest-bitis-input').forEach(input => {
         input.addEventListener('input', () => {
             input.classList.toggle('ptest-bitis-filled', input.value.trim() !== '');
         });
+    });
+    document.querySelectorAll('.ptest-cikan-btn').forEach(btn => {
+        btn.onclick = () => markCikan(btn.dataset.raceKey, btn.dataset.horseNo, btn.dataset.horseName);
+    });
+}
+
+function renderCikanPanel() {
+    const panel = document.getElementById('cikanPanel');
+    const list = document.getElementById('cikanList');
+    const toggleBtn = document.getElementById('toggleCikanBtn');
+    const count = countCikanHorses();
+    toggleBtn.textContent = '👁 Çıkan atlar (' + count + ')';
+    toggleBtn.classList.toggle('hidden', count === 0);
+    if (!count) {
+        panel.classList.add('hidden');
+        cikanPanelOpen = false;
+        return;
+    }
+    if (!cikanPanelOpen) {
+        panel.classList.add('hidden');
+        return;
+    }
+    panel.classList.remove('hidden');
+    list.innerHTML = cikanMetaList.map(item =>
+        '<span class="ptest-cikan-chip">' +
+        AtSpeedUtils.escapeHtml(item.tarih) + ' · ' + AtSpeedUtils.escapeHtml(item.hipodrom) +
+        ' · Koşu ' + item.raceNo + ' · #' + AtSpeedUtils.escapeHtml(item.horseNo) + ' ' +
+        AtSpeedUtils.escapeHtml(item.horseName) +
+        ' <button type="button" class="ptest-cikan-restore" data-race-key="' + AtSpeedUtils.escapeHtml(item.raceKey) +
+        '" data-horse-no="' + AtSpeedUtils.escapeHtml(item.horseNo) + '">↩ Geri al</button></span>'
+    ).join('');
+    list.querySelectorAll('.ptest-cikan-restore').forEach(btn => {
+        btn.onclick = () => restoreCikan(btn.dataset.raceKey, btn.dataset.horseNo);
     });
 }
 
@@ -232,66 +395,111 @@ function collectBitisFromDom() {
     return sonuclar;
 }
 
-function countFilledBitis(sonuclar) {
-    return Object.keys(sonuclar || {}).length;
-}
-
-async function loadSavedBitisSonuclari() {
+async function loadSavedData() {
     try {
         const res = await fetch('/api/puanlama-bitis-sonuclari');
         const json = await res.json();
-        if (json.success) savedBitisMap = json.sonuclar || {};
+        if (json.success) {
+            savedBitisMap = json.sonuclar || {};
+            savedCikanMap = json.cikanAtlar || {};
+        }
     } catch (_) {
         savedBitisMap = {};
+        savedCikanMap = {};
     }
 }
 
-async function saveBitisSonuclari() {
-    const btn = document.getElementById('saveBitisBtn');
-    const status = document.getElementById('status');
-    btn.disabled = true;
+async function persistAll(showStatus) {
     const sonuclar = collectBitisFromDom();
+    const res = await fetch('/api/puanlama-bitis-sonuclari', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sonuclar, cikanAtlar: savedCikanMap })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'Kayıt başarısız');
+    savedBitisMap = sonuclar;
+    if (showStatus) {
+        const status = document.getElementById('status');
+        status.innerHTML = '<span style="color:#2e7d32">💾 ' + Object.keys(sonuclar).length +
+            ' bitiş · ' + countCikanHorses() + ' çıkan at kaydedildi</span>';
+    }
+    return json;
+}
+
+async function saveAllSettings() {
+    const btn = document.getElementById('saveAllBtn');
+    btn.disabled = true;
     try {
-        const res = await fetch('/api/puanlama-bitis-sonuclari', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sonuclar })
-        });
-        const json = await res.json();
-        if (!json.success) throw new Error(json.error || 'Kayıt başarısız');
-        savedBitisMap = sonuclar;
-        const filled = countFilledBitis(sonuclar);
-        status.innerHTML = '<span style="color:#2e7d32">💾 ' + filled + ' bitiş sırası kaydedildi</span>';
-        updateSummaryMeta(filled);
+        await persistAll(true);
+        updateSummaryMeta();
     } catch (err) {
-        status.innerHTML = '<span style="color:#c62828">❌ ' + AtSpeedUtils.escapeHtml(err.message) + '</span>';
+        document.getElementById('status').innerHTML =
+            '<span style="color:#c62828">❌ ' + AtSpeedUtils.escapeHtml(err.message) + '</span>';
     } finally {
         btn.disabled = false;
     }
 }
 
-function updateSummaryMeta(filledBitis, kayitCount, rowCount) {
+async function markCikan(rk, horseNo, horseName) {
+    if (!confirm('«' + horseName + '» çıkan at olarak işaretlensin mi?\nKoşudaki tüm metrikler yeniden hesaplanır.')) return;
+    const arr = savedCikanMap[rk] ? [...savedCikanMap[rk]] : [];
+    if (!arr.map(String).includes(String(horseNo))) arr.push(String(horseNo));
+    savedCikanMap[rk] = arr;
+    delete savedBitisMap[rowKeyFromParts(rk, horseNo)];
+    const status = document.getElementById('status');
+    status.innerHTML = '<span style="color:#e65100">⏳ Çıkan at işlendi, metrikler yeniden hesaplanıyor…</span>';
+    try {
+        await persistAll(false);
+        buildFlatFromCache();
+        renderTable();
+        status.innerHTML = '<span style="color:#2e7d32">🚫 ' + AtSpeedUtils.escapeHtml(horseName) +
+            ' çıkarıldı · koşu yeniden hesaplandı</span>';
+    } catch (err) {
+        status.innerHTML = '<span style="color:#c62828">❌ ' + AtSpeedUtils.escapeHtml(err.message) + '</span>';
+    }
+}
+
+async function restoreCikan(rk, horseNo) {
+    const arr = (savedCikanMap[rk] || []).filter(n => String(n) !== String(horseNo));
+    if (arr.length) savedCikanMap[rk] = arr;
+    else delete savedCikanMap[rk];
+    const status = document.getElementById('status');
+    status.innerHTML = '<span style="color:#6a1b9a">⏳ At geri alınıyor, metrikler yeniden hesaplanıyor…</span>';
+    try {
+        await persistAll(false);
+        buildFlatFromCache();
+        renderTable();
+        status.innerHTML = '<span style="color:#2e7d32">↩ At geri alındı · koşu yeniden hesaplandı</span>';
+    } catch (err) {
+        status.innerHTML = '<span style="color:#c62828">❌ ' + AtSpeedUtils.escapeHtml(err.message) + '</span>';
+    }
+}
+
+function rowKeyFromParts(rk, horseNo) {
+    return rk + '|' + String(horseNo);
+}
+
+function updateSummaryMeta() {
     const el = document.getElementById('summaryMeta');
-    if (kayitCount != null && rowCount != null) {
-        el.textContent = kayitCount + ' kayıt · ' + rowCount + ' at satırı · ' + (filledBitis || 0) + ' bitiş girildi';
-    } else if (filledBitis != null) {
-        const parts = el.textContent.split(' · ');
-        if (parts.length >= 2) {
-            el.textContent = parts[0] + ' · ' + parts[1] + ' · ' + filledBitis + ' bitiş girildi';
-        }
+    const filled = Object.keys(collectBitisFromDom()).length || Object.keys(savedBitisMap).length;
+    const cikan = countCikanHorses();
+    if (kayitCountLoaded && flatEntries.length) {
+        el.textContent = kayitCountLoaded + ' kayıt · ' + flatEntries.length + ' at satırı · ' +
+            filled + ' bitiş · ' + cikan + ' çıkan hariç';
     }
 }
 
 async function loadAllKayitlar() {
     const btn = document.getElementById('loadAllBtn');
-    const saveBtn = document.getElementById('saveBitisBtn');
+    const saveBtn = document.getElementById('saveAllBtn');
     const status = document.getElementById('status');
-    const body = document.getElementById('gridBody');
     btn.disabled = true;
     saveBtn.disabled = true;
     status.innerHTML = '<span style="color:#6a1b9a">⏳ Kayıt listesi alınıyor…</span>';
     renderHead();
-    await loadSavedBitisSonuclari();
+    kayitCache.clear();
+    await loadSavedData();
 
     try {
         const listRes = await fetch('/api/hesaplama-kayitlar');
@@ -299,74 +507,42 @@ async function loadAllKayitlar() {
         if (!listJson.success) throw new Error(listJson.error || 'Liste alınamadı');
         const kayitlar = listJson.kayitlar || [];
         if (!kayitlar.length) {
-            body.innerHTML = '<tr><td colspan="' + COL_COUNT + '">Kayıt yok</td></tr>';
+            document.getElementById('gridBody').innerHTML = '<tr><td colspan="' + COL_COUNT + '">Kayıt yok</td></tr>';
             status.innerHTML = '<span style="color:#c62828">Kayıt bulunamadı</span>';
             return;
         }
 
-        const flat = [];
         let loaded = 0;
         for (const meta of kayitlar) {
             status.textContent = '⏳ Yükleniyor ' + (++loaded) + '/' + kayitlar.length + ' — ' + meta.tarih + ' ' + meta.hipodrom;
             const res = await fetch('/api/hesaplama-kayit/' + meta.id);
             const json = await res.json();
             if (!json.success || !json.kayit?.veri) continue;
-            const kayit = json.kayit;
-            const races = kayit.veri || [];
-            const raceEntries = races.map((race, i) => {
-                const raceNo = race.raceNo || (i + 1);
-                const pkg = IE.buildRaceIstatistikPackage(race, kayit.hipodrom, kayit.tarih);
-                return { race, raceNo, pkg };
-            });
-            if (raceEntries.length) IE.applyProgramGlobalPctScales(raceEntries.map(e => e.pkg));
-            for (const { raceNo, pkg } of raceEntries) {
-                TE.attachRaceTahmin(pkg);
-                for (const row of pkg.rows) {
-                    flat.push({ row, tarih: kayit.tarih, raceNo, hipodrom: kayit.hipodrom, kayitId: kayit.id });
-                }
-            }
+            kayitCache.set(json.kayit.id, json.kayit);
         }
 
-        flat.sort((a, b) => {
-            const ta = a.tarih.split('.').reverse().join('');
-            const tb = b.tarih.split('.').reverse().join('');
-            if (ta !== tb) return ta.localeCompare(tb);
-            const hipCmp = String(a.hipodrom || '').localeCompare(String(b.hipodrom || ''), 'tr');
-            if (hipCmp !== 0) return hipCmp;
-            if (a.raceNo !== b.raceNo) return a.raceNo - b.raceNo;
-            const na = parseInt(a.row.no, 10);
-            const nb = parseInt(b.row.no, 10);
-            if (!isNaN(na) && !isNaN(nb)) return na - nb;
-            return String(a.row.name).localeCompare(String(b.row.name), 'tr');
-        });
-
-        let html = '';
-        let lastKey = '';
-        for (const entry of flat) {
-            const key = entry.tarih + '|' + entry.hipodrom + '|' + entry.raceNo + '|' + entry.kayitId;
-            if (lastKey && lastKey !== key) {
-                html += '<tr class="ptest-sep"><td colspan="' + COL_COUNT + '"></td></tr>';
-            }
-            html += renderRow(entry);
-            lastKey = key;
-        }
-
-        body.innerHTML = html || '<tr><td colspan="' + COL_COUNT + '">Satır üretilemedi</td></tr>';
-        bindBitisInputs();
+        kayitCountLoaded = kayitlar.length;
+        buildFlatFromCache();
+        renderTable();
         saveBtn.disabled = false;
-        const filled = countFilledBitis(savedBitisMap);
-        updateSummaryMeta(filled, kayitlar.length, flat.length);
-        status.innerHTML = '<span style="color:#2e7d32">✅ ' + flat.length + ' satır yüklendi · ' + filled + ' kayıtlı bitiş sırası</span>';
+        const filled = Object.keys(savedBitisMap).length;
+        const cikan = countCikanHorses();
+        status.innerHTML = '<span style="color:#2e7d32">✅ ' + flatEntries.length + ' satır · ' +
+            filled + ' bitiş · ' + cikan + ' çıkan hariç</span>';
     } catch (err) {
         status.innerHTML = '<span style="color:#c62828">❌ ' + AtSpeedUtils.escapeHtml(err.message) + '</span>';
-        body.innerHTML = '<tr><td colspan="' + COL_COUNT + '">Hata</td></tr>';
+        document.getElementById('gridBody').innerHTML = '<tr><td colspan="' + COL_COUNT + '">Hata</td></tr>';
     } finally {
         btn.disabled = false;
     }
 }
 
 document.getElementById('loadAllBtn').onclick = loadAllKayitlar;
-document.getElementById('saveBitisBtn').onclick = saveBitisSonuclari;
+document.getElementById('saveAllBtn').onclick = saveAllSettings;
+document.getElementById('toggleCikanBtn').onclick = () => {
+    cikanPanelOpen = !cikanPanelOpen;
+    renderCikanPanel();
+};
 renderHead();
 </script>
 </body>
