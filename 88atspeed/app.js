@@ -832,6 +832,34 @@ app.get('/api/hesaplama-kayit/:id', (req, res) => {
     });
 });
 
+app.post('/api/hesaplama-kayitlar-temizle', (req, res) => {
+    if (req.body?.onay !== 'SIL') {
+        res.json({ success: false, error: 'Onay için body.onay = "SIL" gerekli' });
+        return;
+    }
+    db.serialize(() => {
+        db.run(`DELETE FROM hesaplama_kayitlari`, [], function(errH) {
+            if (errH) {
+                res.json({ success: false, error: errH.message });
+                return;
+            }
+            const deletedHesaplama = this.changes;
+            db.run(`DELETE FROM puanlama_bitis_sonuclari`, [], function(errP) {
+                if (errP) {
+                    res.json({ success: false, error: errP.message });
+                    return;
+                }
+                console.log('🗑 Tüm hesaplama kayıtları silindi:', deletedHesaplama);
+                res.json({
+                    success: true,
+                    deletedHesaplama,
+                    deletedPuanlama: this.changes
+                });
+            });
+        });
+    });
+});
+
 // ==================== KARŞILAŞTIRMA KAYITLARI API'leri ====================
 
 app.post('/api/karsilastirma-kaydet', (req, res) => {
