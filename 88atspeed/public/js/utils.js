@@ -216,14 +216,7 @@ const AtSpeedUtils = {
     bindHesaplamaKayitList(container, onLoad, onChange) {
         if (!container) return;
         container.querySelectorAll('.kayit-item').forEach(item => {
-            const loadBtn = item.querySelector('[data-action="load"]');
             const deleteBtn = item.querySelector('[data-action="delete"]');
-            if (loadBtn) {
-                loadBtn.onclick = async (e) => {
-                    e.stopPropagation();
-                    await onLoad(item.dataset.id, item);
-                };
-            }
             if (deleteBtn) {
                 deleteBtn.onclick = async (e) => {
                     e.stopPropagation();
@@ -240,6 +233,10 @@ const AtSpeedUtils = {
                     }
                 };
             }
+            item.onclick = async (e) => {
+                if (e.target.closest('[data-action="delete"]')) return;
+                await onLoad(item.dataset.id, item);
+            };
         });
     },
 
