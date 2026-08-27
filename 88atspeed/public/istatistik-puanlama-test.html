@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Puanlama Test — SON800-1 + T1×DR</title>
-    <link href="css/theme.css?v=20260827e" rel="stylesheet">
+    <link href="css/theme.css?v=20260827g" rel="stylesheet">
     <style>
         body { margin: 0; background: var(--bg-page, #f5f5f5); font-family: Inter, sans-serif; }
         .ptest-wrap { padding: 16px 20px 32px; max-width: 100%; }
@@ -130,20 +130,20 @@
     <div class="ptest-table-wrap">
         <table class="ptest-table" id="grid">
             <thead id="gridHead"></thead>
-            <tbody id="gridBody"><tr><td colspan="17" style="padding:24px;color:#789">&quot;Tüm kayıtları yükle&quot; butonuna basın</td></tr></tbody>
+            <tbody id="gridBody"><tr><td colspan="16" style="padding:24px;color:#789">&quot;Tüm kayıtları yükle&quot; butonuna basın</td></tr></tbody>
         </table>
     </div>
 </div>
 
-<script src="js/utils.js?v=20260827e"></script>
-<script src="js/istatistik-engine.js?v=20260827e"></script>
-<script src="js/istatistik-grids-extra.js?v=20260827e"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260827e"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260827e"></script>
+<script src="js/utils.js?v=20260827g"></script>
+<script src="js/istatistik-engine.js?v=20260827g"></script>
+<script src="js/istatistik-grids-extra.js?v=20260827g"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260827g"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260827g"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
-const COL_COUNT = 17;
+const COL_COUNT = 16;
 
 let savedBitisMap = {};
 let savedCikanMap = {};
@@ -220,9 +220,19 @@ function tahminHtml(tahmin) {
     return '<span class="ptest-tahmin-rank">' + tahmin.rank + '.</span><span class="ptest-pct ' + pctClass(tahmin.pct) + '">%' + tahmin.pct + '</span>';
 }
 
+function bitisFromRow(entry) {
+    const key = rowKey(entry);
+    if (savedBitisMap[key] != null && savedBitisMap[key] >= 1) {
+        return savedBitisMap[key];
+    }
+    const n = parseInt(entry.row.no, 10);
+    if (!isNaN(n) && n >= 1) return n;
+    return null;
+}
+
 function bitisInputHtml(entry) {
     const key = rowKey(entry);
-    const val = savedBitisMap[key];
+    const val = bitisFromRow(entry);
     const filled = val != null && val >= 1;
     const cls = filled ? ' ptest-bitis-filled' : '';
     const valueAttr = filled ? ' value="' + val + '"' : '';
@@ -234,7 +244,6 @@ function renderHead() {
     h += '<th rowspan="2" class="ptest-meta-col">TARİH</th>';
     h += '<th rowspan="2" class="ptest-meta-col">HİPODROM</th>';
     h += '<th rowspan="2" class="ptest-meta-col">KOŞU</th>';
-    h += '<th rowspan="2">#</th>';
     h += '<th rowspan="2" class="ptest-at">AT İSMİ</th>';
     h += '<th rowspan="2" class="ptest-th-cikan">ÇIKAR</th>';
     h += '<th rowspan="2" class="ptest-th-bitis">BİTİŞ</th>';
@@ -262,7 +271,6 @@ function renderRow(entry) {
     h += '<td class="ptest-meta-col">' + AtSpeedUtils.escapeHtml(entry.tarih) + '</td>';
     h += '<td class="ptest-meta-col ptest-hipodrom">' + AtSpeedUtils.escapeHtml(entry.hipodrom || '—') + '</td>';
     h += '<td class="ptest-meta-col">' + entry.raceNo + '</td>';
-    h += '<td>' + AtSpeedUtils.escapeHtml(String(row.no ?? '—')) + '</td>';
     h += '<td class="ptest-at">' + AtSpeedUtils.escapeHtml(row.name || '—') + '</td>';
     h += '<td><button type="button" class="ptest-cikan-btn" data-race-key="' + AtSpeedUtils.escapeHtml(rk) + '" data-horse-no="' + AtSpeedUtils.escapeHtml(String(row.no ?? '')) + '" data-horse-name="' + AtSpeedUtils.escapeHtml(row.name || '') + '" title="Çıkan at — koşudan çıkar, metrikler yeniden hesaplanır">✕</button></td>';
     h += '<td>' + bitisInputHtml(entry) + '</td>';
@@ -320,9 +328,11 @@ function buildFlatFromCache() {
         const hipCmp = String(a.hipodrom || '').localeCompare(String(b.hipodrom || ''), 'tr');
         if (hipCmp !== 0) return hipCmp;
         if (a.raceNo !== b.raceNo) return a.raceNo - b.raceNo;
-        const na = parseInt(a.row.no, 10);
-        const nb = parseInt(b.row.no, 10);
-        if (!isNaN(na) && !isNaN(nb)) return na - nb;
+        const ba = bitisFromRow(a);
+        const bb = bitisFromRow(b);
+        if (ba != null && bb != null && ba !== bb) return ba - bb;
+        if (ba != null && bb == null) return -1;
+        if (ba == null && bb != null) return 1;
         return String(a.row.name).localeCompare(String(b.row.name), 'tr');
     });
     flatEntries = flat;
@@ -397,6 +407,14 @@ function collectBitisFromDom() {
         if (n >= 1) sonuclar[input.dataset.rowKey] = n;
     });
     return sonuclar;
+}
+
+function countFilledBitisFromEntries() {
+    let n = 0;
+    for (const entry of flatEntries) {
+        if (bitisFromRow(entry) != null) n++;
+    }
+    return n;
 }
 
 async function loadSavedData() {
