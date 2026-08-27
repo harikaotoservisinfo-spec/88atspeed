@@ -68,6 +68,12 @@ db.run(`CREATE TABLE IF NOT EXISTS yonetim_calismalari_v2 (
     kayit_tarihi DATETIME DEFAULT CURRENT_TIMESTAMP
 )`);
 
+db.run(`CREATE TABLE IF NOT EXISTS puanlama_bitis_sonuclari (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    veri TEXT NOT NULL DEFAULT '{}',
+    guncelleme DATETIME DEFAULT CURRENT_TIMESTAMP
+)`);
+
 app.use(express.static('public', {
     setHeaders(res, filePath) {
         if (filePath.endsWith('.html') || filePath.endsWith('.css') || filePath.endsWith('.js')) {
@@ -957,6 +963,40 @@ app.get('/api/yonetim-calisma-v2/:id', (req, res) => {
             res.json({ success: true, calisma: row });
         } else {
             res.json({ success: false, error: 'Çalışma bulunamadı' });
+        }
+    });
+});
+
+// ==================== PUANLAMA BİTİŞ SONUÇLARI API ====================
+
+app.get('/api/puanlama-bitis-sonuclari', (req, res) => {
+    db.get(`SELECT veri, guncelleme FROM puanlama_bitis_sonuclari WHERE id = 1`, [], (err, row) => {
+        if (err) {
+            res.json({ success: false, error: err.message });
+            return;
+        }
+        let sonuclar = {};
+        if (row?.veri) {
+            try { sonuclar = JSON.parse(row.veri); } catch (_) { sonuclar = {}; }
+        }
+        res.json({ success: true, sonuclar, guncelleme: row?.guncelleme || null });
+    });
+});
+
+app.post('/api/puanlama-bitis-sonuclari', (req, res) => {
+    const sonuclar = req.body?.sonuclar;
+    if (!sonuclar || typeof sonuclar !== 'object') {
+        res.json({ success: false, error: 'Geçersiz veri' });
+        return;
+    }
+    const veri = JSON.stringify(sonuclar);
+    const sql = `INSERT INTO puanlama_bitis_sonuclari (id, veri, guncelleme) VALUES (1, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(id) DO UPDATE SET veri = excluded.veri, guncelleme = CURRENT_TIMESTAMP`;
+    db.run(sql, [veri], function(err) {
+        if (err) {
+            res.json({ success: false, error: err.message });
+        } else {
+            res.json({ success: true, count: Object.keys(sonuclar).length });
         }
     });
 });
