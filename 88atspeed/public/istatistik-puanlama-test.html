@@ -4,10 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Puanlama Test — SON800-1 + T1×DR</title>
-    <link href="css/theme.css?v=20260828c" rel="stylesheet">
+    <link href="css/theme.css?v=20260828d" rel="stylesheet">
     <style>
         body { margin: 0; background: var(--bg-page, #f5f5f5); font-family: Inter, sans-serif; }
         .ptest-wrap { padding: 16px 20px 32px; max-width: 100%; }
+        .ptest-view-tabs {
+            display: flex; gap: 8px; margin: 0 0 12px; flex-wrap: wrap;
+        }
+        .ptest-view-tab-btn {
+            padding: 8px 18px; font-size: 13px; font-weight: 700; border-radius: 8px;
+            border: 2px solid #b39ddb; background: #fff; color: #4a148c; cursor: pointer;
+        }
+        .ptest-view-tab-btn:hover { background: #f3e5f5; }
+        .ptest-view-tab-btn.active {
+            background: #7b1fa2; border-color: #7b1fa2; color: #fff;
+        }
+        .ptest-tab-panel.hidden { display: none !important; }
+        .ptest-gosterge-section-title {
+            font-size: 12px; font-weight: 800; color: #546e7a; text-transform: uppercase;
+            letter-spacing: 0.04em; margin: 16px 0 8px; padding-bottom: 4px;
+            border-bottom: 2px solid #eceff1;
+        }
+        .ptest-gosterge-section-title:first-child { margin-top: 0; }
         .ptest-toolbar {
             display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
             margin-bottom: 12px; padding: 12px 14px;
@@ -293,7 +311,29 @@
         <span class="ptest-meta" id="summaryMeta">Henüz yüklenmedi</span>
     </div>
     <div class="ptest-status" id="status"></div>
-    <div class="ptest-reports-wrap hidden" id="bitisReportsWrap">
+    <div class="ptest-view-tabs">
+        <button type="button" class="ptest-view-tab-btn active" data-ptest-view="tablo" id="ptestViewTabloBtn">📋 Tablo</button>
+        <button type="button" class="ptest-view-tab-btn" data-ptest-view="gosterge" id="ptestViewGostergeBtn">📈 Gösterge</button>
+    </div>
+    <div id="ptestTabTablo" class="ptest-tab-panel">
+    <div class="ptest-cikan-panel hidden" id="cikanPanel">
+        <h3>🚫 Çıkan atlar — koşudan hariç tutuldu, metrikler yeniden hesaplandı</h3>
+        <div class="ptest-cikan-list" id="cikanList"></div>
+    </div>
+    <div class="ptest-table-wrap">
+        <table class="ptest-table" id="grid">
+            <thead id="gridHead"></thead>
+            <tbody id="gridBody"><tr><td colspan="16" style="padding:24px;color:#789">&quot;Tüm kayıtları yükle&quot; butonuna basın</td></tr></tbody>
+        </table>
+    </div>
+    </div>
+    <div id="ptestTabGosterge" class="ptest-tab-panel hidden">
+    <div class="ptest-gosterge-empty" id="gostergeEmptyMsg" style="padding:24px;color:#789;text-align:center">
+        Veri yükleyin — göstergeler &quot;Tüm kayıtları yükle&quot; sonrası görünür
+    </div>
+    <div id="gostergeContentWrap" class="hidden">
+    <div class="ptest-gosterge-section-title">Bitiş raporları · SON800-1</div>
+    <div class="ptest-reports-wrap" id="bitisReportsWrap">
         <div class="ptest-report-meta-global" id="bitisReportsGlobalMeta"></div>
         <div class="ptest-report-panel ptest-report-green-detail" id="yesilDetailPanel">
             <h3>🟢 Yeşil hücre — SON·Δ aralık detay raporu (14 grup)
@@ -339,7 +379,8 @@
             <div class="ptest-report-grid" id="yesilReportGrid"></div>
         </div>
     </div>
-    <div class="ptest-t1-indicators-wrap hidden" id="t1IndicatorsWrap">
+    <div class="ptest-gosterge-section-title">T1×DR · SON derinlik göstergeleri</div>
+    <div class="ptest-t1-indicators-wrap" id="t1IndicatorsWrap">
         <div class="ptest-report-meta-global" id="t1IndicatorsGlobalMeta"></div>
         <div class="ptest-report-panel ptest-report-t1-indicators" id="t1IndicatorsPanel">
             <h3>🟡 T1×DR · SON derinlik — gösterge alanı
@@ -351,23 +392,15 @@
             <div id="t1IndicatorsContent"></div>
         </div>
     </div>
-    <div class="ptest-cikan-panel hidden" id="cikanPanel">
-        <h3>🚫 Çıkan atlar — koşudan hariç tutuldu, metrikler yeniden hesaplandı</h3>
-        <div class="ptest-cikan-list" id="cikanList"></div>
     </div>
-    <div class="ptest-table-wrap">
-        <table class="ptest-table" id="grid">
-            <thead id="gridHead"></thead>
-            <tbody id="gridBody"><tr><td colspan="16" style="padding:24px;color:#789">&quot;Tüm kayıtları yükle&quot; butonuna basın</td></tr></tbody>
-        </table>
     </div>
 </div>
 
-<script src="js/utils.js?v=20260828c"></script>
-<script src="js/istatistik-engine.js?v=20260828c"></script>
-<script src="js/istatistik-grids-extra.js?v=20260828c"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260828c"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260828c"></script>
+<script src="js/utils.js?v=20260828d"></script>
+<script src="js/istatistik-engine.js?v=20260828d"></script>
+<script src="js/istatistik-grids-extra.js?v=20260828d"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260828d"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260828d"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -746,7 +779,34 @@ function yesilEntriesForBucket(bucket) {
     return out;
 }
 
-const PTEST_BUILD = '20260828c';
+let ptestViewTab = 'tablo';
+
+function switchPtestViewTab(tabId) {
+    ptestViewTab = tabId === 'gosterge' ? 'gosterge' : 'tablo';
+    document.querySelectorAll('.ptest-view-tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.ptestView === ptestViewTab);
+    });
+    const tablo = document.getElementById('ptestTabTablo');
+    const gosterge = document.getElementById('ptestTabGosterge');
+    if (tablo) tablo.classList.toggle('hidden', ptestViewTab !== 'tablo');
+    if (gosterge) gosterge.classList.toggle('hidden', ptestViewTab !== 'gosterge');
+}
+
+function bindPtestViewTabs() {
+    document.querySelectorAll('.ptest-view-tab-btn').forEach(btn => {
+        btn.onclick = () => switchPtestViewTab(btn.dataset.ptestView || 'tablo');
+    });
+}
+
+function updateGostergeTabVisibility() {
+    const empty = document.getElementById('gostergeEmptyMsg');
+    const content = document.getElementById('gostergeContentWrap');
+    const hasData = flatEntries.length > 0;
+    if (empty) empty.classList.toggle('hidden', hasData);
+    if (content) content.classList.toggle('hidden', !hasData);
+}
+
+const PTEST_BUILD = '20260828d';
 
 /** T1×DR · SON derinlik — ayrı gösterge alanı tanımları */
 const T1_DR_INDICATORS = [
@@ -969,11 +1029,7 @@ function renderT1Indicators() {
     const globalMeta = document.getElementById('t1IndicatorsGlobalMeta');
     const tag = document.getElementById('t1IndicatorsBuildTag');
     if (!wrap || !content || !panel) return 0;
-    if (!flatEntries.length) {
-        wrap.classList.add('hidden');
-        return 0;
-    }
-    wrap.classList.remove('hidden');
+    if (!flatEntries.length) return 0;
     if (tag) tag.textContent = 'build ' + PTEST_BUILD;
     if (globalMeta) {
         globalMeta.textContent = '📈 T1×DR göstergeleri · ' + T1_DR_INDICATORS.length + ' gösterge'
@@ -1048,13 +1104,12 @@ function renderColorReportSection(section) {
 function renderTuruncuReport() {
     const wrap = document.getElementById('bitisReportsWrap');
     const globalMeta = document.getElementById('bitisReportsGlobalMeta');
+    updateGostergeTabVisibility();
     if (!wrap || !globalMeta) return;
     if (!flatEntries.length) {
-        wrap.classList.add('hidden');
         hideBitisReportPanels();
         return;
     }
-    wrap.classList.remove('hidden');
     globalMeta.textContent = '📊 Bitiş raporları · Toplam yarış: ' + countUniqueRaces()
         + ' · Toplam at satırı: ' + flatEntries.length
         + ' · build ' + PTEST_BUILD;
@@ -1077,12 +1132,11 @@ function renderTuruncuReport() {
 }
 
 function hideBitisReportPanels() {
+    updateGostergeTabVisibility();
     for (const id of ['yesilDetailPanel', 'yesilBlinkBsDetailPanel', 'yesilRaceRankPanel']) {
         const panel = document.getElementById(id);
         if (panel) panel.classList.add('hidden');
     }
-    const t1Wrap = document.getElementById('t1IndicatorsWrap');
-    if (t1Wrap) t1Wrap.classList.add('hidden');
 }
 
 function tahminHtml(tahmin) {
@@ -1926,8 +1980,8 @@ async function clearAllKayitlar() {
         document.getElementById('exportTxtBtn').disabled = true;
         document.getElementById('toggleCikanBtn').classList.add('hidden');
         document.getElementById('cikanPanel').classList.add('hidden');
-        document.getElementById('bitisReportsWrap').classList.add('hidden');
         hideBitisReportPanels();
+        updateGostergeTabVisibility();
         document.getElementById('summaryMeta').textContent = '0 kayıt';
         status.innerHTML = '<span style="color:#2e7d32">🗑 ' + json.deletedHesaplama +
             ' hesaplama kaydı silindi · puanlama verileri temizlendi</span>';
@@ -1946,6 +2000,8 @@ document.getElementById('toggleCikanBtn').onclick = () => {
     cikanPanelOpen = !cikanPanelOpen;
     renderCikanPanel();
 };
+bindPtestViewTabs();
+updateGostergeTabVisibility();
 renderHead();
 </script>
 </body>
