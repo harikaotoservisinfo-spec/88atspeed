@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Puanlama Test — SON800-1 + T1×DR</title>
+    <link href="css/theme.css?v=20260827m" rel="stylesheet">
+    <style>
+        body { margin: 0; background: var(--bg-page, #f5f5f5); font-family: Inter, sans-serif; }
+        .ptest-wrap { padding: 16px 20px 32px; max-width: 100%; }
+        .ptest-toolbar {
+            display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+            margin-bottom: 12px; padding: 12px 14px;
+            background: #fff; border-radius: 8px; border: 1px solid #e0e0e0;
+        }
+        .ptest-toolbar h1 { margin: 0; font-size: 16px; color: #4a148c; flex: 1 1 100%; }
+        .ptest-btn {
+            padding: 8px 16px; border: none; border-radius: 6px;
+            background: linear-gradient(135deg, #7b1fa2, #4a148c);
+            color: #fff; font-weight: 700; cursor: pointer; font-size: 13px;
+        }
+        .ptest-btn-success { background: linear-gradient(135deg, #43a047, #2e7d32); }
+        .ptest-btn-outline {
+            background: #fff; color: #6a1b9a; border: 1px solid #ce93d8;
+        }
+        .ptest-btn-danger {
+            background: linear-gradient(135deg, #e53935, #b71c1c);
+        }
+        .ptest-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .ptest-meta { font-size: 12px; color: #546e7a; }
+        .ptest-status { margin-bottom: 10px; font-size: 13px; }
+        .ptest-cikan-panel {
+            margin-bottom: 10px; padding: 10px 12px; background: #fff3e0;
+            border: 1px solid #ffcc80; border-radius: 8px; font-size: 12px;
+        }
+        .ptest-cikan-panel.hidden { display: none; }
+        .ptest-cikan-panel h3 { margin: 0 0 8px; font-size: 13px; color: #e65100; }
+        .ptest-cikan-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .ptest-cikan-chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 8px; background: #fff; border: 1px solid #ffb74d;
+            border-radius: 999px; font-size: 11px;
+        }
+        .ptest-cikan-restore {
+            border: none; background: #ffe0b2; color: #bf360c;
+            border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; font-weight: 700;
+        }
+        .ptest-table-wrap {
+            overflow: auto; max-height: calc(100vh - 180px);
+            border: 1px solid #cfd8dc; border-radius: 8px; background: #fff;
+        }
+        .ptest-table {
+            border-collapse: separate; border-spacing: 0;
+            font-size: 12px; min-width: 1280px; width: 100%;
+        }
+        .ptest-table th, .ptest-table td {
+            padding: 5px 7px; border-bottom: 1px solid #eceff1;
+            border-right: 1px solid #eceff1; text-align: center; white-space: nowrap;
+        }
+        .ptest-table thead th {
+            position: sticky; top: 0; z-index: 3;
+            background: #ede7f6; font-size: 11px; font-weight: 700;
+        }
+        .ptest-table thead tr:nth-child(2) th { top: 34px; z-index: 2; }
+        .ptest-table .ptest-th-grp { background: #e1bee7; font-size: 11px; }
+        .ptest-table .ptest-th-s800 { background: #b2ebf2; }
+        .ptest-table .ptest-th-t1 { background: #ffe0b2; }
+        .ptest-table .ptest-th-bitis { background: #fff9c4; }
+        .ptest-th-bitis-inner {
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            line-height: 1.2;
+        }
+        .ptest-bitis-sort-select {
+            width: 42px; padding: 2px 4px; font-size: 11px; font-weight: 800;
+            border: 1px solid #fbc02d; border-radius: 4px; background: #fff;
+            cursor: pointer;
+        }
+        .ptest-bitis-sort-select:focus { outline: none; border-color: #7b1fa2; }
+        .ptest-bitis-sort-select:disabled { opacity: 0.5; cursor: wait; }
+        .ptest-status-done { color: #2e7d32; font-weight: 600; }
+        .ptest-status-busy { color: #6a1b9a; font-weight: 600; }
+        .ptest-table .ptest-th-cikan { background: #ffecb3; }
+        .ptest-table td.ptest-meta-col { background: #fafafa; font-weight: 600; color: #37474f; }
+        .ptest-table td.ptest-hipodrom { text-align: left; font-weight: 700; color: #4a148c; min-width: 72px; }
+        .ptest-table td.ptest-at { text-align: left; font-weight: 600; max-width: 160px; }
+        .ptest-table tbody tr:nth-child(even) td { filter: brightness(0.99); }
+        .ptest-table tbody tr:hover td { filter: brightness(0.97); }
+        .ptest-pct {
+            display: inline-block; min-width: 44px; padding: 3px 6px;
+            border-radius: 4px; font-weight: 800; font-variant-numeric: tabular-nums;
+        }
+        .ptest-pct-none { background: #f5f5f5; color: #9e9e9e; }
+        .ptest-pct-low { background: #ffebee; color: #c62828; }
+        .ptest-pct-mid { background: #fff8e1; color: #f57f17; }
+        .ptest-pct-good { background: #e8f5e9; color: #1b5e20; }
+        .ptest-pct-high { background: #a5d6a7; color: #0d3d0d; }
+        .ptest-tahmin-rank { font-weight: 900; margin-right: 3px; }
+        .ptest-bitis-input {
+            width: 44px; padding: 4px 2px; text-align: center;
+            border: 1px solid #cfd8dc; border-radius: 4px;
+            font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+            background: #fff;
+        }
+        .ptest-bitis-input:focus {
+            outline: none; border-color: #7b1fa2; box-shadow: 0 0 0 2px rgba(123,31,162,0.15);
+        }
+        .ptest-bitis-input.ptest-bitis-filled {
+            background: #e8f5e9; border-color: #66bb6a; color: #1b5e20;
+        }
+        .ptest-cikan-btn {
+            border: none; background: #ffebee; color: #c62828;
+            border-radius: 4px; padding: 3px 7px; cursor: pointer;
+            font-size: 12px; font-weight: 800; line-height: 1;
+        }
+        .ptest-cikan-btn:hover { background: #ffcdd2; }
+        .ptest-gap-twin-zero { background: #ff9800 !important; box-shadow: inset 0 0 0 2px #ef6c00; }
+        .ptest-gap-twin-zero .ptest-pct { background: rgba(255,152,0,0.35) !important; }
+        .ptest-gap-neon { background: #76ff03 !important; box-shadow: inset 0 0 0 2px #33691e, 0 0 8px rgba(118,255,3,0.6); }
+        .ptest-gap-neon .ptest-pct { background: #76ff03 !important; color: #1b5e20 !important; }
+        @keyframes ptest-gap-blink {
+            0%, 100% { color: #b71c1c; opacity: 1; }
+            50% { color: #ff5252; opacity: 0.35; }
+        }
+        .ptest-gap-zero-blink { animation: ptest-gap-blink 0.85s ease-in-out infinite; color: #c62828 !important; font-weight: 900 !important; }
+        .ptest-sep td { background: #f3e5f5 !important; height: 4px; padding: 0; border: none; }
+    </style>
+</head>
+<body>
+<div class="ptest-wrap">
+    <div class="ptest-toolbar">
+        <h1>🧪 Puanlama test — tüm kayıtlar · SON800-1 + T1×DR (SON derinlik)</h1>
+        <button type="button" class="ptest-btn" id="loadAllBtn">Tüm kayıtları yükle</button>
+        <button type="button" class="ptest-btn ptest-btn-success" id="saveAllBtn" disabled>💾 Kaydet</button>
+        <button type="button" class="ptest-btn ptest-btn-outline" id="exportTxtBtn" disabled title="Seçili BİTİŞ sırasına göre (0 veya 1) renkli tabloyu .html olarak indir">📥 Renkli İndir</button>
+        <button type="button" class="ptest-btn ptest-btn-danger" id="clearAllBtn">🗑 Tüm kayıtları sil</button>
+        <button type="button" class="ptest-btn ptest-btn-outline hidden" id="toggleCikanBtn">👁 Çıkan atlar (0)</button>
+        <span class="ptest-meta" id="summaryMeta">Henüz yüklenmedi</span>
+    </div>
+    <div class="ptest-status" id="status"></div>
+    <div class="ptest-cikan-panel hidden" id="cikanPanel">
+        <h3>🚫 Çıkan atlar — koşudan hariç tutuldu, metrikler yeniden hesaplandı</h3>
+        <div class="ptest-cikan-list" id="cikanList"></div>
+    </div>
+    <div class="ptest-table-wrap">
+        <table class="ptest-table" id="grid">
+            <thead id="gridHead"></thead>
+            <tbody id="gridBody"><tr><td colspan="16" style="padding:24px;color:#789">&quot;Tüm kayıtları yükle&quot; butonuna basın</td></tr></tbody>
+        </table>
+    </div>
+</div>
+
+<script src="js/utils.js?v=20260827m"></script>
+<script src="js/istatistik-engine.js?v=20260827m"></script>
+<script src="js/istatistik-grids-extra.js?v=20260827m"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260827m"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260827m"></script>
+<script>
+const IE = IstatistikEngine;
+const TE = IstatistikTahminEngine;
+const COL_COUNT = 16;
+
+let savedBitisMap = {};
+let savedCikanMap = {};
+let kayitCache = new Map();
+let flatEntries = [];
+let kayitCountLoaded = 0;
+let cikanPanelOpen = false;
+let cikanMetaList = [];
+let bitisSortMode = 0;
+let isTableProcessing = false;
+let activeBitisLookup = null;
+
+function rowKey(entry) {
+    return String(entry.kayitId) + '|' + entry.raceNo + '|' + String(entry.row.no ?? '');
+}
+
+function raceKey(kayitId, raceNo) {
+    return String(kayitId) + '|' + raceNo;
+}
+
+function getCikanSet(kayitId, raceNo) {
+    const arr = savedCikanMap[raceKey(kayitId, raceNo)] || [];
+    return new Set(arr.map(String));
+}
+
+function countCikanHorses() {
+    let n = 0;
+    for (const arr of Object.values(savedCikanMap)) n += (arr || []).length;
+    return n;
+}
+
+function raceWithoutCikan(race, kayitId, raceNo) {
+    const ex = getCikanSet(kayitId, raceNo);
+    if (!ex.size) return race;
+    return {
+        ...race,
+        horses: (race.horses || []).filter(h => !ex.has(String(h.no)))
+    };
+}
+
+function pctClass(pct) {
+    if (pct === null || pct === undefined) return 'ptest-pct-none';
+    if (pct === 0) return 'ptest-pct-low';
+    if (pct < 35) return 'ptest-pct-mid';
+    if (pct < 70) return 'ptest-pct-good';
+    return 'ptest-pct-high';
+}
+
+function pctSpan(val, extraCls) {
+    if (val == null) return '<span class="ptest-pct ptest-pct-none">—</span>';
+    return '<span class="ptest-pct ' + pctClass(val) + (extraCls ? ' ' + extraCls : '') + '">%' + val + '</span>';
+}
+
+function isTwinZero(row) {
+    const s = row.son8001Depths?.[0];
+    const t = row.t1drDepths?.[0];
+    return !!(s && t && s.gapPct === 0 && t.gapPct === 0);
+}
+
+function gapTdClass(row, cell) {
+    if (!cell || cell.gapPct == null) return '';
+    const s800 = row.son8001Depths?.[0]?.gapPct;
+    const t1 = row.t1drDepths?.[0]?.gapPct;
+    if (isTwinZero(row) && cell.gapPct === 0) return ' ptest-gap-twin-zero';
+    if (!isTwinZero(row) && s800 != null && t1 != null && s800 < 25 && t1 < 25) return ' ptest-gap-neon';
+    return '';
+}
+
+function gapSpan(row, cell) {
+    if (!cell || cell.gapPct == null) return pctSpan(null);
+    const blink = cell.gapPct === 0 ? ' ptest-gap-zero-blink' : '';
+    return pctSpan(cell.gapPct, blink);
+}
+
+function tahminHtml(tahmin) {
+    if (!tahmin || tahmin.rank == null || tahmin.pct == null) return '<span class="ptest-pct ptest-pct-none">—</span>';
+    return '<span class="ptest-tahmin-rank">' + tahmin.rank + '.</span><span class="ptest-pct ' + pctClass(tahmin.pct) + '">%' + tahmin.pct + '</span>';
+}
+
+const EXPORT_COL_COUNT = 15;
+
+const EXPORT_CSS = `
+body { margin: 16px; background: #f5f5f5; font-family: Inter, Arial, sans-serif; font-size: 12px; color: #37474f; }
+.export-meta { margin-bottom: 12px; padding: 12px 14px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; }
+.export-meta h1 { margin: 0 0 8px; font-size: 16px; color: #4a148c; }
+.export-meta p { margin: 4px 0; font-size: 12px; color: #546e7a; }
+.export-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.export-legend-item { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 6px; font-size: 11px; border: 1px solid #eceff1; background: #fafafa; }
+.export-legend-swatch { width: 18px; height: 18px; border-radius: 4px; border: 2px solid transparent; }
+.export-table-wrap { overflow: auto; border: 1px solid #cfd8dc; border-radius: 8px; background: #fff; }
+.export-table { border-collapse: separate; border-spacing: 0; min-width: 1280px; width: 100%; }
+.export-table th, .export-table td { padding: 5px 7px; border-bottom: 1px solid #eceff1; border-right: 1px solid #eceff1; text-align: center; white-space: nowrap; }
+.export-table thead th { background: #ede7f6; font-size: 11px; font-weight: 700; }
+.export-table .th-grp { background: #e1bee7; }
+.export-table .th-s800 { background: #b2ebf2; }
+.export-table .th-t1 { background: #ffe0b2; }
+.export-table .th-bitis { background: #fff9c4; }
+.export-table td.meta-col { background: #fafafa; font-weight: 600; color: #37474f; }
+.export-table td.hipodrom { text-align: left; font-weight: 700; color: #4a148c; }
+.export-table td.at { text-align: left; font-weight: 600; max-width: 160px; }
+.export-table tbody tr:nth-child(even) td { filter: brightness(0.99); }
+.pct { display: inline-block; min-width: 44px; padding: 3px 6px; border-radius: 4px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.pct-none { background: #f5f5f5; color: #9e9e9e; }
+.pct-low { background: #ffebee; color: #c62828; }
+.pct-mid { background: #fff8e1; color: #f57f17; }
+.pct-good { background: #e8f5e9; color: #1b5e20; }
+.pct-high { background: #a5d6a7; color: #0d3d0d; }
+.tahmin-rank { font-weight: 900; margin-right: 3px; }
+.bitis-filled { display: inline-block; min-width: 36px; padding: 4px 6px; border-radius: 4px; font-weight: 700; background: #e8f5e9; border: 1px solid #66bb6a; color: #1b5e20; }
+.bitis-empty { color: #9e9e9e; }
+.gap-twin-zero { background: #ff9800 !important; box-shadow: inset 0 0 0 2px #ef6c00; }
+.gap-twin-zero .pct { background: rgba(255,152,0,0.35) !important; }
+.gap-neon { background: #76ff03 !important; box-shadow: inset 0 0 0 2px #33691e, 0 0 8px rgba(118,255,3,0.6); }
+.gap-neon .pct { background: #76ff03 !important; color: #1b5e20 !important; }
+.gap-zero { color: #c62828 !important; font-weight: 900 !important; }
+.sep td { background: #f3e5f5 !important; height: 4px; padding: 0; border: none; }
+`;
+
+function esc(s) {
+    return AtSpeedUtils.escapeHtml(s);
+}
+
+function exportPctSpan(val, extraCls) {
+    if (val == null) return '<span class="pct pct-none">—</span>';
+    return '<span class="pct ' + pctClass(val).replace('ptest-pct-', 'pct-') + (extraCls ? ' ' + extraCls : '') + '">%' + val + '</span>';
+}
+
+function exportGapSpan(row, cell) {
+    if (!cell || cell.gapPct == null) return exportPctSpan(null);
+    const zeroCls = cell.gapPct === 0 ? ' gap-zero' : '';
+    return exportPctSpan(cell.gapPct, zeroCls.trim());
+}
+
+function exportGapTdClass(row, cell) {
+    const cls = gapTdClass(row, cell).trim();
+    return cls.replace(/ptest-/g, '');
+}
+
+function exportTahminHtml(tahmin) {
+    if (!tahmin || tahmin.rank == null || tahmin.pct == null) return '<span class="pct pct-none">—</span>';
+    return '<span class="tahmin-rank">' + tahmin.rank + '.</span><span class="pct ' + pctClass(tahmin.pct).replace('ptest-pct-', 'pct-') + '">%' + tahmin.pct + '</span>';
+}
+
+function exportBitisHtml(entry) {
+    const val = bitisValueForDisplay(entry);
+    if (val != null && val >= 1) return '<span class="bitis-filled">' + val + '</span>';
+    return '<span class="bitis-empty">—</span>';
+}
+
+function renderExportHead() {
+    let h = '<tr>';
+    h += '<th rowspan="2" class="meta-col">TARİH</th>';
+    h += '<th rowspan="2" class="meta-col">HİPODROM</th>';
+    h += '<th rowspan="2" class="meta-col">KOŞU</th>';
+    h += '<th rowspan="2" class="at">AT İSMİ</th>';
+    h += '<th rowspan="2" class="th-bitis">BİTİŞ</th>';
+    h += '<th rowspan="2">TAHMİN</th>';
+    h += '<th colspan="5" class="th-grp th-s800">SON800-1 · SON derinlik</th>';
+    h += '<th colspan="4" class="th-grp th-t1">T1×DR · SON derinlik</th>';
+    h += '</tr><tr>';
+    h += '<th class="th-s800">SON</th><th class="th-s800">SON·Eİ</th><th class="th-s800">SON·İÇ</th><th class="th-s800">SON·Δ</th><th class="th-s800">SON·BS</th>';
+    h += '<th class="th-t1">SON·Eİ</th><th class="th-t1">SON·İÇ</th><th class="th-t1">SON·Δ</th><th class="th-t1">SON·BS</th>';
+    h += '</tr>';
+    return h;
+}
+
+function renderExportRow(entry) {
+    const { row } = entry;
+    const s0 = row.son8001Depths?.[0] || null;
+    const t0 = row.t1drDepths?.[0] || null;
+    let h = '<tr>';
+    h += '<td class="meta-col">' + esc(entry.tarih) + '</td>';
+    h += '<td class="meta-col hipodrom">' + esc(entry.hipodrom || '—') + '</td>';
+    h += '<td class="meta-col">' + entry.raceNo + '</td>';
+    h += '<td class="at">' + esc(row.name || '—') + '</td>';
+    h += '<td>' + exportBitisHtml(entry) + '</td>';
+    h += '<td>' + exportTahminHtml(row.tahmin) + '</td>';
+    h += '<td>' + exportPctSpan(depthSon(s0, 'pct')) + '</td>';
+    h += '<td>' + exportPctSpan(depthSon(s0, 'horseBestPct')) + '</td>';
+    h += '<td>' + exportPctSpan(depthSon(s0, 'selfPct')) + '</td>';
+    h += '<td class="' + exportGapTdClass(row, s0) + '">' + exportGapSpan(row, s0) + '</td>';
+    h += '<td>' + exportPctSpan(depthSon(s0, 'successPct')) + '</td>';
+    h += '<td>' + exportPctSpan(depthSon(t0, 'horseBestPct')) + '</td>';
+    h += '<td>' + exportPctSpan(depthSon(t0, 'selfPct')) + '</td>';
+    h += '<td>' + exportPctSpan(depthSon(t0, 'gapPct')) + '</td>';
+    h += '<td>' + exportPctSpan(depthSon(t0, 'successPct')) + '</td>';
+    h += '</tr>';
+    return h;
+}
+
+function renderExportBody(entries) {
+    const parts = [];
+    let lastKey = '';
+    for (const entry of entries) {
+        const key = entry.tarih + '|' + entry.hipodrom + '|' + entry.raceNo + '|' + entry.kayitId;
+        if (lastKey && lastKey !== key) {
+            parts.push('<tr class="sep"><td colspan="' + EXPORT_COL_COUNT + '"></td></tr>');
+        }
+        parts.push(renderExportRow(entry));
+        lastKey = key;
+    }
+    return parts.join('');
+}
+
+function buildExportHtml(entries) {
+    const now = new Date();
+    const modeLabel = bitisSortMode === 1
+        ? '1 — tüm liste bitiş sırasına göre (1 en üstte)'
+        : '0 — normal (tarih → hipodrom → koşu → yükleme sırası)';
+    const html = '<!DOCTYPE html>\n<html lang="tr">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+        '<title>Puanlama Test — Renkli dışa aktarım</title>\n<style>' + EXPORT_CSS + '</style>\n</head>\n<body>\n' +
+        '<div class="export-meta">\n<h1>🧪 Puanlama Test — Renkli tablo</h1>\n' +
+        '<p><strong>Oluşturulma:</strong> ' + esc(now.toLocaleString('tr-TR')) + '</p>\n' +
+        '<p><strong>BİTİŞ sıralama:</strong> ' + esc(modeLabel) + '</p>\n' +
+        '<p><strong>Kayıtlar:</strong> ' + kayitCountLoaded + ' · <strong>Satır:</strong> ' + entries.length +
+        ' · <strong>Çıkan at:</strong> ' + countCikanHorses() + '</p>\n' +
+        '<div class="export-legend">\n' +
+        '<span class="export-legend-item"><span class="export-legend-swatch" style="background:#ff9800;border-color:#ef6c00"></span> Turuncu hücre — SON800·Δ ve T1×DR·Δ ikisi de %0</span>\n' +
+        '<span class="export-legend-item"><span class="export-legend-swatch" style="background:#76ff03;border-color:#33691e"></span> Neon yeşil — SON800·Δ ve T1×DR·Δ ikisi de &lt;%25</span>\n' +
+        '<span class="export-legend-item"><span class="export-legend-swatch pct-low"></span> Düşük % · <span class="export-legend-swatch pct-mid"></span> Orta · <span class="export-legend-swatch pct-good"></span> İyi · <span class="export-legend-swatch pct-high"></span> Yüksek</span>\n' +
+        '<span class="export-legend-item"><span class="pct gap-zero">%0</span> Kırmızı kalın — SON·Δ tam %0</span>\n' +
+        '</div>\n</div>\n' +
+        '<div class="export-table-wrap"><table class="export-table">\n<thead>' + renderExportHead() + '</thead>\n<tbody>\n' +
+        renderExportBody(entries) + '\n</tbody></table></div>\n</body>\n</html>';
+    return { html, now };
+}
+
+function downloadTextExport() {
+    if (!flatEntries.length || isTableProcessing) return;
+    syncBitisInputsToMap();
+    const entries = flatEntries.slice();
+    sortFlatEntries(entries);
+    const { html, now } = buildExportHtml(entries);
+    const modeSlug = bitisSortMode === 1 ? 'bitis-sira-1' : 'normal-0';
+    const ts = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const blob = new Blob(['\ufeff' + html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'puanlama-test-renkli-' + modeSlug + '-' + entries.length + 'satir-' + ts + '.html';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setProcessStatus(formatDoneStatus('renkli HTML indirildi · ' + modeSlug), false);
+}
+
+function setProcessStatus(html, isBusy) {
+    const status = document.getElementById('status');
+    status.innerHTML = '<span class="' + (isBusy ? 'ptest-status-busy' : 'ptest-status-done') + '">' + html + '</span>';
+}
+
+function tarihSortKey(tarih) {
+    if (!tarih) return '';
+    const s = String(tarih).trim();
+    const parts = s.indexOf('/') >= 0 ? s.split('/') : s.split('.');
+    if (parts.length === 3) {
+        const d = parts[0].padStart(2, '0');
+        const m = parts[1].padStart(2, '0');
+        const y = parts[2].padStart(4, '0');
+        return y + m + d;
+    }
+    return s;
+}
+
+function resolveBitisValue(entry) {
+    const key = rowKey(entry);
+    if (savedBitisMap[key] != null && savedBitisMap[key] >= 1) {
+        return savedBitisMap[key];
+    }
+    const n = parseInt(entry.row.no, 10);
+    if (!isNaN(n) && n >= 1) return n;
+    return null;
+}
+
+function bitisValueForDisplay(entry) {
+    return resolveBitisValue(entry);
+}
+
+function bitisValueForSort(entry) {
+    const key = rowKey(entry);
+    if (activeBitisLookup && activeBitisLookup.has(key)) {
+        return activeBitisLookup.get(key);
+    }
+    return resolveBitisValue(entry);
+}
+
+function rebuildBitisLookup() {
+    const lookup = new Map();
+    for (const entry of flatEntries) {
+        lookup.set(rowKey(entry), resolveBitisValue(entry));
+    }
+    activeBitisLookup = lookup;
+    return lookup;
+}
+
+function bitisFromRow(entry) {
+    return bitisValueForDisplay(entry);
+}
+
+function compareRaceMeta(a, b) {
+    const ta = tarihSortKey(a.tarih);
+    const tb = tarihSortKey(b.tarih);
+    if (ta !== tb) return ta.localeCompare(tb);
+    const hipCmp = String(a.hipodrom || '').localeCompare(String(b.hipodrom || ''), 'tr');
+    if (hipCmp !== 0) return hipCmp;
+    return a.raceNo - b.raceNo;
+}
+
+function compareDefaultWithinRace(a, b) {
+    if (a._loadOrder != null && b._loadOrder != null && a._loadOrder !== b._loadOrder) {
+        return a._loadOrder - b._loadOrder;
+    }
+    const na = parseInt(a.row.no, 10);
+    const nb = parseInt(b.row.no, 10);
+    if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
+    return String(a.row.name).localeCompare(String(b.row.name), 'tr');
+}
+
+function compareBitisGlobal(a, b) {
+    const ba = bitisValueForSort(a);
+    const bb = bitisValueForSort(b);
+    if (ba != null && bb != null && ba !== bb) return ba - bb;
+    if (ba != null && bb == null) return -1;
+    if (ba == null && bb != null) return 1;
+    const meta = compareRaceMeta(a, b);
+    if (meta !== 0) return meta;
+    return compareDefaultWithinRace(a, b);
+}
+
+function sortFlatEntries(flat) {
+    if (!activeBitisLookup) rebuildBitisLookup();
+    flat.sort((a, b) => {
+        if (bitisSortMode === 1) return compareBitisGlobal(a, b);
+        const meta = compareRaceMeta(a, b);
+        if (meta !== 0) return meta;
+        return compareDefaultWithinRace(a, b);
+    });
+}
+
+function syncBitisInputsToMap() {
+    const fromDom = collectBitisFromDom();
+    for (const k of Object.keys(fromDom)) savedBitisMap[k] = fromDom[k];
+    rebuildBitisLookup();
+}
+
+function countSortableBitis() {
+    let n = 0;
+    for (const entry of flatEntries) {
+        if (bitisValueForSort(entry) != null) n++;
+    }
+    return n;
+}
+
+function formatDoneStatus(extra) {
+    const filled = countFilledBitisFromEntries();
+    const sortable = countSortableBitis();
+    const cikan = countCikanHorses();
+    const modeLabel = bitisSortMode === 1 ? 'bitiş sırası (1) — tüm 1\'ler üstte' : 'normal (0)';
+    return '✅ ' + flatEntries.length + ' satır · ' + filled + ' bitiş · ' + sortable +
+        ' sıralanabilir · ' + cikan + ' çıkan · ' + modeLabel + (extra ? ' · ' + extra : '');
+}
+
+function renderTableBodyOnly() {
+    const body = document.getElementById('gridBody');
+    const parts = [];
+    let lastKey = '';
+    for (const entry of flatEntries) {
+        const key = entry.tarih + '|' + entry.hipodrom + '|' + entry.raceNo + '|' + entry.kayitId;
+        if (lastKey && lastKey !== key) {
+            parts.push('<tr class="ptest-sep"><td colspan="' + COL_COUNT + '"></td></tr>');
+        }
+        parts.push(renderRow(entry));
+        lastKey = key;
+    }
+    body.innerHTML = parts.length
+        ? parts.join('')
+        : '<tr><td colspan="' + COL_COUNT + '">Satır yok</td></tr>';
+    bindTableEvents();
+    renderCikanPanel();
+    updateSummaryMeta();
+}
+
+async function applySortAndRender() {
+    if (!flatEntries.length || isTableProcessing) return;
+    isTableProcessing = true;
+    const sel = document.getElementById('bitisSortSelect');
+    if (sel) sel.disabled = true;
+
+    const modeLabel = bitisSortMode === 1 ? 'tüm liste bitiş sırasına göre (1→2→3…)' : 'normal sıraya';
+    setProcessStatus('⏳ ' + flatEntries.length + ' satır ' + modeLabel + ' sıralanıyor…', true);
+
+    syncBitisInputsToMap();
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+    const t0 = performance.now();
+    try {
+        sortFlatEntries(flatEntries);
+        await new Promise(r => requestAnimationFrame(r));
+        renderTableBodyOnly();
+        const ms = Math.round(performance.now() - t0);
+        setProcessStatus(formatDoneStatus('tamamlandı ' + ms + 'ms'), false);
+    } catch (err) {
+        setProcessStatus('❌ ' + AtSpeedUtils.escapeHtml(err.message), false);
+    } finally {
+        isTableProcessing = false;
+        if (sel) {
+            sel.disabled = false;
+            sel.value = String(bitisSortMode);
+        }
+    }
+}
+
+function bindBitisSortSelect() {
+    const sel = document.getElementById('bitisSortSelect');
+    if (!sel) return;
+    sel.value = String(bitisSortMode);
+    sel.disabled = isTableProcessing;
+    sel.onchange = () => {
+        if (isTableProcessing) return;
+        bitisSortMode = parseInt(sel.value, 10) === 1 ? 1 : 0;
+        applySortAndRender();
+    };
+}
+
+function bitisInputHtml(entry) {
+    const key = rowKey(entry);
+    const val = bitisValueForDisplay(entry);
+    const filled = val != null && val >= 1;
+    const cls = filled ? ' ptest-bitis-filled' : '';
+    const valueAttr = filled ? ' value="' + val + '"' : '';
+    return '<input type="number" min="1" max="99" class="ptest-bitis-input' + cls + '" data-row-key="' + AtSpeedUtils.escapeHtml(key) + '"' + valueAttr + ' placeholder="—" title="Atın bitiş sırası">';
+}
+
+function renderHead() {
+    let h = '<tr>';
+    h += '<th rowspan="2" class="ptest-meta-col">TARİH</th>';
+    h += '<th rowspan="2" class="ptest-meta-col">HİPODROM</th>';
+    h += '<th rowspan="2" class="ptest-meta-col">KOŞU</th>';
+    h += '<th rowspan="2" class="ptest-at">AT İSMİ</th>';
+    h += '<th rowspan="2" class="ptest-th-cikan">ÇIKAR</th>';
+    h += '<th rowspan="2" class="ptest-th-bitis"><div class="ptest-th-bitis-inner">BİTİŞ';
+    h += '<select id="bitisSortSelect" class="ptest-bitis-sort-select" title="0: tarih/koşu sırası · 1: tüm liste bitiş sırasına göre (1 en üstte)">';
+    h += '<option value="0"' + (bitisSortMode === 0 ? ' selected' : '') + '>0</option>';
+    h += '<option value="1"' + (bitisSortMode === 1 ? ' selected' : '') + '>1</option>';
+    h += '</select></div></th>';
+    h += '<th rowspan="2">TAHMİN</th>';
+    h += '<th colspan="5" class="ptest-th-grp ptest-th-s800">SON800-1 · SON derinlik</th>';
+    h += '<th colspan="4" class="ptest-th-grp ptest-th-t1">T1×DR · SON derinlik</th>';
+    h += '</tr><tr>';
+    h += '<th class="ptest-th-s800">SON</th><th class="ptest-th-s800">SON·Eİ</th><th class="ptest-th-s800">SON·İÇ</th><th class="ptest-th-s800">SON·Δ</th><th class="ptest-th-s800">SON·BS</th>';
+    h += '<th class="ptest-th-t1">SON·Eİ</th><th class="ptest-th-t1">SON·İÇ</th><th class="ptest-th-t1">SON·Δ</th><th class="ptest-th-t1">SON·BS</th>';
+    h += '</tr>';
+    document.getElementById('gridHead').innerHTML = h;
+    bindBitisSortSelect();
+}
+
+function depthSon(cell, field) {
+    const c = cell || {};
+    return c[field] != null ? c[field] : null;
+}
+
+function renderRow(entry) {
+    const { row } = entry;
+    const s0 = row.son8001Depths?.[0] || null;
+    const t0 = row.t1drDepths?.[0] || null;
+    const rk = raceKey(entry.kayitId, entry.raceNo);
+    let h = '<tr data-row-key="' + AtSpeedUtils.escapeHtml(rowKey(entry)) + '">';
+    h += '<td class="ptest-meta-col">' + AtSpeedUtils.escapeHtml(entry.tarih) + '</td>';
+    h += '<td class="ptest-meta-col ptest-hipodrom">' + AtSpeedUtils.escapeHtml(entry.hipodrom || '—') + '</td>';
+    h += '<td class="ptest-meta-col">' + entry.raceNo + '</td>';
+    h += '<td class="ptest-at">' + AtSpeedUtils.escapeHtml(row.name || '—') + '</td>';
+    h += '<td><button type="button" class="ptest-cikan-btn" data-race-key="' + AtSpeedUtils.escapeHtml(rk) + '" data-horse-no="' + AtSpeedUtils.escapeHtml(String(row.no ?? '')) + '" data-horse-name="' + AtSpeedUtils.escapeHtml(row.name || '') + '" title="Çıkan at — koşudan çıkar, metrikler yeniden hesaplanır">✕</button></td>';
+    h += '<td>' + bitisInputHtml(entry) + '</td>';
+    h += '<td>' + tahminHtml(row.tahmin) + '</td>';
+    h += '<td>' + pctSpan(depthSon(s0, 'pct')) + '</td>';
+    h += '<td>' + pctSpan(depthSon(s0, 'horseBestPct')) + '</td>';
+    h += '<td>' + pctSpan(depthSon(s0, 'selfPct')) + '</td>';
+    h += '<td class="' + gapTdClass(row, s0).trim() + '">' + gapSpan(row, s0) + '</td>';
+    h += '<td>' + pctSpan(depthSon(s0, 'successPct')) + '</td>';
+    h += '<td>' + pctSpan(depthSon(t0, 'horseBestPct')) + '</td>';
+    h += '<td>' + pctSpan(depthSon(t0, 'selfPct')) + '</td>';
+    h += '<td>' + pctSpan(depthSon(t0, 'gapPct')) + '</td>';
+    h += '<td>' + pctSpan(depthSon(t0, 'successPct')) + '</td>';
+    h += '</tr>';
+    return h;
+}
+
+function buildFlatFromCache() {
+    const flat = [];
+    cikanMetaList = [];
+    let loadOrder = 0;
+    for (const kayit of kayitCache.values()) {
+        const races = kayit.veri || [];
+        const raceEntries = races.map((race, i) => {
+            const raceNo = race.raceNo || (i + 1);
+            const filtered = raceWithoutCikan(race, kayit.id, raceNo);
+            const pkg = IE.buildRaceIstatistikPackage(filtered, kayit.hipodrom, kayit.tarih);
+            return { race, raceNo, pkg, filtered };
+        });
+        if (raceEntries.length) IE.applyProgramGlobalPctScales(raceEntries.map(e => e.pkg));
+        for (const { race, raceNo, pkg } of raceEntries) {
+            TE.attachRaceTahmin(pkg);
+            const exSet = getCikanSet(kayit.id, raceNo);
+            for (const horse of (race.horses || [])) {
+                if (exSet.has(String(horse.no))) {
+                    cikanMetaList.push({
+                        kayitId: kayit.id,
+                        raceNo,
+                        tarih: kayit.tarih,
+                        hipodrom: kayit.hipodrom,
+                        horseNo: String(horse.no),
+                        horseName: horse.name || '—',
+                        raceKey: raceKey(kayit.id, raceNo)
+                    });
+                }
+            }
+            for (const row of pkg.rows) {
+                flat.push({
+                    row,
+                    tarih: kayit.tarih,
+                    raceNo,
+                    hipodrom: kayit.hipodrom,
+                    kayitId: kayit.id,
+                    _loadOrder: loadOrder++
+                });
+            }
+        }
+    }
+    rebuildBitisLookup();
+    sortFlatEntries(flat);
+    flatEntries = flat;
+    return flat;
+}
+
+function renderTable() {
+    renderTableBodyOnly();
+}
+
+async function renderTableAsync(doneExtra) {
+    if (isTableProcessing) return;
+    isTableProcessing = true;
+    setProcessStatus('⏳ Tablo oluşturuluyor (' + flatEntries.length + ' satır)…', true);
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const t0 = performance.now();
+    try {
+        renderTableBodyOnly();
+        const ms = Math.round(performance.now() - t0);
+        setProcessStatus(formatDoneStatus(doneExtra || ('yüklendi ' + ms + 'ms')), false);
+    } catch (err) {
+        setProcessStatus('❌ ' + AtSpeedUtils.escapeHtml(err.message), false);
+    } finally {
+        isTableProcessing = false;
+        bindBitisSortSelect();
+    }
+}
+
+function bindTableEvents() {
+    document.querySelectorAll('.ptest-bitis-input').forEach(input => {
+        input.addEventListener('input', () => {
+            input.classList.toggle('ptest-bitis-filled', input.value.trim() !== '');
+        });
+        input.addEventListener('change', () => {
+            if (bitisSortMode === 1) applySortAndRender();
+        });
+    });
+    document.querySelectorAll('.ptest-cikan-btn').forEach(btn => {
+        btn.onclick = () => markCikan(btn.dataset.raceKey, btn.dataset.horseNo, btn.dataset.horseName);
+    });
+}
+
+function renderCikanPanel() {
+    const panel = document.getElementById('cikanPanel');
+    const list = document.getElementById('cikanList');
+    const toggleBtn = document.getElementById('toggleCikanBtn');
+    const count = countCikanHorses();
+    toggleBtn.textContent = '👁 Çıkan atlar (' + count + ')';
+    toggleBtn.classList.toggle('hidden', count === 0);
+    if (!count) {
+        panel.classList.add('hidden');
+        cikanPanelOpen = false;
+        return;
+    }
+    if (!cikanPanelOpen) {
+        panel.classList.add('hidden');
+        return;
+    }
+    panel.classList.remove('hidden');
+    list.innerHTML = cikanMetaList.map(item =>
+        '<span class="ptest-cikan-chip">' +
+        AtSpeedUtils.escapeHtml(item.tarih) + ' · ' + AtSpeedUtils.escapeHtml(item.hipodrom) +
+        ' · Koşu ' + item.raceNo + ' · #' + AtSpeedUtils.escapeHtml(item.horseNo) + ' ' +
+        AtSpeedUtils.escapeHtml(item.horseName) +
+        ' <button type="button" class="ptest-cikan-restore" data-race-key="' + AtSpeedUtils.escapeHtml(item.raceKey) +
+        '" data-horse-no="' + AtSpeedUtils.escapeHtml(item.horseNo) + '">↩ Geri al</button></span>'
+    ).join('');
+    list.querySelectorAll('.ptest-cikan-restore').forEach(btn => {
+        btn.onclick = () => restoreCikan(btn.dataset.raceKey, btn.dataset.horseNo);
+    });
+}
+
+function collectBitisFromDom() {
+    const sonuclar = {};
+    document.querySelectorAll('.ptest-bitis-input').forEach(input => {
+        const raw = input.value.trim();
+        if (raw === '') return;
+        const n = parseInt(raw, 10);
+        if (n >= 1) sonuclar[input.dataset.rowKey] = n;
+    });
+    return sonuclar;
+}
+
+function countFilledBitisFromEntries() {
+    let n = 0;
+    for (const entry of flatEntries) {
+        if (bitisValueForDisplay(entry) != null) n++;
+    }
+    return n;
+}
+
+async function loadSavedData() {
+    try {
+        const res = await fetch('/api/puanlama-bitis-sonuclari');
+        const json = await res.json();
+        if (json.success) {
+            savedBitisMap = json.sonuclar || {};
+            savedCikanMap = json.cikanAtlar || {};
+        }
+    } catch (_) {
+        savedBitisMap = {};
+        savedCikanMap = {};
+    }
+}
+
+async function persistAll(showStatus) {
+    const sonuclar = collectBitisFromDom();
+    const res = await fetch('/api/puanlama-bitis-sonuclari', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sonuclar, cikanAtlar: savedCikanMap })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'Kayıt başarısız');
+    savedBitisMap = sonuclar;
+    if (showStatus) {
+        const status = document.getElementById('status');
+        status.innerHTML = '<span style="color:#2e7d32">💾 ' + Object.keys(sonuclar).length +
+            ' bitiş · ' + countCikanHorses() + ' çıkan at kaydedildi</span>';
+    }
+    return json;
+}
+
+async function saveAllSettings() {
+    const btn = document.getElementById('saveAllBtn');
+    btn.disabled = true;
+    try {
+        await persistAll(true);
+        updateSummaryMeta();
+    } catch (err) {
+        document.getElementById('status').innerHTML =
+            '<span style="color:#c62828">❌ ' + AtSpeedUtils.escapeHtml(err.message) + '</span>';
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function markCikan(rk, horseNo, horseName) {
+    if (!confirm('«' + horseName + '» çıkan at olarak işaretlensin mi?\nKoşudaki tüm metrikler yeniden hesaplanır.')) return;
+    const arr = savedCikanMap[rk] ? [...savedCikanMap[rk]] : [];
+    if (!arr.map(String).includes(String(horseNo))) arr.push(String(horseNo));
+    savedCikanMap[rk] = arr;
+    delete savedBitisMap[rowKeyFromParts(rk, horseNo)];
+    const status = document.getElementById('status');
+    status.innerHTML = '<span style="color:#e65100">⏳ Çıkan at işlendi, metrikler yeniden hesaplanıyor…</span>';
+    try {
+        await persistAll(false);
+        buildFlatFromCache();
+        await renderTableAsync('çıkan at güncellendi');
+    } catch (err) {
+        status.innerHTML = '<span style="color:#c62828">❌ ' + AtSpeedUtils.escapeHtml(err.message) + '</span>';
+    }
+}
+
+async function restoreCikan(rk, horseNo) {
+    const arr = (savedCikanMap[rk] || []).filter(n => String(n) !== String(horseNo));
+    if (arr.length) savedCikanMap[rk] = arr;
+    else delete savedCikanMap[rk];
+    const status = document.getElementById('status');
+    status.innerHTML = '<span style="color:#6a1b9a">⏳ At geri alınıyor, metrikler yeniden hesaplanıyor…</span>';
+    try {
+        await persistAll(false);
+        buildFlatFromCache();
+        await renderTableAsync('at geri alındı');
+    } catch (err) {
+        status.innerHTML = '<span style="color:#c62828">❌ ' + AtSpeedUtils.escapeHtml(err.message) + '</span>';
+    }
+}
+
+function rowKeyFromParts(rk, horseNo) {
+    return rk + '|' + String(horseNo);
+}
+
+function updateSummaryMeta() {
+    const el = document.getElementById('summaryMeta');
+    const filled = flatEntries.length
+        ? countFilledBitisFromEntries()
+        : (Object.keys(collectBitisFromDom()).length || Object.keys(savedBitisMap).length);
+    const cikan = countCikanHorses();
+    if (kayitCountLoaded && flatEntries.length) {
+        const modeLabel = bitisSortMode === 1 ? 'bitiş(1)' : 'normal(0)';
+        el.textContent = kayitCountLoaded + ' kayıt · ' + flatEntries.length + ' at satırı · ' +
+            filled + ' bitiş · ' + cikan + ' çıkan · sıra:' + modeLabel;
+    }
+}
+
+async function loadAllKayitlar() {
+    const btn = document.getElementById('loadAllBtn');
+    const saveBtn = document.getElementById('saveAllBtn');
+    const exportBtn = document.getElementById('exportTxtBtn');
+    const status = document.getElementById('status');
+    btn.disabled = true;
+    saveBtn.disabled = true;
+    exportBtn.disabled = true;
+    status.innerHTML = '<span style="color:#6a1b9a">⏳ Kayıt listesi alınıyor…</span>';
+    renderHead();
+    kayitCache.clear();
+    await loadSavedData();
+
+    try {
+        const listRes = await fetch('/api/hesaplama-kayitlar');
+        const listJson = await listRes.json();
+        if (!listJson.success) throw new Error(listJson.error || 'Liste alınamadı');
+        const kayitlar = listJson.kayitlar || [];
+        if (!kayitlar.length) {
+            document.getElementById('gridBody').innerHTML = '<tr><td colspan="' + COL_COUNT + '">Kayıt yok</td></tr>';
+            status.innerHTML = '<span style="color:#c62828">Kayıt bulunamadı</span>';
+            return;
+        }
+
+        let loaded = 0;
+        for (const meta of kayitlar) {
+            status.textContent = '⏳ Yükleniyor ' + (++loaded) + '/' + kayitlar.length + ' — ' + meta.tarih + ' ' + meta.hipodrom;
+            const res = await fetch('/api/hesaplama-kayit/' + meta.id);
+            const json = await res.json();
+            if (!json.success || !json.kayit?.veri) continue;
+            kayitCache.set(json.kayit.id, json.kayit);
+        }
+
+        kayitCountLoaded = kayitlar.length;
+        buildFlatFromCache();
+        await renderTableAsync('ilk yükleme');
+        saveBtn.disabled = false;
+        exportBtn.disabled = false;
+    } catch (err) {
+        status.innerHTML = '<span style="color:#c62828">❌ ' + AtSpeedUtils.escapeHtml(err.message) + '</span>';
+        document.getElementById('gridBody').innerHTML = '<tr><td colspan="' + COL_COUNT + '">Hata</td></tr>';
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function clearAllKayitlar() {
+    const msg = 'TÜM hesaplama kayıtları, bitiş sıraları ve çıkan at listesi kalıcı olarak silinecek.\n\n' +
+        'Temiz veri yükleyecekseniz devam edin.\n\nOnaylamak için SIL yazın:';
+    const onay = prompt(msg);
+    if (onay !== 'SIL') {
+        if (onay != null) alert('İptal edildi — onay metni eşleşmedi.');
+        return;
+    }
+    const btn = document.getElementById('clearAllBtn');
+    const status = document.getElementById('status');
+    btn.disabled = true;
+    status.innerHTML = '<span style="color:#c62828">⏳ Tüm kayıtlar siliniyor…</span>';
+    try {
+        const res = await fetch('/api/hesaplama-kayitlar-temizle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ onay: 'SIL' })
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Silme başarısız');
+        kayitCache.clear();
+        flatEntries = [];
+        savedBitisMap = {};
+        savedCikanMap = {};
+        cikanMetaList = [];
+        kayitCountLoaded = 0;
+        cikanPanelOpen = false;
+        document.getElementById('gridBody').innerHTML =
+            '<tr><td colspan="' + COL_COUNT + '" style="padding:24px;color:#789">Kayıt yok — HESAPLAMA sekmesinden yeni veri kaydedin</td></tr>';
+        document.getElementById('saveAllBtn').disabled = true;
+        document.getElementById('exportTxtBtn').disabled = true;
+        document.getElementById('toggleCikanBtn').classList.add('hidden');
+        document.getElementById('cikanPanel').classList.add('hidden');
+        document.getElementById('summaryMeta').textContent = '0 kayıt';
+        status.innerHTML = '<span style="color:#2e7d32">🗑 ' + json.deletedHesaplama +
+            ' hesaplama kaydı silindi · puanlama verileri temizlendi</span>';
+    } catch (err) {
+        status.innerHTML = '<span style="color:#c62828">❌ ' + AtSpeedUtils.escapeHtml(err.message) + '</span>';
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+document.getElementById('loadAllBtn').onclick = loadAllKayitlar;
+document.getElementById('saveAllBtn').onclick = saveAllSettings;
+document.getElementById('exportTxtBtn').onclick = downloadTextExport;
+document.getElementById('clearAllBtn').onclick = clearAllKayitlar;
+document.getElementById('toggleCikanBtn').onclick = () => {
+    cikanPanelOpen = !cikanPanelOpen;
+    renderCikanPanel();
+};
+renderHead();
+</script>
+</body>
+</html>
