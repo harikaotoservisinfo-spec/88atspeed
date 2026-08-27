@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Puanlama Test — SON800-1 + T1×DR</title>
-    <link href="css/theme.css?v=20260828b" rel="stylesheet">
+    <link href="css/theme.css?v=20260828c" rel="stylesheet">
     <style>
         body { margin: 0; background: var(--bg-page, #f5f5f5); font-family: Inter, sans-serif; }
         .ptest-wrap { padding: 16px 20px 32px; max-width: 100%; }
@@ -253,6 +253,32 @@
         .ptest-report-subgroup .ptest-report-grid { gap: 6px 10px; }
         .ptest-report-subgroup .ptest-report-item { padding: 6px 8px; }
         .ptest-report-subgroup .ptest-report-item strong { font-size: 15px; }
+        .ptest-t1-indicators-wrap { margin-bottom: 16px; }
+        .ptest-t1-indicators-wrap .ptest-report-meta-global {
+            margin-bottom: 10px; padding: 8px 10px; background: #fff8e1;
+            border-radius: 6px; font-size: 13px; color: #e65100; font-weight: 700;
+        }
+        .ptest-report-panel.ptest-report-t1-indicators {
+            border: 3px solid #f57f17;
+            background: linear-gradient(180deg, #fff8e1 0%, #fff 100px);
+            box-shadow: 0 4px 14px rgba(245, 127, 23, 0.12);
+        }
+        .ptest-report-t1-indicators h3 { color: #e65100; font-size: 15px; margin: 0 0 8px; }
+        .ptest-t1-indicator-block {
+            margin-bottom: 16px; padding: 12px 12px 10px; background: #fff;
+            border: 2px solid #ffcc80; border-radius: 8px;
+        }
+        .ptest-t1-indicator-block:last-child { margin-bottom: 0; }
+        .ptest-t1-indicator-title {
+            font-size: 14px; font-weight: 900; color: #e65100; margin-bottom: 4px;
+        }
+        .ptest-t1-indicator-meta {
+            font-size: 11px; color: #546e7a; margin-bottom: 10px; font-weight: 600;
+        }
+        .ptest-t1-indicator-block .ptest-report-item {
+            background: #fff8e1; border: 1px solid #ffcc80;
+        }
+        .ptest-t1-indicator-block .ptest-report-item strong { color: #e65100; }
     </style>
 </head>
 <body>
@@ -313,6 +339,18 @@
             <div class="ptest-report-grid" id="yesilReportGrid"></div>
         </div>
     </div>
+    <div class="ptest-t1-indicators-wrap hidden" id="t1IndicatorsWrap">
+        <div class="ptest-report-meta-global" id="t1IndicatorsGlobalMeta"></div>
+        <div class="ptest-report-panel ptest-report-t1-indicators" id="t1IndicatorsPanel">
+            <h3>🟡 T1×DR · SON derinlik — gösterge alanı
+                <span class="ptest-report-build-tag" id="t1IndicatorsBuildTag"></span>
+            </h3>
+            <p class="ptest-report-meta" style="margin:0 0 12px;color:#e65100">
+                T1×DR sütunu özel kırılımlar · bitiş raporlarından ayrı panel
+            </p>
+            <div id="t1IndicatorsContent"></div>
+        </div>
+    </div>
     <div class="ptest-cikan-panel hidden" id="cikanPanel">
         <h3>🚫 Çıkan atlar — koşudan hariç tutuldu, metrikler yeniden hesaplandı</h3>
         <div class="ptest-cikan-list" id="cikanList"></div>
@@ -325,11 +363,11 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260828b"></script>
-<script src="js/istatistik-engine.js?v=20260828b"></script>
-<script src="js/istatistik-grids-extra.js?v=20260828b"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260828b"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260828b"></script>
+<script src="js/utils.js?v=20260828c"></script>
+<script src="js/istatistik-engine.js?v=20260828c"></script>
+<script src="js/istatistik-grids-extra.js?v=20260828c"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260828c"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260828c"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -708,7 +746,21 @@ function yesilEntriesForBucket(bucket) {
     return out;
 }
 
-const PTEST_BUILD = '20260828b';
+const PTEST_BUILD = '20260828c';
+
+/** T1×DR · SON derinlik — ayrı gösterge alanı tanımları */
+const T1_DR_INDICATORS = [
+    {
+        id: 'sariDelta1_24',
+        title: 'Sarı · SON·Δ %1 – %24',
+        hint: 'T1×DR · SON·Δ sarı yazı · değer %1 ile %24 arası',
+        matchEntry(entry) {
+            const g = t1SonDeltaGapPct(entry);
+            if (g == null || g < 1 || g > 24) return false;
+            return t1SonDeltaVisualFlags(entry).sariYazi;
+        }
+    }
+];
 
 function s800SonBsPct(entry) {
     return entry.row.son8001Depths?.[0]?.successPct ?? null;
@@ -910,6 +962,41 @@ function renderYesilRaceRankReport() {
     return YESIL_RACE_DELTA_BUCKETS.length;
 }
 
+function renderT1Indicators() {
+    const wrap = document.getElementById('t1IndicatorsWrap');
+    const panel = document.getElementById('t1IndicatorsPanel');
+    const content = document.getElementById('t1IndicatorsContent');
+    const globalMeta = document.getElementById('t1IndicatorsGlobalMeta');
+    const tag = document.getElementById('t1IndicatorsBuildTag');
+    if (!wrap || !content || !panel) return 0;
+    if (!flatEntries.length) {
+        wrap.classList.add('hidden');
+        return 0;
+    }
+    wrap.classList.remove('hidden');
+    if (tag) tag.textContent = 'build ' + PTEST_BUILD;
+    if (globalMeta) {
+        globalMeta.textContent = '📈 T1×DR göstergeleri · ' + T1_DR_INDICATORS.length + ' gösterge'
+            + ' · build ' + PTEST_BUILD;
+    }
+    let h = '';
+    for (const ind of T1_DR_INDICATORS) {
+        const matched = [];
+        for (const entry of flatEntries) {
+            if (ind.matchEntry(entry)) matched.push(entry);
+        }
+        const stats = buildBitisStatsFromEntries(matched);
+        h += '<div class="ptest-t1-indicator-block" id="t1Indicator_' + ind.id + '">';
+        h += '<div class="ptest-t1-indicator-title">' + AtSpeedUtils.escapeHtml(ind.title) + '</div>';
+        h += '<div class="ptest-t1-indicator-meta">' + AtSpeedUtils.escapeHtml(ind.hint)
+            + ' · ' + stats.matchedRows + ' satır · ' + stats.withBitis + ' bitiş bilgisi</div>';
+        h += '<div class="ptest-report-grid">' + renderBitisStatsGridHtml(stats) + '</div>';
+        h += '</div>';
+    }
+    content.innerHTML = h || '<p>Gösterge yok</p>';
+    return T1_DR_INDICATORS.length;
+}
+
 function buildColorBitisReport(ruleId) {
     syncBitisInputsToMap();
     rebuildBitisLookup();
@@ -986,6 +1073,7 @@ function renderTuruncuReport() {
     if (raceRankGroups) {
         globalMeta.textContent += ' · Koşu içi BS: ' + raceRankGroups + ' grup';
     }
+    renderT1Indicators();
 }
 
 function hideBitisReportPanels() {
@@ -993,6 +1081,8 @@ function hideBitisReportPanels() {
         const panel = document.getElementById(id);
         if (panel) panel.classList.add('hidden');
     }
+    const t1Wrap = document.getElementById('t1IndicatorsWrap');
+    if (t1Wrap) t1Wrap.classList.add('hidden');
 }
 
 function tahminHtml(tahmin) {
@@ -1379,6 +1469,7 @@ async function applySortAndRender() {
     } finally {
         isTableProcessing = false;
         bindBitisSortSelect();
+        bindBitisFilterSelect();
         bindSonDeltaSortSelect();
         bindT1SonDeltaSortSelect();
     }
@@ -1589,6 +1680,7 @@ async function renderTableAsync(doneExtra) {
     } finally {
         isTableProcessing = false;
         bindBitisSortSelect();
+        bindBitisFilterSelect();
         bindSonDeltaSortSelect();
         bindT1SonDeltaSortSelect();
     }
