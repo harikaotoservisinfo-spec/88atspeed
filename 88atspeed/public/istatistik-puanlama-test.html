@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Puanlama Test — SON800-1 + T1×DR</title>
-    <link href="css/theme.css?v=20260827r" rel="stylesheet">
+    <link href="css/theme.css?v=20260827s" rel="stylesheet">
     <style>
         body { margin: 0; background: var(--bg-page, #f5f5f5); font-family: Inter, sans-serif; }
         .ptest-wrap { padding: 16px 20px 32px; max-width: 100%; }
@@ -168,6 +168,19 @@
             margin-bottom: 10px; padding: 8px 10px; background: #ede7f6;
             border-radius: 6px; font-size: 13px; color: #4a148c; font-weight: 700;
         }
+        .ptest-report-yesil-detail { margin-top: 14px; border-top: 1px dashed #c5e1a5; padding-top: 12px; }
+        .ptest-report-yesil-detail h4 { margin: 0 0 10px; font-size: 13px; color: #33691e; }
+        .ptest-report-subgroup {
+            margin-bottom: 12px; padding: 10px 10px 8px; background: #f9fbe7;
+            border: 1px solid #dcedc8; border-radius: 6px;
+        }
+        .ptest-report-subgroup-title {
+            font-size: 12px; font-weight: 800; color: #33691e; margin-bottom: 6px;
+        }
+        .ptest-report-subgroup-meta { font-size: 11px; color: #689f38; margin-bottom: 6px; }
+        .ptest-report-subgroup .ptest-report-grid { gap: 6px 10px; }
+        .ptest-report-subgroup .ptest-report-item { padding: 6px 8px; }
+        .ptest-report-subgroup .ptest-report-item strong { font-size: 15px; }
     </style>
 </head>
 <body>
@@ -198,6 +211,7 @@
             <h3>🟢 Yeşil hücre (SON·Δ) — bitiş raporu</h3>
             <div class="ptest-report-meta" id="yesilReportMeta"></div>
             <div class="ptest-report-grid" id="yesilReportGrid"></div>
+            <div class="ptest-report-yesil-detail" id="yesilReportDetail"></div>
         </div>
     </div>
     <div class="ptest-cikan-panel hidden" id="cikanPanel">
@@ -212,11 +226,11 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260827r"></script>
-<script src="js/istatistik-engine.js?v=20260827r"></script>
-<script src="js/istatistik-grids-extra.js?v=20260827r"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260827r"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260827r"></script>
+<script src="js/utils.js?v=20260827s"></script>
+<script src="js/istatistik-engine.js?v=20260827s"></script>
+<script src="js/istatistik-grids-extra.js?v=20260827s"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260827s"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260827s"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -373,6 +387,95 @@ function countUniqueRaces() {
 function pctFmt(n, total) {
     if (!total) return '—';
     return (Math.round((n / total) * 1000) / 10).toFixed(1) + '%';
+}
+
+function sonDeltaGapPct(entry) {
+    return entry.row.son8001Depths?.[0]?.gapPct ?? null;
+}
+
+function isSonDeltaBlink(entry) {
+    return sonDeltaGapPct(entry) === 0;
+}
+
+function buildBitisStatsFromEntries(entries) {
+    let withBitis = 0;
+    let b1 = 0, b12 = 0, b123 = 0, b4 = 0, bOut = 0;
+    for (const entry of entries) {
+        const b = bitisValueForSort(entry);
+        if (b == null || b < 1) continue;
+        withBitis++;
+        if (b === 1) b1++;
+        if (b <= 2) b12++;
+        if (b <= 3) b123++;
+        if (b === 4) b4++;
+        if (b >= 5) bOut++;
+    }
+    return { matchedRows: entries.length, withBitis, b1, b12, b123, b4, bOut };
+}
+
+function renderBitisStatsGridHtml(stats) {
+    const total = stats.withBitis;
+    const items = [
+        { label: '1. bitirme', count: stats.b1, sub: 'yalnızca birincilik' },
+        { label: '1. veya 2.', count: stats.b12, sub: 'ilk iki' },
+        { label: '1., 2. veya 3.', count: stats.b123, sub: 'ilk üç' },
+        { label: '4. bitirme', count: stats.b4, sub: 'yalnızca dördüncülük' },
+        { label: 'İlk 4 dışı (5+)', count: stats.bOut, sub: 'beşinci ve sonrası' }
+    ];
+    return items.map(it =>
+        '<div class="ptest-report-item">'
+        + '<span>' + AtSpeedUtils.escapeHtml(it.label) + '</span>'
+        + '<strong>' + pctFmt(it.count, total) + '</strong>'
+        + '<span>' + it.count + ' / ' + total + ' · ' + AtSpeedUtils.escapeHtml(it.sub) + '</span>'
+        + '</div>'
+    ).join('');
+}
+
+/** Yeşil hücre içinde SON·Δ aralığı + yanıp sönen alt grupları */
+const YESIL_SON_DELTA_BUCKETS = [
+    { label: 'Tam %0', gapTest: g => g === 0, blink: false },
+    { label: 'Tam %0 · yanıp sönen', gapTest: g => g === 0, blink: true },
+    { label: '%5\'e kadar', gapTest: g => g > 0 && g <= 5, blink: false },
+    { label: '%5\'e kadar · yanıp sönen', gapTest: g => g === 0, blink: true },
+    { label: '%10\'a kadar', gapTest: g => g > 5 && g <= 10, blink: false },
+    { label: '%10\'a kadar · yanıp sönen', gapTest: g => g === 0, blink: true },
+    { label: '%15\'e kadar', gapTest: g => g > 10 && g <= 15, blink: false },
+    { label: '%15\'e kadar · yanıp sönen', gapTest: g => g === 0, blink: true },
+    { label: '%15 – %20', gapTest: g => g > 15 && g <= 20, blink: false },
+    { label: '%15 – %20 · yanıp sönen', gapTest: g => g > 15 && g <= 20, blink: true },
+    { label: '%20 – %25', gapTest: g => g > 20 && g <= 25, blink: false },
+    { label: '%20 – %25 · yanıp sönen', gapTest: g => g > 20 && g <= 25, blink: true },
+    { label: '%25\'ten fazla', gapTest: g => g > 25, blink: false },
+    { label: '%25\'ten fazla · yanıp sönen', gapTest: g => g > 25, blink: true }
+];
+
+function yesilEntriesForBucket(bucket) {
+    const out = [];
+    for (const entry of flatEntries) {
+        if (!sonDeltaMatchesRule(entry, 'yesilHucre')) continue;
+        const g = sonDeltaGapPct(entry);
+        if (g == null || !bucket.gapTest(g)) continue;
+        if (bucket.blink && !isSonDeltaBlink(entry)) continue;
+        out.push(entry);
+    }
+    return out;
+}
+
+function renderYesilDetailedReport() {
+    const el = document.getElementById('yesilReportDetail');
+    if (!el) return;
+    let h = '<h4>SON·Δ aralığına göre yeşil hücre başarı dağılımı</h4>';
+    for (const bucket of YESIL_SON_DELTA_BUCKETS) {
+        const entries = yesilEntriesForBucket(bucket);
+        const stats = buildBitisStatsFromEntries(entries);
+        h += '<div class="ptest-report-subgroup">';
+        h += '<div class="ptest-report-subgroup-title">' + AtSpeedUtils.escapeHtml(bucket.label) + '</div>';
+        h += '<div class="ptest-report-subgroup-meta">'
+            + stats.matchedRows + ' satır · ' + stats.withBitis + ' bitiş bilgisi</div>';
+        h += '<div class="ptest-report-grid">' + renderBitisStatsGridHtml(stats) + '</div>';
+        h += '</div>';
+    }
+    el.innerHTML = h;
 }
 
 function buildColorBitisReport(ruleId) {
