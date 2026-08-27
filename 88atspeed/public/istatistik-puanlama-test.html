@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Puanlama Test — SON800-1 + T1×DR</title>
-    <link href="css/theme.css?v=20260827t" rel="stylesheet">
+    <link href="css/theme.css?v=20260827v" rel="stylesheet">
     <style>
         body { margin: 0; background: var(--bg-page, #f5f5f5); font-family: Inter, sans-serif; }
         .ptest-wrap { padding: 16px 20px 32px; max-width: 100%; }
@@ -174,8 +174,16 @@
             background: linear-gradient(180deg, #f1f8e9 0%, #fff 120px);
             box-shadow: 0 4px 14px rgba(51, 105, 30, 0.15);
         }
-        .ptest-report-green-detail h3 { color: #1b5e20; font-size: 15px; }
-        .ptest-report-green-detail .ptest-report-scroll {
+        .ptest-report-panel.ptest-report-green-bs-detail {
+            border: 3px solid #1565c0;
+            background: linear-gradient(180deg, #e3f2fd 0%, #fff 120px);
+            box-shadow: 0 4px 14px rgba(21, 101, 192, 0.15);
+        }
+        .ptest-report-green-detail h3,
+        .ptest-report-green-bs-detail h3 { color: #1b5e20; font-size: 15px; }
+        .ptest-report-green-bs-detail h3 { color: #0d47a1; }
+        .ptest-report-green-detail .ptest-report-scroll,
+        .ptest-report-green-bs-detail .ptest-report-scroll {
             max-height: min(70vh, 920px); overflow: auto;
             padding-right: 4px;
         }
@@ -219,6 +227,15 @@
             </p>
             <div class="ptest-report-scroll ptest-report-yesil-detail" id="yesilReportDetail"></div>
         </div>
+        <div class="ptest-report-panel ptest-report-green-bs-detail" id="yesilBlinkBsDetailPanel">
+            <h3>🟢 Yeşil hücre · yanıp sönen %0 — T1×DR · SON·BS bitiş raporu (8 grup)
+                <span class="ptest-report-build-tag" id="yesilBlinkBsBuildTag"></span>
+            </h3>
+            <p class="ptest-report-meta" style="margin:0 0 10px;color:#1565c0">
+                Yeşil hücre + SON·Δ yanıp sönen %0 · T1×DR · SON derinlik · SON·BS kırılımları
+            </p>
+            <div class="ptest-report-scroll ptest-report-yesil-bs-detail" id="yesilBlinkBsReportDetail"></div>
+        </div>
         <div class="ptest-report-panel ptest-report-orange" id="turuncuReportPanel">
             <h3>🟠 Turuncu hücre (SON·Δ) — bitiş raporu</h3>
             <div class="ptest-report-meta" id="turuncuReportMeta"></div>
@@ -247,11 +264,11 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260827t"></script>
-<script src="js/istatistik-engine.js?v=20260827t"></script>
-<script src="js/istatistik-grids-extra.js?v=20260827t"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260827t"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260827t"></script>
+<script src="js/utils.js?v=20260827v"></script>
+<script src="js/istatistik-engine.js?v=20260827v"></script>
+<script src="js/istatistik-grids-extra.js?v=20260827v"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260827v"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260827v"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -493,20 +510,45 @@ function yesilEntriesForBucket(bucket) {
     return out;
 }
 
-const PTEST_BUILD = '20260827t';
+const PTEST_BUILD = '20260827v';
 
-function renderYesilDetailedReport() {
-    const el = document.getElementById('yesilReportDetail');
-    const panel = document.getElementById('yesilDetailPanel');
-    const tag = document.getElementById('yesilDetailBuildTag');
-    if (!el || !panel) return;
-    if (tag) tag.textContent = 'build ' + PTEST_BUILD;
+function isYesilHucreBlinkZero(entry) {
+    return sonDeltaMatchesRule(entry, 'yesilHucre') && sonDeltaGapPct(entry) === 0;
+}
+
+function t1SonDepthBsPct(entry) {
+    const v = entry.row.t1drDepths?.[0]?.successPct;
+    return v != null ? v : null;
+}
+
+/** Yeşil hücre + SON·Δ yanıp sönen %0 → T1×DR · SON·BS aralıkları */
+const YESIL_BLINK_T1_BS_BUCKETS = [
+    { label: 'T1×DR · SON·BS kırmızı iç · tam %0', bsTest: bs => bs === 0 },
+    { label: 'T1×DR · SON·BS tam %100', bsTest: bs => bs === 100 },
+    { label: 'T1×DR · SON·BS %90 – %99', bsTest: bs => bs >= 90 && bs <= 99 },
+    { label: 'T1×DR · SON·BS %80 – %89', bsTest: bs => bs >= 80 && bs <= 89 },
+    { label: 'T1×DR · SON·BS %70 – %79', bsTest: bs => bs >= 70 && bs <= 79 },
+    { label: 'T1×DR · SON·BS %60 – %69', bsTest: bs => bs >= 60 && bs <= 69 },
+    { label: 'T1×DR · SON·BS %50 – %59', bsTest: bs => bs >= 50 && bs <= 59 },
+    { label: 'T1×DR · SON·BS %1 – %49', bsTest: bs => bs >= 1 && bs <= 49 }
+];
+
+function yesilBlinkEntriesForBsBucket(bucket) {
+    const out = [];
+    for (const entry of flatEntries) {
+        if (!isYesilHucreBlinkZero(entry)) continue;
+        const bs = t1SonDepthBsPct(entry);
+        if (bs == null || !bucket.bsTest(bs)) continue;
+        out.push(entry);
+    }
+    return out;
+}
+
+function renderReportSubgroupsHtml(buckets, entriesFn) {
     let h = '';
-    let totalSubgroups = 0;
-    for (const bucket of YESIL_SON_DELTA_BUCKETS) {
-        const entries = yesilEntriesForBucket(bucket);
+    for (const bucket of buckets) {
+        const entries = entriesFn(bucket);
         const stats = buildBitisStatsFromEntries(entries);
-        totalSubgroups++;
         h += '<div class="ptest-report-subgroup">';
         h += '<div class="ptest-report-subgroup-title">' + AtSpeedUtils.escapeHtml(bucket.label) + '</div>';
         h += '<div class="ptest-report-subgroup-meta">'
@@ -514,9 +556,29 @@ function renderYesilDetailedReport() {
         h += '<div class="ptest-report-grid">' + renderBitisStatsGridHtml(stats) + '</div>';
         h += '</div>';
     }
-    el.innerHTML = h || '<p>Veri yok</p>';
+    return h;
+}
+
+function renderYesilDetailedReport() {
+    const el = document.getElementById('yesilReportDetail');
+    const panel = document.getElementById('yesilDetailPanel');
+    const tag = document.getElementById('yesilDetailBuildTag');
+    if (!el || !panel) return;
+    if (tag) tag.textContent = 'build ' + PTEST_BUILD;
+    el.innerHTML = renderReportSubgroupsHtml(YESIL_SON_DELTA_BUCKETS, yesilEntriesForBucket) || '<p>Veri yok</p>';
     panel.classList.toggle('hidden', !flatEntries.length);
-    return totalSubgroups;
+    return YESIL_SON_DELTA_BUCKETS.length;
+}
+
+function renderYesilBlinkBsDetailedReport() {
+    const el = document.getElementById('yesilBlinkBsReportDetail');
+    const panel = document.getElementById('yesilBlinkBsDetailPanel');
+    const tag = document.getElementById('yesilBlinkBsBuildTag');
+    if (!el || !panel) return 0;
+    if (tag) tag.textContent = 'build ' + PTEST_BUILD;
+    el.innerHTML = renderReportSubgroupsHtml(YESIL_BLINK_T1_BS_BUCKETS, yesilBlinkEntriesForBsBucket) || '<p>Veri yok</p>';
+    panel.classList.toggle('hidden', !flatEntries.length);
+    return YESIL_BLINK_T1_BS_BUCKETS.length;
 }
 
 function buildColorBitisReport(ruleId) {
@@ -573,8 +635,7 @@ function renderTuruncuReport() {
     if (!wrap || !globalMeta) return;
     if (!flatEntries.length) {
         wrap.classList.add('hidden');
-        const detailPanel = document.getElementById('yesilDetailPanel');
-        if (detailPanel) detailPanel.classList.add('hidden');
+        hideBitisReportPanels();
         return;
     }
     wrap.classList.remove('hidden');
@@ -585,8 +646,19 @@ function renderTuruncuReport() {
         renderColorReportSection(section);
     }
     const detailGroups = renderYesilDetailedReport();
+    const bsGroups = renderYesilBlinkBsDetailedReport();
     if (detailGroups) {
-        globalMeta.textContent += ' · Yeşil detay: ' + detailGroups + ' grup';
+        globalMeta.textContent += ' · Yeşil Δ detay: ' + detailGroups + ' grup';
+    }
+    if (bsGroups) {
+        globalMeta.textContent += ' · Yeşil BS detay: ' + bsGroups + ' grup';
+    }
+}
+
+function hideBitisReportPanels() {
+    for (const id of ['yesilDetailPanel', 'yesilBlinkBsDetailPanel']) {
+        const panel = document.getElementById(id);
+        if (panel) panel.classList.add('hidden');
     }
 }
 
@@ -1355,8 +1427,7 @@ async function clearAllKayitlar() {
         document.getElementById('toggleCikanBtn').classList.add('hidden');
         document.getElementById('cikanPanel').classList.add('hidden');
         document.getElementById('bitisReportsWrap').classList.add('hidden');
-        const yesilDetail = document.getElementById('yesilDetailPanel');
-        if (yesilDetail) yesilDetail.classList.add('hidden');
+        hideBitisReportPanels();
         document.getElementById('summaryMeta').textContent = '0 kayıt';
         status.innerHTML = '<span style="color:#2e7d32">🗑 ' + json.deletedHesaplama +
             ' hesaplama kaydı silindi · puanlama verileri temizlendi</span>';
