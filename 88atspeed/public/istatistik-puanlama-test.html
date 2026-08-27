@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Puanlama Test — SON800-1 + T1×DR</title>
-    <link href="css/theme.css?v=20260827l" rel="stylesheet">
+    <link href="css/theme.css?v=20260827m" rel="stylesheet">
     <style>
         body { margin: 0; background: var(--bg-page, #f5f5f5); font-family: Inter, sans-serif; }
         .ptest-wrap { padding: 16px 20px 32px; max-width: 100%; }
@@ -131,7 +131,7 @@
         <h1>🧪 Puanlama test — tüm kayıtlar · SON800-1 + T1×DR (SON derinlik)</h1>
         <button type="button" class="ptest-btn" id="loadAllBtn">Tüm kayıtları yükle</button>
         <button type="button" class="ptest-btn ptest-btn-success" id="saveAllBtn" disabled>💾 Kaydet</button>
-        <button type="button" class="ptest-btn ptest-btn-outline" id="exportTxtBtn" disabled title="Seçili BİTİŞ sırasına göre (0 veya 1) tüm tabloyu .txt olarak indir">📥 TXT İndir</button>
+        <button type="button" class="ptest-btn ptest-btn-outline" id="exportTxtBtn" disabled title="Seçili BİTİŞ sırasına göre (0 veya 1) renkli tabloyu .html olarak indir">📥 Renkli İndir</button>
         <button type="button" class="ptest-btn ptest-btn-danger" id="clearAllBtn">🗑 Tüm kayıtları sil</button>
         <button type="button" class="ptest-btn ptest-btn-outline hidden" id="toggleCikanBtn">👁 Çıkan atlar (0)</button>
         <span class="ptest-meta" id="summaryMeta">Henüz yüklenmedi</span>
@@ -149,11 +149,11 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260827l"></script>
-<script src="js/istatistik-engine.js?v=20260827l"></script>
-<script src="js/istatistik-grids-extra.js?v=20260827l"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260827l"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260827l"></script>
+<script src="js/utils.js?v=20260827m"></script>
+<script src="js/istatistik-engine.js?v=20260827m"></script>
+<script src="js/istatistik-grids-extra.js?v=20260827m"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260827m"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260827m"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -237,70 +237,152 @@ function tahminHtml(tahmin) {
     return '<span class="ptest-tahmin-rank">' + tahmin.rank + '.</span><span class="ptest-pct ' + pctClass(tahmin.pct) + '">%' + tahmin.pct + '</span>';
 }
 
-const EXPORT_HEADERS = [
-    'TARİH', 'HİPODROM', 'KOŞU', 'AT İSMİ', 'BİTİŞ', 'TAHMİN',
-    'SON800·SON', 'SON800·Eİ', 'SON800·İÇ', 'SON800·Δ', 'SON800·BS',
-    'T1×DR·Eİ', 'T1×DR·İÇ', 'T1×DR·Δ', 'T1×DR·BS'
-];
+const EXPORT_COL_COUNT = 15;
 
-function formatPctText(val) {
-    if (val == null) return '—';
-    return '%' + val;
+const EXPORT_CSS = `
+body { margin: 16px; background: #f5f5f5; font-family: Inter, Arial, sans-serif; font-size: 12px; color: #37474f; }
+.export-meta { margin-bottom: 12px; padding: 12px 14px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; }
+.export-meta h1 { margin: 0 0 8px; font-size: 16px; color: #4a148c; }
+.export-meta p { margin: 4px 0; font-size: 12px; color: #546e7a; }
+.export-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.export-legend-item { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 6px; font-size: 11px; border: 1px solid #eceff1; background: #fafafa; }
+.export-legend-swatch { width: 18px; height: 18px; border-radius: 4px; border: 2px solid transparent; }
+.export-table-wrap { overflow: auto; border: 1px solid #cfd8dc; border-radius: 8px; background: #fff; }
+.export-table { border-collapse: separate; border-spacing: 0; min-width: 1280px; width: 100%; }
+.export-table th, .export-table td { padding: 5px 7px; border-bottom: 1px solid #eceff1; border-right: 1px solid #eceff1; text-align: center; white-space: nowrap; }
+.export-table thead th { background: #ede7f6; font-size: 11px; font-weight: 700; }
+.export-table .th-grp { background: #e1bee7; }
+.export-table .th-s800 { background: #b2ebf2; }
+.export-table .th-t1 { background: #ffe0b2; }
+.export-table .th-bitis { background: #fff9c4; }
+.export-table td.meta-col { background: #fafafa; font-weight: 600; color: #37474f; }
+.export-table td.hipodrom { text-align: left; font-weight: 700; color: #4a148c; }
+.export-table td.at { text-align: left; font-weight: 600; max-width: 160px; }
+.export-table tbody tr:nth-child(even) td { filter: brightness(0.99); }
+.pct { display: inline-block; min-width: 44px; padding: 3px 6px; border-radius: 4px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.pct-none { background: #f5f5f5; color: #9e9e9e; }
+.pct-low { background: #ffebee; color: #c62828; }
+.pct-mid { background: #fff8e1; color: #f57f17; }
+.pct-good { background: #e8f5e9; color: #1b5e20; }
+.pct-high { background: #a5d6a7; color: #0d3d0d; }
+.tahmin-rank { font-weight: 900; margin-right: 3px; }
+.bitis-filled { display: inline-block; min-width: 36px; padding: 4px 6px; border-radius: 4px; font-weight: 700; background: #e8f5e9; border: 1px solid #66bb6a; color: #1b5e20; }
+.bitis-empty { color: #9e9e9e; }
+.gap-twin-zero { background: #ff9800 !important; box-shadow: inset 0 0 0 2px #ef6c00; }
+.gap-twin-zero .pct { background: rgba(255,152,0,0.35) !important; }
+.gap-neon { background: #76ff03 !important; box-shadow: inset 0 0 0 2px #33691e, 0 0 8px rgba(118,255,3,0.6); }
+.gap-neon .pct { background: #76ff03 !important; color: #1b5e20 !important; }
+.gap-zero { color: #c62828 !important; font-weight: 900 !important; }
+.sep td { background: #f3e5f5 !important; height: 4px; padding: 0; border: none; }
+`;
+
+function esc(s) {
+    return AtSpeedUtils.escapeHtml(s);
 }
 
-function formatTahminText(tahmin) {
-    if (!tahmin || tahmin.rank == null || tahmin.pct == null) return '—';
-    return tahmin.rank + '. %' + tahmin.pct;
+function exportPctSpan(val, extraCls) {
+    if (val == null) return '<span class="pct pct-none">—</span>';
+    return '<span class="pct ' + pctClass(val).replace('ptest-pct-', 'pct-') + (extraCls ? ' ' + extraCls : '') + '">%' + val + '</span>';
 }
 
-function escapeTsvField(s) {
-    const str = String(s ?? '');
-    if (/[\t\r\n"]/.test(str)) return '"' + str.replace(/"/g, '""') + '"';
-    return str;
+function exportGapSpan(row, cell) {
+    if (!cell || cell.gapPct == null) return exportPctSpan(null);
+    const zeroCls = cell.gapPct === 0 ? ' gap-zero' : '';
+    return exportPctSpan(cell.gapPct, zeroCls.trim());
 }
 
-function entryToTsvLine(entry) {
+function exportGapTdClass(row, cell) {
+    const cls = gapTdClass(row, cell).trim();
+    return cls.replace(/ptest-/g, '');
+}
+
+function exportTahminHtml(tahmin) {
+    if (!tahmin || tahmin.rank == null || tahmin.pct == null) return '<span class="pct pct-none">—</span>';
+    return '<span class="tahmin-rank">' + tahmin.rank + '.</span><span class="pct ' + pctClass(tahmin.pct).replace('ptest-pct-', 'pct-') + '">%' + tahmin.pct + '</span>';
+}
+
+function exportBitisHtml(entry) {
+    const val = bitisValueForDisplay(entry);
+    if (val != null && val >= 1) return '<span class="bitis-filled">' + val + '</span>';
+    return '<span class="bitis-empty">—</span>';
+}
+
+function renderExportHead() {
+    let h = '<tr>';
+    h += '<th rowspan="2" class="meta-col">TARİH</th>';
+    h += '<th rowspan="2" class="meta-col">HİPODROM</th>';
+    h += '<th rowspan="2" class="meta-col">KOŞU</th>';
+    h += '<th rowspan="2" class="at">AT İSMİ</th>';
+    h += '<th rowspan="2" class="th-bitis">BİTİŞ</th>';
+    h += '<th rowspan="2">TAHMİN</th>';
+    h += '<th colspan="5" class="th-grp th-s800">SON800-1 · SON derinlik</th>';
+    h += '<th colspan="4" class="th-grp th-t1">T1×DR · SON derinlik</th>';
+    h += '</tr><tr>';
+    h += '<th class="th-s800">SON</th><th class="th-s800">SON·Eİ</th><th class="th-s800">SON·İÇ</th><th class="th-s800">SON·Δ</th><th class="th-s800">SON·BS</th>';
+    h += '<th class="th-t1">SON·Eİ</th><th class="th-t1">SON·İÇ</th><th class="th-t1">SON·Δ</th><th class="th-t1">SON·BS</th>';
+    h += '</tr>';
+    return h;
+}
+
+function renderExportRow(entry) {
     const { row } = entry;
     const s0 = row.son8001Depths?.[0] || null;
     const t0 = row.t1drDepths?.[0] || null;
-    const bitis = bitisValueForDisplay(entry);
-    const fields = [
-        entry.tarih,
-        entry.hipodrom || '—',
-        entry.raceNo,
-        row.name || '—',
-        bitis != null ? bitis : '',
-        formatTahminText(row.tahmin),
-        formatPctText(depthSon(s0, 'pct')),
-        formatPctText(depthSon(s0, 'horseBestPct')),
-        formatPctText(depthSon(s0, 'selfPct')),
-        formatPctText(depthSon(s0, 'gapPct')),
-        formatPctText(depthSon(s0, 'successPct')),
-        formatPctText(depthSon(t0, 'horseBestPct')),
-        formatPctText(depthSon(t0, 'selfPct')),
-        formatPctText(depthSon(t0, 'gapPct')),
-        formatPctText(depthSon(t0, 'successPct'))
-    ];
-    return fields.map(escapeTsvField).join('\t');
+    let h = '<tr>';
+    h += '<td class="meta-col">' + esc(entry.tarih) + '</td>';
+    h += '<td class="meta-col hipodrom">' + esc(entry.hipodrom || '—') + '</td>';
+    h += '<td class="meta-col">' + entry.raceNo + '</td>';
+    h += '<td class="at">' + esc(row.name || '—') + '</td>';
+    h += '<td>' + exportBitisHtml(entry) + '</td>';
+    h += '<td>' + exportTahminHtml(row.tahmin) + '</td>';
+    h += '<td>' + exportPctSpan(depthSon(s0, 'pct')) + '</td>';
+    h += '<td>' + exportPctSpan(depthSon(s0, 'horseBestPct')) + '</td>';
+    h += '<td>' + exportPctSpan(depthSon(s0, 'selfPct')) + '</td>';
+    h += '<td class="' + exportGapTdClass(row, s0) + '">' + exportGapSpan(row, s0) + '</td>';
+    h += '<td>' + exportPctSpan(depthSon(s0, 'successPct')) + '</td>';
+    h += '<td>' + exportPctSpan(depthSon(t0, 'horseBestPct')) + '</td>';
+    h += '<td>' + exportPctSpan(depthSon(t0, 'selfPct')) + '</td>';
+    h += '<td>' + exportPctSpan(depthSon(t0, 'gapPct')) + '</td>';
+    h += '<td>' + exportPctSpan(depthSon(t0, 'successPct')) + '</td>';
+    h += '</tr>';
+    return h;
 }
 
-function buildExportText(entries) {
+function renderExportBody(entries) {
+    const parts = [];
+    let lastKey = '';
+    for (const entry of entries) {
+        const key = entry.tarih + '|' + entry.hipodrom + '|' + entry.raceNo + '|' + entry.kayitId;
+        if (lastKey && lastKey !== key) {
+            parts.push('<tr class="sep"><td colspan="' + EXPORT_COL_COUNT + '"></td></tr>');
+        }
+        parts.push(renderExportRow(entry));
+        lastKey = key;
+    }
+    return parts.join('');
+}
+
+function buildExportHtml(entries) {
     const now = new Date();
     const modeLabel = bitisSortMode === 1
         ? '1 — tüm liste bitiş sırasına göre (1 en üstte)'
         : '0 — normal (tarih → hipodrom → koşu → yükleme sırası)';
-    const lines = [
-        '# Puanlama Test — TXT dışa aktarım',
-        '# Oluşturulma: ' + now.toLocaleString('tr-TR'),
-        '# BİTİŞ sıralama seçici: ' + modeLabel,
-        '# Hesaplama kayıtları: ' + kayitCountLoaded,
-        '# Tablo satırları: ' + entries.length,
-        '# Çıkan at (tabloda yok): ' + countCikanHorses(),
-        '#',
-        EXPORT_HEADERS.join('\t')
-    ];
-    for (const entry of entries) lines.push(entryToTsvLine(entry));
-    return { text: '\ufeff' + lines.join('\n') + '\n', now };
+    const html = '<!DOCTYPE html>\n<html lang="tr">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+        '<title>Puanlama Test — Renkli dışa aktarım</title>\n<style>' + EXPORT_CSS + '</style>\n</head>\n<body>\n' +
+        '<div class="export-meta">\n<h1>🧪 Puanlama Test — Renkli tablo</h1>\n' +
+        '<p><strong>Oluşturulma:</strong> ' + esc(now.toLocaleString('tr-TR')) + '</p>\n' +
+        '<p><strong>BİTİŞ sıralama:</strong> ' + esc(modeLabel) + '</p>\n' +
+        '<p><strong>Kayıtlar:</strong> ' + kayitCountLoaded + ' · <strong>Satır:</strong> ' + entries.length +
+        ' · <strong>Çıkan at:</strong> ' + countCikanHorses() + '</p>\n' +
+        '<div class="export-legend">\n' +
+        '<span class="export-legend-item"><span class="export-legend-swatch" style="background:#ff9800;border-color:#ef6c00"></span> Turuncu hücre — SON800·Δ ve T1×DR·Δ ikisi de %0</span>\n' +
+        '<span class="export-legend-item"><span class="export-legend-swatch" style="background:#76ff03;border-color:#33691e"></span> Neon yeşil — SON800·Δ ve T1×DR·Δ ikisi de &lt;%25</span>\n' +
+        '<span class="export-legend-item"><span class="export-legend-swatch pct-low"></span> Düşük % · <span class="export-legend-swatch pct-mid"></span> Orta · <span class="export-legend-swatch pct-good"></span> İyi · <span class="export-legend-swatch pct-high"></span> Yüksek</span>\n' +
+        '<span class="export-legend-item"><span class="pct gap-zero">%0</span> Kırmızı kalın — SON·Δ tam %0</span>\n' +
+        '</div>\n</div>\n' +
+        '<div class="export-table-wrap"><table class="export-table">\n<thead>' + renderExportHead() + '</thead>\n<tbody>\n' +
+        renderExportBody(entries) + '\n</tbody></table></div>\n</body>\n</html>';
+    return { html, now };
 }
 
 function downloadTextExport() {
@@ -308,19 +390,19 @@ function downloadTextExport() {
     syncBitisInputsToMap();
     const entries = flatEntries.slice();
     sortFlatEntries(entries);
-    const { text, now } = buildExportText(entries);
+    const { html, now } = buildExportHtml(entries);
     const modeSlug = bitisSortMode === 1 ? 'bitis-sira-1' : 'normal-0';
     const ts = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const blob = new Blob(['\ufeff' + html], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'puanlama-test-' + modeSlug + '-' + entries.length + 'satir-' + ts + '.txt';
+    a.download = 'puanlama-test-renkli-' + modeSlug + '-' + entries.length + 'satir-' + ts + '.html';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    setProcessStatus(formatDoneStatus('TXT indirildi · ' + modeSlug), false);
+    setProcessStatus(formatDoneStatus('renkli HTML indirildi · ' + modeSlug), false);
 }
 
 function setProcessStatus(html, isBusy) {
