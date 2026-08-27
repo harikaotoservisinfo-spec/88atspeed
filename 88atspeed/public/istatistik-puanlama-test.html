@@ -295,6 +295,32 @@
         .ptest-gosterge-compact .ptest-gosterge-section-title {
             font-size: 11px; margin: 10px 0 6px;
         }
+        .ptest-gosterge-metric-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin: 0 0 14px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e1bee7;
+        }
+        .ptest-gosterge-metric-tab-btn {
+            padding: 7px 12px;
+            border-radius: 999px;
+            border: 1px solid #ce93d8;
+            background: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            color: #6a1b9a;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .ptest-gosterge-metric-tab-btn:hover { background: #f3e5f5; }
+        .ptest-gosterge-metric-tab-btn.active {
+            background: linear-gradient(135deg, #4a148c 0%, #6a1b9a 100%);
+            color: #fff;
+            border-color: #4a148c;
+        }
+        .ptest-metric-panel.hidden { display: none !important; }
         .ptest-t1-sari-tier-wrap { margin-top: 10px; padding-top: 10px; border-top: 2px dashed #cfd8dc; }
         .ptest-t1-sari-tier-heading { font-size: 11px; font-weight: 800; margin-bottom: 6px; }
         .ptest-t1-sari-tier-subgroup {
@@ -545,7 +571,7 @@
 <body>
 <div class="ptest-wrap">
     <div class="ptest-toolbar">
-        <h1>🧪 Puanlama test — tüm kayıtlar · SON800-1 + T1×DR (SON derinlik)</h1>
+        <h1>🧪 Puanlama test — tüm kayıtlar · Gösterge: 11 metrik sekmesi</h1>
         <button type="button" class="ptest-btn" id="loadAllBtn">Tüm kayıtları yükle</button>
         <button type="button" class="ptest-btn ptest-btn-success" id="saveAllBtn" disabled>💾 Kaydet</button>
         <button type="button" class="ptest-btn ptest-btn-outline" id="exportTxtBtn" disabled title="Seçili BİTİŞ sırasına göre (0 veya 1) renkli tabloyu .html olarak indir">📥 Renkli İndir</button>
@@ -575,126 +601,18 @@
         Veri yükleyin — göstergeler &quot;Tüm kayıtları yükle&quot; sonrası görünür
     </div>
     <div id="gostergeContentWrap" class="hidden ptest-gosterge-compact">
-    <div class="ptest-gosterge-section-title">Bitiş raporları · SON800-1</div>
-    <div class="ptest-reports-wrap" id="bitisReportsWrap">
-        <div class="ptest-report-meta-global" id="bitisReportsGlobalMeta"></div>
-        <div class="ptest-report-panel ptest-report-green-detail" id="yesilDetailPanel">
-            <h3>🟢 Yeşil hücre — SON·Δ aralık detay raporu (14 grup)
-                <span class="ptest-report-build-tag" id="yesilDetailBuildTag"></span>
-            </h3>
-            <p class="ptest-report-meta" style="margin:0 0 10px;color:#33691e">
-                Tam %0 · %5'e kadar · %10 · %15 · %15–20 · %20–25 · %25+ — her biri yanıp sönen varyantı ile
-            </p>
-            <div class="ptest-report-scroll ptest-report-yesil-detail ptest-gosterge-subgrid" id="yesilReportDetail"></div>
-        </div>
-        <div class="ptest-report-panel ptest-report-green-bs-detail" id="yesilBlinkBsDetailPanel">
-            <h3>🟢 Yeşil hücre — SON·Δ + T1×DR · SON·BS bitiş raporu (14×8 grup)
-                <span class="ptest-report-build-tag" id="yesilBlinkBsBuildTag"></span>
-            </h3>
-            <p class="ptest-report-meta" style="margin:0 0 10px;color:#1565c0">
-                Her SON·Δ aralığı (Tam %0 · %5 · %10 · %15 · %15–20 · %20–25 · %25+ · yanıp sönen) → 8 T1×DR · SON·BS kırılımı
-            </p>
-            <div class="ptest-report-scroll ptest-report-yesil-bs-detail ptest-gosterge-subgrid" id="yesilBlinkBsReportDetail"></div>
-        </div>
-        <div class="ptest-report-panel ptest-report-green-race-detail" id="yesilRaceRankPanel">
-            <h3>🟢 Yeşil hücre — koşu içi SON·BS sıralaması (7 grup)
-                <span class="ptest-report-build-tag" id="yesilRaceRankBuildTag"></span>
-            </h3>
-            <p class="ptest-report-meta" style="margin:0 0 10px;color:#6a1b9a">
-                Yeşil hücre · aynı koşudaki diğer atlara göre SON800-1 · SON·BS sırası
-                (Tam %0 · %5 · %10 · %15 · %15–20 · %20–25 · %25+)
-            </p>
-            <div class="ptest-report-scroll ptest-report-yesil-race-detail ptest-gosterge-subgrid" id="yesilRaceRankReportDetail"></div>
-        </div>
-        <div class="ptest-report-panel ptest-report-orange-detail" id="turuncuDetailPanel">
-            <h3>🟠 Turuncu hücre — SON·Δ aralık detay raporu (14 grup)
-                <span class="ptest-report-build-tag" id="turuncuDetailBuildTag"></span>
-            </h3>
-            <p class="ptest-report-meta" style="margin:0 0 10px;color:#e65100">
-                Turuncu hücre · Tam %0 · %5 · %10 · %15 · %15–20 · %20–25 · %25+ — yanıp sönen varyantları ile
-            </p>
-            <div class="ptest-report-scroll ptest-gosterge-subgrid" id="turuncuReportDetail"></div>
-        </div>
-        <div class="ptest-report-panel ptest-report-orange-detail" id="turuncuBlinkBsDetailPanel">
-            <h3>🟠 Turuncu hücre — SON·Δ + T1×DR · SON·BS bitiş raporu (14×8 grup)
-                <span class="ptest-report-build-tag" id="turuncuBlinkBsBuildTag"></span>
-            </h3>
-            <p class="ptest-report-meta" style="margin:0 0 10px;color:#e65100">
-                Turuncu hücre · her SON·Δ aralığı → 8 T1×DR · SON·BS kırılımı
-            </p>
-            <div class="ptest-report-scroll ptest-gosterge-subgrid" id="turuncuBlinkBsReportDetail"></div>
-        </div>
-        <div class="ptest-report-panel ptest-report-sariyazi-detail" id="sariYaziDetailPanel">
-            <h3>🟡 Sarı yazı — SON·Δ aralık detay raporu (14 grup)
-                <span class="ptest-report-build-tag" id="sariYaziDetailBuildTag"></span>
-            </h3>
-            <p class="ptest-report-meta" style="margin:0 0 10px;color:#f57f17">
-                Sarı yazı (%1–%34) · Tam %0 · %5 · %10 · %15 · %15–20 · %20–25 · %25+ — yanıp sönen ile
-            </p>
-            <div class="ptest-report-scroll ptest-gosterge-subgrid" id="sariYaziReportDetail"></div>
-        </div>
-        <div class="ptest-report-panel ptest-report-sariyazi-detail" id="sariYaziBlinkBsDetailPanel">
-            <h3>🟡 Sarı yazı — SON·Δ + T1×DR · SON·BS bitiş raporu (14×8 grup)
-                <span class="ptest-report-build-tag" id="sariYaziBlinkBsBuildTag"></span>
-            </h3>
-            <p class="ptest-report-meta" style="margin:0 0 10px;color:#f57f17">
-                Sarı yazı · her SON·Δ aralığı → 8 T1×DR · SON·BS kırılımı
-            </p>
-            <div class="ptest-report-scroll ptest-gosterge-subgrid" id="sariYaziBlinkBsReportDetail"></div>
-        </div>
-        <div class="ptest-gosterge-summary-row">
-        <div class="ptest-report-panel ptest-report-orange" id="turuncuReportPanel">
-            <h3>🟠 Turuncu hücre (SON·Δ) — bitiş raporu</h3>
-            <div class="ptest-report-meta" id="turuncuReportMeta"></div>
-            <div class="ptest-stats-wrap" id="turuncuReportGrid"></div>
-        </div>
-        <div class="ptest-report-panel ptest-report-orange-border" id="turuncuCevreReportPanel">
-            <h3>🔶 Turuncu çevre (SON·Δ) — bitiş raporu</h3>
-            <div class="ptest-report-meta" id="turuncuCevreReportMeta"></div>
-            <div class="ptest-stats-wrap" id="turuncuCevreReportGrid"></div>
-        </div>
-        <div class="ptest-report-panel ptest-report-green" id="yesilReportPanel">
-            <h3>🟢 Yeşil hücre (SON·Δ) — özet bitiş raporu</h3>
-            <div class="ptest-report-meta" id="yesilReportMeta"></div>
-            <div class="ptest-stats-wrap" id="yesilReportGrid"></div>
-        </div>
-        </div>
-    </div>
-    <div class="ptest-gosterge-section-title">T1×DR · SON·Δ sarı yazı göstergeleri</div>
-    <div class="ptest-t1-sari-delta-wrap" id="t1SariDeltaIndicatorsWrap">
-        <div class="ptest-report-meta-global" id="t1SariDeltaGlobalMeta"></div>
-        <div class="ptest-report-panel ptest-report-t1-sari-delta" id="t1SariDeltaPanel">
-            <h3>🟡 T1×DR · SON·Δ sarı yazı — %1 … %25 (tek tek)
-                <span class="ptest-report-build-tag" id="t1SariDeltaBuildTag"></span>
-            </h3>
-            <p class="ptest-report-meta" style="margin:0 0 12px;color:#f57f17">
-                T1×DR · SON derinlik · sarı yazı · her Δ + SON800 renk tonları (yeşil/turuncu/sarı/kırmızı/açık/koyu)
-            </p>
-            <div id="t1SariDeltaIndicatorsContent"></div>
-        </div>
-    </div>
-    <div class="ptest-gosterge-section-title">T1×DR · SON derinlik — diğer göstergeler</div>
-    <div class="ptest-t1-indicators-wrap" id="t1IndicatorsWrap">
-        <div class="ptest-report-meta-global" id="t1IndicatorsGlobalMeta"></div>
-        <div class="ptest-report-panel ptest-report-t1-indicators" id="t1IndicatorsPanel">
-            <h3>🟡 T1×DR · SON derinlik — ek gösterge alanı
-                <span class="ptest-report-build-tag" id="t1IndicatorsBuildTag"></span>
-            </h3>
-            <p class="ptest-report-meta" style="margin:0 0 12px;color:#e65100">
-                Sarı %1–%24 dışındaki T1×DR kırılımları buraya eklenecek
-            </p>
-            <div id="t1IndicatorsContent"></div>
-        </div>
-    </div>
+    <div class="ptest-gosterge-metric-tabs" id="gostergeMetricTabs"></div>
+    <div id="gostergeMetricPanels"></div>
     </div>
     </div>
 </div>
 
-<script src="js/utils.js?v=20260828k"></script>
-<script src="js/istatistik-engine.js?v=20260828k"></script>
-<script src="js/istatistik-grids-extra.js?v=20260828k"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260828k"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260828k"></script>
+<script src="js/utils.js?v=20260828l"></script>
+<script src="js/istatistik-engine.js?v=20260828l"></script>
+<script src="js/istatistik-grids-extra.js?v=20260828l"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260828l"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260828l"></script>
+<script src="js/ptest-gosterge-engine.js?v=20260828l"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -1174,7 +1092,46 @@ function updateGostergeTabVisibility() {
     if (content) content.classList.toggle('hidden', !hasData);
 }
 
-const PTEST_BUILD = '20260828k';
+const PTEST_BUILD = '20260828l';
+let ptestGostergeMetricTab = 'son8001';
+
+function getPtestGostergeHost() {
+    return {
+        flatEntries,
+        buildBitisStatsFromEntries,
+        buildRaceEntryGroups,
+        computeMetricRankInRace,
+        buildRaceRankStatsFromItems,
+        countUniqueRaces,
+        raceKey
+    };
+}
+
+function initGostergeMetricTabs() {
+    const tabsEl = document.getElementById('gostergeMetricTabs');
+    const panelsEl = document.getElementById('gostergeMetricPanels');
+    if (!tabsEl || !panelsEl || tabsEl.dataset.bound === '1') return;
+    tabsEl.dataset.bound = '1';
+    let th = '';
+    for (const m of PtestGostergeEngine.METRICS) {
+        const active = m.id === ptestGostergeMetricTab ? ' active' : '';
+        th += '<button type="button" class="ptest-gosterge-metric-tab-btn' + active
+            + '" data-ptest-metric="' + m.id + '">' + AtSpeedUtils.escapeHtml(m.label) + '</button>';
+    }
+    tabsEl.innerHTML = th;
+    PtestGostergeEngine.ensureMetricPanels(panelsEl);
+    tabsEl.querySelectorAll('.ptest-gosterge-metric-tab-btn').forEach(btn => {
+        btn.onclick = () => {
+            ptestGostergeMetricTab = btn.dataset.ptestMetric || 'son8001';
+            PtestGostergeEngine.switchMetricTab(ptestGostergeMetricTab);
+            tabsEl.querySelectorAll('.ptest-gosterge-metric-tab-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.ptestMetric === ptestGostergeMetricTab);
+            });
+            renderTuruncuReport();
+        };
+    });
+    PtestGostergeEngine.switchMetricTab(ptestGostergeMetricTab);
+}
 
 function t1SariSonDeltaMatchesPct(entry, pct) {
     if (!t1SonDeltaVisualFlags(entry).sariYazi) return false;
@@ -1862,62 +1819,17 @@ function renderColorReportSection(section) {
 }
 
 function renderTuruncuReport() {
-    const wrap = document.getElementById('bitisReportsWrap');
-    const globalMeta = document.getElementById('bitisReportsGlobalMeta');
     updateGostergeTabVisibility();
-    if (!wrap || !globalMeta) return;
-    if (!flatEntries.length) {
-        hideBitisReportPanels();
-        return;
-    }
-    globalMeta.textContent = '📊 Bitiş raporları · Toplam yarış: ' + countUniqueRaces()
-        + ' · Toplam at satırı: ' + flatEntries.length
-        + ' · build ' + PTEST_BUILD;
-    for (const section of BITIS_REPORT_SECTIONS) {
-        renderColorReportSection(section);
-    }
-    const detailGroups = renderYesilDetailedReport();
-    const bsGroups = renderYesilDeltaBsDetailedReport();
-    const raceRankGroups = renderYesilRaceRankReport();
-    const turuncuDetail = renderTuruncuDetailedReport();
-    const turuncuBs = renderTuruncuDeltaBsDetailedReport();
-    const sariYaziDetail = renderSariYaziDetailedReport();
-    const sariYaziBs = renderSariYaziDeltaBsDetailedReport();
-    if (detailGroups) {
-        globalMeta.textContent += ' · Yeşil Δ detay: ' + detailGroups + ' grup';
-    }
-    if (bsGroups) {
-        globalMeta.textContent += ' · Yeşil BS detay: 14×8 = ' + bsGroups + ' alt grup';
-    }
-    if (raceRankGroups) {
-        globalMeta.textContent += ' · Koşu içi BS: ' + raceRankGroups + ' grup';
-    }
-    if (turuncuDetail) {
-        globalMeta.textContent += ' · Turuncu Δ: ' + turuncuDetail + ' grup';
-    }
-    if (turuncuBs) {
-        globalMeta.textContent += ' · Turuncu BS: 14×8 = ' + turuncuBs;
-    }
-    if (sariYaziDetail) {
-        globalMeta.textContent += ' · Sarı yazı Δ: ' + sariYaziDetail + ' grup';
-    }
-    if (sariYaziBs) {
-        globalMeta.textContent += ' · Sarı yazı BS: 14×8 = ' + sariYaziBs;
-    }
-    renderT1SariDeltaIndicators();
-    renderT1Indicators();
+    initGostergeMetricTabs();
+    if (!flatEntries.length) return;
+    const spec = PtestGostergeEngine.METRICS.find(m => m.id === ptestGostergeMetricTab)
+        || PtestGostergeEngine.METRICS[0];
+    const ctx = PtestGostergeEngine.createContext(spec, getPtestGostergeHost());
+    PtestGostergeEngine.renderMetricGosterge(ctx, getPtestGostergeHost(), PTEST_BUILD);
 }
 
 function hideBitisReportPanels() {
     updateGostergeTabVisibility();
-    for (const id of [
-        'yesilDetailPanel', 'yesilBlinkBsDetailPanel', 'yesilRaceRankPanel',
-        'turuncuDetailPanel', 'turuncuBlinkBsDetailPanel',
-        'sariYaziDetailPanel', 'sariYaziBlinkBsDetailPanel'
-    ]) {
-        const panel = document.getElementById(id);
-        if (panel) panel.classList.add('hidden');
-    }
 }
 
 function tahminHtml(tahmin) {
