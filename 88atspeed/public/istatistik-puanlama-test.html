@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Puanlama Test — SON800-1 + T1×DR</title>
+    <link href="css/theme.css?v=20260827a" rel="stylesheet">
+    <style>
+        body { margin: 0; background: var(--bg-page, #f5f5f5); font-family: Inter, sans-serif; }
+        .ptest-wrap { padding: 16px 20px 32px; max-width: 100%; }
+        .ptest-toolbar {
+            display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+            margin-bottom: 12px; padding: 12px 14px;
+            background: #fff; border-radius: 8px; border: 1px solid #e0e0e0;
+        }
+        .ptest-toolbar h1 { margin: 0; font-size: 16px; color: #4a148c; flex: 1 1 100%; }
+        .ptest-btn {
+            padding: 8px 16px; border: none; border-radius: 6px;
+            background: linear-gradient(135deg, #7b1fa2, #4a148c);
+            color: #fff; font-weight: 700; cursor: pointer; font-size: 13px;
+        }
+        .ptest-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .ptest-meta { font-size: 12px; color: #546e7a; }
+        .ptest-status { margin-bottom: 10px; font-size: 13px; }
+        .ptest-table-wrap {
+            overflow: auto; max-height: calc(100vh - 140px);
+            border: 1px solid #cfd8dc; border-radius: 8px; background: #fff;
+        }
+        .ptest-table {
+            border-collapse: separate; border-spacing: 0;
+            font-size: 12px; min-width: 1100px; width: 100%;
+        }
+        .ptest-table th, .ptest-table td {
+            padding: 5px 7px; border-bottom: 1px solid #eceff1;
+            border-right: 1px solid #eceff1; text-align: center; white-space: nowrap;
+        }
+        .ptest-table thead th {
+            position: sticky; top: 0; z-index: 3;
+            background: #ede7f6; font-size: 11px; font-weight: 700;
+        }
+        .ptest-table thead tr:nth-child(2) th { top: 34px; z-index: 2; }
+        .ptest-table .ptest-th-grp { background: #e1bee7; font-size: 11px; }
+        .ptest-table .ptest-th-s800 { background: #b2ebf2; }
+        .ptest-table .ptest-th-t1 { background: #ffe0b2; }
+        .ptest-table td.ptest-meta-col { background: #fafafa; font-weight: 600; color: #37474f; }
+        .ptest-table td.ptest-at { text-align: left; font-weight: 600; max-width: 160px; }
+        .ptest-table tbody tr:nth-child(even) td { filter: brightness(0.99); }
+        .ptest-table tbody tr:hover td { filter: brightness(0.97); }
+        .ptest-pct {
+            display: inline-block; min-width: 44px; padding: 3px 6px;
+            border-radius: 4px; font-weight: 800; font-variant-numeric: tabular-nums;
+        }
+        .ptest-pct-none { background: #f5f5f5; color: #9e9e9e; }
+        .ptest-pct-low { background: #ffebee; color: #c62828; }
+        .ptest-pct-mid { background: #fff8e1; color: #f57f17; }
+        .ptest-pct-good { background: #e8f5e9; color: #1b5e20; }
+        .ptest-pct-high { background: #a5d6a7; color: #0d3d0d; }
+        .ptest-tahmin-rank { font-weight: 900; margin-right: 3px; }
+        .ptest-gap-twin-zero { background: #ff9800 !important; box-shadow: inset 0 0 0 2px #ef6c00; }
+        .ptest-gap-twin-zero .ptest-pct { background: rgba(255,152,0,0.35) !important; }
+        .ptest-gap-neon { background: #76ff03 !important; box-shadow: inset 0 0 0 2px #33691e, 0 0 8px rgba(118,255,3,0.6); }
+        .ptest-gap-neon .ptest-pct { background: #76ff03 !important; color: #1b5e20 !important; }
+        @keyframes ptest-gap-blink {
+            0%, 100% { color: #b71c1c; opacity: 1; }
+            50% { color: #ff5252; opacity: 0.35; }
+        }
+        .ptest-gap-zero-blink { animation: ptest-gap-blink 0.85s ease-in-out infinite; color: #c62828 !important; font-weight: 900 !important; }
+        .ptest-sep td { background: #f3e5f5 !important; height: 4px; padding: 0; border: none; }
+    </style>
+</head>
+<body>
+<div class="ptest-wrap">
+    <div class="ptest-toolbar">
+        <h1>🧪 Puanlama test — tüm kayıtlar · SON800-1 + T1×DR (SON derinlik)</h1>
+        <button type="button" class="ptest-btn" id="loadAllBtn">Tüm kayıtları yükle</button>
+        <span class="ptest-meta" id="summaryMeta">Henüz yüklenmedi</span>
+    </div>
+    <div class="ptest-status" id="status"></div>
+    <div class="ptest-table-wrap">
+        <table class="ptest-table" id="grid">
+            <thead id="gridHead"></thead>
+            <tbody id="gridBody"><tr><td colspan="14" style="padding:24px;color:#789">&quot;Tüm kayıtları yükle&quot; butonuna basın</td></tr></tbody>
+        </table>
+    </div>
+</div>
+
+<script src="js/utils.js?v=20260827a"></script>
+<script src="js/istatistik-engine.js?v=20260827a"></script>
+<script src="js/istatistik-grids-extra.js?v=20260827a"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260827a"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260827a"></script>
+<script>
+const IE = IstatistikEngine;
+const TE = IstatistikTahminEngine;
+
+function pctClass(pct) {
+    if (pct === null || pct === undefined) return 'ptest-pct-none';
+    if (pct === 0) return 'ptest-pct-low';
+    if (pct < 35) return 'ptest-pct-mid';
+    if (pct < 70) return 'ptest-pct-good';
+    return 'ptest-pct-high';
+}
+
+function pctSpan(val, extraCls) {
+    if (val == null) return '<span class="ptest-pct ptest-pct-none">—</span>';
+    return '<span class="ptest-pct ' + pctClass(val) + (extraCls ? ' ' + extraCls : '') + '">%' + val + '</span>';
+}
+
+function isTwinZero(row) {
+    const s = row.son8001Depths?.[0];
+    const t = row.t1drDepths?.[0];
+    return !!(s && t && s.gapPct === 0 && t.gapPct === 0);
+}
+
+function gapTdClass(row, cell) {
+    if (!cell || cell.gapPct == null) return '';
+    const s800 = row.son8001Depths?.[0]?.gapPct;
+    const t1 = row.t1drDepths?.[0]?.gapPct;
+    if (isTwinZero(row) && cell.gapPct === 0) return ' ptest-gap-twin-zero';
+    if (!isTwinZero(row) && s800 != null && t1 != null && s800 < 25 && t1 < 25) return ' ptest-gap-neon';
+    return '';
+}
+
+function gapSpan(row, cell) {
+    if (!cell || cell.gapPct == null) return pctSpan(null);
+    const blink = cell.gapPct === 0 ? ' ptest-gap-zero-blink' : '';
+    return pctSpan(cell.gapPct, blink);
+}
+
+function tahminHtml(tahmin, horseCount) {
+    if (!tahmin || tahmin.rank == null || tahmin.pct == null) return '<span class="ptest-pct ptest-pct-none">—</span>';
+    return '<span class="ptest-tahmin-rank">' + tahmin.rank + '.</span><span class="ptest-pct ' + pctClass(tahmin.pct) + '">%' + tahmin.pct + '</span>';
+}
+
+function renderHead() {
+    let h = '<tr>';
+    h += '<th rowspan="2" class="ptest-meta-col">TARİH</th>';
+    h += '<th rowspan="2" class="ptest-meta-col">KOŞU</th>';
+    h += '<th rowspan="2">#</th>';
+    h += '<th rowspan="2" class="ptest-at">AT İSMİ</th>';
+    h += '<th rowspan="2">TAHMİN</th>';
+    h += '<th colspan="5" class="ptest-th-grp ptest-th-s800">SON800-1 · SON derinlik</th>';
+    h += '<th colspan="4" class="ptest-th-grp ptest-th-t1">T1×DR · SON derinlik</th>';
+    h += '</tr><tr>';
+    h += '<th class="ptest-th-s800">SON</th><th class="ptest-th-s800">SON·Eİ</th><th class="ptest-th-s800">SON·İÇ</th><th class="ptest-th-s800">SON·Δ</th><th class="ptest-th-s800">SON·BS</th>';
+    h += '<th class="ptest-th-t1">SON·Eİ</th><th class="ptest-th-t1">SON·İÇ</th><th class="ptest-th-t1">SON·Δ</th><th class="ptest-th-t1">SON·BS</th>';
+    h += '</tr>';
+    document.getElementById('gridHead').innerHTML = h;
+}
+
+function depthSon(cell, field) {
+    const c = cell || {};
+    return c[field] != null ? c[field] : null;
+}
+
+function renderRow(entry) {
+    const { row, tarih, raceNo, horseCount } = entry;
+    const s0 = row.son8001Depths?.[0] || null;
+    const t0 = row.t1drDepths?.[0] || null;
+    let h = '<tr>';
+    h += '<td class="ptest-meta-col">' + AtSpeedUtils.escapeHtml(tarih) + '</td>';
+    h += '<td class="ptest-meta-col">' + raceNo + '</td>';
+    h += '<td>' + AtSpeedUtils.escapeHtml(String(row.no ?? '—')) + '</td>';
+    h += '<td class="ptest-at">' + AtSpeedUtils.escapeHtml(row.name || '—') + '</td>';
+    h += '<td>' + tahminHtml(row.tahmin, horseCount) + '</td>';
+    h += '<td>' + pctSpan(depthSon(s0, 'pct')) + '</td>';
+    h += '<td>' + pctSpan(depthSon(s0, 'horseBestPct')) + '</td>';
+    h += '<td>' + pctSpan(depthSon(s0, 'selfPct')) + '</td>';
+    h += '<td class="' + gapTdClass(row, s0).trim() + '">' + gapSpan(row, s0) + '</td>';
+    h += '<td>' + pctSpan(depthSon(s0, 'successPct')) + '</td>';
+    h += '<td>' + pctSpan(depthSon(t0, 'horseBestPct')) + '</td>';
+    h += '<td>' + pctSpan(depthSon(t0, 'selfPct')) + '</td>';
+    h += '<td>' + pctSpan(depthSon(t0, 'gapPct')) + '</td>';
+    h += '<td>' + pctSpan(depthSon(t0, 'successPct')) + '</td>';
+    h += '</tr>';
+    return h;
+}
+
+async function loadAllKayitlar() {
+    const btn = document.getElementById('loadAllBtn');
+    const status = document.getElementById('status');
+    const body = document.getElementById('gridBody');
+    btn.disabled = true;
+    status.innerHTML = '<span style="color:#6a1b9a">⏳ Kayıt listesi alınıyor…</span>';
+    renderHead();
+
+    try {
+        const listRes = await fetch('/api/hesaplama-kayitlar');
+        const listJson = await listRes.json();
+        if (!listJson.success) throw new Error(listJson.error || 'Liste alınamadı');
+        const kayitlar = listJson.kayitlar || [];
+        if (!kayitlar.length) {
+            body.innerHTML = '<tr><td colspan="14">Kayıt yok</td></tr>';
+            status.innerHTML = '<span style="color:#c62828">Kayıt bulunamadı</span>';
+            return;
+        }
+
+        const flat = [];
+        let loaded = 0;
+        for (const meta of kayitlar) {
+            status.textContent = '⏳ Yükleniyor ' + (++loaded) + '/' + kayitlar.length + ' — ' + meta.tarih + ' ' + meta.hipodrom;
+            const res = await fetch('/api/hesaplama-kayit/' + meta.id);
+            const json = await res.json();
+            if (!json.success || !json.kayit?.veri) continue;
+            const kayit = json.kayit;
+            const races = kayit.veri || [];
+            const raceEntries = races.map((race, i) => {
+                const raceNo = race.raceNo || (i + 1);
+                const pkg = IE.buildRaceIstatistikPackage(race, kayit.hipodrom, kayit.tarih);
+                return { race, raceNo, pkg };
+            });
+            if (raceEntries.length) IE.applyProgramGlobalPctScales(raceEntries.map(e => e.pkg));
+            for (const { raceNo, pkg } of raceEntries) {
+                TE.attachRaceTahmin(pkg);
+                const horseCount = pkg.rows.length;
+                for (const row of pkg.rows) {
+                    flat.push({ row, tarih: kayit.tarih, raceNo, hipodrom: kayit.hipodrom, kayitId: kayit.id, horseCount });
+                }
+            }
+        }
+
+        flat.sort((a, b) => {
+            const ta = a.tarih.split('.').reverse().join('');
+            const tb = b.tarih.split('.').reverse().join('');
+            if (ta !== tb) return ta.localeCompare(tb);
+            if (a.raceNo !== b.raceNo) return a.raceNo - b.raceNo;
+            const na = parseInt(a.row.no, 10);
+            const nb = parseInt(b.row.no, 10);
+            if (!isNaN(na) && !isNaN(nb)) return na - nb;
+            return String(a.row.name).localeCompare(String(b.row.name), 'tr');
+        });
+
+        let html = '';
+        let lastKey = '';
+        for (const entry of flat) {
+            const key = entry.tarih + '|' + entry.raceNo + '|' + entry.kayitId;
+            if (lastKey && lastKey !== key) {
+                html += '<tr class="ptest-sep"><td colspan="14"></td></tr>';
+            }
+            html += renderRow(entry);
+            lastKey = key;
+        }
+
+        body.innerHTML = html || '<tr><td colspan="14">Satır üretilemedi</td></tr>';
+        document.getElementById('summaryMeta').textContent =
+            kayitlar.length + ' kayıt · ' + flat.length + ' at satırı · SON derinlik';
+        status.innerHTML = '<span style="color:#2e7d32">✅ ' + flat.length + ' satır yüklendi</span>';
+    } catch (err) {
+        status.innerHTML = '<span style="color:#c62828">❌ ' + AtSpeedUtils.escapeHtml(err.message) + '</span>';
+        body.innerHTML = '<tr><td colspan="14">Hata</td></tr>';
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+document.getElementById('loadAllBtn').onclick = loadAllKayitlar;
+renderHead();
+</script>
+</body>
+</html>
