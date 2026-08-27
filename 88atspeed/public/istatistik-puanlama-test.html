@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Puanlama Test — SON800-1 + T1×DR</title>
-    <link href="css/theme.css?v=20260827x" rel="stylesheet">
+    <link href="css/theme.css?v=20260827y" rel="stylesheet">
     <style>
         body { margin: 0; background: var(--bg-page, #f5f5f5); font-family: Inter, sans-serif; }
         .ptest-wrap { padding: 16px 20px 32px; max-width: 100%; }
@@ -313,11 +313,11 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260827x"></script>
-<script src="js/istatistik-engine.js?v=20260827x"></script>
-<script src="js/istatistik-grids-extra.js?v=20260827x"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260827x"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260827x"></script>
+<script src="js/utils.js?v=20260827y"></script>
+<script src="js/istatistik-engine.js?v=20260827y"></script>
+<script src="js/istatistik-grids-extra.js?v=20260827y"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260827y"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260827y"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -448,10 +448,24 @@ function sonDeltaMatchesRule(entry, ruleId) {
     return !!flags[ruleId];
 }
 
+function compareYesilHucreSubSort(a, b) {
+    const blinkA = isSonDeltaBlink(a) ? 0 : 1;
+    const blinkB = isSonDeltaBlink(b) ? 0 : 1;
+    if (blinkA !== blinkB) return blinkA - blinkB;
+    const ga = sonDeltaGapPct(a);
+    const gb = sonDeltaGapPct(b);
+    if (ga == null && gb == null) return 0;
+    if (ga == null) return 1;
+    if (gb == null) return -1;
+    return ga - gb;
+}
+
 function compareSonDeltaRule(a, b, ruleId) {
     const ma = sonDeltaMatchesRule(a, ruleId) ? 0 : 1;
     const mb = sonDeltaMatchesRule(b, ruleId) ? 0 : 1;
-    return ma - mb;
+    if (ma !== mb) return ma - mb;
+    if (ma === 0 && ruleId === 'yesilHucre') return compareYesilHucreSubSort(a, b);
+    return 0;
 }
 
 function countSonDeltaRuleMatches(ruleId) {
@@ -559,7 +573,7 @@ function yesilEntriesForBucket(bucket) {
     return out;
 }
 
-const PTEST_BUILD = '20260827x';
+const PTEST_BUILD = '20260827y';
 
 function s800SonBsPct(entry) {
     return entry.row.son8001Depths?.[0]?.successPct ?? null;
@@ -1124,7 +1138,9 @@ function activeSortSummary() {
     const parts = [];
     if (bitisSortMode === 1) parts.push('bitiş(1)');
     if (sonDeltaSortMode && sonDeltaSortMode !== '0') {
-        parts.push('SON·Δ:' + sonDeltaSortRuleLabel(sonDeltaSortMode).replace(/^[^—]+—\s*/, ''));
+        let lbl = sonDeltaSortRuleLabel(sonDeltaSortMode).replace(/^[^—]+—\s*/, '');
+        if (sonDeltaSortMode === 'yesilHucre') lbl += ' · yanıp sönen→Δ↑';
+        parts.push('SON·Δ:' + lbl);
     }
     if (!parts.length) parts.push('normal(0)');
     return parts.join(' → ');
@@ -1256,7 +1272,7 @@ function renderHead() {
     h += '</tr><tr>';
     h += '<th class="ptest-th-s800">SON</th><th class="ptest-th-s800">SON·Eİ</th><th class="ptest-th-s800">SON·İÇ</th>';
     h += '<th class="ptest-th-s800"><div class="ptest-th-son-delta-inner">SON·Δ';
-    h += '<select id="sonDeltaSortSelect" class="ptest-son-delta-sort-select" title="0: kapalı · 1+: eşleşen SON·Δ renk kuralı en üstte (BİTİŞ sonrası)">';
+    h += '<select id="sonDeltaSortSelect" class="ptest-son-delta-sort-select" title="0: kapalı · yeşil hücre: eşleşenler en üstte, içinde yanıp sönen %0 önce sonra Δ artan · diğer kurallar: eşleşen en üstte">';
     for (const rule of SON_DELTA_SORT_RULES) {
         h += '<option value="' + rule.id + '"' + (sonDeltaSortMode === rule.id ? ' selected' : '') + '>'
             + AtSpeedUtils.escapeHtml(rule.label) + '</option>';
