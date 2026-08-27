@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Puanlama Test — SON800-1 + T1×DR</title>
-    <link href="css/theme.css?v=20260827w" rel="stylesheet">
+    <link href="css/theme.css?v=20260827x" rel="stylesheet">
     <style>
         body { margin: 0; background: var(--bg-page, #f5f5f5); font-family: Inter, sans-serif; }
         .ptest-wrap { padding: 16px 20px 32px; max-width: 100%; }
@@ -205,6 +205,27 @@
         }
         .ptest-report-green-bs-detail .ptest-report-subgroup-title { color: #1565c0; }
         .ptest-report-green-bs-detail .ptest-report-subgroup-meta { color: #1976d2; }
+        .ptest-report-panel.ptest-report-green-race-detail {
+            border: 3px solid #6a1b9a;
+            background: linear-gradient(180deg, #f3e5f5 0%, #fff 120px);
+            box-shadow: 0 4px 14px rgba(106, 27, 154, 0.15);
+        }
+        .ptest-report-green-race-detail h3 { color: #6a1b9a; font-size: 15px; }
+        .ptest-report-green-race-detail .ptest-report-scroll {
+            max-height: min(75vh, 1000px); overflow: auto;
+            padding-right: 4px;
+        }
+        .ptest-report-green-race-detail .ptest-report-delta-section {
+            border-color: #ce93d8;
+        }
+        .ptest-report-green-race-detail .ptest-report-delta-section-title { color: #6a1b9a; }
+        .ptest-report-green-race-detail .ptest-report-subgroup {
+            background: #fce4ec; border-color: #ce93d8;
+        }
+        .ptest-report-green-race-detail .ptest-report-subgroup-title { color: #6a1b9a; }
+        .ptest-report-green-race-detail .ptest-report-subgroup-meta { color: #8e24aa; }
+        .ptest-report-green-race-detail .ptest-report-item { background: #f3e5f5; border: 1px solid #ce93d8; }
+        .ptest-report-green-race-detail .ptest-report-item strong { color: #6a1b9a; }
         .ptest-report-build-tag {
             float: right; font-size: 10px; font-weight: 700; color: #7b1fa2;
             background: #f3e5f5; padding: 2px 6px; border-radius: 4px;
@@ -254,6 +275,16 @@
             </p>
             <div class="ptest-report-scroll ptest-report-yesil-bs-detail" id="yesilBlinkBsReportDetail"></div>
         </div>
+        <div class="ptest-report-panel ptest-report-green-race-detail" id="yesilRaceRankPanel">
+            <h3>🟢 Yeşil hücre — koşu içi SON·BS sıralaması (7 grup)
+                <span class="ptest-report-build-tag" id="yesilRaceRankBuildTag"></span>
+            </h3>
+            <p class="ptest-report-meta" style="margin:0 0 10px;color:#6a1b9a">
+                Yeşil hücre · aynı koşudaki diğer atlara göre SON800-1 · SON·BS sırası
+                (Tam %0 · %5 · %10 · %15 · %15–20 · %20–25 · %25+)
+            </p>
+            <div class="ptest-report-scroll ptest-report-yesil-race-detail" id="yesilRaceRankReportDetail"></div>
+        </div>
         <div class="ptest-report-panel ptest-report-orange" id="turuncuReportPanel">
             <h3>🟠 Turuncu hücre (SON·Δ) — bitiş raporu</h3>
             <div class="ptest-report-meta" id="turuncuReportMeta"></div>
@@ -282,11 +313,11 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260827w"></script>
-<script src="js/istatistik-engine.js?v=20260827w"></script>
-<script src="js/istatistik-grids-extra.js?v=20260827w"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260827w"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260827w"></script>
+<script src="js/utils.js?v=20260827x"></script>
+<script src="js/istatistik-engine.js?v=20260827x"></script>
+<script src="js/istatistik-grids-extra.js?v=20260827x"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260827x"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260827x"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -528,7 +559,88 @@ function yesilEntriesForBucket(bucket) {
     return out;
 }
 
-const PTEST_BUILD = '20260827w';
+const PTEST_BUILD = '20260827x';
+
+function s800SonBsPct(entry) {
+    return entry.row.son8001Depths?.[0]?.successPct ?? null;
+}
+
+function buildRaceEntryGroups() {
+    const map = new Map();
+    for (const entry of flatEntries) {
+        const rk = raceKey(entry.kayitId, entry.raceNo);
+        if (!map.has(rk)) map.set(rk, []);
+        map.get(rk).push(entry);
+    }
+    return map;
+}
+
+/** Aynı koşuda metrik değerine göre sıra (yüksek = 1.) */
+function computeMetricRankInRace(entry, raceEntries, getMetric) {
+    const val = getMetric(entry);
+    if (val == null) return { rank: null, field: 0 };
+    let rank = 1;
+    let field = 0;
+    for (const other of raceEntries) {
+        const ov = getMetric(other);
+        if (ov == null) continue;
+        field++;
+        if (ov > val) rank++;
+    }
+    if (!field) return { rank: null, field: 0 };
+    return { rank, field };
+}
+
+/** Yeşil hücre — koşu içi kıyas için 7 SON·Δ aralığı (yanıp sönen birleşik) */
+const YESIL_RACE_DELTA_BUCKETS = [
+    { label: 'Tam %0', gapTest: g => g === 0 },
+    { label: '%5\'e kadar', gapTest: g => g > 0 && g <= 5 },
+    { label: '%10\'a kadar', gapTest: g => g > 5 && g <= 10 },
+    { label: '%15\'e kadar', gapTest: g => g > 10 && g <= 15 },
+    { label: '%15 – %20', gapTest: g => g > 15 && g <= 20 },
+    { label: '%20 – %25', gapTest: g => g > 20 && g <= 25 },
+    { label: '%25\'ten fazla', gapTest: g => g > 25 }
+];
+
+function yesilRaceDeltaMatch(entry, bucket) {
+    if (!sonDeltaMatchesRule(entry, 'yesilHucre')) return false;
+    const g = sonDeltaGapPct(entry);
+    return g != null && bucket.gapTest(g);
+}
+
+function buildRaceRankStatsFromItems(rankItems) {
+    let withRank = 0;
+    let r1 = 0, r12 = 0, r123 = 0, r4 = 0, rOut = 0;
+    for (const item of rankItems) {
+        const rank = item.rank;
+        if (rank == null) continue;
+        withRank++;
+        if (rank === 1) r1++;
+        if (rank <= 2) r12++;
+        if (rank <= 3) r123++;
+        if (rank === 4) r4++;
+        if (rank >= 5) rOut++;
+    }
+    return { matchedRows: rankItems.length, withBitis: withRank, b1: r1, b12: r12, b123: r123, b4: r4, bOut: rOut };
+}
+
+function renderRaceRankStatsGridHtml(stats) {
+    const total = stats.withBitis;
+    const items = [
+        { label: 'Koşuda SON·BS 1.', count: stats.b1, sub: 'rakipler arası en yüksek' },
+        { label: 'Koşuda SON·BS ilk 2', count: stats.b12, sub: 'aynı koşu sıralaması' },
+        { label: 'Koşuda SON·BS ilk 3', count: stats.b123, sub: 'aynı koşu sıralaması' },
+        { label: 'Koşuda SON·BS 4.', count: stats.b4, sub: 'aynı koşu sıralaması' },
+        { label: 'Koşuda SON·BS 5+', count: stats.bOut, sub: 'alt sıralar' }
+    ];
+    return items.map(it =>
+        '<div class="ptest-report-item">'
+        + '<span>' + AtSpeedUtils.escapeHtml(it.label) + '</span>'
+        + '<strong>' + pctFmt(it.count, total) + '</strong>'
+        + '<span>' + it.count + ' / ' + total + ' · ' + AtSpeedUtils.escapeHtml(it.sub) + '</span>'
+        + '</div>'
+    ).join('');
+}
 
 function t1SonDepthBsPct(entry) {
     const v = entry.row.t1drDepths?.[0]?.successPct;
@@ -611,6 +723,44 @@ function renderYesilDeltaBsDetailedReport() {
     return YESIL_SON_DELTA_BUCKETS.length * YESIL_T1_BS_BUCKETS.length;
 }
 
+function renderYesilRaceRankReport() {
+    const el = document.getElementById('yesilRaceRankReportDetail');
+    const panel = document.getElementById('yesilRaceRankPanel');
+    const tag = document.getElementById('yesilRaceRankBuildTag');
+    if (!el || !panel) return 0;
+    if (tag) tag.textContent = 'build ' + PTEST_BUILD;
+    const raceGroups = buildRaceEntryGroups();
+    let h = '';
+    for (const bucket of YESIL_RACE_DELTA_BUCKETS) {
+        const rankItems = [];
+        let fieldSum = 0;
+        let fieldCount = 0;
+        for (const entry of flatEntries) {
+            if (!yesilRaceDeltaMatch(entry, bucket)) continue;
+            const rk = raceKey(entry.kayitId, entry.raceNo);
+            const raceEntries = raceGroups.get(rk) || [];
+            const { rank, field } = computeMetricRankInRace(entry, raceEntries, s800SonBsPct);
+            rankItems.push({ rank, field });
+            if (field > 0) {
+                fieldSum += field;
+                fieldCount++;
+            }
+        }
+        const stats = buildRaceRankStatsFromItems(rankItems);
+        const avgField = fieldCount ? (Math.round((fieldSum / fieldCount) * 10) / 10).toFixed(1) : '—';
+        h += '<div class="ptest-report-delta-section">';
+        h += '<div class="ptest-report-delta-section-title">' + AtSpeedUtils.escapeHtml(bucket.label) + '</div>';
+        h += '<div class="ptest-report-delta-section-meta">'
+            + stats.matchedRows + ' yeşil at · ' + stats.withBitis + ' koşu içi sıra hesaplı'
+            + ' · ortalama ' + avgField + ' at/koşu</div>';
+        h += '<div class="ptest-report-grid">' + renderRaceRankStatsGridHtml(stats) + '</div>';
+        h += '</div>';
+    }
+    el.innerHTML = h || '<p>Veri yok</p>';
+    panel.classList.toggle('hidden', !flatEntries.length);
+    return YESIL_RACE_DELTA_BUCKETS.length;
+}
+
 function buildColorBitisReport(ruleId) {
     syncBitisInputsToMap();
     rebuildBitisLookup();
@@ -677,16 +827,20 @@ function renderTuruncuReport() {
     }
     const detailGroups = renderYesilDetailedReport();
     const bsGroups = renderYesilDeltaBsDetailedReport();
+    const raceRankGroups = renderYesilRaceRankReport();
     if (detailGroups) {
         globalMeta.textContent += ' · Yeşil Δ detay: ' + detailGroups + ' grup';
     }
     if (bsGroups) {
         globalMeta.textContent += ' · Yeşil BS detay: 14×8 = ' + bsGroups + ' alt grup';
     }
+    if (raceRankGroups) {
+        globalMeta.textContent += ' · Koşu içi BS: ' + raceRankGroups + ' grup';
+    }
 }
 
 function hideBitisReportPanels() {
-    for (const id of ['yesilDetailPanel', 'yesilBlinkBsDetailPanel']) {
+    for (const id of ['yesilDetailPanel', 'yesilBlinkBsDetailPanel', 'yesilRaceRankPanel']) {
         const panel = document.getElementById(id);
         if (panel) panel.classList.add('hidden');
     }
