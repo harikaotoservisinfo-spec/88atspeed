@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Puanlama Test — SON800-1 + T1×DR</title>
-    <link href="css/theme.css?v=20260827j" rel="stylesheet">
+    <link href="css/theme.css?v=20260827k" rel="stylesheet">
     <style>
         body { margin: 0; background: var(--bg-page, #f5f5f5); font-family: Inter, sans-serif; }
         .ptest-wrap { padding: 16px 20px 32px; max-width: 100%; }
@@ -148,11 +148,11 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260827j"></script>
-<script src="js/istatistik-engine.js?v=20260827j"></script>
-<script src="js/istatistik-grids-extra.js?v=20260827j"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260827j"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260827j"></script>
+<script src="js/utils.js?v=20260827k"></script>
+<script src="js/istatistik-engine.js?v=20260827k"></script>
+<script src="js/istatistik-grids-extra.js?v=20260827k"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260827k"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260827k"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -241,7 +241,20 @@ function setProcessStatus(html, isBusy) {
     status.innerHTML = '<span class="' + (isBusy ? 'ptest-status-busy' : 'ptest-status-done') + '">' + html + '</span>';
 }
 
-function bitisValueForDisplay(entry) {
+function tarihSortKey(tarih) {
+    if (!tarih) return '';
+    const s = String(tarih).trim();
+    const parts = s.indexOf('/') >= 0 ? s.split('/') : s.split('.');
+    if (parts.length === 3) {
+        const d = parts[0].padStart(2, '0');
+        const m = parts[1].padStart(2, '0');
+        const y = parts[2].padStart(4, '0');
+        return y + m + d;
+    }
+    return s;
+}
+
+function resolveBitisValue(entry) {
     const key = rowKey(entry);
     if (savedBitisMap[key] != null && savedBitisMap[key] >= 1) {
         return savedBitisMap[key];
@@ -251,26 +264,22 @@ function bitisValueForDisplay(entry) {
     return null;
 }
 
+function bitisValueForDisplay(entry) {
+    return resolveBitisValue(entry);
+}
+
 function bitisValueForSort(entry) {
     const key = rowKey(entry);
     if (activeBitisLookup && activeBitisLookup.has(key)) {
         return activeBitisLookup.get(key);
     }
-    if (savedBitisMap[key] != null && savedBitisMap[key] >= 1) {
-        return savedBitisMap[key];
-    }
-    return null;
+    return resolveBitisValue(entry);
 }
 
 function rebuildBitisLookup() {
     const lookup = new Map();
     for (const entry of flatEntries) {
-        const key = rowKey(entry);
-        if (savedBitisMap[key] != null && savedBitisMap[key] >= 1) {
-            lookup.set(key, savedBitisMap[key]);
-        } else {
-            lookup.set(key, null);
-        }
+        lookup.set(rowKey(entry), resolveBitisValue(entry));
     }
     activeBitisLookup = lookup;
     return lookup;
@@ -281,8 +290,8 @@ function bitisFromRow(entry) {
 }
 
 function compareRaceMeta(a, b) {
-    const ta = a.tarih.split('.').reverse().join('');
-    const tb = b.tarih.split('.').reverse().join('');
+    const ta = tarihSortKey(a.tarih);
+    const tb = tarihSortKey(b.tarih);
     if (ta !== tb) return ta.localeCompare(tb);
     const hipCmp = String(a.hipodrom || '').localeCompare(String(b.hipodrom || ''), 'tr');
     if (hipCmp !== 0) return hipCmp;
@@ -326,12 +335,21 @@ function syncBitisInputsToMap() {
     rebuildBitisLookup();
 }
 
+function countSortableBitis() {
+    let n = 0;
+    for (const entry of flatEntries) {
+        if (bitisValueForSort(entry) != null) n++;
+    }
+    return n;
+}
+
 function formatDoneStatus(extra) {
     const filled = countFilledBitisFromEntries();
+    const sortable = countSortableBitis();
     const cikan = countCikanHorses();
     const modeLabel = bitisSortMode === 1 ? 'bitiş sırası (1) — tüm 1\'ler üstte' : 'normal (0)';
-    return '✅ ' + flatEntries.length + ' satır · ' + filled + ' bitiş · ' + cikan +
-        ' çıkan · sıralama: ' + modeLabel + (extra ? ' · ' + extra : '');
+    return '✅ ' + flatEntries.length + ' satır · ' + filled + ' bitiş · ' + sortable +
+        ' sıralanabilir · ' + cikan + ' çıkan · ' + modeLabel + (extra ? ' · ' + extra : '');
 }
 
 function renderTableBodyOnly() {
@@ -360,7 +378,7 @@ async function applySortAndRender() {
     const sel = document.getElementById('bitisSortSelect');
     if (sel) sel.disabled = true;
 
-    const modeLabel = bitisSortMode === 1 ? 'bitiş sırasına göre' : 'normal sıraya';
+    const modeLabel = bitisSortMode === 1 ? 'tüm liste bitiş sırasına göre (1→2→3…)' : 'normal sıraya';
     setProcessStatus('⏳ ' + flatEntries.length + ' satır ' + modeLabel + ' sıralanıyor…', true);
 
     syncBitisInputsToMap();
