@@ -1070,6 +1070,16 @@ function countBitisForKayit(kayitId) {
     return n;
 }
 
+function countBitisForLoadedGrid() {
+    let n = 0;
+    for (const entry of istatRaceCache) {
+        for (const row of entry.pkg.rows) {
+            if (getIstatBitisValue(currentKayitId, entry.raceNo, row.no, row.name) != null) n++;
+        }
+    }
+    return n;
+}
+
 async function loadIstatBitisMap(force) {
     if (!force && istatBitisMap) return istatBitisMap;
     if (!force && istatBitisMapPromise) return istatBitisMapPromise;
@@ -3169,12 +3179,12 @@ function onKayitLoaded(kayit) {
             updateMeta();
             await loadIstatBitisMap(true);
             buildIstatistikGrid(currentRaceData, currentKayitMeta.hipodrom, currentKayitMeta.tarih);
-            const bitisN = countBitisForKayit(currentKayitId);
+            const bitisN = countBitisForLoadedGrid();
             let msg = '✅ Kayıt yüklendi';
             if (bitisN > 0) {
-                msg += ' · ' + bitisN + ' BİTİŞ (PUANLAMA TEST) eşleşmesi';
+                msg += ' · ' + bitisN + ' BİTİŞ (kayıtlı veya at adı parantezi)';
             } else {
-                msg += ' · BİTİŞ yok — PUANLAMA TEST’te aynı kaydı açıp BİTİŞ yazın ve 💾 Kaydet';
+                msg += ' · BİTİŞ yok — at adında (sıra) yok veya PUANLAMA TEST’te kaydedilmemiş';
             }
             setStatus('<div class="status status-success">' + msg + '</div>');
         } catch (error) {
