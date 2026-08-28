@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Puanlama Test — SON800-1 + T1×DR</title>
+    <title>Puanlama Test — Tüm metrikler</title>
     <link href="css/theme.css?v=20260828k" rel="stylesheet">
     <style>
         body { margin: 0; background: var(--bg-page, #f5f5f5); font-family: Inter, sans-serif; }
@@ -69,7 +69,7 @@
         }
         .ptest-table {
             border-collapse: separate; border-spacing: 0;
-            font-size: 12px; min-width: 1280px; width: 100%;
+            font-size: 12px; min-width: 4200px; width: 100%;
         }
         .ptest-table th, .ptest-table td {
             padding: 5px 7px; border-bottom: 1px solid #eceff1;
@@ -81,8 +81,17 @@
         }
         .ptest-table thead tr:nth-child(2) th { top: 34px; z-index: 2; }
         .ptest-table .ptest-th-grp { background: #e1bee7; font-size: 11px; }
-        .ptest-table .ptest-th-s800 { background: #b2ebf2; }
-        .ptest-table .ptest-th-t1 { background: #ffe0b2; }
+        .ptest-table .ptest-th-s800, .ptest-table td.ptest-metric-son8001 { background: #b2ebf2; }
+        .ptest-table .ptest-th-oran1, .ptest-table td.ptest-metric-oran1 { background: #fff3d0; }
+        .ptest-table .ptest-th-oran2, .ptest-table td.ptest-metric-oran2 { background: #ffe8c8; }
+        .ptest-table .ptest-th-f827, .ptest-table td.ptest-metric-fark827 { background: #c8f4f9; }
+        .ptest-table .ptest-th-ff, .ptest-table td.ptest-metric-ff { background: #d1c4e9; }
+        .ptest-table .ptest-th-t8, .ptest-table td.ptest-metric-t8 { background: #f8bbd0; }
+        .ptest-table .ptest-th-test1, .ptest-table td.ptest-metric-test1 { background: #f8d7e3; }
+        .ptest-table .ptest-th-test2, .ptest-table td.ptest-metric-test2 { background: #e1bee7; }
+        .ptest-table .ptest-th-test3, .ptest-table td.ptest-metric-test3 { background: #c5cae9; }
+        .ptest-table .ptest-th-testsira, .ptest-table td.ptest-metric-testsira { background: #b2dfdb; }
+        .ptest-table .ptest-th-t1, .ptest-table td.ptest-metric-t1dr { background: #ffe0b2; }
         .ptest-table .ptest-th-bitis { background: #fff9c4; }
         .ptest-th-bitis-inner {
             display: flex; flex-direction: column; align-items: center; gap: 4px;
@@ -2121,7 +2130,7 @@ function tahminHtml(tahmin) {
     return '<span class="ptest-tahmin-rank"' + title + '>' + tahmin.rank + '.</span><span class="ptest-pct ' + pctClass(tahmin.pct) + '">%' + tahmin.pct + '</span>';
 }
 
-const EXPORT_COL_COUNT = 15;
+const EXPORT_COL_COUNT = ptestTableColCount;
 
 const EXPORT_CSS = `
 body { margin: 16px; background: #f5f5f5; font-family: Inter, Arial, sans-serif; font-size: 12px; color: #37474f; }
@@ -2192,6 +2201,7 @@ function exportBitisHtml(entry) {
 }
 
 function renderExportHead() {
+    const metrics = ptestTableMetrics();
     let h = '<tr>';
     h += '<th rowspan="2" class="meta-col">TARİH</th>';
     h += '<th rowspan="2" class="meta-col">HİPODROM</th>';
@@ -2199,19 +2209,23 @@ function renderExportHead() {
     h += '<th rowspan="2" class="at">AT İSMİ</th>';
     h += '<th rowspan="2" class="th-bitis">BİTİŞ</th>';
     h += '<th rowspan="2">TAHMİN<small>Gösterge başarı skoru</small></th>';
-    h += '<th colspan="5" class="th-grp th-s800">SON800-1 · SON derinlik</th>';
-    h += '<th colspan="4" class="th-grp th-t1">T1×DR · SON derinlik</th>';
+    for (const m of metrics) {
+        h += '<th colspan="' + ptestMetricColCount(m) + '" class="th-grp th-' + (m.id === 'son8001' ? 's800' : m.id === 't1dr' ? 't1' : m.id) + '">'
+            + AtSpeedUtils.escapeHtml(m.label) + ' · SON derinlik</th>';
+    }
     h += '</tr><tr>';
-    h += '<th class="th-s800">SON</th><th class="th-s800">SON·Eİ</th><th class="th-s800">SON·İÇ</th><th class="th-s800">SON·Δ</th><th class="th-s800">SON·BS</th>';
-    h += '<th class="th-t1">SON·Eİ</th><th class="th-t1">SON·İÇ</th><th class="th-t1">SON·Δ</th><th class="th-t1">SON·BS</th>';
+    for (const m of metrics) {
+        const thTag = m.id === 'son8001' ? 'th-s800' : m.id === 't1dr' ? 'th-t1' : 'th-' + m.id;
+        if (m.id !== 't1dr') h += '<th class="' + thTag + '">SON</th>';
+        h += '<th class="' + thTag + '">SON·Eİ</th><th class="' + thTag + '">SON·İÇ</th>';
+        h += '<th class="' + thTag + '">SON·Δ</th><th class="' + thTag + '">SON·BS</th>';
+    }
     h += '</tr>';
     return h;
 }
 
 function renderExportRow(entry) {
     const { row } = entry;
-    const s0 = row.son8001Depths?.[0] || null;
-    const t0 = row.t1drDepths?.[0] || null;
     let h = '<tr>';
     h += '<td class="meta-col">' + esc(entry.tarih) + '</td>';
     h += '<td class="meta-col hipodrom">' + esc(entry.hipodrom || '—') + '</td>';
@@ -2219,15 +2233,9 @@ function renderExportRow(entry) {
     h += '<td class="at">' + esc(row.name || '—') + '</td>';
     h += '<td>' + exportBitisHtml(entry) + '</td>';
     h += '<td>' + exportTahminHtml(row.tahmin) + '</td>';
-    h += '<td>' + exportPctSpan(depthSon(s0, 'pct')) + '</td>';
-    h += '<td>' + exportPctSpan(depthSon(s0, 'horseBestPct')) + '</td>';
-    h += '<td>' + exportPctSpan(depthSon(s0, 'selfPct')) + '</td>';
-    h += '<td class="' + exportGapTdClass(row, s0) + '">' + exportGapSpan(row, s0) + '</td>';
-    h += '<td>' + exportPctSpan(depthSon(s0, 'successPct')) + '</td>';
-    h += '<td>' + exportPctSpan(depthSon(t0, 'horseBestPct')) + '</td>';
-    h += '<td>' + exportPctSpan(depthSon(t0, 'selfPct')) + '</td>';
-    h += '<td>' + exportPctSpan(depthSon(t0, 'gapPct')) + '</td>';
-    h += '<td>' + exportPctSpan(depthSon(t0, 'successPct')) + '</td>';
+    for (const m of ptestTableMetrics()) {
+        h += exportMetricDataCells(row, m);
+    }
     h += '</tr>';
     return h;
 }
@@ -2238,7 +2246,7 @@ function renderExportBody(entries) {
     for (const entry of entries) {
         const key = entry.tarih + '|' + entry.hipodrom + '|' + entry.raceNo + '|' + entry.kayitId;
         if (lastKey && lastKey !== key) {
-            parts.push('<tr class="sep"><td colspan="' + EXPORT_COL_COUNT + '"></td></tr>');
+            parts.push('<tr class="sep"><td colspan="' + EXPORT_COL_COUNT() + '"></td></tr>');
         }
         parts.push(renderExportRow(entry));
         lastKey = key;
@@ -2615,7 +2623,130 @@ function bitisInputHtml(entry) {
     return '<input type="number" min="1" max="99" class="ptest-bitis-input' + cls + '" data-row-key="' + AtSpeedUtils.escapeHtml(key) + '"' + valueAttr + ' placeholder="—" title="Atın bitiş sırası (at adındaki parantez otomatik dolar)">';
 }
 
+function gapTdClassForMetric(row, cell, spec) {
+    if (!cell || cell.gapPct == null || !spec) return '';
+    const p = row[spec.primaryKey]?.[0]?.gapPct;
+    const c = row[spec.crossKey]?.[0]?.gapPct;
+    const isTwin = p === 0 && c === 0 && p != null && c != null;
+    if (isTwin && cell.gapPct === 0) return ' ptest-gap-twin-zero';
+    if (!isTwin && p != null && c != null && p < 25 && c < 25) return ' ptest-gap-neon';
+    return '';
+}
+
+function ptestTableMetrics() {
+    return PtestGostergeEngine.METRICS;
+}
+
+function ptestMetricThClass(spec) {
+    const map = {
+        son8001: 's800', oran1: 'oran1', oran2: 'oran2', fark827: 'f827', ff: 'ff', t8: 't8',
+        test1: 'test1', test2: 'test2', test3: 'test3', testsira: 'testsira', t1dr: 't1'
+    };
+    return 'ptest-th-' + (map[spec.id] || 'metric');
+}
+
+function ptestMetricColCount(spec) {
+    return spec.id === 't1dr' ? 4 : 5;
+}
+
+function ptestTableColCount() {
+    let n = 7;
+    for (const m of ptestTableMetrics()) n += ptestMetricColCount(m);
+    return n;
+}
+
+function htmlSonDeltaSortSelect() {
+    let h = '<select id="sonDeltaSortSelect" class="ptest-son-delta-sort-select" title="0: kapalı · yeşil hücre: yeşiller en üstte, içinde bitiş(1,2,3…)→yanıp sönen→Δ artan · diğer: eşleşen en üstte">';
+    for (const rule of SON_DELTA_SORT_RULES) {
+        h += '<option value="' + rule.id + '"' + (sonDeltaSortMode === rule.id ? ' selected' : '') + '>'
+            + AtSpeedUtils.escapeHtml(rule.label) + '</option>';
+    }
+    return h + '</select>';
+}
+
+function htmlSonBsSortSelect() {
+    let h = '<select id="sonBsSortSelect" class="ptest-son-bs-sort-select" title="0: kapalı · 1: SON·BS tam %100 eşleşenler en üstte">';
+    for (const rule of SON_BS_SORT_RULES) {
+        h += '<option value="' + rule.id + '"' + (sonBsSortMode === rule.id ? ' selected' : '') + '>'
+            + AtSpeedUtils.escapeHtml(rule.label) + '</option>';
+    }
+    return h + '</select>';
+}
+
+function htmlT1SonDeltaSortSelect() {
+    let h = '<select id="t1SonDeltaSortSelect" class="ptest-t1-delta-sort-select" title="0: kapalı · 1: sarı (değer↑)→%0→yeşil hücre (değer↑) · SON800·Δ seçicisinden bağımsız">';
+    for (const rule of T1_SON_DELTA_SORT_RULES) {
+        h += '<option value="' + rule.id + '"' + (t1SonDeltaSortMode === rule.id ? ' selected' : '') + '>'
+            + AtSpeedUtils.escapeHtml(rule.label) + '</option>';
+    }
+    return h + '</select>';
+}
+
+function htmlT1SonBsSortSelect() {
+    let h = '<select id="t1SonBsSortSelect" class="ptest-t1-bs-sort-select" title="0: kapalı · 1: SON·BS tam %100 eşleşenler en üstte">';
+    for (const rule of T1_SON_BS_SORT_RULES) {
+        h += '<option value="' + rule.id + '"' + (t1SonBsSortMode === rule.id ? ' selected' : '') + '>'
+            + AtSpeedUtils.escapeHtml(rule.label) + '</option>';
+    }
+    return h + '</select>';
+}
+
+function renderMetricSubHeadCells(spec) {
+    const thCls = ptestMetricThClass(spec);
+    let h = '';
+    if (spec.id !== 't1dr') {
+        h += '<th class="' + thCls + '">SON</th>';
+    }
+    h += '<th class="' + thCls + '">SON·Eİ</th>';
+    h += '<th class="' + thCls + '">SON·İÇ</th>';
+    if (spec.id === 'son8001') {
+        h += '<th class="' + thCls + '"><div class="ptest-th-son-delta-inner">SON·Δ' + htmlSonDeltaSortSelect() + '</div></th>';
+        h += '<th class="' + thCls + '"><div class="ptest-th-son-bs-inner">SON·BS' + htmlSonBsSortSelect() + '</div></th>';
+    } else if (spec.id === 't1dr') {
+        h += '<th class="' + thCls + '"><div class="ptest-th-son-delta-inner">SON·Δ' + htmlT1SonDeltaSortSelect() + '</div></th>';
+        h += '<th class="' + thCls + '"><div class="ptest-th-son-bs-inner">SON·BS' + htmlT1SonBsSortSelect() + '</div></th>';
+    } else {
+        h += '<th class="' + thCls + '">SON·Δ</th>';
+        h += '<th class="' + thCls + '">SON·BS</th>';
+    }
+    return h;
+}
+
+function renderMetricDataCells(row, spec) {
+    const cell = row[spec.primaryKey]?.[0] || null;
+    const gapCls = gapTdClassForMetric(row, cell, spec);
+    const tdCls = 'ptest-metric-' + spec.id;
+    let h = '';
+    if (spec.id !== 't1dr') {
+        h += '<td class="' + tdCls + '">' + pctSpan(depthSon(cell, 'pct')) + '</td>';
+    }
+    h += '<td class="' + tdCls + '">' + pctSpan(depthSon(cell, 'horseBestPct')) + '</td>';
+    h += '<td class="' + tdCls + '">' + pctSpan(depthSon(cell, 'selfPct')) + '</td>';
+    h += '<td class="' + tdCls + gapCls + '">' + gapSpan(row, cell) + '</td>';
+    h += '<td class="' + tdCls + '">' + pctSpan(depthSon(cell, 'successPct')) + '</td>';
+    return h;
+}
+
+function exportMetricDataCells(row, spec) {
+    const cell = row[spec.primaryKey]?.[0] || null;
+    const gapCls = exportGapTdClassForMetric(row, cell, spec);
+    let h = '';
+    if (spec.id !== 't1dr') {
+        h += '<td>' + exportPctSpan(depthSon(cell, 'pct')) + '</td>';
+    }
+    h += '<td>' + exportPctSpan(depthSon(cell, 'horseBestPct')) + '</td>';
+    h += '<td>' + exportPctSpan(depthSon(cell, 'selfPct')) + '</td>';
+    h += '<td class="' + gapCls + '">' + exportGapSpan(row, cell) + '</td>';
+    h += '<td>' + exportPctSpan(depthSon(cell, 'successPct')) + '</td>';
+    return h;
+}
+
+function exportGapTdClassForMetric(row, cell, spec) {
+    return gapTdClassForMetric(row, cell, spec).trim().replace(/ptest-/g, '');
+}
+
 function renderHead() {
+    const metrics = ptestTableMetrics();
     let h = '<tr>';
     h += '<th rowspan="2" class="ptest-meta-col">TARİH</th>';
     h += '<th rowspan="2" class="ptest-meta-col">HİPODROM</th>';
@@ -2635,39 +2766,14 @@ function renderHead() {
     }
     h += '</select></div></th>';
     h += '<th rowspan="2">TAHMİN<small>Gösterge başarı skoru</small></th>';
-    h += '<th colspan="5" class="ptest-th-grp ptest-th-s800">SON800-1 · SON derinlik</th>';
-    h += '<th colspan="4" class="ptest-th-grp ptest-th-t1">T1×DR · SON derinlik</th>';
+    for (const m of metrics) {
+        h += '<th colspan="' + ptestMetricColCount(m) + '" class="ptest-th-grp ' + ptestMetricThClass(m) + '">'
+            + AtSpeedUtils.escapeHtml(m.label) + ' · SON derinlik</th>';
+    }
     h += '</tr><tr>';
-    h += '<th class="ptest-th-s800">SON</th><th class="ptest-th-s800">SON·Eİ</th><th class="ptest-th-s800">SON·İÇ</th>';
-    h += '<th class="ptest-th-s800"><div class="ptest-th-son-delta-inner">SON·Δ';
-    h += '<select id="sonDeltaSortSelect" class="ptest-son-delta-sort-select" title="0: kapalı · yeşil hücre: yeşiller en üstte, içinde bitiş(1,2,3…)→yanıp sönen→Δ artan · diğer: eşleşen en üstte">';
-    for (const rule of SON_DELTA_SORT_RULES) {
-        h += '<option value="' + rule.id + '"' + (sonDeltaSortMode === rule.id ? ' selected' : '') + '>'
-            + AtSpeedUtils.escapeHtml(rule.label) + '</option>';
+    for (const m of metrics) {
+        h += renderMetricSubHeadCells(m);
     }
-    h += '</select></div></th>';
-    h += '<th class="ptest-th-s800"><div class="ptest-th-son-bs-inner">SON·BS';
-    h += '<select id="sonBsSortSelect" class="ptest-son-bs-sort-select" title="0: kapalı · 1: SON·BS tam %100 eşleşenler en üstte">';
-    for (const rule of SON_BS_SORT_RULES) {
-        h += '<option value="' + rule.id + '"' + (sonBsSortMode === rule.id ? ' selected' : '') + '>'
-            + AtSpeedUtils.escapeHtml(rule.label) + '</option>';
-    }
-    h += '</select></div></th>';
-    h += '<th class="ptest-th-t1">SON·Eİ</th><th class="ptest-th-t1">SON·İÇ</th>';
-    h += '<th class="ptest-th-t1"><div class="ptest-th-son-delta-inner">SON·Δ';
-    h += '<select id="t1SonDeltaSortSelect" class="ptest-t1-delta-sort-select" title="0: kapalı · 1: sarı (değer↑)→%0→yeşil hücre (değer↑) · SON800·Δ seçicisinden bağımsız">';
-    for (const rule of T1_SON_DELTA_SORT_RULES) {
-        h += '<option value="' + rule.id + '"' + (t1SonDeltaSortMode === rule.id ? ' selected' : '') + '>'
-            + AtSpeedUtils.escapeHtml(rule.label) + '</option>';
-    }
-    h += '</select></div></th>';
-    h += '<th class="ptest-th-t1"><div class="ptest-th-son-bs-inner">SON·BS';
-    h += '<select id="t1SonBsSortSelect" class="ptest-t1-bs-sort-select" title="0: kapalı · 1: SON·BS tam %100 eşleşenler en üstte">';
-    for (const rule of T1_SON_BS_SORT_RULES) {
-        h += '<option value="' + rule.id + '"' + (t1SonBsSortMode === rule.id ? ' selected' : '') + '>'
-            + AtSpeedUtils.escapeHtml(rule.label) + '</option>';
-    }
-    h += '</select></div></th>';
     h += '</tr>';
     document.getElementById('gridHead').innerHTML = h;
     bindBitisSortSelect();
@@ -2685,8 +2791,6 @@ function depthSon(cell, field) {
 
 function renderRow(entry) {
     const { row } = entry;
-    const s0 = row.son8001Depths?.[0] || null;
-    const t0 = row.t1drDepths?.[0] || null;
     const rk = raceKey(entry.kayitId, entry.raceNo);
     let h = '<tr data-row-key="' + AtSpeedUtils.escapeHtml(rowKey(entry)) + '">';
     h += '<td class="ptest-meta-col">' + AtSpeedUtils.escapeHtml(entry.tarih) + '</td>';
@@ -2696,15 +2800,9 @@ function renderRow(entry) {
     h += '<td><button type="button" class="ptest-cikan-btn" data-race-key="' + AtSpeedUtils.escapeHtml(rk) + '" data-horse-no="' + AtSpeedUtils.escapeHtml(String(row.no ?? '')) + '" data-horse-name="' + AtSpeedUtils.escapeHtml(row.name || '') + '" title="Çıkan at — koşudan çıkar, metrikler yeniden hesaplanır">✕</button></td>';
     h += '<td>' + bitisInputHtml(entry) + '</td>';
     h += '<td>' + tahminHtml(row.tahmin) + '</td>';
-    h += '<td>' + pctSpan(depthSon(s0, 'pct')) + '</td>';
-    h += '<td>' + pctSpan(depthSon(s0, 'horseBestPct')) + '</td>';
-    h += '<td>' + pctSpan(depthSon(s0, 'selfPct')) + '</td>';
-    h += '<td class="' + gapTdClass(row, s0).trim() + '">' + gapSpan(row, s0) + '</td>';
-    h += '<td>' + pctSpan(depthSon(s0, 'successPct')) + '</td>';
-    h += '<td>' + pctSpan(depthSon(t0, 'horseBestPct')) + '</td>';
-    h += '<td>' + pctSpan(depthSon(t0, 'selfPct')) + '</td>';
-    h += '<td>' + pctSpan(depthSon(t0, 'gapPct')) + '</td>';
-    h += '<td>' + pctSpan(depthSon(t0, 'successPct')) + '</td>';
+    for (const m of ptestTableMetrics()) {
+        h += renderMetricDataCells(row, m);
+    }
     h += '</tr>';
     return h;
 }
