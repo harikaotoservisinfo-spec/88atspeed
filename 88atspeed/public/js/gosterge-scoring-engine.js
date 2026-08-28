@@ -421,13 +421,15 @@ const GostergeScoringEngine = (function () {
                     }));
                     const key = rowKeyParts(kayit.id, raceNo, row.no);
                     const bitisRaw = bitisMap[key];
+                    const fromName = AtSpeedUtils.extractBitisFromHorseName(row.name);
+                    const bitisPos = bitisRaw != null && bitisRaw >= 1 ? bitisRaw : fromName;
                     flat.push({
                         row,
                         tarih: kayit.tarih,
                         raceNo,
                         hipodrom: kayit.hipodrom,
                         kayitId: kayit.id,
-                        _bitisPos: bitisRaw != null && bitisRaw >= 1 ? bitisRaw : null
+                        _bitisPos: bitisPos != null && bitisPos >= 1 ? bitisPos : null
                     });
                 }
             }

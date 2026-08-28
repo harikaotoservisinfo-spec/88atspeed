@@ -697,14 +697,14 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260829c"></script>
-<script src="js/istatistik-engine.js?v=20260829c"></script>
-<script src="js/istatistik-grids-extra.js?v=20260829c"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260829c"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260829c"></script>
-<script src="js/ptest-gosterge-engine.js?v=20260829c"></script>
-<script src="js/ptest-gosterge-depth-engine.js?v=20260829c"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260829c"></script>
+<script src="js/utils.js?v=20260830a"></script>
+<script src="js/istatistik-engine.js?v=20260830a"></script>
+<script src="js/istatistik-grids-extra.js?v=20260830a"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260830a"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260830a"></script>
+<script src="js/ptest-gosterge-engine.js?v=20260830a"></script>
+<script src="js/ptest-gosterge-depth-engine.js?v=20260830a"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260830a"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -1187,7 +1187,7 @@ function updateGostergeTabVisibility() {
     if (content) content.classList.toggle('hidden', !hasData);
 }
 
-const PTEST_BUILD = '20260829c';
+const PTEST_BUILD = '20260830a';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
@@ -2315,8 +2315,8 @@ function resolveBitisValue(entry) {
     if (savedBitisMap[key] != null && savedBitisMap[key] >= 1) {
         return savedBitisMap[key];
     }
-    const n = parseInt(entry.row.no, 10);
-    if (!isNaN(n) && n >= 1) return n;
+    const fromName = AtSpeedUtils.extractBitisFromHorseName(entry.row?.name);
+    if (fromName != null) return fromName;
     return null;
 }
 
@@ -2612,7 +2612,7 @@ function bitisInputHtml(entry) {
     const filled = val != null && val >= 1;
     const cls = filled ? ' ptest-bitis-filled' : '';
     const valueAttr = filled ? ' value="' + val + '"' : '';
-    return '<input type="number" min="1" max="99" class="ptest-bitis-input' + cls + '" data-row-key="' + AtSpeedUtils.escapeHtml(key) + '"' + valueAttr + ' placeholder="—" title="Atın bitiş sırası">';
+    return '<input type="number" min="1" max="99" class="ptest-bitis-input' + cls + '" data-row-key="' + AtSpeedUtils.escapeHtml(key) + '"' + valueAttr + ' placeholder="—" title="Atın bitiş sırası (at adındaki parantez otomatik dolar)">';
 }
 
 function renderHead() {

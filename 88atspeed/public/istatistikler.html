@@ -1023,17 +1023,17 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260829g"></script>
-<script src="js/formula-engine.js?v=20260829g"></script>
-<script src="js/istatistik-engine.js?v=20260829g"></script>
-<script src="js/istatistik-grids-extra.js?v=20260829g"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260829g"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260829g"></script>
-<script src="js/ptest-gosterge-engine.js?v=20260829g"></script>
-<script src="js/ptest-gosterge-depth-engine.js?v=20260829g"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260829g"></script>
+<script src="js/utils.js?v=20260830a"></script>
+<script src="js/formula-engine.js?v=20260830a"></script>
+<script src="js/istatistik-engine.js?v=20260830a"></script>
+<script src="js/istatistik-grids-extra.js?v=20260830a"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260830a"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260830a"></script>
+<script src="js/ptest-gosterge-engine.js?v=20260830a"></script>
+<script src="js/ptest-gosterge-depth-engine.js?v=20260830a"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260830a"></script>
 <script>
-const ISTAT_BUILD = '20260829g';
+const ISTAT_BUILD = '20260830a';
 const TAHMIN_METRIC_ALL = '__hepsi__';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
@@ -1047,14 +1047,17 @@ function istatBitisKey(kayitId, raceNo, horseNo) {
     return String(kayitId) + '|' + String(raceNo) + '|' + String(horseNo ?? '');
 }
 
-function getIstatBitisValue(kayitId, raceNo, horseNo) {
-    if (!istatBitisMap || kayitId == null || raceNo == null) return null;
+function getIstatBitisValue(kayitId, raceNo, horseNo, horseName) {
+    if (kayitId == null || raceNo == null) return null;
     const key = istatBitisKey(kayitId, raceNo, horseNo);
-    let v = istatBitisMap[key];
-    if (v == null && horseNo != null) {
-        v = istatBitisMap[String(kayitId) + '|' + raceNo + '|' + horseNo];
+    if (istatBitisMap) {
+        let v = istatBitisMap[key];
+        if (v == null && horseNo != null) {
+            v = istatBitisMap[String(kayitId) + '|' + raceNo + '|' + horseNo];
+        }
+        if (v != null && v >= 1) return v;
     }
-    return v != null && v >= 1 ? v : null;
+    return AtSpeedUtils.extractBitisFromHorseName(horseName);
 }
 
 function countBitisForKayit(kayitId) {
@@ -1092,7 +1095,7 @@ function refreshBitisCells() {
         for (const row of entry.pkg.rows) {
             const cell = card.querySelector('[data-tahmin-cell][data-horse-no="' + row.no + '"]');
             if (!cell) continue;
-            const bitisVal = getIstatBitisValue(currentKayitId, entry.raceNo, row.no);
+            const bitisVal = getIstatBitisValue(currentKayitId, entry.raceNo, row.no, row.name);
             const matched = isTahminBitisMatch(row.tahmin, bitisVal);
             cell.classList.toggle('istat-tahmin-match', matched);
             cell.innerHTML = formatTahminCell(row.tahmin, entry.horseCount, bitisVal);
@@ -1168,13 +1171,14 @@ function formatTahminCell(tahmin, horseCount, bitisVal) {
     return h;
 }
 
-function renderTahminCell(tahmin, horseCount, horseNo, raceNo, kayitId) {
-    const bitisVal = getIstatBitisValue(kayitId ?? currentKayitId, raceNo, horseNo);
+function renderTahminCell(tahmin, horseCount, horseNo, raceNo, kayitId, horseName) {
+    const bitisVal = getIstatBitisValue(kayitId ?? currentKayitId, raceNo, horseNo, horseName);
     const matched = isTahminBitisMatch(tahmin, bitisVal);
     const cls = 'istat-tahmin istat-sticky-tahmin' + (matched ? ' istat-tahmin-match' : '');
     const inner = formatTahminCell(tahmin, horseCount, bitisVal);
     const attrs = ' data-tahmin-cell data-horse-no="' + (horseNo != null ? horseNo : '') + '"'
-        + ' data-race-no="' + (raceNo != null ? raceNo : '') + '"';
+        + ' data-race-no="' + (raceNo != null ? raceNo : '') + '"'
+        + ' data-horse-name="' + AtSpeedUtils.escapeHtml(horseName || '') + '"';
     if (!tahmin || tahmin.rank == null) {
         let title = bitisVal != null ? 'BİTİŞ (PUANLAMA TEST): ' + bitisVal + '. sıra' : '';
         return '<td class="' + cls + '"' + attrs
@@ -1558,7 +1562,8 @@ async function ensureGostergeCalibration(force) {
 function patchTahminCellEl(cell, tahmin, horseCount, raceNo, kayitId) {
     if (!cell) return;
     const horseNo = cell.dataset.horseNo;
-    const bitisVal = getIstatBitisValue(kayitId ?? currentKayitId, raceNo ?? cell.dataset.raceNo, horseNo);
+    const horseName = cell.dataset.horseName;
+    const bitisVal = getIstatBitisValue(kayitId ?? currentKayitId, raceNo ?? cell.dataset.raceNo, horseNo, horseName);
     const matched = isTahminBitisMatch(tahmin, bitisVal);
     cell.className = 'istat-tahmin istat-sticky-tahmin' + (matched ? ' istat-tahmin-match' : '');
     cell.innerHTML = formatTahminCell(tahmin, horseCount, bitisVal);
@@ -3089,7 +3094,7 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
             html += '<tr>';
             html += '<td class="istat-no istat-sticky-no">' + AtSpeedUtils.escapeHtml(String(row.no || '-')) + '</td>';
             html += '<td class="istat-at istat-sticky-at">' + AtSpeedUtils.escapeHtml(row.name) + '</td>';
-            html += renderTahminCell(row.tahmin, rows.length, row.no, raceNo, currentKayitId);
+            html += renderTahminCell(row.tahmin, rows.length, row.no, raceNo, currentKayitId, row.name);
             html += renderTahminActiveMetricCells(row, metricDesc, pkg);
             html += '<td class="istat-grp-sehir istat-grp-start istat-grp-end">' + formatSehirPctCell(row.sehir) + '</td>';
             html += renderSon800DepthCells(row.son8001Depths, getVisibleDepth('son8001', maxDepth1), 'istat-grp-son8001', 'SON800-1', row.son8001OrtOzeti, row);

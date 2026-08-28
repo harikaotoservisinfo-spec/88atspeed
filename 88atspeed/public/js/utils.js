@@ -73,6 +73,15 @@ const AtSpeedUtils = {
         return isNaN(num) ? null : num;
     },
 
+    /** At adı sonundaki parantez bitiş sırası: "BANDID (1)" → 1 */
+    extractBitisFromHorseName(name) {
+        if (!name) return null;
+        const m = String(name).trim().match(/\((\d+)\)\s*$/);
+        if (!m) return null;
+        const n = parseInt(m[1], 10);
+        return n >= 1 ? n : null;
+    },
+
     /**
      * Doğrusal min–max yüzde: en düşük (en iyi) değer %100, en yüksek (en kötü) %0.
      * Ara değerler: (max − value) / (max − min) × 100
