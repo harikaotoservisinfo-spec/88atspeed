@@ -7,6 +7,14 @@ const GostergeScoringEngine = (function () {
     const DEPTH_PAIR_WEIGHT_FACTOR = 0.65;
     let T9V_SCORE_SHARE = 0.35;
     let OTHER_SCORE_SHARE = 0.65;
+    /** %65 diliminde renk kuralı kovası (kalanın %40'ı) */
+    const COLOR_OTHER_SHARE = 0.40;
+    /** %65 diliminde metrik kovaları (kalanın %60'ı) */
+    const METRIC_OTHER_SHARE = 0.60;
+    const COLOR_RULE_IDS = new Set([
+        'yesilHucre', 'turuncuHucre', 'turuncuCevre', 'sariYazi',
+        'kirmiziIc', 'acikYesilIc', 'koyuYesilIc'
+    ]);
     let METRIC_SWEEP_FOCUS_ID = null;
     let METRIC_SWEEP_FOCUS_SHARE = 0;
     /** %65 dilimi payları (ham puanlar; normalize → toplam 1.0) */
@@ -138,6 +146,10 @@ const GostergeScoringEngine = (function () {
         return metricBaseId(metricEntry) === METRIC_SWEEP_FOCUS_ID;
     }
 
+    function isColorRule(ruleId) {
+        return COLOR_RULE_IDS.has(ruleId);
+    }
+
     function otherMetricShare(baseId) {
         const s = OTHER_METRIC_SHARES[baseId];
         return s != null ? s : 0;
@@ -155,19 +167,31 @@ const GostergeScoringEngine = (function () {
 
     function getOtherMetricShares() {
         const pctTotal = Object.values(OTHER_METRIC_SHARE_PCT).reduce((a, b) => a + b, 0);
-        const out = {};
+        const out = {
+            _colors: {
+                frac: COLOR_OTHER_SHARE,
+                pctWithin65: Math.round(COLOR_OTHER_SHARE * 1000) / 10,
+                pctOfTotal: Math.round(COLOR_OTHER_SHARE * OTHER_SCORE_SHARE * 1000) / 10,
+                label: 'Renkler (7 kural)'
+            },
+            _metricSlice: {
+                pctWithin65: Math.round(METRIC_OTHER_SHARE * 1000) / 10,
+                pctOfTotal: Math.round(METRIC_OTHER_SHARE * OTHER_SCORE_SHARE * 1000) / 10
+            }
+        };
         for (const [id, frac] of Object.entries(OTHER_METRIC_SHARES)) {
             out[id] = {
                 frac,
                 pctWithin65: OTHER_METRIC_SHARE_PCT[id],
-                pctOfTotal: Math.round(frac * OTHER_SCORE_SHARE * 1000) / 10,
+                pctWithinMetricSlice: Math.round(OTHER_METRIC_SHARE_PCT[id] * METRIC_OTHER_SHARE * 10) / 10,
+                pctOfTotal: Math.round(frac * METRIC_OTHER_SHARE * OTHER_SCORE_SHARE * 1000) / 10,
                 label: OTHER_METRIC_SHARE_LABELS[id] || id
             };
         }
         out._rest = {
             frac: restOtherMetricShare(),
-            pctOfTotal: Math.round(restOtherMetricShare() * OTHER_SCORE_SHARE * 1000) / 10,
-            pctWithin65: Math.round(restOtherMetricShare() * pctTotal * 10) / 10
+            pctOfTotal: Math.round(restOtherMetricShare() * METRIC_OTHER_SHARE * OTHER_SCORE_SHARE * 1000) / 10,
+            pctWithin65: Math.round(restOtherMetricShare() * pctTotal * METRIC_OTHER_SHARE * 10) / 10
         };
         return out;
     }
@@ -454,17 +478,21 @@ const GostergeScoringEngine = (function () {
         }
 
         const buckets = [{ weighted: bucketWeighted.t9v || 0, share: T9V_SCORE_SHARE }];
+        buckets.push({
+            weighted: bucketWeighted.colors || 0,
+            share: OTHER_SCORE_SHARE * COLOR_OTHER_SHARE
+        });
         for (const [id, frac] of Object.entries(OTHER_METRIC_SHARES)) {
             buckets.push({
                 weighted: bucketWeighted[id] || 0,
-                share: OTHER_SCORE_SHARE * frac
+                share: OTHER_SCORE_SHARE * METRIC_OTHER_SHARE * frac
             });
         }
         const restFrac = restOtherMetricShare();
         if (restFrac > 0) {
             buckets.push({
                 weighted: bucketWeighted.rest || 0,
-                share: OTHER_SCORE_SHARE * restFrac
+                share: OTHER_SCORE_SHARE * METRIC_OTHER_SHARE * restFrac
             });
         }
         return blendScoreBuckets(buckets);
@@ -505,7 +533,7 @@ const GostergeScoringEngine = (function () {
         }
 
         const terms = [];
-        const bucketWeighted = { t9v: 0, focus: 0, rest: 0 };
+        const bucketWeighted = { t9v: 0, colors: 0, focus: 0, rest: 0 };
         for (const id of Object.keys(OTHER_METRIC_SHARES)) bucketWeighted[id] = 0;
 
         for (const m of calibration.metrics) {
@@ -518,7 +546,9 @@ const GostergeScoringEngine = (function () {
             const baseId = metricBaseId(m);
             if (isT9vScoreMetric(m)) bucketWeighted.t9v += weighted;
             else if (isFocusScoreMetric(m)) bucketWeighted.focus += weighted;
-            else if (!METRIC_SWEEP_FOCUS_ID && otherMetricShare(baseId) > 0) {
+            else if (!METRIC_SWEEP_FOCUS_ID && isColorRule(bestRule.id)) {
+                bucketWeighted.colors += weighted;
+            } else if (!METRIC_SWEEP_FOCUS_ID && otherMetricShare(baseId) > 0) {
                 bucketWeighted[baseId] += weighted;
             } else bucketWeighted.rest += weighted;
             terms.push({
@@ -699,29 +729,35 @@ const GostergeScoringEngine = (function () {
         }
 
         const blend = calibration.successBlend || SUCCESS_BLEND;
-        let shareParts = ['T9V %' + Math.round(T9V_SCORE_SHARE * 100)];
+        let shareParts = [
+            'T9V %' + Math.round(T9V_SCORE_SHARE * 100),
+            'Renkler %' + Math.round(COLOR_OTHER_SHARE * OTHER_SCORE_SHARE * 1000) / 10,
+            'Metrikler %' + Math.round(METRIC_OTHER_SHARE * OTHER_SCORE_SHARE * 1000) / 10
+        ];
         const shareInfo = getOtherMetricShares();
         const sortedIds = Object.keys(OTHER_METRIC_SHARE_PCT).sort((a, b) =>
             OTHER_METRIC_SHARE_PCT[b] - OTHER_METRIC_SHARE_PCT[a]);
-        for (const id of sortedIds.slice(0, 6)) {
+        for (const id of sortedIds.slice(0, 4)) {
             const info = shareInfo[id];
             if (info) shareParts.push(info.label + ' %' + info.pctOfTotal);
         }
-        if (sortedIds.length > 6) shareParts.push('+' + (sortedIds.length - 6) + ' metrik');
-        if (shareInfo._rest?.frac > 0) {
-            shareParts.push('rest %' + shareInfo._rest.pctOfTotal);
-        }
+        if (sortedIds.length > 4) shareParts.push('+' + (sortedIds.length - 4) + ' metrik');
         let h = '<div class="ptest-scoring-meta">📊 Gösterge puanlama · '
             + calibration.bitisRows + ' bitişli / ' + calibration.totalRows + ' satır · '
             + 'başarı: %' + Math.round(blend.b1 * 100) + ' 1. · %' + Math.round(blend.b12 * 100) + ' 1–2 · %'
             + Math.round(blend.b123 * 100) + ' 1–3 · ' + shareParts.join(' · ') + '</div>';
-        h += '<details class="ptest-scoring-share-table"><summary>Tüm metrik payları (T9V %35 + %65 dilimi)</summary>';
+        h += '<details class="ptest-scoring-share-table"><summary>Pay dağılımı · T9V %35 · Renkler %65×40 · Metrikler %65×60</summary>';
         h += '<table class="ptest-scoring-table"><thead><tr>'
-            + '<th>Metrik</th><th>%65 içi</th><th>Toplam ~%</th></tr></thead><tbody>';
+            + '<th>Kova</th><th>%65 içi</th><th>Toplam ~%</th></tr></thead><tbody>';
+        h += '<tr><td><strong>T9V</strong></td><td>—</td><td>35</td></tr>';
+        h += '<tr><td><strong>Renkler</strong> (yeşil/turuncu/sarı/kırmızı…)</td><td>'
+            + shareInfo._colors.pctWithin65 + '</td><td>' + shareInfo._colors.pctOfTotal + '</td></tr>';
+        h += '<tr><td colspan="3"><em>Metrik dilimi (%65 × 60 = '
+            + shareInfo._metricSlice.pctOfTotal + ' toplam)</em></td></tr>';
         for (const id of Object.keys(OTHER_METRIC_SHARE_PCT)) {
             const info = shareInfo[id];
             h += '<tr><td>' + AtSpeedUtils.escapeHtml(info.label) + '</td><td>'
-                + info.pctWithin65 + '</td><td>' + info.pctOfTotal + '</td></tr>';
+                + info.pctWithinMetricSlice + '</td><td>' + info.pctOfTotal + '</td></tr>';
         }
         if (shareInfo._rest?.frac > 0) {
             h += '<tr><td>rest (SON800-2, SON800·DR…)</td><td>'
@@ -796,6 +832,10 @@ const GostergeScoringEngine = (function () {
         getCoreOtherMetricShares,
         OTHER_METRIC_SHARE_PCT,
         OTHER_METRIC_SHARES,
+        COLOR_OTHER_SHARE,
+        METRIC_OTHER_SHARE,
+        COLOR_RULE_IDS,
+        isColorRule,
         MIN_RULE_SAMPLE,
         SUCCESS_BLEND: () => ({ ...SUCCESS_BLEND }),
         get T9V_SCORE_SHARE() { return T9V_SCORE_SHARE; },
