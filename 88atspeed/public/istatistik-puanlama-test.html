@@ -488,6 +488,36 @@
         .ptest-gosterge-loading-sub { font-size: 11px; color: #546e7a; line-height: 1.4; }
         .ptest-gosterge-busy .ptest-gosterge-metric-tab-btn,
         .ptest-gosterge-busy .ptest-gosterge-mode-btn { pointer-events: none; opacity: 0.55; }
+        .ptest-gosterge1-intro {
+            margin: 0 0 14px; padding: 10px 12px; background: #fff; border: 1px solid #e1bee7;
+            border-radius: 8px; font-size: 12px; color: #546e7a; line-height: 1.45;
+        }
+        .ptest-gosterge1-metric-block {
+            margin-bottom: 14px; padding: 12px 14px; background: #fff;
+            border: 1px solid #eceff1; border-radius: 8px;
+        }
+        .ptest-gosterge1-metric-title {
+            margin: 0 0 10px; font-size: 13px; font-weight: 800; color: #4a148c;
+        }
+        .ptest-gosterge1-side-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 12px;
+        }
+        .ptest-gosterge1-side-panel {
+            padding: 10px 12px; border-radius: 8px; border: 1px solid #eceff1;
+        }
+        .ptest-gosterge1-side-panel-down { background: #ffebee; border-color: #ef9a9a; }
+        .ptest-gosterge1-side-panel-up { background: #e8f5e9; border-color: #a5d6a7; }
+        .ptest-gosterge1-side-heading {
+            margin: 0 0 6px; font-size: 12px; font-weight: 800;
+        }
+        .ptest-gosterge1-side-panel-down .ptest-gosterge1-side-heading { color: #b71c1c; }
+        .ptest-gosterge1-side-panel-up .ptest-gosterge1-side-heading { color: #1b5e20; }
+        .ptest-gosterge1-side-meta {
+            margin: 0 0 8px; font-size: 10px; color: #546e7a;
+        }
+        .ptest-gosterge1-strip-panel { display: none; }
+        .ptest-gosterge1-strip-panel.active { display: block; }
         .ptest-scoring-panel {
             margin-bottom: 14px; padding: 12px 14px; background: #f3e5f5; border: 1px solid #ce93d8;
             border-radius: 10px;
@@ -769,6 +799,7 @@
     <div class="ptest-view-tabs">
         <button type="button" class="ptest-view-tab-btn active" data-ptest-view="tablo" id="ptestViewTabloBtn">📋 Tablo</button>
         <button type="button" class="ptest-view-tab-btn" data-ptest-view="gosterge" id="ptestViewGostergeBtn">📈 Gösterge</button>
+        <button type="button" class="ptest-view-tab-btn" data-ptest-view="gosterge1" id="ptestViewGosterge1Btn">📊 Gösterge 1</button>
     </div>
     <div id="ptestTabTablo" class="ptest-tab-panel">
     <div class="ptest-cikan-panel hidden" id="cikanPanel">
@@ -810,6 +841,19 @@
     <div class="ptest-gosterge-metric-tabs" id="gostergeDepthMetricTabs"></div>
     <div id="gostergeDepthMetricPanels"></div>
     </div>
+    </div>
+    </div>
+    <div id="ptestTabGosterge1" class="ptest-tab-panel hidden">
+    <div class="ptest-gosterge-empty" id="gosterge1EmptyMsg" style="padding:24px;color:#789;text-align:center">
+        Veri yükleyin — Gösterge 1 &quot;Tüm kayıtları yükle&quot; sonrası görünür
+    </div>
+    <div id="gosterge1ContentWrap" class="hidden ptest-gosterge-compact">
+        <p class="ptest-gosterge1-intro" id="gosterge1Intro">
+            Her metrik sütunu için koşu ortalamasına göre <strong>alt ↓</strong> ve <strong>üst ↑</strong> gruplarında
+            1. / 2. / 3. / 4. / 5+ bitiş ihtimalleri (PUANLAMA TEST BİTİŞ verisi).
+        </p>
+        <div class="ptest-gosterge-metric-tabs" id="gosterge1StripTabs"></div>
+        <div id="gosterge1StripPanels"></div>
     </div>
     </div>
 </div>
@@ -1205,6 +1249,34 @@ function yesilBucketBlinkMatch(entry, bucket) {
     return isT1DeltaBlink(entry);
 }
 
+function buildBitisFinishBreakdownStats(entries) {
+    let withBitis = 0;
+    let b1 = 0, b2 = 0, b3 = 0, b4 = 0, bOut = 0;
+    for (const entry of entries) {
+        const b = bitisValueForSort(entry);
+        if (b == null || b < 1) continue;
+        withBitis++;
+        if (b === 1) b1++;
+        else if (b === 2) b2++;
+        else if (b === 3) b3++;
+        else if (b === 4) b4++;
+        else bOut++;
+    }
+    return { matchedRows: entries.length, withBitis, b1, b2, b3, b4, bOut };
+}
+
+function renderBitisFinishBreakdownTable(stats) {
+    const total = stats.withBitis;
+    const items = [
+        { label: '1. gelme', count: stats.b1, sub: 'yalnızca birincilik' },
+        { label: '2. gelme', count: stats.b2, sub: 'yalnızca ikincilik' },
+        { label: '3. gelme', count: stats.b3, sub: 'yalnızca üçüncülük' },
+        { label: '4. gelme', count: stats.b4, sub: 'yalnızca dördüncülük' },
+        { label: '4 sonrası (5+)', count: stats.bOut, sub: 'beşinci ve sonrası' }
+    ];
+    return renderStatsTableHtml(items, total);
+}
+
 function buildBitisStatsFromEntries(entries) {
     let withBitis = 0;
     let b1 = 0, b12 = 0, b123 = 0, b4 = 0, bOut = 0;
@@ -1276,18 +1348,24 @@ function yesilEntriesForBucket(bucket) {
 }
 
 let ptestViewTab = 'tablo';
+let ptestGosterge1StripTab = 'delta';
 
 function switchPtestViewTab(tabId) {
-    ptestViewTab = tabId === 'gosterge' ? 'gosterge' : 'tablo';
+    ptestViewTab = tabId === 'gosterge1' ? 'gosterge1' : (tabId === 'gosterge' ? 'gosterge' : 'tablo');
     document.querySelectorAll('.ptest-view-tab-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.ptestView === ptestViewTab);
     });
     const tablo = document.getElementById('ptestTabTablo');
     const gosterge = document.getElementById('ptestTabGosterge');
+    const gosterge1 = document.getElementById('ptestTabGosterge1');
     if (tablo) tablo.classList.toggle('hidden', ptestViewTab !== 'tablo');
     if (gosterge) gosterge.classList.toggle('hidden', ptestViewTab !== 'gosterge');
+    if (gosterge1) gosterge1.classList.toggle('hidden', ptestViewTab !== 'gosterge1');
     if (ptestViewTab === 'gosterge' && flatEntries.length) {
         renderTuruncuReport();
+    }
+    if (ptestViewTab === 'gosterge1' && flatEntries.length) {
+        renderGosterge1Report();
     }
 }
 
@@ -1303,9 +1381,123 @@ function updateGostergeTabVisibility() {
     const hasData = flatEntries.length > 0;
     if (empty) empty.classList.toggle('hidden', hasData);
     if (content) content.classList.toggle('hidden', !hasData);
+    updateGosterge1TabVisibility();
 }
 
-const PTEST_BUILD = '20260830j';
+function updateGosterge1TabVisibility() {
+    const empty = document.getElementById('gosterge1EmptyMsg');
+    const content = document.getElementById('gosterge1ContentWrap');
+    const hasData = flatEntries.length > 0;
+    if (empty) empty.classList.toggle('hidden', hasData);
+    if (content) content.classList.toggle('hidden', !hasData);
+}
+
+function entriesForStripAvgSide(strip, m, side) {
+    const out = [];
+    for (const entry of flatEntries) {
+        const val = stripCellNumericValue(entry.row, m, strip);
+        const avg = overviewStripAvgForEntry(entry, strip, m);
+        if (val == null || avg == null) continue;
+        if (side === 'down' && val < avg) out.push(entry);
+        else if (side === 'up' && val > avg) out.push(entry);
+    }
+    return out;
+}
+
+function renderGosterge1SidePanel(strip, m, side) {
+    const entries = entriesForStripAvgSide(strip, m, side);
+    const stats = buildBitisFinishBreakdownStats(entries);
+    const isDown = side === 'down';
+    const panelCls = isDown ? 'ptest-gosterge1-side-panel-down' : 'ptest-gosterge1-side-panel-up';
+    const heading = isDown
+        ? '↓ Ortalamanın altında (düşüş)'
+        : '↑ Ortalamanın üstünde (yükseliş)';
+    let h = '<div class="ptest-gosterge1-side-panel ' + panelCls + '">';
+    h += '<div class="ptest-gosterge1-side-heading">' + heading + '</div>';
+    h += '<div class="ptest-gosterge1-side-meta">' + stats.matchedRows + ' satır eşleşti · '
+        + stats.withBitis + ' bitiş kaydı</div>';
+    if (!stats.withBitis) {
+        h += '<p style="margin:0;font-size:11px;color:#789">Bitiş verisi yok</p>';
+    } else {
+        h += '<div class="ptest-stats-wrap">' + renderBitisFinishBreakdownTable(stats) + '</div>';
+    }
+    h += '</div>';
+    return h;
+}
+
+function renderGosterge1MetricBlock(strip, m) {
+    let h = '<div class="ptest-gosterge1-metric-block" id="g1_' + strip.id + '_' + m.id + '">';
+    h += '<div class="ptest-gosterge1-metric-title">' + AtSpeedUtils.escapeHtml(m.label)
+        + ' · SON derinlik · ' + strip.kind + '</div>';
+    h += '<div class="ptest-gosterge1-side-grid">';
+    h += renderGosterge1SidePanel(strip, m, 'down');
+    h += renderGosterge1SidePanel(strip, m, 'up');
+    h += '</div></div>';
+    return h;
+}
+
+function renderGosterge1StripPanel(strip) {
+    let h = '<div class="ptest-gosterge1-strip-panel' + (strip.id === ptestGosterge1StripTab ? ' active' : '')
+        + '" data-gosterge1-strip="' + strip.id + '">';
+    h += '<div class="ptest-gosterge-section-title">' + AtSpeedUtils.escapeHtml(strip.title) + '</div>';
+    for (const m of ptestTableMetrics()) {
+        h += renderGosterge1MetricBlock(strip, m);
+    }
+    h += '</div>';
+    return h;
+}
+
+function initGosterge1StripTabs() {
+    const tabsEl = document.getElementById('gosterge1StripTabs');
+    const panelsEl = document.getElementById('gosterge1StripPanels');
+    if (!tabsEl || !panelsEl) return;
+    const strips = ptestOverviewStrips();
+    if (!strips.some(s => s.id === ptestGosterge1StripTab)) {
+        ptestGosterge1StripTab = strips[0]?.id || 'delta';
+    }
+    let th = '';
+    for (const strip of strips) {
+        const active = strip.id === ptestGosterge1StripTab ? ' active' : '';
+        th += '<button type="button" class="ptest-gosterge-metric-tab-btn' + active
+            + '" data-gosterge1-strip="' + strip.id + '">' + AtSpeedUtils.escapeHtml(strip.title) + '</button>';
+    }
+    tabsEl.innerHTML = th;
+    let ph = '';
+    for (const strip of strips) {
+        ph += renderGosterge1StripPanel(strip);
+    }
+    panelsEl.innerHTML = ph;
+    if (tabsEl.dataset.bound !== '1') {
+        tabsEl.dataset.bound = '1';
+        tabsEl.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-gosterge1-strip]');
+            if (!btn) return;
+            ptestGosterge1StripTab = btn.dataset.gosterge1Strip || 'delta';
+            tabsEl.querySelectorAll('[data-gosterge1-strip]').forEach(b => {
+                b.classList.toggle('active', b.dataset.gosterge1Strip === ptestGosterge1StripTab);
+            });
+            panelsEl.querySelectorAll('.ptest-gosterge1-strip-panel').forEach(p => {
+                p.classList.toggle('active', p.dataset.gosterge1Strip === ptestGosterge1StripTab);
+            });
+        });
+    }
+}
+
+function renderGosterge1Report() {
+    updateGosterge1TabVisibility();
+    if (!flatEntries.length) return;
+    rebuildOverviewStripAvgLookup();
+    const intro = document.getElementById('gosterge1Intro');
+    if (intro) {
+        const bitisN = countFilledBitisFromEntries();
+        intro.innerHTML = 'Her metrik sütunu için koşu ortalamasına göre <strong>alt ↓</strong> ve '
+            + '<strong>üst ↑</strong> gruplarında 1. / 2. / 3. / 4. / 5+ bitiş ihtimalleri · '
+            + flatEntries.length + ' satır · ' + bitisN + ' bitiş kaydı · build ' + PTEST_BUILD;
+    }
+    initGosterge1StripTabs();
+}
+
+const PTEST_BUILD = '20260830k';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
@@ -1346,9 +1538,13 @@ function scheduleGostergeRefresh() {
             renderTableBodyOnly();
             updateSummaryMeta();
         }
-        if (ptestViewTab !== 'gosterge') return;
-        clearTimeout(gostergeBitisDebounce);
-        gostergeBitisDebounce = setTimeout(() => renderTuruncuReport(), 500);
+        if (ptestViewTab === 'gosterge') {
+            clearTimeout(gostergeBitisDebounce);
+            gostergeBitisDebounce = setTimeout(() => renderTuruncuReport(), 500);
+        }
+        if (ptestViewTab === 'gosterge1') {
+            renderGosterge1Report();
+        }
     })();
 }
 
@@ -3297,6 +3493,10 @@ async function renderTableAsync(doneExtra) {
         bindT1SonDeltaSortSelect();
         bindSonBsSortSelect();
         bindT1SonBsSortSelect();
+        updateGostergeTabVisibility();
+        if (ptestViewTab === 'gosterge1' && flatEntries.length) {
+            renderGosterge1Report();
+        }
     }
 }
 
