@@ -78,9 +78,19 @@
         .ptest-table thead th {
             position: sticky; top: 0; z-index: 3;
             background: #ede7f6; font-size: 11px; font-weight: 700;
+            color: #1a237e;
         }
         .ptest-table thead tr:nth-child(2) th { top: 34px; z-index: 2; }
-        .ptest-table .ptest-th-grp { background: #e1bee7; font-size: 11px; }
+        .ptest-table .ptest-th-grp {
+            background: #e1bee7; font-size: 11px;
+            color: #0d1b4d; font-weight: 800;
+        }
+        .ptest-table thead th.ptest-th-bitis,
+        .ptest-table thead th.ptest-th-cikan,
+        .ptest-table thead th.ptest-meta-col,
+        .ptest-table thead th.ptest-at {
+            color: #263238;
+        }
         .ptest-table .ptest-th-s800, .ptest-table td.ptest-metric-son8001 { background: #b2ebf2; }
         .ptest-table .ptest-th-oran1, .ptest-table td.ptest-metric-oran1 { background: #fff3d0; }
         .ptest-table .ptest-th-oran2, .ptest-table td.ptest-metric-oran2 { background: #ffe8c8; }
@@ -1196,7 +1206,7 @@ function updateGostergeTabVisibility() {
     if (content) content.classList.toggle('hidden', !hasData);
 }
 
-const PTEST_BUILD = '20260830b';
+const PTEST_BUILD = '20260830c';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
@@ -2143,8 +2153,8 @@ body { margin: 16px; background: #f5f5f5; font-family: Inter, Arial, sans-serif;
 .export-table-wrap { overflow: auto; border: 1px solid #cfd8dc; border-radius: 8px; background: #fff; }
 .export-table { border-collapse: separate; border-spacing: 0; min-width: 1280px; width: 100%; }
 .export-table th, .export-table td { padding: 5px 7px; border-bottom: 1px solid #eceff1; border-right: 1px solid #eceff1; text-align: center; white-space: nowrap; }
-.export-table thead th { background: #ede7f6; font-size: 11px; font-weight: 700; }
-.export-table .th-grp { background: #e1bee7; }
+.export-table thead th { background: #ede7f6; font-size: 11px; font-weight: 700; color: #1a237e; }
+.export-table .th-grp { background: #e1bee7; color: #0d1b4d; font-weight: 800; }
 .export-table .th-s800 { background: #b2ebf2; }
 .export-table .th-t1 { background: #ffe0b2; }
 .export-table .th-bitis { background: #fff9c4; }
