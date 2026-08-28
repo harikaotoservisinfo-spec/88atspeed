@@ -1088,10 +1088,10 @@
 <script src="js/istatistik-grids-extra.js?v=20260830b"></script>
 <script src="js/istatistik-gosterim-flags.js?v=20260830b"></script>
 <script src="js/istatistik-tahmin-engine.js?v=20260830b"></script>
-<script src="js/ptest-gosterge-engine.js?v=20260830v"></script>
-<script src="js/ptest-gosterge-depth-engine.js?v=20260830v"></script>
-<script src="js/ptest-color-gosterge-export.js?v=20260830v"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260830v"></script>
+<script src="js/ptest-gosterge-engine.js?v=20260830w"></script>
+<script src="js/ptest-gosterge-depth-engine.js?v=20260830w"></script>
+<script src="js/ptest-color-gosterge-export.js?v=20260830w"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260830w"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -2658,7 +2658,7 @@ function renderGosterge1Report() {
     initGosterge1StripTabs();
 }
 
-const PTEST_BUILD = '20260830v';
+const PTEST_BUILD = '20260830w';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
@@ -2826,7 +2826,6 @@ function initGostergeMetricTabs() {
                 + '" data-ptest-metric="' + m.id + '">' + AtSpeedUtils.escapeHtml(m.label) + '</button>';
         }
         tabsEl.innerHTML = th;
-        PtestGostergeEngine.ensureMetricPanels(panelsEl);
         tabsEl.addEventListener('click', (e) => {
             const btn = e.target.closest('.ptest-gosterge-metric-tab-btn');
             if (!btn || btn.classList.contains('ptest-depth-metric-tab-btn')) return;
@@ -2842,6 +2841,7 @@ function initGostergeMetricTabs() {
             b.classList.toggle('active', b.dataset.ptestMetric === ptestGostergeMetricTab);
         });
     }
+    PtestGostergeEngine.ensureMetricPanels(panelsEl);
     PtestGostergeEngine.switchMetricTab(ptestGostergeMetricTab);
 }
 
@@ -3552,6 +3552,7 @@ async function renderTuruncuReport() {
 
     const host = getPtestGostergeHost();
     const renderOpts = {
+        renderAllPairs: true,
         isCancelled: () => gen !== gostergeRenderGen,
         onProgress: (msg) => {
             if (gen !== gostergeRenderGen) return;
@@ -4655,6 +4656,9 @@ async function renderTableAsync(doneExtra) {
         bindSonBsSortSelect();
         bindT1SonBsSortSelect();
         updateGostergeTabVisibility();
+        if (ptestViewTab === 'gosterge' && flatEntries.length) {
+            void renderTuruncuReport();
+        }
         if (ptestViewTab === 'gosterge1' && flatEntries.length) {
             renderGosterge1Report();
         }

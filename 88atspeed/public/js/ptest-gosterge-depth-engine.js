@@ -629,7 +629,8 @@ const PtestGostergeDepthEngine = (function () {
             if (isCancelled()) return;
             const inner = document.getElementById(pid(spec.id, pair.index, 'inner'));
             if (!inner) continue;
-            if (!sync && pair.index > 0 && inner.dataset.lazy === '1') {
+            const skipLazy = !sync && !opts.renderAllPairs && pair.index > 0 && inner.dataset.lazy === '1';
+            if (skipLazy) {
                 inner.innerHTML = '<p class="ptest-depth-lazy-hint">Açılınca yüklenecek…</p>';
                 inner.dataset.rendered = '';
                 continue;
@@ -638,7 +639,7 @@ const PtestGostergeDepthEngine = (function () {
             const ctx = createPairContext(spec, pair.index, host, scales);
             renderPairBlock(ctx, host, buildTag);
             inner.dataset.rendered = '1';
-            if (!sync && pair.index === 0) await yieldToMain(false);
+            if (!sync && pair.index < DEPTH_PAIRS.length - 1) await yieldToMain(false);
         }
         onProgress('Tamamlandı');
     }
