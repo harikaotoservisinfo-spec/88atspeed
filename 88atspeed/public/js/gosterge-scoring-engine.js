@@ -9,6 +9,19 @@ const GostergeScoringEngine = (function () {
     let OTHER_SCORE_SHARE = 0.65;
     let METRIC_SWEEP_FOCUS_ID = null;
     let METRIC_SWEEP_FOCUS_SHARE = 0;
+    /** %65 dilimi içindeki çekirdek metrik payları (0–1; toplam 0.62 → kalan 0.03 rest) */
+    const CORE_OTHER_METRIC_SHARES = {
+        oran1: 0.06,
+        oran2: 0.14,
+        fark827: 0.01,
+        ff: 0.03,
+        t8: 0.04,
+        test1: 0.18,
+        test2: 0.03,
+        test3: 0.03,
+        testsira: 0.03,
+        t1dr: 0.07
+    };
     let SUCCESS_BLEND = { b1: 0.80, b12: 0.12, b123: 0.08 };
 
     let calibration = null;
@@ -44,6 +57,25 @@ const GostergeScoringEngine = (function () {
     function isFocusScoreMetric(metricEntry) {
         if (!METRIC_SWEEP_FOCUS_ID) return false;
         return metricBaseId(metricEntry) === METRIC_SWEEP_FOCUS_ID;
+    }
+
+    function coreOtherMetricShare(baseId) {
+        const s = CORE_OTHER_METRIC_SHARES[baseId];
+        return s != null ? s : 0;
+    }
+
+    function coreOtherMetricShareTotal() {
+        let t = 0;
+        for (const s of Object.values(CORE_OTHER_METRIC_SHARES)) t += s;
+        return t;
+    }
+
+    function restOtherMetricShare() {
+        return Math.max(0, 1 - coreOtherMetricShareTotal());
+    }
+
+    function getCoreOtherMetricShares() {
+        return { ...CORE_OTHER_METRIC_SHARES, _rest: restOtherMetricShare() };
     }
 
     function setSuccessBlend(blend) {
@@ -311,24 +343,32 @@ const GostergeScoringEngine = (function () {
         return Math.round(Math.min(...active.map(b => b.weighted / b.share)));
     }
 
-    function blendGostergeScoreTotals(restWeighted, t9vWeighted, focusWeighted) {
+    function blendGostergeScoreTotals(bucketWeighted) {
         if (METRIC_SWEEP_FOCUS_ID && METRIC_SWEEP_FOCUS_SHARE > 0) {
             const focusShare = OTHER_SCORE_SHARE * METRIC_SWEEP_FOCUS_SHARE;
             const restShare = OTHER_SCORE_SHARE * (1 - METRIC_SWEEP_FOCUS_SHARE);
             return blendScoreBuckets([
-                { weighted: t9vWeighted, share: T9V_SCORE_SHARE },
-                { weighted: focusWeighted || 0, share: focusShare },
-                { weighted: restWeighted || 0, share: restShare }
+                { weighted: bucketWeighted.t9v || 0, share: T9V_SCORE_SHARE },
+                { weighted: bucketWeighted.focus || 0, share: focusShare },
+                { weighted: bucketWeighted.rest || 0, share: restShare }
             ]);
         }
-        const otherWeighted = (restWeighted || 0) + (focusWeighted || 0);
-        if (t9vWeighted > 0 && otherWeighted > 0) {
-            return blendScoreBuckets([
-                { weighted: otherWeighted, share: OTHER_SCORE_SHARE },
-                { weighted: t9vWeighted, share: T9V_SCORE_SHARE }
-            ]);
+
+        const buckets = [{ weighted: bucketWeighted.t9v || 0, share: T9V_SCORE_SHARE }];
+        for (const [id, frac] of Object.entries(CORE_OTHER_METRIC_SHARES)) {
+            buckets.push({
+                weighted: bucketWeighted[id] || 0,
+                share: OTHER_SCORE_SHARE * frac
+            });
         }
-        return otherWeighted + t9vWeighted;
+        const restFrac = restOtherMetricShare();
+        if (restFrac > 0) {
+            buckets.push({
+                weighted: bucketWeighted.rest || 0,
+                share: OTHER_SCORE_SHARE * restFrac
+            });
+        }
+        return blendScoreBuckets(buckets);
     }
 
     function scaleTermPoints(terms, rawTotal, finalTotal) {
@@ -366,9 +406,8 @@ const GostergeScoringEngine = (function () {
         }
 
         const terms = [];
-        let restWeighted = 0;
-        let focusWeighted = 0;
-        let t9vWeighted = 0;
+        const bucketWeighted = { t9v: 0, focus: 0, rest: 0 };
+        for (const id of Object.keys(CORE_OTHER_METRIC_SHARES)) bucketWeighted[id] = 0;
 
         for (const m of calibration.metrics) {
             const ladder = calibration.ladders[m.id];
@@ -377,9 +416,12 @@ const GostergeScoringEngine = (function () {
             if (!bestRule) continue;
             const w = metricWeight(m);
             const weighted = Math.round((score * w) / 1000);
-            if (isT9vScoreMetric(m)) t9vWeighted += weighted;
-            else if (isFocusScoreMetric(m)) focusWeighted += weighted;
-            else restWeighted += weighted;
+            const baseId = metricBaseId(m);
+            if (isT9vScoreMetric(m)) bucketWeighted.t9v += weighted;
+            else if (isFocusScoreMetric(m)) bucketWeighted.focus += weighted;
+            else if (!METRIC_SWEEP_FOCUS_ID && coreOtherMetricShare(baseId) > 0) {
+                bucketWeighted[baseId] += weighted;
+            } else bucketWeighted.rest += weighted;
             terms.push({
                 metricId: m.id,
                 metricLabel: m.label,
@@ -394,8 +436,8 @@ const GostergeScoringEngine = (function () {
         }
 
         terms.sort((a, b) => b.points - a.points);
-        const rawTotal = restWeighted + focusWeighted + t9vWeighted;
-        const totalScore = blendGostergeScoreTotals(restWeighted, t9vWeighted, focusWeighted);
+        const rawTotal = Object.values(bucketWeighted).reduce((a, b) => a + b, 0);
+        const totalScore = blendGostergeScoreTotals(bucketWeighted);
         scaleTermPoints(terms, rawTotal, totalScore);
 
         return {
@@ -558,11 +600,30 @@ const GostergeScoringEngine = (function () {
         }
 
         const blend = calibration.successBlend || SUCCESS_BLEND;
+        const shareLabels = {
+            oran1: '800-1 ORAN',
+            oran2: '800-2 ORAN',
+            fark827: '800Δ·7',
+            ff: 'FFΔ',
+            t8: 'T8Δ',
+            test1: 'TEST1',
+            test2: 'TEST2',
+            test3: 'TEST3',
+            testsira: 'TEST·SIRA',
+            t1dr: 'T1×DR'
+        };
+        let shareParts = ['T9V %' + Math.round(T9V_SCORE_SHARE * 100)];
+        for (const [id, frac] of Object.entries(CORE_OTHER_METRIC_SHARES)) {
+            shareParts.push((shareLabels[id] || id) + ' %' + Math.round(frac * OTHER_SCORE_SHARE * 1000) / 10);
+        }
+        const restFrac = restOtherMetricShare();
+        if (restFrac > 0) {
+            shareParts.push('rest (SON800-1+…) %' + Math.round(restFrac * OTHER_SCORE_SHARE * 1000) / 10);
+        }
         let h = '<div class="ptest-scoring-meta">📊 Gösterge puanlama · '
             + calibration.bitisRows + ' bitişli / ' + calibration.totalRows + ' satır · '
             + 'başarı: %' + Math.round(blend.b1 * 100) + ' 1. · %' + Math.round(blend.b12 * 100) + ' 1–2 · %'
-            + Math.round(blend.b123 * 100) + ' 1–3 · T9V %' + Math.round(T9V_SCORE_SHARE * 100)
-            + ' · diğer %' + Math.round(OTHER_SCORE_SHARE * 100) + '</div>';
+            + Math.round(blend.b123 * 100) + ' 1–3 · ' + shareParts.join(' · ') + '</div>';
 
         const shown = new Set();
         for (const m of calibration.metrics) {
@@ -627,6 +688,8 @@ const GostergeScoringEngine = (function () {
         setMetricSweepFocus,
         clearMetricSweepFocus,
         getMetricSweepFocus,
+        getCoreOtherMetricShares,
+        CORE_OTHER_METRIC_SHARES,
         MIN_RULE_SAMPLE,
         SUCCESS_BLEND: () => ({ ...SUCCESS_BLEND }),
         get T9V_SCORE_SHARE() { return T9V_SCORE_SHARE; },

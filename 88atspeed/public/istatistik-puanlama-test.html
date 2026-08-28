@@ -1036,7 +1036,7 @@
 <script src="js/istatistik-tahmin-engine.js?v=20260830b"></script>
 <script src="js/ptest-gosterge-engine.js?v=20260830b"></script>
 <script src="js/ptest-gosterge-depth-engine.js?v=20260830b"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260830q"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260830r"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -1526,17 +1526,17 @@ let t9vSweepTahminBaseline = null;
 const T9V_SWEEP_DEFAULT_SHARE = 0.35;
 
 const CORE_METRIC_SWEEP_LIST = [
-    { id: 'son8001', label: 'SON800-1', weight: 60 },
-    { id: 'oran1', label: '800-1 ORAN', weight: 30 },
-    { id: 'oran2', label: '800-2 ORAN', weight: 30 },
-    { id: 'fark827', label: '800Δ·7', weight: 20 },
-    { id: 'ff', label: 'FFΔ', weight: 40 },
-    { id: 't8', label: 'T8Δ', weight: 60 },
-    { id: 'test1', label: 'TEST1', weight: 250 },
-    { id: 'test2', label: 'TEST2', weight: 50 },
-    { id: 'test3', label: 'TEST3', weight: 50 },
-    { id: 'testsira', label: 'TEST·SIRA', weight: 50 },
-    { id: 't1dr', label: 'T1×DR', weight: 120 }
+    { id: 'son8001', label: 'SON800-1', weight: 60, sharePct: null },
+    { id: 'oran1', label: '800-1 ORAN', weight: 30, sharePct: 6 },
+    { id: 'oran2', label: '800-2 ORAN', weight: 30, sharePct: 14 },
+    { id: 'fark827', label: '800Δ·7', weight: 20, sharePct: 1 },
+    { id: 'ff', label: 'FFΔ', weight: 40, sharePct: 3 },
+    { id: 't8', label: 'T8Δ', weight: 60, sharePct: 4 },
+    { id: 'test1', label: 'TEST1', weight: 250, sharePct: 18 },
+    { id: 'test2', label: 'TEST2', weight: 50, sharePct: 3 },
+    { id: 'test3', label: 'TEST3', weight: 50, sharePct: 3 },
+    { id: 'testsira', label: 'TEST·SIRA', weight: 50, sharePct: 3 },
+    { id: 't1dr', label: 'T1×DR', weight: 120, sharePct: 7 }
 ];
 
 let ptestMetricSweepRows = null;
@@ -1795,8 +1795,13 @@ function renderMetricSweepMetricTabs() {
     for (const m of CORE_METRIC_SWEEP_LIST) {
         const active = m.id === ptestMetricSweepSelectedId ? ' active' : '';
         h += '<button type="button" class="ptest-metric-sweep-tab' + active + '" data-metric-sweep-id="'
-            + m.id + '">' + AtSpeedUtils.escapeHtml(m.label)
-            + ' <span style="opacity:.75;font-weight:600">(' + m.weight + ')</span></button>';
+            + m.id + '">' + AtSpeedUtils.escapeHtml(m.label);
+        if (m.sharePct != null) {
+            h += ' <span style="opacity:.85;font-weight:600">%' + m.sharePct + '</span>';
+        } else {
+            h += ' <span style="opacity:.55;font-weight:600">rest</span>';
+        }
+        h += '</button>';
     }
     wrap.innerHTML = h;
     wrap.querySelectorAll('[data-metric-sweep-id]').forEach(btn => {
@@ -2399,7 +2404,7 @@ function renderGosterge1Report() {
     initGosterge1StripTabs();
 }
 
-const PTEST_BUILD = '20260830q';
+const PTEST_BUILD = '20260830r';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
