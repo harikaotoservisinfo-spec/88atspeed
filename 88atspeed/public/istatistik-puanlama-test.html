@@ -69,7 +69,7 @@
         }
         .ptest-table {
             border-collapse: separate; border-spacing: 0;
-            font-size: 12px; min-width: 4200px; width: 100%;
+            font-size: 12px; min-width: 4900px; width: 100%;
         }
         .ptest-table th, .ptest-table td {
             padding: 5px 7px; border-bottom: 1px solid #eceff1;
@@ -102,6 +102,28 @@
         .ptest-table .ptest-th-test3, .ptest-table td.ptest-metric-test3 { background: #c5cae9; }
         .ptest-table .ptest-th-testsira, .ptest-table td.ptest-metric-testsira { background: #b2dfdb; }
         .ptest-table .ptest-th-t1, .ptest-table td.ptest-metric-t1dr { background: #ffe0b2; }
+        .ptest-table .ptest-th-delta-strip-grp {
+            background: #cfd8dc; color: #1a237e; font-weight: 800; font-size: 11px;
+            border-left: 3px solid #7b1fa2; border-right: 3px solid #7b1fa2;
+        }
+        .ptest-table .ptest-th-delta-strip-col {
+            font-size: 9px; line-height: 1.15; min-width: 54px; max-width: 78px;
+            white-space: normal; vertical-align: bottom; padding: 4px 5px;
+        }
+        .ptest-delta-strip-metric {
+            display: block; font-size: 8px; font-weight: 800; color: #37474f;
+            margin-bottom: 3px; line-height: 1.2;
+        }
+        .ptest-delta-strip-kind {
+            display: block; font-size: 10px; font-weight: 900; color: #1a237e;
+        }
+        .ptest-table td.ptest-delta-strip-cell {
+            border-top: 2px solid #b0bec5;
+        }
+        .ptest-table td.ptest-delta-strip-edge-l { border-left: 3px solid #7b1fa2 !important; }
+        .ptest-table td.ptest-delta-strip-edge-r { border-right: 3px solid #7b1fa2 !important; }
+        .ptest-table thead th.ptest-delta-strip-edge-l { border-left: 3px solid #7b1fa2; }
+        .ptest-table thead th.ptest-delta-strip-edge-r { border-right: 3px solid #7b1fa2; }
         .ptest-table .ptest-th-bitis { background: #fff9c4; }
         .ptest-th-bitis-inner {
             display: flex; flex-direction: column; align-items: center; gap: 4px;
@@ -659,7 +681,7 @@
 <body>
 <div class="ptest-wrap">
     <div class="ptest-toolbar">
-        <h1>🧪 Puanlama test — Tablo · 11 metrik grubu (SON derinlik)</h1>
+        <h1>🧪 Puanlama test — Tablo · TAHMİN + SON·Δ özeti + 11 metrik grubu</h1>
         <button type="button" class="ptest-btn" id="loadAllBtn">Tüm kayıtları yükle</button>
         <button type="button" class="ptest-btn ptest-btn-success" id="saveAllBtn" disabled>💾 Kaydet</button>
         <button type="button" class="ptest-btn ptest-btn-outline" id="exportTxtBtn" disabled title="Seçili BİTİŞ sırasına göre (0 veya 1) renkli tabloyu .html olarak indir">📥 Renkli İndir</button>
@@ -727,7 +749,7 @@
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
-const COL_COUNT = 16;
+const COL_COUNT = () => ptestTableColCount();
 
 let savedBitisMap = {};
 let savedCikanMap = {};
@@ -1206,7 +1228,7 @@ function updateGostergeTabVisibility() {
     if (content) content.classList.toggle('hidden', !hasData);
 }
 
-const PTEST_BUILD = '20260830d';
+const PTEST_BUILD = '20260830e';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
@@ -2157,6 +2179,9 @@ body { margin: 16px; background: #f5f5f5; font-family: Inter, Arial, sans-serif;
 .export-table th, .export-table td { padding: 5px 7px; border-bottom: 1px solid #eceff1; border-right: 1px solid #eceff1; text-align: center; white-space: nowrap; }
 .export-table thead th { background: #ede7f6; font-size: 11px; font-weight: 700; color: #1a237e; }
 .export-table .th-grp { background: #e1bee7; color: #0d1b4d; font-weight: 800; }
+.export-table .th-delta-strip { background: #cfd8dc; color: #1a237e; font-weight: 800; border-left: 3px solid #7b1fa2; border-right: 3px solid #7b1fa2; }
+.delta-strip-metric { display: block; font-size: 8px; font-weight: 800; color: #37474f; margin-bottom: 2px; }
+.delta-strip-kind { display: block; font-size: 10px; font-weight: 900; color: #1a237e; }
 .export-table .th-s800 { background: #b2ebf2; }
 .export-table .th-t1 { background: #ffe0b2; }
 .export-table .th-bitis { background: #fff9c4; }
@@ -2221,11 +2246,17 @@ function renderExportHead() {
     h += '<th rowspan="2" class="at">AT İSMİ</th>';
     h += '<th rowspan="2" class="th-bitis">BİTİŞ</th>';
     h += '<th rowspan="2">TAHMİN<small>Gösterge başarı skoru</small></th>';
+    h += '<th colspan="' + ptestDeltaStripColCount() + '" class="th-grp th-delta-strip">SON·Δ · tüm metrik grupları</th>';
     for (const m of metrics) {
         h += '<th colspan="' + ptestMetricColCount(m) + '" class="th-grp th-' + (m.id === 'son8001' ? 's800' : m.id === 't1dr' ? 't1' : m.id) + '">'
             + AtSpeedUtils.escapeHtml(m.label) + ' · SON derinlik</th>';
     }
     h += '</tr><tr>';
+    for (const m of metrics) {
+        const thTag = m.id === 'son8001' ? 'th-s800' : m.id === 't1dr' ? 'th-t1' : 'th-' + m.id;
+        h += '<th class="' + thTag + '"><span class="delta-strip-metric">' + esc(m.label)
+            + ' · SON derinlik</span><span class="delta-strip-kind">SON·Δ</span></th>';
+    }
     for (const m of metrics) {
         const thTag = m.id === 'son8001' ? 'th-s800' : m.id === 't1dr' ? 'th-t1' : 'th-' + m.id;
         if (m.id !== 't1dr') h += '<th class="' + thTag + '">SON</th>';
@@ -2245,6 +2276,7 @@ function renderExportRow(entry) {
     h += '<td class="at">' + esc(row.name || '—') + '</td>';
     h += '<td>' + exportBitisHtml(entry) + '</td>';
     h += '<td>' + exportTahminHtml(row.tahmin) + '</td>';
+    h += exportDeltaStripDataCells(row);
     for (const m of ptestTableMetrics()) {
         h += exportMetricDataCells(row, m);
     }
@@ -2499,14 +2531,14 @@ function renderTableBodyOnly() {
     for (const entry of flatEntries) {
         const key = entry.tarih + '|' + entry.hipodrom + '|' + entry.raceNo + '|' + entry.kayitId;
         if (lastKey && lastKey !== key) {
-            parts.push('<tr class="ptest-sep"><td colspan="' + COL_COUNT + '"></td></tr>');
+            parts.push('<tr class="ptest-sep"><td colspan="' + COL_COUNT() + '"></td></tr>');
         }
         parts.push(renderRow(entry));
         lastKey = key;
     }
     body.innerHTML = parts.length
         ? parts.join('')
-        : '<tr><td colspan="' + COL_COUNT + '">Satır yok</td></tr>';
+        : '<tr><td colspan="' + COL_COUNT() + '">Satır yok</td></tr>';
     bindTableEvents();
     renderCikanPanel();
     updateSummaryMeta();
@@ -2661,8 +2693,13 @@ function ptestMetricColCount(spec) {
     return spec.id === 't1dr' ? 4 : 5;
 }
 
+function ptestDeltaStripColCount() {
+    return ptestTableMetrics().length;
+}
+
 function ptestTableColCount() {
     let n = 7;
+    n += ptestDeltaStripColCount();
     for (const m of ptestTableMetrics()) n += ptestMetricColCount(m);
     return n;
 }
@@ -2701,6 +2738,48 @@ function htmlT1SonBsSortSelect() {
             + AtSpeedUtils.escapeHtml(rule.label) + '</option>';
     }
     return h + '</select>';
+}
+
+function renderDeltaStripHeadCells() {
+    const metrics = ptestTableMetrics();
+    let h = '';
+    for (let i = 0; i < metrics.length; i++) {
+        const m = metrics[i];
+        let thCls = ptestMetricThClass(m) + ' ptest-th-delta-strip-col';
+        if (i === 0) thCls += ' ptest-delta-strip-edge-l';
+        if (i === metrics.length - 1) thCls += ' ptest-delta-strip-edge-r';
+        const title = AtSpeedUtils.escapeHtml(m.label + ' · SON derinlik · SON·Δ');
+        h += '<th class="' + thCls + '" title="' + title + '">'
+            + '<span class="ptest-delta-strip-metric">' + AtSpeedUtils.escapeHtml(m.label) + ' · SON derinlik</span>'
+            + '<span class="ptest-delta-strip-kind">SON·Δ</span></th>';
+    }
+    return h;
+}
+
+function renderDeltaStripDataCells(row) {
+    const metrics = ptestTableMetrics();
+    let h = '';
+    for (let i = 0; i < metrics.length; i++) {
+        const m = metrics[i];
+        const cell = row[m.primaryKey]?.[0] || null;
+        const gapCls = gapTdClassForMetric(row, cell, m);
+        let tdCls = 'ptest-metric-' + m.id + ' ptest-delta-strip-cell';
+        if (i === 0) tdCls += ' ptest-delta-strip-edge-l';
+        if (i === metrics.length - 1) tdCls += ' ptest-delta-strip-edge-r';
+        h += '<td class="' + tdCls + gapCls + '">' + gapSpan(row, cell) + '</td>';
+    }
+    return h;
+}
+
+function exportDeltaStripDataCells(row) {
+    const metrics = ptestTableMetrics();
+    let h = '';
+    for (const m of metrics) {
+        const cell = row[m.primaryKey]?.[0] || null;
+        const gapCls = exportGapTdClassForMetric(row, cell, m);
+        h += '<td class="' + gapCls + '">' + exportGapSpan(row, cell) + '</td>';
+    }
+    return h;
 }
 
 function renderMetricSubHeadCells(spec) {
@@ -2778,11 +2857,13 @@ function renderHead() {
     }
     h += '</select></div></th>';
     h += '<th rowspan="2">TAHMİN<small>Gösterge başarı skoru</small></th>';
+    h += '<th colspan="' + ptestDeltaStripColCount() + '" class="ptest-th-grp ptest-th-delta-strip-grp">SON·Δ · tüm metrik grupları</th>';
     for (const m of metrics) {
         h += '<th colspan="' + ptestMetricColCount(m) + '" class="ptest-th-grp ' + ptestMetricThClass(m) + '">'
             + AtSpeedUtils.escapeHtml(m.label) + ' · SON derinlik</th>';
     }
     h += '</tr><tr>';
+    h += renderDeltaStripHeadCells();
     for (const m of metrics) {
         h += renderMetricSubHeadCells(m);
     }
@@ -2812,6 +2893,7 @@ function renderRow(entry) {
     h += '<td><button type="button" class="ptest-cikan-btn" data-race-key="' + AtSpeedUtils.escapeHtml(rk) + '" data-horse-no="' + AtSpeedUtils.escapeHtml(String(row.no ?? '')) + '" data-horse-name="' + AtSpeedUtils.escapeHtml(row.name || '') + '" title="Çıkan at — koşudan çıkar, metrikler yeniden hesaplanır">✕</button></td>';
     h += '<td>' + bitisInputHtml(entry) + '</td>';
     h += '<td>' + tahminHtml(row.tahmin) + '</td>';
+    h += renderDeltaStripDataCells(row);
     for (const m of ptestTableMetrics()) {
         h += renderMetricDataCells(row, m);
     }
@@ -3080,7 +3162,7 @@ async function loadAllKayitlar() {
         if (!listJson.success) throw new Error(listJson.error || 'Liste alınamadı');
         const kayitlar = listJson.kayitlar || [];
         if (!kayitlar.length) {
-            document.getElementById('gridBody').innerHTML = '<tr><td colspan="' + COL_COUNT + '">Kayıt yok</td></tr>';
+            document.getElementById('gridBody').innerHTML = '<tr><td colspan="' + COL_COUNT() + '">Kayıt yok</td></tr>';
             status.innerHTML = '<span style="color:#c62828">Kayıt bulunamadı</span>';
             return;
         }
@@ -3102,7 +3184,7 @@ async function loadAllKayitlar() {
         exportBtn.disabled = false;
     } catch (err) {
         status.innerHTML = '<span style="color:#c62828">❌ ' + AtSpeedUtils.escapeHtml(err.message) + '</span>';
-        document.getElementById('gridBody').innerHTML = '<tr><td colspan="' + COL_COUNT + '">Hata</td></tr>';
+        document.getElementById('gridBody').innerHTML = '<tr><td colspan="' + COL_COUNT() + '">Hata</td></tr>';
     } finally {
         btn.disabled = false;
     }
@@ -3136,7 +3218,7 @@ async function clearAllKayitlar() {
         kayitCountLoaded = 0;
         cikanPanelOpen = false;
         document.getElementById('gridBody').innerHTML =
-            '<tr><td colspan="' + COL_COUNT + '" style="padding:24px;color:#789">Kayıt yok — HESAPLAMA sekmesinden yeni veri kaydedin</td></tr>';
+            '<tr><td colspan="' + COL_COUNT() + '" style="padding:24px;color:#789">Kayıt yok — HESAPLAMA sekmesinden yeni veri kaydedin</td></tr>';
         document.getElementById('saveAllBtn').disabled = true;
         document.getElementById('exportTxtBtn').disabled = true;
         document.getElementById('toggleCikanBtn').classList.add('hidden');
