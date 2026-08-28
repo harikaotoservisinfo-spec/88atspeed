@@ -9,19 +9,98 @@ const GostergeScoringEngine = (function () {
     let OTHER_SCORE_SHARE = 0.65;
     let METRIC_SWEEP_FOCUS_ID = null;
     let METRIC_SWEEP_FOCUS_SHARE = 0;
-    /** %65 dilimi içindeki çekirdek metrik payları (0–1; toplam 0.62 → kalan 0.03 rest) */
-    const CORE_OTHER_METRIC_SHARES = {
-        oran1: 0.06,
-        oran2: 0.14,
-        fark827: 0.01,
-        ff: 0.03,
-        t8: 0.04,
-        test1: 0.18,
-        test2: 0.03,
-        test3: 0.03,
-        testsira: 0.03,
-        t1dr: 0.07
+    /** %65 dilimi payları (ham puanlar; normalize → toplam 1.0) */
+    const OTHER_METRIC_SHARE_PCT = {
+        son8001: 3,
+        oran1: 6,
+        oran2: 14,
+        fark827: 1,
+        ff: 3,
+        t8: 4,
+        test1: 18,
+        test2: 3,
+        test3: 3,
+        testsira: 3,
+        t1dr: 7,
+        f802: 3,
+        f803: 3,
+        t9: 7,
+        dr1dr: 7,
+        drsl: 5,
+        dr1sl: 4,
+        t12y: 12,
+        kirmizi: 4,
+        yesil: 6,
+        mavif: 3,
+        kmavi: 45,
+        t4: 5,
+        t5: 3,
+        t6: 3,
+        t7: 5,
+        t2m3: 3,
+        t1dr3: 4,
+        fark: 6,
+        ilkf: 5,
+        sonf: 3,
+        sl801: 3,
+        sl802: 6,
+        f8021: 3,
+        sehirSon: 2,
+        smGec: 2,
+        sm12: 1
     };
+
+    const OTHER_METRIC_SHARE_LABELS = {
+        son8001: 'SON800-1',
+        oran1: '800-1 ORAN',
+        oran2: '800-2 ORAN',
+        fark827: '800Δ·7',
+        ff: 'FFΔ',
+        t8: 'T8Δ',
+        test1: 'TEST1',
+        test2: 'TEST2',
+        test3: 'TEST3',
+        testsira: 'TEST·SIRA',
+        t1dr: 'T1×DR',
+        f802: '800Δ·2',
+        f803: '800Δ·3',
+        t9: 'T9Δ',
+        dr1dr: 'DR/1DR',
+        drsl: 'DR/SL',
+        dr1sl: '1DR/SL',
+        t12y: 'T12Δ',
+        kirmizi: 'T123K',
+        yesil: 'T46Δ',
+        mavif: 'T23M',
+        kmavi: 'KMΔ',
+        t4: 'TEST4',
+        t5: 'TEST5',
+        t6: 'TEST6',
+        t7: 'TEST7',
+        t2m3: 'T2−T3',
+        t1dr3: 'T1DR3',
+        fark: 'FARK',
+        ilkf: 'İLK-F',
+        sonf: 'SON-F',
+        sl801: '8001/SL',
+        sl802: '8002/SL',
+        f8021: '8002−1',
+        sehirSon: 'ŞEH-SON',
+        smGec: 'Ş+M-GEÇ',
+        sm12: 'Ş+M-12'
+    };
+
+    function buildOtherMetricShares() {
+        let total = 0;
+        for (const pct of Object.values(OTHER_METRIC_SHARE_PCT)) total += pct;
+        const out = {};
+        for (const [id, pct] of Object.entries(OTHER_METRIC_SHARE_PCT)) {
+            out[id] = pct / total;
+        }
+        return out;
+    }
+
+    const OTHER_METRIC_SHARES = buildOtherMetricShares();
     let SUCCESS_BLEND = { b1: 0.80, b12: 0.12, b123: 0.08 };
 
     let calibration = null;
@@ -59,23 +138,43 @@ const GostergeScoringEngine = (function () {
         return metricBaseId(metricEntry) === METRIC_SWEEP_FOCUS_ID;
     }
 
-    function coreOtherMetricShare(baseId) {
-        const s = CORE_OTHER_METRIC_SHARES[baseId];
+    function otherMetricShare(baseId) {
+        const s = OTHER_METRIC_SHARES[baseId];
         return s != null ? s : 0;
     }
 
-    function coreOtherMetricShareTotal() {
+    function otherMetricShareTotal() {
         let t = 0;
-        for (const s of Object.values(CORE_OTHER_METRIC_SHARES)) t += s;
+        for (const s of Object.values(OTHER_METRIC_SHARES)) t += s;
         return t;
     }
 
     function restOtherMetricShare() {
-        return Math.max(0, 1 - coreOtherMetricShareTotal());
+        return Math.max(0, 1 - otherMetricShareTotal());
     }
 
+    function getOtherMetricShares() {
+        const pctTotal = Object.values(OTHER_METRIC_SHARE_PCT).reduce((a, b) => a + b, 0);
+        const out = {};
+        for (const [id, frac] of Object.entries(OTHER_METRIC_SHARES)) {
+            out[id] = {
+                frac,
+                pctWithin65: OTHER_METRIC_SHARE_PCT[id],
+                pctOfTotal: Math.round(frac * OTHER_SCORE_SHARE * 1000) / 10,
+                label: OTHER_METRIC_SHARE_LABELS[id] || id
+            };
+        }
+        out._rest = {
+            frac: restOtherMetricShare(),
+            pctOfTotal: Math.round(restOtherMetricShare() * OTHER_SCORE_SHARE * 1000) / 10,
+            pctWithin65: Math.round(restOtherMetricShare() * pctTotal * 10) / 10
+        };
+        return out;
+    }
+
+    /** @deprecated use getOtherMetricShares */
     function getCoreOtherMetricShares() {
-        return { ...CORE_OTHER_METRIC_SHARES, _rest: restOtherMetricShare() };
+        return getOtherMetricShares();
     }
 
     function setSuccessBlend(blend) {
@@ -355,7 +454,7 @@ const GostergeScoringEngine = (function () {
         }
 
         const buckets = [{ weighted: bucketWeighted.t9v || 0, share: T9V_SCORE_SHARE }];
-        for (const [id, frac] of Object.entries(CORE_OTHER_METRIC_SHARES)) {
+        for (const [id, frac] of Object.entries(OTHER_METRIC_SHARES)) {
             buckets.push({
                 weighted: bucketWeighted[id] || 0,
                 share: OTHER_SCORE_SHARE * frac
@@ -407,7 +506,7 @@ const GostergeScoringEngine = (function () {
 
         const terms = [];
         const bucketWeighted = { t9v: 0, focus: 0, rest: 0 };
-        for (const id of Object.keys(CORE_OTHER_METRIC_SHARES)) bucketWeighted[id] = 0;
+        for (const id of Object.keys(OTHER_METRIC_SHARES)) bucketWeighted[id] = 0;
 
         for (const m of calibration.metrics) {
             const ladder = calibration.ladders[m.id];
@@ -419,7 +518,7 @@ const GostergeScoringEngine = (function () {
             const baseId = metricBaseId(m);
             if (isT9vScoreMetric(m)) bucketWeighted.t9v += weighted;
             else if (isFocusScoreMetric(m)) bucketWeighted.focus += weighted;
-            else if (!METRIC_SWEEP_FOCUS_ID && coreOtherMetricShare(baseId) > 0) {
+            else if (!METRIC_SWEEP_FOCUS_ID && otherMetricShare(baseId) > 0) {
                 bucketWeighted[baseId] += weighted;
             } else bucketWeighted.rest += weighted;
             terms.push({
@@ -600,30 +699,35 @@ const GostergeScoringEngine = (function () {
         }
 
         const blend = calibration.successBlend || SUCCESS_BLEND;
-        const shareLabels = {
-            oran1: '800-1 ORAN',
-            oran2: '800-2 ORAN',
-            fark827: '800Δ·7',
-            ff: 'FFΔ',
-            t8: 'T8Δ',
-            test1: 'TEST1',
-            test2: 'TEST2',
-            test3: 'TEST3',
-            testsira: 'TEST·SIRA',
-            t1dr: 'T1×DR'
-        };
         let shareParts = ['T9V %' + Math.round(T9V_SCORE_SHARE * 100)];
-        for (const [id, frac] of Object.entries(CORE_OTHER_METRIC_SHARES)) {
-            shareParts.push((shareLabels[id] || id) + ' %' + Math.round(frac * OTHER_SCORE_SHARE * 1000) / 10);
+        const shareInfo = getOtherMetricShares();
+        const sortedIds = Object.keys(OTHER_METRIC_SHARE_PCT).sort((a, b) =>
+            OTHER_METRIC_SHARE_PCT[b] - OTHER_METRIC_SHARE_PCT[a]);
+        for (const id of sortedIds.slice(0, 6)) {
+            const info = shareInfo[id];
+            if (info) shareParts.push(info.label + ' %' + info.pctOfTotal);
         }
-        const restFrac = restOtherMetricShare();
-        if (restFrac > 0) {
-            shareParts.push('rest (SON800-1+…) %' + Math.round(restFrac * OTHER_SCORE_SHARE * 1000) / 10);
+        if (sortedIds.length > 6) shareParts.push('+' + (sortedIds.length - 6) + ' metrik');
+        if (shareInfo._rest?.frac > 0) {
+            shareParts.push('rest %' + shareInfo._rest.pctOfTotal);
         }
         let h = '<div class="ptest-scoring-meta">📊 Gösterge puanlama · '
             + calibration.bitisRows + ' bitişli / ' + calibration.totalRows + ' satır · '
             + 'başarı: %' + Math.round(blend.b1 * 100) + ' 1. · %' + Math.round(blend.b12 * 100) + ' 1–2 · %'
             + Math.round(blend.b123 * 100) + ' 1–3 · ' + shareParts.join(' · ') + '</div>';
+        h += '<details class="ptest-scoring-share-table"><summary>Tüm metrik payları (T9V %35 + %65 dilimi)</summary>';
+        h += '<table class="ptest-scoring-table"><thead><tr>'
+            + '<th>Metrik</th><th>%65 içi</th><th>Toplam ~%</th></tr></thead><tbody>';
+        for (const id of Object.keys(OTHER_METRIC_SHARE_PCT)) {
+            const info = shareInfo[id];
+            h += '<tr><td>' + AtSpeedUtils.escapeHtml(info.label) + '</td><td>'
+                + info.pctWithin65 + '</td><td>' + info.pctOfTotal + '</td></tr>';
+        }
+        if (shareInfo._rest?.frac > 0) {
+            h += '<tr><td>rest (SON800-2, SON800·DR…)</td><td>'
+                + shareInfo._rest.pctWithin65 + '</td><td>' + shareInfo._rest.pctOfTotal + '</td></tr>';
+        }
+        h += '</tbody></table></details>';
 
         const shown = new Set();
         for (const m of calibration.metrics) {
@@ -688,8 +792,10 @@ const GostergeScoringEngine = (function () {
         setMetricSweepFocus,
         clearMetricSweepFocus,
         getMetricSweepFocus,
+        getOtherMetricShares,
         getCoreOtherMetricShares,
-        CORE_OTHER_METRIC_SHARES,
+        OTHER_METRIC_SHARE_PCT,
+        OTHER_METRIC_SHARES,
         MIN_RULE_SAMPLE,
         SUCCESS_BLEND: () => ({ ...SUCCESS_BLEND }),
         get T9V_SCORE_SHARE() { return T9V_SCORE_SHARE; },
