@@ -5,8 +5,8 @@
 const GostergeScoringEngine = (function () {
     const MIN_RULE_SAMPLE = 5;
     const DEPTH_PAIR_WEIGHT_FACTOR = 0.65;
-    const T9V_SCORE_SHARE = 0.20;
-    const OTHER_SCORE_SHARE = 0.80;
+    const T9V_SCORE_SHARE = 0.35;
+    const OTHER_SCORE_SHARE = 0.65;
     let SUCCESS_BLEND = { b1: 0.80, b12: 0.12, b123: 0.08 };
 
     let calibration = null;
