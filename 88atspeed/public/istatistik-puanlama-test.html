@@ -69,7 +69,7 @@
         }
         .ptest-table {
             border-collapse: separate; border-spacing: 0;
-            font-size: 12px; min-width: 13400px; width: 100%;
+            font-size: 12px; min-width: 15600px; width: 100%;
         }
         .ptest-table th, .ptest-table td {
             padding: 5px 7px; border-bottom: 1px solid #eceff1;
@@ -176,6 +176,30 @@
         .ptest-strip-dir-down .ptest-strip-dir-icon { color: #c62828; }
         .ptest-strip-dir-eq .ptest-strip-dir-icon { color: #546e7a; }
         .ptest-strip-dir-none .ptest-strip-dir-icon { color: #bdbdbd; font-size: 13px; }
+        .ptest-table .ptest-th-strip-diff-col {
+            font-size: 8px; line-height: 1.15; min-width: 38px; max-width: 52px;
+            white-space: normal; vertical-align: bottom; padding: 4px 3px;
+            background: rgba(255,255,255,0.6);
+        }
+        .ptest-strip-kind-diff {
+            display: block; font-size: 9px; font-weight: 900; color: #546e7a;
+            letter-spacing: 0.02em;
+        }
+        .ptest-table td.ptest-strip-diff-cell {
+            background: rgba(255,255,255,0.5) !important;
+            filter: none !important;
+        }
+        .ptest-table tbody tr:nth-child(even) td.ptest-strip-diff-cell,
+        .ptest-table tbody tr:hover td.ptest-strip-diff-cell { filter: none !important; }
+        .ptest-strip-diff-val {
+            display: inline-block; min-width: 34px; padding: 2px 5px;
+            border-radius: 4px; font-weight: 900; font-variant-numeric: tabular-nums;
+            font-size: 11px;
+        }
+        .ptest-strip-diff-up .ptest-strip-diff-val { color: #1b5e20; background: #e8f5e9; }
+        .ptest-strip-diff-down .ptest-strip-diff-val { color: #b71c1c; background: #ffebee; }
+        .ptest-strip-diff-eq .ptest-strip-diff-val { color: #546e7a; background: #f5f5f5; }
+        .ptest-strip-diff-none .ptest-strip-diff-val { color: #bdbdbd; background: transparent; }
         .ptest-table .ptest-th-bitis { background: #fff9c4; }
         .ptest-th-bitis-inner {
             display: flex; flex-direction: column; align-items: center; gap: 4px;
@@ -1281,7 +1305,7 @@ function updateGostergeTabVisibility() {
     if (content) content.classList.toggle('hidden', !hasData);
 }
 
-const PTEST_BUILD = '20260830i';
+const PTEST_BUILD = '20260830j';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
@@ -2252,6 +2276,12 @@ body { margin: 16px; background: #f5f5f5; font-family: Inter, Arial, sans-serif;
 .export-table td.strip-dir-down { color: #c62828; }
 .export-table td.strip-dir-eq { color: #546e7a; }
 .export-table td.strip-dir-none { color: #bdbdbd; }
+.strip-kind-diff { display: block; font-size: 9px; font-weight: 900; color: #546e7a; }
+.export-table td.strip-diff { background: #fafafa; font-size: 11px; font-weight: 900; text-align: center; font-variant-numeric: tabular-nums; }
+.export-table td.strip-diff-up { color: #1b5e20; background: #e8f5e9; }
+.export-table td.strip-diff-down { color: #b71c1c; background: #ffebee; }
+.export-table td.strip-diff-eq { color: #546e7a; }
+.export-table td.strip-diff-none { color: #bdbdbd; }
 .export-table .th-s800 { background: #b2ebf2; }
 .export-table .th-t1 { background: #ffe0b2; }
 .export-table .th-bitis { background: #fff9c4; }
@@ -2334,6 +2364,8 @@ function renderExportHead() {
                 + '</span><span class="strip-kind-avg">ORT</span></th>';
             h += '<th class="' + thTag + ' strip-dir-head"><span class="strip-metric">' + esc(m.label)
                 + '</span><span class="strip-kind-dir">↑↓</span></th>';
+            h += '<th class="' + thTag + ' strip-diff-head"><span class="strip-metric">' + esc(m.label)
+                + '</span><span class="strip-kind-diff">FARK</span></th>';
         }
     }
     for (const m of metrics) {
@@ -2785,7 +2817,33 @@ function ptestOverviewStrips() {
 }
 
 function ptestMetricStripColCount() {
-    return ptestTableMetrics().length * 3;
+    return ptestTableMetrics().length * 4;
+}
+
+function overviewStripDiffInfo(val, avg) {
+    if (val == null || avg == null) {
+        return { text: '—', cls: 'ptest-strip-diff-none', title: 'Fark hesaplanamadı' };
+    }
+    const diff = val - avg;
+    if (diff > 0) {
+        return {
+            text: '+' + diff,
+            cls: 'ptest-strip-diff-up',
+            title: 'Ortalamanın üstünde · +' + diff + ' puan (%' + val + ' − %' + avg + ')'
+        };
+    }
+    if (diff < 0) {
+        return {
+            text: String(diff),
+            cls: 'ptest-strip-diff-down',
+            title: 'Ortalamanın altında · ' + diff + ' puan (%' + val + ' − %' + avg + ')'
+        };
+    }
+    return {
+        text: '0',
+        cls: 'ptest-strip-diff-eq',
+        title: 'Ortalamaya eşit · 0 puan'
+    };
 }
 
 function overviewStripDirInfo(val, avg) {
@@ -2893,11 +2951,16 @@ function renderOverviewStripSubHeaders() {
                 + '<span class="ptest-strip-metric">' + AtSpeedUtils.escapeHtml(m.label) + '</span>'
                 + '<span class="ptest-strip-kind-avg">ORT</span></th>';
             let dirCls = ptestMetricThClass(m) + ' ptest-th-strip-dir-col ptest-th-strip-dir-col-' + strip.id;
-            if (i === metrics.length - 1) dirCls += ' ptest-strip-edge-r ptest-strip-edge-r-' + strip.id;
             const dirTitle = AtSpeedUtils.escapeHtml('Ortalamaya göre yön · ' + m.label + ' · ' + strip.kind);
             h += '<th class="' + dirCls + '" title="' + dirTitle + '">'
                 + '<span class="ptest-strip-metric">' + AtSpeedUtils.escapeHtml(m.label) + '</span>'
                 + '<span class="ptest-strip-kind-dir">↑↓</span></th>';
+            let diffCls = ptestMetricThClass(m) + ' ptest-th-strip-diff-col ptest-th-strip-diff-col-' + strip.id;
+            if (i === metrics.length - 1) diffCls += ' ptest-strip-edge-r ptest-strip-edge-r-' + strip.id;
+            const diffTitle = AtSpeedUtils.escapeHtml('Ortalamadan fark · ' + m.label + ' · ' + strip.kind);
+            h += '<th class="' + diffCls + '" title="' + diffTitle + '">'
+                + '<span class="ptest-strip-metric">' + AtSpeedUtils.escapeHtml(m.label) + '</span>'
+                + '<span class="ptest-strip-kind-diff">FARK</span></th>';
         }
     }
     return h;
@@ -2921,14 +2984,23 @@ function renderOverviewStripAvgCell(entry, m, strip) {
     return '<td class="' + tdCls + '">' + pctSpan(avg) + '</td>';
 }
 
-function renderOverviewStripDirCell(entry, m, strip, edgeR) {
+function renderOverviewStripDirCell(entry, m, strip) {
     const val = stripCellNumericValue(entry.row, m, strip);
     const avg = overviewStripAvgForEntry(entry, strip, m);
     const dir = overviewStripDirInfo(val, avg);
     let tdCls = 'ptest-metric-' + m.id + ' ptest-strip-dir-cell ptest-strip-dir-' + strip.id + ' ' + dir.cls;
-    if (edgeR) tdCls += ' ptest-strip-edge-r ptest-strip-edge-r-' + strip.id;
     return '<td class="' + tdCls + '" title="' + AtSpeedUtils.escapeHtml(dir.title) + '">'
         + '<span class="ptest-strip-dir-icon">' + dir.symbol + '</span></td>';
+}
+
+function renderOverviewStripDiffCell(entry, m, strip, edgeR) {
+    const val = stripCellNumericValue(entry.row, m, strip);
+    const avg = overviewStripAvgForEntry(entry, strip, m);
+    const diff = overviewStripDiffInfo(val, avg);
+    let tdCls = 'ptest-metric-' + m.id + ' ptest-strip-diff-cell ptest-strip-diff-' + strip.id + ' ' + diff.cls;
+    if (edgeR) tdCls += ' ptest-strip-edge-r ptest-strip-edge-r-' + strip.id;
+    return '<td class="' + tdCls + '" title="' + AtSpeedUtils.escapeHtml(diff.title) + '">'
+        + '<span class="ptest-strip-diff-val">' + diff.text + '</span></td>';
 }
 
 function renderOverviewStripDataCells(entry) {
@@ -2939,7 +3011,8 @@ function renderOverviewStripDataCells(entry) {
         for (let i = 0; i < metrics.length; i++) {
             h += renderOverviewStripCell(row, metrics[i], strip, i === 0);
             h += renderOverviewStripAvgCell(entry, metrics[i], strip);
-            h += renderOverviewStripDirCell(entry, metrics[i], strip, i === metrics.length - 1);
+            h += renderOverviewStripDirCell(entry, metrics[i], strip);
+            h += renderOverviewStripDiffCell(entry, metrics[i], strip, i === metrics.length - 1);
         }
     }
     return h;
@@ -2968,6 +3041,14 @@ function exportOverviewStripDirCell(entry, m, strip) {
         + dir.symbol + '</td>';
 }
 
+function exportOverviewStripDiffCell(entry, m, strip) {
+    const val = stripCellNumericValue(entry.row, m, strip);
+    const avg = overviewStripAvgForEntry(entry, strip, m);
+    const diff = overviewStripDiffInfo(val, avg);
+    return '<td class="strip-diff ' + diff.cls.replace('ptest-', '') + '" title="' + AtSpeedUtils.escapeHtml(diff.title) + '">'
+        + diff.text + '</td>';
+}
+
 function exportOverviewStripDataCells(entry) {
     const row = entry.row;
     const metrics = ptestTableMetrics();
@@ -2977,6 +3058,7 @@ function exportOverviewStripDataCells(entry) {
             h += exportOverviewStripCell(row, m, strip);
             h += exportOverviewStripAvgCell(entry, m, strip);
             h += exportOverviewStripDirCell(entry, m, strip);
+            h += exportOverviewStripDiffCell(entry, m, strip);
         }
     }
     return h;
