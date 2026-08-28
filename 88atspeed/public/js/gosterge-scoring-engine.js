@@ -5,11 +5,21 @@
 const GostergeScoringEngine = (function () {
     const MIN_RULE_SAMPLE = 5;
     const DEPTH_PAIR_WEIGHT_FACTOR = 0.65;
-    const T9V_SCORE_SHARE = 0.35;
-    const OTHER_SCORE_SHARE = 0.65;
+    let T9V_SCORE_SHARE = 0.35;
+    let OTHER_SCORE_SHARE = 0.65;
     let SUCCESS_BLEND = { b1: 0.80, b12: 0.12, b123: 0.08 };
 
     let calibration = null;
+
+    function setT9vScoreShare(share) {
+        const s = Math.max(0, Math.min(1, Number(share) || 0));
+        T9V_SCORE_SHARE = s;
+        OTHER_SCORE_SHARE = 1 - s;
+    }
+
+    function getT9vScoreShare() {
+        return T9V_SCORE_SHARE;
+    }
 
     function setSuccessBlend(blend) {
         if (blend && typeof blend.b1 === 'number') {
@@ -567,10 +577,12 @@ const GostergeScoringEngine = (function () {
         buildFlatEntriesFromApi,
         makeBitisHost,
         setSuccessBlend,
+        setT9vScoreShare,
+        getT9vScoreShare,
         MIN_RULE_SAMPLE,
         SUCCESS_BLEND: () => ({ ...SUCCESS_BLEND }),
-        T9V_SCORE_SHARE,
-        OTHER_SCORE_SHARE
+        get T9V_SCORE_SHARE() { return T9V_SCORE_SHARE; },
+        get OTHER_SCORE_SHARE() { return OTHER_SCORE_SHARE; }
     };
 })();
 
