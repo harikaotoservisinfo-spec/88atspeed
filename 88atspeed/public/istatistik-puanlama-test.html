@@ -69,7 +69,7 @@
         }
         .ptest-table {
             border-collapse: separate; border-spacing: 0;
-            font-size: 12px; min-width: 4900px; width: 100%;
+            font-size: 12px; min-width: 5600px; width: 100%;
         }
         .ptest-table th, .ptest-table td {
             padding: 5px 7px; border-bottom: 1px solid #eceff1;
@@ -124,6 +124,26 @@
         .ptest-table td.ptest-delta-strip-edge-r { border-right: 3px solid #7b1fa2 !important; }
         .ptest-table thead th.ptest-delta-strip-edge-l { border-left: 3px solid #7b1fa2; }
         .ptest-table thead th.ptest-delta-strip-edge-r { border-right: 3px solid #7b1fa2; }
+        .ptest-table .ptest-th-son-strip-grp {
+            background: #c8e6c9; color: #1b5e20; font-weight: 800; font-size: 11px;
+            border-left: 3px solid #2e7d32; border-right: 3px solid #2e7d32;
+        }
+        .ptest-table .ptest-th-son-strip-col {
+            font-size: 9px; line-height: 1.15; min-width: 54px; max-width: 78px;
+            white-space: normal; vertical-align: bottom; padding: 4px 5px;
+        }
+        .ptest-son-strip-metric {
+            display: block; font-size: 8px; font-weight: 800; color: #37474f;
+            margin-bottom: 3px; line-height: 1.2;
+        }
+        .ptest-son-strip-kind {
+            display: block; font-size: 10px; font-weight: 900; color: #1b5e20;
+        }
+        .ptest-table td.ptest-son-strip-cell { border-top: 2px solid #a5d6a7; }
+        .ptest-table td.ptest-son-strip-edge-l { border-left: 3px solid #2e7d32 !important; }
+        .ptest-table td.ptest-son-strip-edge-r { border-right: 3px solid #2e7d32 !important; }
+        .ptest-table thead th.ptest-son-strip-edge-l { border-left: 3px solid #2e7d32; }
+        .ptest-table thead th.ptest-son-strip-edge-r { border-right: 3px solid #2e7d32; }
         .ptest-table .ptest-th-bitis { background: #fff9c4; }
         .ptest-th-bitis-inner {
             display: flex; flex-direction: column; align-items: center; gap: 4px;
@@ -681,7 +701,7 @@
 <body>
 <div class="ptest-wrap">
     <div class="ptest-toolbar">
-        <h1>🧪 Puanlama test — Tablo · TAHMİN + SON·Δ özeti + 11 metrik grubu</h1>
+        <h1>🧪 Puanlama test — Tablo · TAHMİN + SON·Δ + SON özeti + 11 metrik</h1>
         <button type="button" class="ptest-btn" id="loadAllBtn">Tüm kayıtları yükle</button>
         <button type="button" class="ptest-btn ptest-btn-success" id="saveAllBtn" disabled>💾 Kaydet</button>
         <button type="button" class="ptest-btn ptest-btn-outline" id="exportTxtBtn" disabled title="Seçili BİTİŞ sırasına göre (0 veya 1) renkli tabloyu .html olarak indir">📥 Renkli İndir</button>
@@ -1228,7 +1248,7 @@ function updateGostergeTabVisibility() {
     if (content) content.classList.toggle('hidden', !hasData);
 }
 
-const PTEST_BUILD = '20260830e';
+const PTEST_BUILD = '20260830f';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
@@ -2180,8 +2200,10 @@ body { margin: 16px; background: #f5f5f5; font-family: Inter, Arial, sans-serif;
 .export-table thead th { background: #ede7f6; font-size: 11px; font-weight: 700; color: #1a237e; }
 .export-table .th-grp { background: #e1bee7; color: #0d1b4d; font-weight: 800; }
 .export-table .th-delta-strip { background: #cfd8dc; color: #1a237e; font-weight: 800; border-left: 3px solid #7b1fa2; border-right: 3px solid #7b1fa2; }
-.delta-strip-metric { display: block; font-size: 8px; font-weight: 800; color: #37474f; margin-bottom: 2px; }
+.export-table .th-son-strip { background: #c8e6c9; color: #1b5e20; font-weight: 800; border-left: 3px solid #2e7d32; border-right: 3px solid #2e7d32; }
+.delta-strip-metric, .son-strip-metric { display: block; font-size: 8px; font-weight: 800; color: #37474f; margin-bottom: 2px; }
 .delta-strip-kind { display: block; font-size: 10px; font-weight: 900; color: #1a237e; }
+.son-strip-kind { display: block; font-size: 10px; font-weight: 900; color: #1b5e20; }
 .export-table .th-s800 { background: #b2ebf2; }
 .export-table .th-t1 { background: #ffe0b2; }
 .export-table .th-bitis { background: #fff9c4; }
@@ -2247,6 +2269,7 @@ function renderExportHead() {
     h += '<th rowspan="2" class="th-bitis">BİTİŞ</th>';
     h += '<th rowspan="2">TAHMİN<small>Gösterge başarı skoru</small></th>';
     h += '<th colspan="' + ptestDeltaStripColCount() + '" class="th-grp th-delta-strip">SON·Δ · tüm metrik grupları</th>';
+    h += '<th colspan="' + ptestSonStripColCount() + '" class="th-grp th-son-strip">SON · tüm metrik grupları</th>';
     for (const m of metrics) {
         h += '<th colspan="' + ptestMetricColCount(m) + '" class="th-grp th-' + (m.id === 'son8001' ? 's800' : m.id === 't1dr' ? 't1' : m.id) + '">'
             + AtSpeedUtils.escapeHtml(m.label) + ' · SON derinlik</th>';
@@ -2256,6 +2279,11 @@ function renderExportHead() {
         const thTag = m.id === 'son8001' ? 'th-s800' : m.id === 't1dr' ? 'th-t1' : 'th-' + m.id;
         h += '<th class="' + thTag + '"><span class="delta-strip-metric">' + esc(m.label)
             + ' · SON derinlik</span><span class="delta-strip-kind">SON·Δ</span></th>';
+    }
+    for (const m of metrics) {
+        const thTag = m.id === 'son8001' ? 'th-s800' : m.id === 't1dr' ? 'th-t1' : 'th-' + m.id;
+        h += '<th class="' + thTag + '"><span class="son-strip-metric">' + esc(m.label)
+            + ' · SON derinlik</span><span class="son-strip-kind">SON</span></th>';
     }
     for (const m of metrics) {
         const thTag = m.id === 'son8001' ? 'th-s800' : m.id === 't1dr' ? 'th-t1' : 'th-' + m.id;
@@ -2277,6 +2305,7 @@ function renderExportRow(entry) {
     h += '<td>' + exportBitisHtml(entry) + '</td>';
     h += '<td>' + exportTahminHtml(row.tahmin) + '</td>';
     h += exportDeltaStripDataCells(row);
+    h += exportSonStripDataCells(row);
     for (const m of ptestTableMetrics()) {
         h += exportMetricDataCells(row, m);
     }
@@ -2693,13 +2722,22 @@ function ptestMetricColCount(spec) {
     return spec.id === 't1dr' ? 4 : 5;
 }
 
-function ptestDeltaStripColCount() {
+function ptestMetricStripColCount() {
     return ptestTableMetrics().length;
+}
+
+function ptestDeltaStripColCount() {
+    return ptestMetricStripColCount();
+}
+
+function ptestSonStripColCount() {
+    return ptestMetricStripColCount();
 }
 
 function ptestTableColCount() {
     let n = 7;
     n += ptestDeltaStripColCount();
+    n += ptestSonStripColCount();
     for (const m of ptestTableMetrics()) n += ptestMetricColCount(m);
     return n;
 }
@@ -2782,6 +2820,48 @@ function exportDeltaStripDataCells(row) {
     return h;
 }
 
+function renderSonStripHeadCells() {
+    const metrics = ptestTableMetrics();
+    let h = '';
+    for (let i = 0; i < metrics.length; i++) {
+        const m = metrics[i];
+        let thCls = ptestMetricThClass(m) + ' ptest-th-son-strip-col';
+        if (i === 0) thCls += ' ptest-son-strip-edge-l';
+        if (i === metrics.length - 1) thCls += ' ptest-son-strip-edge-r';
+        const title = AtSpeedUtils.escapeHtml(m.label + ' · SON derinlik · SON');
+        h += '<th class="' + thCls + '" title="' + title + '">'
+            + '<span class="ptest-son-strip-metric">' + AtSpeedUtils.escapeHtml(m.label) + ' · SON derinlik</span>'
+            + '<span class="ptest-son-strip-kind">SON</span></th>';
+    }
+    return h;
+}
+
+function renderSonStripDataCells(row) {
+    const metrics = ptestTableMetrics();
+    let h = '';
+    for (let i = 0; i < metrics.length; i++) {
+        const m = metrics[i];
+        const cell = row[m.primaryKey]?.[0] || null;
+        let tdCls = 'ptest-metric-' + m.id + ' ptest-son-strip-cell';
+        if (i === 0) tdCls += ' ptest-son-strip-edge-l';
+        if (i === metrics.length - 1) tdCls += ' ptest-son-strip-edge-r';
+        const sonVal = m.id === 't1dr' ? null : depthSon(cell, 'pct');
+        h += '<td class="' + tdCls + '">' + pctSpan(sonVal) + '</td>';
+    }
+    return h;
+}
+
+function exportSonStripDataCells(row) {
+    const metrics = ptestTableMetrics();
+    let h = '';
+    for (const m of metrics) {
+        const cell = row[m.primaryKey]?.[0] || null;
+        const sonVal = m.id === 't1dr' ? null : depthSon(cell, 'pct');
+        h += '<td>' + exportPctSpan(sonVal) + '</td>';
+    }
+    return h;
+}
+
 function renderMetricSubHeadCells(spec) {
     const thCls = ptestMetricThClass(spec);
     let h = '';
@@ -2858,12 +2938,14 @@ function renderHead() {
     h += '</select></div></th>';
     h += '<th rowspan="2">TAHMİN<small>Gösterge başarı skoru</small></th>';
     h += '<th colspan="' + ptestDeltaStripColCount() + '" class="ptest-th-grp ptest-th-delta-strip-grp">SON·Δ · tüm metrik grupları</th>';
+    h += '<th colspan="' + ptestSonStripColCount() + '" class="ptest-th-grp ptest-th-son-strip-grp">SON · tüm metrik grupları</th>';
     for (const m of metrics) {
         h += '<th colspan="' + ptestMetricColCount(m) + '" class="ptest-th-grp ' + ptestMetricThClass(m) + '">'
             + AtSpeedUtils.escapeHtml(m.label) + ' · SON derinlik</th>';
     }
     h += '</tr><tr>';
     h += renderDeltaStripHeadCells();
+    h += renderSonStripHeadCells();
     for (const m of metrics) {
         h += renderMetricSubHeadCells(m);
     }
@@ -2894,6 +2976,7 @@ function renderRow(entry) {
     h += '<td>' + bitisInputHtml(entry) + '</td>';
     h += '<td>' + tahminHtml(row.tahmin) + '</td>';
     h += renderDeltaStripDataCells(row);
+    h += renderSonStripDataCells(row);
     for (const m of ptestTableMetrics()) {
         h += renderMetricDataCells(row, m);
     }
