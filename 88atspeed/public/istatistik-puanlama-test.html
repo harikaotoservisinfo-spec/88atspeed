@@ -1,0 +1,3571 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Puanlama Test — Tüm metrikler</title>
+    <link href="css/theme.css?v=20260828k" rel="stylesheet">
+    <style>
+        body { margin: 0; background: var(--bg-page, #f5f5f5); font-family: Inter, sans-serif; }
+        .ptest-wrap { padding: 16px 20px 32px; max-width: 100%; }
+        .ptest-view-tabs {
+            display: flex; gap: 8px; margin: 0 0 12px; flex-wrap: wrap;
+        }
+        .ptest-view-tab-btn {
+            padding: 8px 18px; font-size: 13px; font-weight: 700; border-radius: 8px;
+            border: 2px solid #b39ddb; background: #fff; color: #4a148c; cursor: pointer;
+        }
+        .ptest-view-tab-btn:hover { background: #f3e5f5; }
+        .ptest-view-tab-btn.active {
+            background: #7b1fa2; border-color: #7b1fa2; color: #fff;
+        }
+        .ptest-tab-panel.hidden { display: none !important; }
+        .ptest-gosterge-section-title {
+            font-size: 12px; font-weight: 800; color: #546e7a; text-transform: uppercase;
+            letter-spacing: 0.04em; margin: 16px 0 8px; padding-bottom: 4px;
+            border-bottom: 2px solid #eceff1;
+        }
+        .ptest-gosterge-section-title:first-child { margin-top: 0; }
+        .ptest-toolbar {
+            display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+            margin-bottom: 12px; padding: 12px 14px;
+            background: #fff; border-radius: 8px; border: 1px solid #e0e0e0;
+        }
+        .ptest-toolbar h1 { margin: 0; font-size: 16px; color: #4a148c; flex: 1 1 100%; }
+        .ptest-btn {
+            padding: 8px 16px; border: none; border-radius: 6px;
+            background: linear-gradient(135deg, #7b1fa2, #4a148c);
+            color: #fff; font-weight: 700; cursor: pointer; font-size: 13px;
+        }
+        .ptest-btn-success { background: linear-gradient(135deg, #43a047, #2e7d32); }
+        .ptest-btn-outline {
+            background: #fff; color: #6a1b9a; border: 1px solid #ce93d8;
+        }
+        .ptest-btn-danger {
+            background: linear-gradient(135deg, #e53935, #b71c1c);
+        }
+        .ptest-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .ptest-meta { font-size: 12px; color: #546e7a; }
+        .ptest-status { margin-bottom: 10px; font-size: 13px; }
+        .ptest-cikan-panel {
+            margin-bottom: 10px; padding: 10px 12px; background: #fff3e0;
+            border: 1px solid #ffcc80; border-radius: 8px; font-size: 12px;
+        }
+        .ptest-cikan-panel.hidden { display: none; }
+        .ptest-cikan-panel h3 { margin: 0 0 8px; font-size: 13px; color: #e65100; }
+        .ptest-cikan-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .ptest-cikan-chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 8px; background: #fff; border: 1px solid #ffb74d;
+            border-radius: 999px; font-size: 11px;
+        }
+        .ptest-cikan-restore {
+            border: none; background: #ffe0b2; color: #bf360c;
+            border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; font-weight: 700;
+        }
+        .ptest-table-wrap {
+            overflow: auto; max-height: calc(100vh - 180px);
+            border: 1px solid #cfd8dc; border-radius: 8px; background: #fff;
+        }
+        .ptest-table {
+            border-collapse: separate; border-spacing: 0;
+            font-size: 12px; min-width: 15600px; width: 100%;
+        }
+        .ptest-table th, .ptest-table td {
+            padding: 5px 7px; border-bottom: 1px solid #eceff1;
+            border-right: 1px solid #eceff1; text-align: center; white-space: nowrap;
+        }
+        .ptest-table thead th {
+            position: sticky; top: 0; z-index: 3;
+            background: #ede7f6; font-size: 11px; font-weight: 700;
+            color: #1a237e;
+        }
+        .ptest-table thead tr:nth-child(2) th { top: 34px; z-index: 2; }
+        .ptest-table .ptest-th-grp {
+            background: #e1bee7; font-size: 11px;
+            color: #0d1b4d; font-weight: 800;
+        }
+        .ptest-table thead th.ptest-th-bitis,
+        .ptest-table thead th.ptest-th-cikan,
+        .ptest-table thead th.ptest-meta-col,
+        .ptest-table thead th.ptest-at {
+            color: #263238;
+        }
+        .ptest-table .ptest-th-s800, .ptest-table td.ptest-metric-son8001 { background: #b2ebf2; }
+        .ptest-table .ptest-th-oran1, .ptest-table td.ptest-metric-oran1 { background: #fff3d0; }
+        .ptest-table .ptest-th-oran2, .ptest-table td.ptest-metric-oran2 { background: #ffe8c8; }
+        .ptest-table .ptest-th-f827, .ptest-table td.ptest-metric-fark827 { background: #c8f4f9; }
+        .ptest-table .ptest-th-ff, .ptest-table td.ptest-metric-ff { background: #d1c4e9; }
+        .ptest-table .ptest-th-t8, .ptest-table td.ptest-metric-t8 { background: #f8bbd0; }
+        .ptest-table .ptest-th-test1, .ptest-table td.ptest-metric-test1 { background: #f8d7e3; }
+        .ptest-table .ptest-th-test2, .ptest-table td.ptest-metric-test2 { background: #e1bee7; }
+        .ptest-table .ptest-th-test3, .ptest-table td.ptest-metric-test3 { background: #c5cae9; }
+        .ptest-table .ptest-th-testsira, .ptest-table td.ptest-metric-testsira { background: #b2dfdb; }
+        .ptest-table .ptest-th-t1, .ptest-table td.ptest-metric-t1dr { background: #ffe0b2; }
+        .ptest-table .ptest-th-strip-grp {
+            font-weight: 800; font-size: 11px; border-left: 3px solid; border-right: 3px solid;
+        }
+        .ptest-table .ptest-th-strip-grp-delta { background: #cfd8dc; color: #1a237e; border-color: #7b1fa2; }
+        .ptest-table .ptest-th-strip-grp-son { background: #c8e6c9; color: #1b5e20; border-color: #2e7d32; }
+        .ptest-table .ptest-th-strip-grp-ei { background: #fff9c4; color: #e65100; border-color: #f9a825; }
+        .ptest-table .ptest-th-strip-grp-ic { background: #e1f5fe; color: #01579b; border-color: #0288d1; }
+        .ptest-table .ptest-th-strip-grp-bs { background: #f3e5f5; color: #4a148c; border-color: #8e24aa; }
+        .ptest-table .ptest-th-strip-col {
+            font-size: 9px; line-height: 1.15; min-width: 54px; max-width: 78px;
+            white-space: normal; vertical-align: bottom; padding: 4px 5px;
+        }
+        .ptest-strip-metric {
+            display: block; font-size: 8px; font-weight: 800; color: #37474f;
+            margin-bottom: 3px; line-height: 1.2;
+        }
+        .ptest-strip-kind { display: block; font-size: 10px; font-weight: 900; }
+        .ptest-strip-kind-delta { color: #1a237e; }
+        .ptest-strip-kind-son { color: #1b5e20; }
+        .ptest-strip-kind-ei { color: #e65100; }
+        .ptest-strip-kind-ic { color: #01579b; }
+        .ptest-strip-kind-bs { color: #4a148c; }
+        .ptest-table td.ptest-strip-cell-delta { border-top: 2px solid #b0bec5; }
+        .ptest-table td.ptest-strip-cell-son { border-top: 2px solid #a5d6a7; }
+        .ptest-table td.ptest-strip-cell-ei { border-top: 2px solid #ffe082; }
+        .ptest-table td.ptest-strip-cell-ic { border-top: 2px solid #b3e5fc; }
+        .ptest-table td.ptest-strip-cell-bs { border-top: 2px solid #e1bee7; }
+        .ptest-table td.ptest-strip-edge-l-delta, .ptest-table thead th.ptest-strip-edge-l-delta { border-left: 3px solid #7b1fa2 !important; }
+        .ptest-table td.ptest-strip-edge-r-delta, .ptest-table thead th.ptest-strip-edge-r-delta { border-right: 3px solid #7b1fa2 !important; }
+        .ptest-table td.ptest-strip-edge-l-son, .ptest-table thead th.ptest-strip-edge-l-son { border-left: 3px solid #2e7d32 !important; }
+        .ptest-table td.ptest-strip-edge-r-son, .ptest-table thead th.ptest-strip-edge-r-son { border-right: 3px solid #2e7d32 !important; }
+        .ptest-table td.ptest-strip-edge-l-ei, .ptest-table thead th.ptest-strip-edge-l-ei { border-left: 3px solid #f9a825 !important; }
+        .ptest-table td.ptest-strip-edge-r-ei, .ptest-table thead th.ptest-strip-edge-r-ei { border-right: 3px solid #f9a825 !important; }
+        .ptest-table td.ptest-strip-edge-l-ic, .ptest-table thead th.ptest-strip-edge-l-ic { border-left: 3px solid #0288d1 !important; }
+        .ptest-table td.ptest-strip-edge-r-ic, .ptest-table thead th.ptest-strip-edge-r-ic { border-right: 3px solid #0288d1 !important; }
+        .ptest-table td.ptest-strip-edge-l-bs, .ptest-table thead th.ptest-strip-edge-l-bs { border-left: 3px solid #8e24aa !important; }
+        .ptest-table td.ptest-strip-edge-r-bs, .ptest-table thead th.ptest-strip-edge-r-bs { border-right: 3px solid #8e24aa !important; }
+        .ptest-table .ptest-th-strip-avg-col {
+            font-size: 8px; line-height: 1.15; min-width: 42px; max-width: 56px;
+            white-space: normal; vertical-align: bottom; padding: 4px 4px;
+            background: rgba(255,255,255,0.45);
+        }
+        .ptest-strip-kind-avg {
+            display: block; font-size: 9px; font-weight: 900; color: #546e7a;
+            letter-spacing: 0.03em;
+        }
+        .ptest-table td.ptest-strip-avg-cell {
+            background: rgba(255,255,255,0.35) !important;
+            filter: none !important;
+        }
+        .ptest-table tbody tr:nth-child(even) td.ptest-strip-avg-cell,
+        .ptest-table tbody tr:hover td.ptest-strip-avg-cell { filter: none !important; }
+        .ptest-table .ptest-th-strip-dir-col {
+            font-size: 8px; line-height: 1.15; min-width: 28px; max-width: 36px;
+            white-space: normal; vertical-align: bottom; padding: 4px 2px;
+            background: rgba(255,255,255,0.55);
+        }
+        .ptest-strip-kind-dir {
+            display: block; font-size: 11px; font-weight: 900; color: #546e7a;
+            line-height: 1;
+        }
+        .ptest-table td.ptest-strip-dir-cell {
+            background: rgba(255,255,255,0.45) !important;
+            filter: none !important;
+        }
+        .ptest-table tbody tr:nth-child(even) td.ptest-strip-dir-cell,
+        .ptest-table tbody tr:hover td.ptest-strip-dir-cell { filter: none !important; }
+        .ptest-strip-dir-icon {
+            display: inline-block; font-size: 16px; font-weight: 900; line-height: 1;
+        }
+        .ptest-strip-dir-up .ptest-strip-dir-icon { color: #2e7d32; }
+        .ptest-strip-dir-down .ptest-strip-dir-icon { color: #c62828; }
+        .ptest-strip-dir-eq .ptest-strip-dir-icon { color: #546e7a; }
+        .ptest-strip-dir-none .ptest-strip-dir-icon { color: #bdbdbd; font-size: 13px; }
+        .ptest-table .ptest-th-strip-diff-col {
+            font-size: 8px; line-height: 1.15; min-width: 38px; max-width: 52px;
+            white-space: normal; vertical-align: bottom; padding: 4px 3px;
+            background: rgba(255,255,255,0.6);
+        }
+        .ptest-strip-kind-diff {
+            display: block; font-size: 9px; font-weight: 900; color: #546e7a;
+            letter-spacing: 0.02em;
+        }
+        .ptest-table td.ptest-strip-diff-cell {
+            background: rgba(255,255,255,0.5) !important;
+            filter: none !important;
+        }
+        .ptest-table tbody tr:nth-child(even) td.ptest-strip-diff-cell,
+        .ptest-table tbody tr:hover td.ptest-strip-diff-cell { filter: none !important; }
+        .ptest-strip-diff-val {
+            display: inline-block; min-width: 34px; padding: 2px 5px;
+            border-radius: 4px; font-weight: 900; font-variant-numeric: tabular-nums;
+            font-size: 11px;
+        }
+        .ptest-strip-diff-up .ptest-strip-diff-val { color: #1b5e20; background: #e8f5e9; }
+        .ptest-strip-diff-down .ptest-strip-diff-val { color: #b71c1c; background: #ffebee; }
+        .ptest-strip-diff-eq .ptest-strip-diff-val { color: #546e7a; background: #f5f5f5; }
+        .ptest-strip-diff-none .ptest-strip-diff-val { color: #bdbdbd; background: transparent; }
+        .ptest-table .ptest-th-bitis { background: #fff9c4; }
+        .ptest-th-bitis-inner {
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            line-height: 1.2;
+        }
+        .ptest-bitis-sort-select {
+            width: 42px; padding: 2px 4px; font-size: 11px; font-weight: 800;
+            border: 1px solid #fbc02d; border-radius: 4px; background: #fff;
+            cursor: pointer;
+        }
+        .ptest-bitis-sort-select:focus { outline: none; border-color: #7b1fa2; }
+        .ptest-bitis-sort-select:disabled { opacity: 0.5; cursor: wait; }
+        .ptest-bitis-filter-select {
+            width: 100%; max-width: 72px; padding: 2px 3px; font-size: 9px; font-weight: 700;
+            border: 1px solid #f9a825; border-radius: 4px; background: #fffde7; cursor: pointer;
+        }
+        .ptest-bitis-filter-select:focus { outline: none; border-color: #7b1fa2; }
+        .ptest-bitis-filter-select:disabled { opacity: 0.5; cursor: wait; }
+        .ptest-th-son-delta-inner {
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            line-height: 1.15; min-width: 128px;
+        }
+        .ptest-son-delta-sort-select {
+            width: 100%; max-width: 132px; padding: 2px 3px; font-size: 8px; font-weight: 700;
+            border: 1px solid #4dd0e1; border-radius: 4px; background: #fff; cursor: pointer;
+        }
+        .ptest-son-delta-sort-select:focus { outline: none; border-color: #7b1fa2; }
+        .ptest-son-delta-sort-select:disabled { opacity: 0.5; cursor: wait; }
+        .ptest-t1-delta-sort-select {
+            margin-top: 3px; width: 100%; max-width: 118px; font-size: 10px; font-weight: 700;
+            border: 1px solid #ef6c00; border-radius: 4px; padding: 2px 3px; background: #fff3e0; color: #e65100;
+        }
+        .ptest-t1-delta-sort-select:focus { outline: none; border-color: #e65100; }
+        .ptest-t1-delta-sort-select:disabled { opacity: 0.5; cursor: wait; }
+        .ptest-th-son-bs-inner {
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            line-height: 1.15; min-width: 96px;
+        }
+        .ptest-son-bs-sort-select {
+            width: 100%; max-width: 96px; padding: 2px 3px; font-size: 8px; font-weight: 700;
+            border: 1px solid #4dd0e1; border-radius: 4px; background: #fff; cursor: pointer;
+        }
+        .ptest-son-bs-sort-select:focus { outline: none; border-color: #7b1fa2; }
+        .ptest-son-bs-sort-select:disabled { opacity: 0.5; cursor: wait; }
+        .ptest-t1-bs-sort-select {
+            margin-top: 3px; width: 100%; max-width: 96px; font-size: 9px; font-weight: 700;
+            border: 1px solid #ef6c00; border-radius: 4px; padding: 2px 3px; background: #fff3e0; color: #e65100;
+        }
+        .ptest-t1-bs-sort-select:focus { outline: none; border-color: #e65100; }
+        .ptest-t1-bs-sort-select:disabled { opacity: 0.5; cursor: wait; }
+        .ptest-status-done { color: #2e7d32; font-weight: 600; }
+        .ptest-status-busy { color: #6a1b9a; font-weight: 600; }
+        .ptest-table .ptest-th-cikan { background: #ffecb3; }
+        .ptest-table td.ptest-meta-col { background: #fafafa; font-weight: 600; color: #37474f; }
+        .ptest-table td.ptest-hipodrom { text-align: left; font-weight: 700; color: #4a148c; min-width: 72px; }
+        .ptest-table td.ptest-at { text-align: left; font-weight: 600; max-width: 160px; }
+        .ptest-table tbody tr:nth-child(even) td { filter: brightness(0.99); }
+        .ptest-table tbody tr:hover td { filter: brightness(0.97); }
+        .ptest-pct {
+            display: inline-block; min-width: 44px; padding: 3px 6px;
+            border-radius: 4px; font-weight: 800; font-variant-numeric: tabular-nums;
+        }
+        .ptest-pct-none { background: #f5f5f5; color: #9e9e9e; }
+        .ptest-pct-low { background: #ffebee; color: #c62828; }
+        .ptest-pct-mid { background: #fff8e1; color: #f57f17; }
+        .ptest-pct-good { background: #e8f5e9; color: #1b5e20; }
+        .ptest-pct-high { background: #a5d6a7; color: #0d3d0d; }
+        .ptest-tahmin-rank { font-weight: 900; margin-right: 3px; }
+        .ptest-bitis-input {
+            width: 44px; padding: 4px 2px; text-align: center;
+            border: 1px solid #cfd8dc; border-radius: 4px;
+            font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+            background: #fff;
+        }
+        .ptest-bitis-input:focus {
+            outline: none; border-color: #7b1fa2; box-shadow: 0 0 0 2px rgba(123,31,162,0.15);
+        }
+        .ptest-bitis-input.ptest-bitis-filled {
+            background: #e8f5e9; border-color: #66bb6a; color: #1b5e20;
+        }
+        .ptest-cikan-btn {
+            border: none; background: #ffebee; color: #c62828;
+            border-radius: 4px; padding: 3px 7px; cursor: pointer;
+            font-size: 12px; font-weight: 800; line-height: 1;
+        }
+        .ptest-cikan-btn:hover { background: #ffcdd2; }
+        .ptest-gap-twin-zero { background: #ff9800 !important; box-shadow: inset 0 0 0 2px #ef6c00; }
+        .ptest-gap-twin-zero .ptest-pct { background: rgba(255,152,0,0.35) !important; }
+        .ptest-gap-neon { background: #76ff03 !important; box-shadow: inset 0 0 0 2px #33691e, 0 0 8px rgba(118,255,3,0.6); }
+        .ptest-gap-neon .ptest-pct { background: #76ff03 !important; color: #1b5e20 !important; }
+        @keyframes ptest-gap-blink {
+            0%, 100% { color: #b71c1c; opacity: 1; }
+            50% { color: #ff5252; opacity: 0.35; }
+        }
+        .ptest-gap-zero-blink { animation: ptest-gap-blink 0.85s ease-in-out infinite; color: #c62828 !important; font-weight: 900 !important; }
+        .ptest-sep td { background: #f3e5f5 !important; height: 4px; padding: 0; border: none; }
+        .ptest-report-panel {
+            margin-bottom: 10px; padding: 12px 14px; background: #fff;
+            border-radius: 8px; font-size: 12px;
+        }
+        .ptest-report-panel.ptest-report-orange { border: 1px solid #ffcc80; }
+        .ptest-report-panel.ptest-report-orange-border {
+            border: 3px solid #ef6c00;
+            box-shadow: inset 0 0 0 1px #ff9800;
+        }
+        .ptest-report-panel.ptest-report-green { border: 1px solid #aed581; }
+        .ptest-reports-wrap.hidden { display: none; }
+        .ptest-report-panel h3 { margin: 0 0 10px; font-size: 14px; }
+        .ptest-report-orange h3 { color: #e65100; }
+        .ptest-report-orange-border h3 { color: #bf360c; }
+        .ptest-report-green h3 { color: #33691e; }
+        .ptest-report-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 8px 16px;
+        }
+        /* —— Gösterge: kompakt tablo düzeni —— */
+        .ptest-gosterge-compact { font-size: 11px; }
+        .ptest-stats-wrap { max-width: 272px; width: 100%; }
+        .ptest-stats-table {
+            width: 100%; border-collapse: collapse; table-layout: fixed;
+            font-size: 11px; font-variant-numeric: tabular-nums;
+        }
+        .ptest-stats-table thead th {
+            padding: 3px 5px; background: #eceff1; font-size: 9px; font-weight: 800;
+            text-transform: uppercase; letter-spacing: 0.03em; color: #546e7a;
+            border-bottom: 1px solid #cfd8dc;
+        }
+        .ptest-stats-table thead th:nth-child(2),
+        .ptest-stats-table thead th:nth-child(3) { text-align: right; }
+        .ptest-stats-table tbody td {
+            padding: 3px 5px; border-bottom: 1px solid #f0f4f8; vertical-align: middle;
+        }
+        .ptest-stats-table tbody tr:last-child td { border-bottom: none; }
+        .ptest-stats-table tbody tr:hover td { background: rgba(0,0,0,0.02); }
+        .ptest-stats-label {
+            color: #37474f; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .ptest-stats-pct { font-weight: 800; text-align: right; white-space: nowrap; }
+        .ptest-stats-n { text-align: right; color: #789; font-size: 10px; white-space: nowrap; }
+        .ptest-gosterge-compact .ptest-report-meta { margin-bottom: 4px; font-size: 10px; }
+        .ptest-gosterge-compact .ptest-report-panel {
+            margin-bottom: 8px; padding: 8px 10px;
+        }
+        .ptest-gosterge-compact .ptest-report-panel h3 { font-size: 12px; margin-bottom: 6px; }
+        .ptest-gosterge-summary-row {
+            display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        .ptest-gosterge-summary-row .ptest-report-panel {
+            flex: 1 1 260px; max-width: 300px; margin-bottom: 0;
+        }
+        .ptest-gosterge-subgrid {
+            display: grid !important;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 8px; align-items: start; align-content: start;
+        }
+        .ptest-gosterge-subgrid > .ptest-report-delta-section {
+            grid-column: 1 / -1;
+        }
+        .ptest-gosterge-compact .ptest-report-delta-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 8px; margin-bottom: 12px; padding: 8px 8px 4px;
+        }
+        .ptest-gosterge-compact .ptest-report-delta-section-title,
+        .ptest-gosterge-compact .ptest-report-delta-section-meta {
+            grid-column: 1 / -1;
+        }
+        .ptest-gosterge-compact .ptest-report-delta-section-title { font-size: 12px; margin-bottom: 2px; }
+        .ptest-gosterge-compact .ptest-report-delta-section-meta { font-size: 10px; margin-bottom: 4px; }
+        .ptest-gosterge-compact .ptest-report-subgroup {
+            margin-bottom: 0; padding: 6px 8px;
+        }
+        .ptest-gosterge-compact .ptest-report-subgroup-title { font-size: 11px; margin-bottom: 2px; }
+        .ptest-gosterge-compact .ptest-report-subgroup-meta { font-size: 10px; margin-bottom: 4px; }
+        #t1SariDeltaIndicatorsContent {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 10px; align-items: start;
+        }
+        .ptest-gosterge-compact .ptest-t1-indicator-block {
+            margin-bottom: 0; padding: 8px 10px;
+        }
+        .ptest-gosterge-compact .ptest-t1-indicator-title { font-size: 12px; margin-bottom: 2px; }
+        .ptest-gosterge-compact .ptest-t1-indicator-meta { font-size: 10px; margin-bottom: 6px; }
+        .ptest-gosterge-compact .ptest-t1-sari-yesil-wrap,
+        .ptest-gosterge-compact .ptest-t1-sari-bscombo-wrap {
+            margin-top: 8px; padding-top: 8px;
+        }
+        .ptest-gosterge-compact .ptest-t1-sari-yesil-heading,
+        .ptest-gosterge-compact .ptest-t1-sari-bscombo-heading { font-size: 10px; margin-bottom: 6px; }
+        .ptest-gosterge-compact .ptest-t1-sari-yesil-subgroup,
+        .ptest-gosterge-compact .ptest-t1-sari-bscombo-subgroup {
+            margin-bottom: 6px; padding: 6px 8px;
+        }
+        .ptest-gosterge-compact .ptest-t1-sari-yesil-subgroup-title,
+        .ptest-gosterge-compact .ptest-t1-sari-bscombo-subgroup-title { font-size: 11px; margin-bottom: 2px; }
+        .ptest-gosterge-compact .ptest-t1-sari-yesil-subgroup-meta,
+        .ptest-gosterge-compact .ptest-t1-sari-bscombo-subgroup-meta { font-size: 10px; margin-bottom: 4px; }
+        .ptest-gosterge-compact .ptest-t1-sari-t1bs-nested-wrap { margin-top: 6px; padding-top: 6px; }
+        .ptest-gosterge-compact .ptest-t1-sari-t1bs-nested-heading { font-size: 10px; margin-bottom: 4px; }
+        .ptest-gosterge-compact .ptest-t1-sari-t1bs-nested-subgroup {
+            margin-bottom: 6px; padding: 5px 6px;
+        }
+        .ptest-gosterge-compact .ptest-t1-sari-t1bs-nested-subgroup-title { font-size: 10px; }
+        .ptest-gosterge-compact .ptest-t1-sari-t1bs-nested-subgroup-meta { font-size: 9px; margin-bottom: 3px; }
+        .ptest-gosterge-compact .ptest-report-meta-global {
+            font-size: 11px; padding: 6px 8px; margin-bottom: 8px;
+        }
+        .ptest-gosterge-compact .ptest-gosterge-section-title {
+            font-size: 11px; margin: 10px 0 6px;
+        }
+        .ptest-gosterge-metric-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin: 0 0 14px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e1bee7;
+        }
+        .ptest-gosterge-metric-tab-btn {
+            padding: 7px 12px;
+            border-radius: 999px;
+            border: 1px solid #ce93d8;
+            background: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            color: #6a1b9a;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .ptest-gosterge-metric-tab-btn:hover { background: #f3e5f5; }
+        .ptest-gosterge-metric-tab-btn.active {
+            background: linear-gradient(135deg, #4a148c 0%, #6a1b9a 100%);
+            color: #fff;
+            border-color: #4a148c;
+        }
+        .ptest-metric-panel.hidden { display: none !important; }
+        .ptest-gosterge-mode-tabs {
+            display: flex; gap: 8px; margin-bottom: 10px;
+        }
+        .ptest-gosterge-mode-btn {
+            padding: 8px 14px; border-radius: 8px; border: 2px solid #7b1fa2;
+            background: #fff; font-weight: 700; font-size: 12px; color: #6a1b9a; cursor: pointer;
+        }
+        .ptest-gosterge-mode-btn.active {
+            background: #7b1fa2; color: #fff;
+        }
+        .ptest-gosterge-mode-panel.hidden { display: none !important; }
+        .ptest-depth-mode-hint {
+            font-size: 11px; color: #546e7a; margin: 0 0 12px; padding: 8px 10px;
+            background: #eceff1; border-radius: 6px; border-left: 3px solid #7b1fa2;
+        }
+        .ptest-depth-pair-block {
+            margin-bottom: 12px; border: 1px solid #cfd8dc; border-radius: 8px;
+            background: #fafafa; padding: 0 10px 10px;
+        }
+        .ptest-depth-pair-summary {
+            cursor: pointer; font-weight: 800; font-size: 12px; color: #4a148c;
+            padding: 10px 4px; list-style: none;
+        }
+        .ptest-depth-pair-summary::-webkit-details-marker { display: none; }
+        .ptest-depth-metric-tab-btn { font-size: 10px; padding: 6px 10px; }
+        .ptest-depth-lazy-hint { color: #789; font-style: italic; padding: 12px; margin: 0; }
+        #gostergeContentWrap { position: relative; }
+        .ptest-gosterge-loading {
+            position: absolute; inset: 0; z-index: 50;
+            background: rgba(255, 255, 255, 0.88);
+            display: flex; align-items: flex-start; justify-content: center;
+            padding-top: 48px;
+        }
+        .ptest-gosterge-loading.hidden { display: none !important; }
+        .ptest-gosterge-loading-box {
+            background: #fff; border: 2px solid #7b1fa2; border-radius: 12px;
+            padding: 20px 28px; max-width: 420px; width: 90%;
+            box-shadow: 0 8px 32px rgba(74, 20, 140, 0.18);
+            text-align: center;
+        }
+        .ptest-gosterge-spinner {
+            width: 36px; height: 36px; margin: 0 auto 12px;
+            border: 4px solid #e1bee7; border-top-color: #7b1fa2;
+            border-radius: 50%; animation: ptest-spin 0.8s linear infinite;
+        }
+        @keyframes ptest-spin { to { transform: rotate(360deg); } }
+        .ptest-gosterge-loading-title { font-weight: 800; color: #4a148c; font-size: 14px; margin-bottom: 6px; }
+        .ptest-gosterge-loading-sub { font-size: 11px; color: #546e7a; line-height: 1.4; }
+        .ptest-gosterge-busy .ptest-gosterge-metric-tab-btn,
+        .ptest-gosterge-busy .ptest-gosterge-mode-btn { pointer-events: none; opacity: 0.55; }
+        .ptest-scoring-panel {
+            margin-bottom: 14px; padding: 12px 14px; background: #f3e5f5; border: 1px solid #ce93d8;
+            border-radius: 10px;
+        }
+        .ptest-scoring-panel h3 { margin: 0 0 8px; font-size: 13px; color: #4a148c; }
+        .ptest-scoring-meta { font-size: 11px; color: #546e7a; margin-bottom: 10px; }
+        .ptest-scoring-metric-block {
+            margin-bottom: 8px; background: #fff; border: 1px solid #e1bee7; border-radius: 8px;
+        }
+        .ptest-scoring-metric-summary {
+            cursor: pointer; padding: 8px 10px; font-weight: 700; font-size: 12px; color: #6a1b9a;
+        }
+        .ptest-scoring-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+        .ptest-scoring-table th, .ptest-scoring-table td {
+            padding: 4px 6px; border-top: 1px solid #eceff1; text-align: center;
+        }
+        .ptest-scoring-table th { background: #fafafa; }
+        .ptest-scoring-table td:nth-child(2) { text-align: left; }
+        .ptest-scoring-empty { color: #789; font-size: 11px; margin: 0; }
+        .ptest-t1-sari-tier-wrap { margin-top: 10px; padding-top: 10px; border-top: 2px dashed #cfd8dc; }
+        .ptest-t1-sari-tier-heading { font-size: 11px; font-weight: 800; margin-bottom: 6px; }
+        .ptest-t1-sari-tier-subgroup {
+            margin-bottom: 6px; padding: 6px 8px; border-radius: 6px; border: 1px solid #cfd8dc;
+        }
+        .ptest-t1-sari-tier-subgroup-title { font-size: 11px; font-weight: 800; margin-bottom: 2px; }
+        .ptest-t1-sari-tier-subgroup-meta { font-size: 10px; margin-bottom: 4px; font-weight: 600; color: #546e7a; }
+        .ptest-t1-sari-yesil-wrap { border-top-color: #aed581; }
+        .ptest-t1-sari-yesil-wrap .ptest-t1-sari-tier-heading { color: #33691e; }
+        .ptest-t1-sari-yesil-wrap .ptest-t1-sari-tier-subgroup { background: #f1f8e9; border-color: #aed581; }
+        .ptest-t1-sari-yesil-wrap .ptest-t1-sari-tier-subgroup-title { color: #33691e; }
+        .ptest-t1-sari-turuncu-wrap { border-top-color: #ff9800; }
+        .ptest-t1-sari-turuncu-wrap .ptest-t1-sari-tier-heading { color: #e65100; }
+        .ptest-t1-sari-turuncu-wrap .ptest-t1-sari-tier-subgroup { background: #fff3e0; border-color: #ffcc80; }
+        .ptest-t1-sari-turuncu-wrap .ptest-t1-sari-tier-subgroup-title { color: #e65100; }
+        .ptest-t1-sari-sariyazi-wrap { border-top-color: #f9a825; }
+        .ptest-t1-sari-sariyazi-wrap .ptest-t1-sari-tier-heading { color: #f57f17; }
+        .ptest-t1-sari-sariyazi-wrap .ptest-t1-sari-tier-subgroup { background: #fffde7; border-color: #fff176; }
+        .ptest-t1-sari-sariyazi-wrap .ptest-t1-sari-tier-subgroup-title { color: #f57f17; }
+        .ptest-t1-sari-kirmizi-wrap { border-top-color: #ef5350; }
+        .ptest-t1-sari-kirmizi-wrap .ptest-t1-sari-tier-heading { color: #c62828; }
+        .ptest-t1-sari-kirmizi-wrap .ptest-t1-sari-tier-subgroup { background: #ffebee; border-color: #ef9a9a; }
+        .ptest-t1-sari-kirmizi-wrap .ptest-t1-sari-tier-subgroup-title { color: #c62828; }
+        .ptest-t1-sari-acikyesil-wrap { border-top-color: #66bb6a; }
+        .ptest-t1-sari-acikyesil-wrap .ptest-t1-sari-tier-heading { color: #2e7d32; }
+        .ptest-t1-sari-acikyesil-wrap .ptest-t1-sari-tier-subgroup { background: #e8f5e9; border-color: #a5d6a7; }
+        .ptest-t1-sari-acikyesil-wrap .ptest-t1-sari-tier-subgroup-title { color: #2e7d32; }
+        .ptest-t1-sari-koyuyesil-wrap { border-top-color: #388e3c; }
+        .ptest-t1-sari-koyuyesil-wrap .ptest-t1-sari-tier-heading { color: #1b5e20; }
+        .ptest-t1-sari-koyuyesil-wrap .ptest-t1-sari-tier-subgroup { background: #c8e6c9; border-color: #81c784; }
+        .ptest-t1-sari-koyuyesil-wrap .ptest-t1-sari-tier-subgroup-title { color: #1b5e20; }
+        .ptest-t1-sari-tier-bscombo { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #90a4ae; }
+        .ptest-t1-sari-tier-bscombo-heading { font-size: 10px; font-weight: 800; margin-bottom: 6px; color: #37474f; }
+        .ptest-t1-sari-tier-bs-block {
+            margin-bottom: 6px; padding: 6px 8px; background: #eceff1; border: 1px solid #b0bec5;
+            border-radius: 6px;
+        }
+        .ptest-t1-sari-tier-bs-block-title { font-size: 11px; font-weight: 800; color: #37474f; margin-bottom: 2px; }
+        .ptest-t1-sari-tier-bs-block-meta { font-size: 10px; color: #546e7a; margin-bottom: 4px; }
+        .ptest-report-panel.ptest-report-orange-detail {
+            border: 3px solid #ef6c00;
+            background: linear-gradient(180deg, #fff3e0 0%, #fff 120px);
+        }
+        .ptest-report-orange-detail h3 { color: #e65100; font-size: 15px; }
+        .ptest-report-panel.ptest-report-sariyazi-detail {
+            border: 3px solid #f9a825;
+            background: linear-gradient(180deg, #fffde7 0%, #fff 120px);
+        }
+        .ptest-report-sariyazi-detail h3 { color: #f57f17; font-size: 15px; }
+        .ptest-report-orange-detail .ptest-report-subgroup { background: #fff3e0; border-color: #ffcc80; }
+        .ptest-report-orange-detail .ptest-report-subgroup-title { color: #e65100; }
+        .ptest-report-sariyazi-detail .ptest-report-subgroup { background: #fffde7; border-color: #fff176; }
+        .ptest-report-sariyazi-detail .ptest-report-subgroup-title { color: #f57f17; }
+        .ptest-report-item {
+            padding: 8px 10px; border-radius: 6px;
+        }
+        .ptest-report-orange .ptest-report-item { background: #fff8e1; border: 1px solid #ffe082; }
+        .ptest-report-orange .ptest-report-item strong { color: #e65100; }
+        .ptest-report-orange-border .ptest-report-item { background: #fff3e0; border: 2px solid #ef6c00; }
+        .ptest-report-orange-border .ptest-report-item strong { color: #bf360c; }
+        .ptest-report-green .ptest-report-item { background: #f1f8e9; border: 1px solid #c5e1a5; }
+        .ptest-report-green .ptest-report-item strong { color: #33691e; }
+        .ptest-report-item strong { display: block; font-size: 18px; margin-top: 2px; }
+        .ptest-report-item span { font-size: 11px; color: #546e7a; }
+        .ptest-report-meta { margin-bottom: 8px; font-size: 12px; color: #546e7a; font-weight: 600; }
+        .ptest-reports-wrap .ptest-report-meta-global {
+            margin-bottom: 10px; padding: 8px 10px; background: #ede7f6;
+            border-radius: 6px; font-size: 13px; color: #4a148c; font-weight: 700;
+        }
+        .ptest-report-yesil-detail { margin-top: 0; border-top: none; padding-top: 0; }
+        .ptest-report-panel.ptest-report-green-detail {
+            border: 3px solid #33691e;
+            background: linear-gradient(180deg, #f1f8e9 0%, #fff 120px);
+            box-shadow: 0 4px 14px rgba(51, 105, 30, 0.15);
+        }
+        .ptest-report-panel.ptest-report-green-bs-detail {
+            border: 3px solid #1565c0;
+            background: linear-gradient(180deg, #e3f2fd 0%, #fff 120px);
+            box-shadow: 0 4px 14px rgba(21, 101, 192, 0.15);
+        }
+        .ptest-report-green-detail h3,
+        .ptest-report-green-bs-detail h3 { color: #1b5e20; font-size: 15px; }
+        .ptest-report-green-bs-detail h3 { color: #0d47a1; }
+        .ptest-report-green-detail .ptest-report-scroll {
+            max-height: min(70vh, 920px); overflow: auto;
+            padding-right: 4px;
+        }
+        .ptest-report-green-bs-detail .ptest-report-scroll {
+            max-height: min(85vh, 1200px); overflow: auto;
+            padding-right: 4px;
+        }
+        .ptest-report-delta-section {
+            margin-bottom: 18px; padding: 12px 12px 4px;
+            background: #fff; border: 2px solid #90caf9; border-radius: 8px;
+        }
+        .ptest-report-delta-section-title {
+            font-size: 14px; font-weight: 900; color: #0d47a1; margin-bottom: 4px;
+        }
+        .ptest-report-delta-section-meta {
+            font-size: 11px; color: #546e7a; margin-bottom: 10px; font-weight: 600;
+        }
+        .ptest-report-green-bs-detail .ptest-report-subgroup {
+            background: #e3f2fd; border-color: #64b5f6;
+        }
+        .ptest-report-green-bs-detail .ptest-report-subgroup-title { color: #1565c0; }
+        .ptest-report-green-bs-detail .ptest-report-subgroup-meta { color: #1976d2; }
+        .ptest-report-panel.ptest-report-green-race-detail {
+            border: 3px solid #6a1b9a;
+            background: linear-gradient(180deg, #f3e5f5 0%, #fff 120px);
+            box-shadow: 0 4px 14px rgba(106, 27, 154, 0.15);
+        }
+        .ptest-report-green-race-detail h3 { color: #6a1b9a; font-size: 15px; }
+        .ptest-report-green-race-detail .ptest-report-scroll {
+            max-height: min(75vh, 1000px); overflow: auto;
+            padding-right: 4px;
+        }
+        .ptest-report-green-race-detail .ptest-report-delta-section {
+            border-color: #ce93d8;
+        }
+        .ptest-report-green-race-detail .ptest-report-delta-section-title { color: #6a1b9a; }
+        .ptest-report-green-race-detail .ptest-report-subgroup {
+            background: #fce4ec; border-color: #ce93d8;
+        }
+        .ptest-report-green-race-detail .ptest-report-subgroup-title { color: #6a1b9a; }
+        .ptest-report-green-race-detail .ptest-report-subgroup-meta { color: #8e24aa; }
+        .ptest-report-green-race-detail .ptest-report-item { background: #f3e5f5; border: 1px solid #ce93d8; }
+        .ptest-report-green-race-detail .ptest-report-item strong { color: #6a1b9a; }
+        .ptest-report-build-tag {
+            float: right; font-size: 10px; font-weight: 700; color: #7b1fa2;
+            background: #f3e5f5; padding: 2px 6px; border-radius: 4px;
+        }
+        .ptest-report-subgroup {
+            margin-bottom: 12px; padding: 10px 10px 8px; background: #f9fbe7;
+            border: 1px solid #aed581; border-radius: 6px;
+        }
+        .ptest-report-subgroup-title {
+            font-size: 12px; font-weight: 800; color: #33691e; margin-bottom: 6px;
+        }
+        .ptest-report-subgroup-meta { font-size: 11px; color: #689f38; margin-bottom: 6px; }
+        .ptest-report-subgroup .ptest-report-grid { gap: 6px 10px; }
+        .ptest-report-subgroup .ptest-report-item { padding: 6px 8px; }
+        .ptest-report-subgroup .ptest-report-item strong { font-size: 15px; }
+        .ptest-t1-indicators-wrap { margin-bottom: 16px; }
+        .ptest-t1-indicators-wrap .ptest-report-meta-global {
+            margin-bottom: 10px; padding: 8px 10px; background: #fff8e1;
+            border-radius: 6px; font-size: 13px; color: #e65100; font-weight: 700;
+        }
+        .ptest-report-panel.ptest-report-t1-indicators {
+            border: 3px solid #f57f17;
+            background: linear-gradient(180deg, #fff8e1 0%, #fff 100px);
+            box-shadow: 0 4px 14px rgba(245, 127, 23, 0.12);
+        }
+        .ptest-report-t1-indicators h3 { color: #e65100; font-size: 15px; margin: 0 0 8px; }
+        .ptest-t1-indicator-block {
+            margin-bottom: 16px; padding: 12px 12px 10px; background: #fff;
+            border: 2px solid #ffcc80; border-radius: 8px;
+        }
+        .ptest-t1-indicator-block:last-child { margin-bottom: 0; }
+        .ptest-t1-indicator-title {
+            font-size: 14px; font-weight: 900; color: #e65100; margin-bottom: 4px;
+        }
+        .ptest-t1-indicator-meta {
+            font-size: 11px; color: #546e7a; margin-bottom: 10px; font-weight: 600;
+        }
+        .ptest-t1-indicator-block .ptest-report-item {
+            background: #fff8e1; border: 1px solid #ffcc80;
+        }
+        .ptest-t1-indicator-block .ptest-report-item strong { color: #e65100; }
+        .ptest-t1-sari-delta-wrap { margin-bottom: 16px; }
+        .ptest-t1-sari-delta-wrap .ptest-report-meta-global {
+            margin-bottom: 10px; padding: 8px 10px; background: #fff8e1;
+            border-radius: 6px; font-size: 13px; color: #e65100; font-weight: 700;
+        }
+        .ptest-report-panel.ptest-report-t1-sari-delta {
+            border: 3px solid #f9a825;
+            background: linear-gradient(180deg, #fffde7 0%, #fff 120px);
+            box-shadow: 0 4px 14px rgba(249, 168, 37, 0.14);
+        }
+        .ptest-report-t1-sari-delta h3 { color: #f57f17; font-size: 15px; margin: 0 0 8px; }
+        .ptest-t1-sari-yesil-wrap {
+            margin-top: 14px; padding-top: 12px; border-top: 2px dashed #ffcc80;
+        }
+        .ptest-t1-sari-yesil-heading {
+            font-size: 12px; font-weight: 800; color: #33691e; margin-bottom: 10px;
+        }
+        .ptest-t1-sari-yesil-subgroup {
+            margin-bottom: 12px; padding: 10px 10px 8px; background: #f1f8e9;
+            border: 1px solid #aed581; border-radius: 6px;
+        }
+        .ptest-t1-sari-yesil-subgroup:last-child { margin-bottom: 0; }
+        .ptest-t1-sari-yesil-subgroup-title {
+            font-size: 13px; font-weight: 800; color: #33691e; margin-bottom: 4px;
+        }
+        .ptest-t1-sari-yesil-subgroup-meta {
+            font-size: 11px; color: #558b2f; margin-bottom: 8px; font-weight: 600;
+        }
+        .ptest-t1-sari-yesil-subgroup .ptest-report-grid { gap: 6px 10px; }
+        .ptest-t1-sari-yesil-subgroup .ptest-report-item {
+            padding: 6px 8px; background: #fff; border: 1px solid #c5e1a5;
+        }
+        .ptest-t1-sari-yesil-subgroup .ptest-report-item strong { color: #33691e; font-size: 15px; }
+        .ptest-t1-sari-bscombo-wrap {
+            margin-top: 14px; padding-top: 12px; border-top: 2px dashed #1565c0;
+        }
+        .ptest-t1-sari-bscombo-heading {
+            font-size: 12px; font-weight: 800; color: #1565c0; margin-bottom: 10px;
+        }
+        .ptest-t1-sari-bscombo-subgroup {
+            margin-bottom: 12px; padding: 10px 10px 8px; background: #e3f2fd;
+            border: 1px solid #64b5f6; border-radius: 6px;
+        }
+        .ptest-t1-sari-bscombo-subgroup:last-child { margin-bottom: 0; }
+        .ptest-t1-sari-bscombo-subgroup-title {
+            font-size: 13px; font-weight: 800; color: #0d47a1; margin-bottom: 4px;
+        }
+        .ptest-t1-sari-bscombo-subgroup-meta {
+            font-size: 11px; color: #1976d2; margin-bottom: 8px; font-weight: 600;
+        }
+        .ptest-t1-sari-bscombo-subgroup .ptest-report-grid { gap: 6px 10px; }
+        .ptest-t1-sari-bscombo-subgroup .ptest-report-item {
+            padding: 6px 8px; background: #fff; border: 1px solid #90caf9;
+        }
+        .ptest-t1-sari-bscombo-subgroup .ptest-report-item strong { color: #1565c0; font-size: 15px; }
+        .ptest-t1-sari-t1bs-nested-wrap {
+            margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ffb74d;
+        }
+        .ptest-t1-sari-t1bs-nested-heading {
+            font-size: 11px; font-weight: 800; color: #e65100; margin-bottom: 8px;
+        }
+        .ptest-t1-sari-t1bs-nested-subgroup {
+            margin-bottom: 10px; padding: 8px 8px 6px; background: #fff3e0;
+            border: 1px solid #ffb74d; border-radius: 5px;
+        }
+        .ptest-t1-sari-t1bs-nested-subgroup:last-child { margin-bottom: 0; }
+        .ptest-t1-sari-t1bs-nested-subgroup-title {
+            font-size: 12px; font-weight: 800; color: #e65100; margin-bottom: 3px;
+        }
+        .ptest-t1-sari-t1bs-nested-subgroup-meta {
+            font-size: 10px; color: #f57c00; margin-bottom: 6px; font-weight: 600;
+        }
+        .ptest-t1-sari-t1bs-nested-subgroup .ptest-report-grid { gap: 5px 8px; }
+        .ptest-t1-sari-t1bs-nested-subgroup .ptest-report-item {
+            padding: 5px 6px; background: #fff; border: 1px solid #ffcc80;
+        }
+        .ptest-t1-sari-t1bs-nested-subgroup .ptest-report-item strong { color: #e65100; font-size: 14px; }
+    </style>
+</head>
+<body>
+<div class="ptest-wrap">
+    <div class="ptest-toolbar">
+        <h1>🧪 Puanlama test — Tablo · TAHMİN + 5 sütun özeti + 11 metrik</h1>
+        <button type="button" class="ptest-btn" id="loadAllBtn">Tüm kayıtları yükle</button>
+        <button type="button" class="ptest-btn ptest-btn-success" id="saveAllBtn" disabled>💾 Kaydet</button>
+        <button type="button" class="ptest-btn ptest-btn-outline" id="exportTxtBtn" disabled title="Seçili BİTİŞ sırasına göre (0 veya 1) renkli tabloyu .html olarak indir">📥 Renkli İndir</button>
+        <button type="button" class="ptest-btn ptest-btn-danger" id="clearAllBtn">🗑 Tüm kayıtları sil</button>
+        <button type="button" class="ptest-btn ptest-btn-outline hidden" id="toggleCikanBtn">👁 Çıkan atlar (0)</button>
+        <span class="ptest-meta" id="summaryMeta">Henüz yüklenmedi</span>
+    </div>
+    <div class="ptest-status" id="status"></div>
+    <div class="ptest-view-tabs">
+        <button type="button" class="ptest-view-tab-btn active" data-ptest-view="tablo" id="ptestViewTabloBtn">📋 Tablo</button>
+        <button type="button" class="ptest-view-tab-btn" data-ptest-view="gosterge" id="ptestViewGostergeBtn">📈 Gösterge</button>
+    </div>
+    <div id="ptestTabTablo" class="ptest-tab-panel">
+    <div class="ptest-cikan-panel hidden" id="cikanPanel">
+        <h3>🚫 Çıkan atlar — koşudan hariç tutuldu, metrikler yeniden hesaplandı</h3>
+        <div class="ptest-cikan-list" id="cikanList"></div>
+    </div>
+    <div class="ptest-table-wrap">
+        <table class="ptest-table" id="grid">
+            <thead id="gridHead"></thead>
+            <tbody id="gridBody"><tr><td colspan="16" style="padding:24px;color:#789">&quot;Tüm kayıtları yükle&quot; butonuna basın</td></tr></tbody>
+        </table>
+    </div>
+    </div>
+    <div id="ptestTabGosterge" class="ptest-tab-panel hidden">
+    <div class="ptest-gosterge-empty" id="gostergeEmptyMsg" style="padding:24px;color:#789;text-align:center">
+        Veri yükleyin — göstergeler &quot;Tüm kayıtları yükle&quot; sonrası görünür
+    </div>
+    <div id="gostergeContentWrap" class="hidden ptest-gosterge-compact">
+    <div class="ptest-scoring-panel" id="gostergeScoringPanel">
+        <h3>🏆 TAHMİN · Gösterge başarı puanlama merdiveni</h3>
+        <div id="gostergeScoringLadder">Bitiş verisi yüklendikten sonra metrik gruplarına göre en başarılı göstergeler listelenir.</div>
+    </div>
+    <div id="gostergeLoadingOverlay" class="ptest-gosterge-loading hidden" aria-live="polite">
+        <div class="ptest-gosterge-loading-box">
+            <div class="ptest-gosterge-spinner"></div>
+            <div class="ptest-gosterge-loading-title" id="gostergeLoadingTitle">Göstergeler hesaplanıyor…</div>
+            <div class="ptest-gosterge-loading-sub" id="gostergeLoadingSub">Lütfen bekleyin — büyük veri setlerinde bu işlem birkaç saniye sürebilir.</div>
+        </div>
+    </div>
+    <div class="ptest-gosterge-mode-tabs">
+        <button type="button" class="ptest-gosterge-mode-btn active" data-gosterge-mode="sonDelta" id="gostergeModeSonDeltaBtn">SON · Δ göstergeleri</button>
+        <button type="button" class="ptest-gosterge-mode-btn" data-gosterge-mode="depthPair" id="gostergeModeDepthPairBtn">Derinlik gelişme (SON↔1ÖNCE…)</button>
+    </div>
+    <div id="gostergeModeSonDelta" class="ptest-gosterge-mode-panel">
+    <div class="ptest-gosterge-metric-tabs" id="gostergeMetricTabs"></div>
+    <div id="gostergeMetricPanels"></div>
+    </div>
+    <div id="gostergeModeDepthPair" class="ptest-gosterge-mode-panel hidden">
+    <div class="ptest-gosterge-metric-tabs" id="gostergeDepthMetricTabs"></div>
+    <div id="gostergeDepthMetricPanels"></div>
+    </div>
+    </div>
+    </div>
+</div>
+
+<script src="js/utils.js?v=20260830b"></script>
+<script src="js/istatistik-engine.js?v=20260830b"></script>
+<script src="js/istatistik-grids-extra.js?v=20260830b"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260830b"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260830b"></script>
+<script src="js/ptest-gosterge-engine.js?v=20260830b"></script>
+<script src="js/ptest-gosterge-depth-engine.js?v=20260830b"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260830d"></script>
+<script>
+const IE = IstatistikEngine;
+const TE = IstatistikTahminEngine;
+const COL_COUNT = () => ptestTableColCount();
+
+let savedBitisMap = {};
+let savedCikanMap = {};
+let kayitCache = new Map();
+let flatEntries = [];
+let kayitCountLoaded = 0;
+let cikanPanelOpen = false;
+let cikanMetaList = [];
+let bitisSortMode = 0;
+let bitisFilterPos = 0;
+let sonDeltaSortMode = '0';
+let t1SonDeltaSortMode = '0';
+let sonBsSortMode = '0';
+let t1SonBsSortMode = '0';
+let isTableProcessing = false;
+let activeBitisLookup = null;
+let overviewStripAvgLookup = null;
+
+function rowKey(entry) {
+    return String(entry.kayitId) + '|' + entry.raceNo + '|' + String(entry.row.no ?? '');
+}
+
+function raceKey(kayitId, raceNo) {
+    return String(kayitId) + '|' + raceNo;
+}
+
+function getCikanSet(kayitId, raceNo) {
+    const arr = savedCikanMap[raceKey(kayitId, raceNo)] || [];
+    return new Set(arr.map(String));
+}
+
+function countCikanHorses() {
+    let n = 0;
+    for (const arr of Object.values(savedCikanMap)) n += (arr || []).length;
+    return n;
+}
+
+function raceWithoutCikan(race, kayitId, raceNo) {
+    const ex = getCikanSet(kayitId, raceNo);
+    if (!ex.size) return race;
+    return {
+        ...race,
+        horses: (race.horses || []).filter(h => !ex.has(String(h.no)))
+    };
+}
+
+function pctClass(pct) {
+    if (pct === null || pct === undefined) return 'ptest-pct-none';
+    if (pct === 0) return 'ptest-pct-low';
+    if (pct < 35) return 'ptest-pct-mid';
+    if (pct < 70) return 'ptest-pct-good';
+    return 'ptest-pct-high';
+}
+
+function pctSpan(val, extraCls) {
+    if (val == null) return '<span class="ptest-pct ptest-pct-none">—</span>';
+    return '<span class="ptest-pct ' + pctClass(val) + (extraCls ? ' ' + extraCls : '') + '">%' + val + '</span>';
+}
+
+function isTwinZero(row) {
+    const s = row.son8001Depths?.[0];
+    const t = row.t1drDepths?.[0];
+    return !!(s && t && s.gapPct === 0 && t.gapPct === 0);
+}
+
+function gapTdClass(row, cell) {
+    if (!cell || cell.gapPct == null) return '';
+    const s800 = row.son8001Depths?.[0]?.gapPct;
+    const t1 = row.t1drDepths?.[0]?.gapPct;
+    if (isTwinZero(row) && cell.gapPct === 0) return ' ptest-gap-twin-zero';
+    if (!isTwinZero(row) && s800 != null && t1 != null && s800 < 25 && t1 < 25) return ' ptest-gap-neon';
+    return '';
+}
+
+function gapSpan(row, cell) {
+    if (!cell || cell.gapPct == null) return pctSpan(null);
+    const blink = cell.gapPct === 0 ? ' ptest-gap-zero-blink' : '';
+    return pctSpan(cell.gapPct, blink);
+}
+
+/** Yeşil hücre — SON·Δ aralık seçicileri (SON800-1 · SON·Δ) */
+const YESIL_DELTA_SORT_BUCKETS = [
+    { id: 'yesilTam0', label: '2·0 — yeşil · Tam %0', gapTest: g => g === 0 },
+    { id: 'yesil5', label: '2·1 — yeşil · %5\'e kadar', gapTest: g => g > 0 && g <= 5 },
+    { id: 'yesil10', label: '2·2 — yeşil · %10\'a kadar', gapTest: g => g > 5 && g <= 10 },
+    { id: 'yesil15', label: '2·3 — yeşil · %15\'e kadar', gapTest: g => g > 10 && g <= 15 },
+    { id: 'yesil15_20', label: '2·4 — yeşil · %15–20', gapTest: g => g > 15 && g <= 20 },
+    { id: 'yesil20_25', label: '2·5 — yeşil · %20–25', gapTest: g => g > 20 && g <= 25 },
+    { id: 'yesil25plus', label: '2·6 — yeşil · %25+', gapTest: g => g > 25 }
+];
+
+/** SON·Δ görsel kural seçicileri — id = select value */
+const SON_DELTA_SORT_RULES = [
+    { id: '0', label: '0 — kapalı' },
+    { id: 'turuncuHucre', label: '1 — turuncu hücre' },
+    { id: 'yesilHucre', label: '2 — yeşil hücre (tümü)' },
+    ...YESIL_DELTA_SORT_BUCKETS,
+    { id: 'turuncuCevre', label: '3 — turuncu çevre' },
+    { id: 'kirmiziIc', label: '4 — kırmızı iç' },
+    { id: 'sariYazi', label: '5 — sarı yazı' },
+    { id: 'yanipSonen0', label: '6 — yanıp sönen %0' },
+    { id: 'acikYesilIc', label: '7 — açık yeşil iç' },
+    { id: 'koyuYesilIc', label: '8 — koyu yeşil iç' },
+    { id: 'gri', label: '9 — gri (—)' }
+];
+
+function isYesilDeltaRuleId(ruleId) {
+    if (!ruleId || ruleId === '0') return false;
+    if (ruleId === 'yesilHucre') return true;
+    return YESIL_DELTA_SORT_BUCKETS.some(b => b.id === ruleId);
+}
+
+function yesilDeltaBucketById(ruleId) {
+    return YESIL_DELTA_SORT_BUCKETS.find(b => b.id === ruleId) || null;
+}
+
+function sonDeltaSortRuleLabel(id) {
+    const rule = SON_DELTA_SORT_RULES.find(r => r.id === id);
+    return rule ? rule.label : id;
+}
+
+function sonDeltaCell(entry) {
+    return entry.row.son8001Depths?.[0] || null;
+}
+
+function t1SonDeltaCell(entry) {
+    return entry.row.t1drDepths?.[0] || null;
+}
+
+function deltaVisualFlagsForCell(row, cell) {
+    const gap = cell?.gapPct;
+    const tdCls = gapTdClass(row, cell).trim();
+    const isTwin = tdCls === 'ptest-gap-twin-zero';
+    const isNeon = tdCls === 'ptest-gap-neon';
+    let pc = 'none';
+    if (gap != null) pc = pctClass(gap).replace('ptest-pct-', '');
+    return {
+        turuncuHucre: isTwin,
+        yesilHucre: isNeon,
+        turuncuCevre: isTwin,
+        kirmiziIc: gap != null && pc === 'low' && !isTwin && !isNeon,
+        sariYazi: gap != null && pc === 'mid',
+        yanipSonen0: gap === 0,
+        acikYesilIc: gap != null && pc === 'good',
+        koyuYesilIc: gap != null && pc === 'high',
+        gri: gap == null
+    };
+}
+
+function sonDeltaVisualFlags(entry) {
+    return deltaVisualFlagsForCell(entry.row, sonDeltaCell(entry));
+}
+
+function t1SonDeltaVisualFlags(entry) {
+    return deltaVisualFlagsForCell(entry.row, t1SonDeltaCell(entry));
+}
+
+function sonDeltaMatchesRule(entry, ruleId) {
+    if (!ruleId || ruleId === '0') return true;
+    const bucket = yesilDeltaBucketById(ruleId);
+    if (bucket) {
+        if (!sonDeltaVisualFlags(entry).yesilHucre) return false;
+        const g = sonDeltaGapPct(entry);
+        return g != null && bucket.gapTest(g);
+    }
+    const flags = sonDeltaVisualFlags(entry);
+    return !!flags[ruleId];
+}
+
+function compareBitisOnly(a, b) {
+    const ba = bitisValueForSort(a);
+    const bb = bitisValueForSort(b);
+    if (ba != null && bb != null && ba !== bb) return ba - bb;
+    if (ba != null && bb == null) return -1;
+    if (ba == null && bb != null) return 1;
+    return 0;
+}
+
+function compareYesilHucreSubSort(a, b) {
+    const bitisCmp = compareBitisOnly(a, b);
+    if (bitisCmp !== 0) return bitisCmp;
+    const blinkA = isSonDeltaBlink(a) ? 0 : 1;
+    const blinkB = isSonDeltaBlink(b) ? 0 : 1;
+    if (blinkA !== blinkB) return blinkA - blinkB;
+    const ga = sonDeltaGapPct(a);
+    const gb = sonDeltaGapPct(b);
+    if (ga == null && gb == null) return 0;
+    if (ga == null) return 1;
+    if (gb == null) return -1;
+    return ga - gb;
+}
+
+function compareSonDeltaRule(a, b, ruleId) {
+    const ma = sonDeltaMatchesRule(a, ruleId) ? 0 : 1;
+    const mb = sonDeltaMatchesRule(b, ruleId) ? 0 : 1;
+    if (ma !== mb) return ma - mb;
+    if (isYesilDeltaRuleId(ruleId)) {
+        if (ma === 0) return compareYesilHucreSubSort(a, b);
+        return compareBitisOnly(a, b);
+    }
+    return 0;
+}
+
+function maxBitisPosition() {
+    if (!activeBitisLookup) rebuildBitisLookup();
+    let max = 0;
+    for (const entry of flatEntries) {
+        const b = bitisValueForSort(entry);
+        if (b != null && b > max) max = b;
+    }
+    return max;
+}
+
+function compareBitisFilterPos(a, b) {
+    if (!bitisFilterPos) return 0;
+    const ma = bitisValueForSort(a) === bitisFilterPos ? 0 : 1;
+    const mb = bitisValueForSort(b) === bitisFilterPos ? 0 : 1;
+    return ma - mb;
+}
+
+function countBitisFilterMatches() {
+    if (!bitisFilterPos) return 0;
+    let n = 0;
+    for (const entry of flatEntries) {
+        if (bitisValueForSort(entry) === bitisFilterPos) n++;
+    }
+    return n;
+}
+
+function countSonDeltaRuleMatches(ruleId) {
+    if (!ruleId || ruleId === '0') return 0;
+    let n = 0;
+    for (const entry of flatEntries) {
+        if (sonDeltaMatchesRule(entry, ruleId)) n++;
+    }
+    return n;
+}
+
+function countUniqueRaces() {
+    const races = new Set();
+    for (const entry of flatEntries) {
+        races.add(String(entry.kayitId) + '|' + entry.raceNo);
+    }
+    return races.size;
+}
+
+function pctFmt(n, total) {
+    if (!total) return '—';
+    return (Math.round((n / total) * 1000) / 10).toFixed(1) + '%';
+}
+
+function sonDeltaGapPct(entry) {
+    return entry.row.son8001Depths?.[0]?.gapPct ?? null;
+}
+
+function t1SonDeltaGapPct(entry) {
+    return entry.row.t1drDepths?.[0]?.gapPct ?? null;
+}
+
+/** T1×DR · SON·Δ seçici — sarı → %0 → yeşil katman sırası */
+const T1_SON_DELTA_SORT_RULES = [
+    { id: '0', label: '0 — kapalı' },
+    { id: 'sariZeroYesil', label: '1 — sarı→%0→yeşil' }
+];
+
+function t1SonDeltaSortRuleLabel(id) {
+    const rule = T1_SON_DELTA_SORT_RULES.find(r => r.id === id);
+    return rule ? rule.label : id;
+}
+
+/** T1·Δ katman: 0=sarı, 1=%0, 2=yeşil hücre, 3=diğer */
+function t1SonDeltaSortTier(entry) {
+    const flags = t1SonDeltaVisualFlags(entry);
+    const g = t1SonDeltaGapPct(entry);
+    if (flags.sariYazi) return 0;
+    if (g === 0) return 1;
+    if (flags.yesilHucre) return 2;
+    return 3;
+}
+
+function compareGapAsc(ga, gb) {
+    if (ga == null && gb == null) return 0;
+    if (ga == null) return 1;
+    if (gb == null) return -1;
+    return ga - gb;
+}
+
+function compareT1SonDeltaSort(a, b) {
+    if (!t1SonDeltaSortMode || t1SonDeltaSortMode === '0') return 0;
+    if (t1SonDeltaSortMode === 'sariZeroYesil') {
+        const ta = t1SonDeltaSortTier(a);
+        const tb = t1SonDeltaSortTier(b);
+        if (ta !== tb) return ta - tb;
+        return compareGapAsc(t1SonDeltaGapPct(a), t1SonDeltaGapPct(b));
+    }
+    return 0;
+}
+
+/** SON800-1 · SON·BS seçici kuralları */
+const SON_BS_SORT_RULES = [
+    { id: '0', label: '0 — kapalı' },
+    { id: 'bs100', label: '1 — tam %100' }
+];
+
+/** T1×DR · SON·BS seçici kuralları */
+const T1_SON_BS_SORT_RULES = [
+    { id: '0', label: '0 — kapalı' },
+    { id: 'bs100', label: '1 — tam %100' }
+];
+
+function sonBsSortRuleLabel(id) {
+    const rule = SON_BS_SORT_RULES.find(r => r.id === id);
+    return rule ? rule.label : id;
+}
+
+function t1SonBsSortRuleLabel(id) {
+    const rule = T1_SON_BS_SORT_RULES.find(r => r.id === id);
+    return rule ? rule.label : id;
+}
+
+function sonBsMatchesRule(entry, ruleId) {
+    if (!ruleId || ruleId === '0') return true;
+    if (ruleId === 'bs100') return s800SonBsPct(entry) === 100;
+    return false;
+}
+
+function t1SonBsMatchesRule(entry, ruleId) {
+    if (!ruleId || ruleId === '0') return true;
+    if (ruleId === 'bs100') return t1SonDepthBsPct(entry) === 100;
+    return false;
+}
+
+function compareSonBsSort(a, b) {
+    if (!sonBsSortMode || sonBsSortMode === '0') return 0;
+    const ma = sonBsMatchesRule(a, sonBsSortMode) ? 0 : 1;
+    const mb = sonBsMatchesRule(b, sonBsSortMode) ? 0 : 1;
+    return ma - mb;
+}
+
+function compareT1SonBsSort(a, b) {
+    if (!t1SonBsSortMode || t1SonBsSortMode === '0') return 0;
+    const ma = t1SonBsMatchesRule(a, t1SonBsSortMode) ? 0 : 1;
+    const mb = t1SonBsMatchesRule(b, t1SonBsSortMode) ? 0 : 1;
+    return ma - mb;
+}
+
+function countSonBsRuleMatches(ruleId) {
+    if (!ruleId || ruleId === '0') return 0;
+    let n = 0;
+    for (const entry of flatEntries) {
+        if (sonBsMatchesRule(entry, ruleId)) n++;
+    }
+    return n;
+}
+
+function countT1SonBsRuleMatches(ruleId) {
+    if (!ruleId || ruleId === '0') return 0;
+    let n = 0;
+    for (const entry of flatEntries) {
+        if (t1SonBsMatchesRule(entry, ruleId)) n++;
+    }
+    return n;
+}
+
+function isSonDeltaBlink(entry) {
+    return sonDeltaGapPct(entry) === 0;
+}
+
+function isT1DeltaBlink(entry) {
+    return entry.row.t1drDepths?.[0]?.gapPct === 0;
+}
+
+function yesilBucketBlinkMatch(entry, bucket) {
+    if (!bucket.blink) return true;
+    const g = sonDeltaGapPct(entry);
+    if (g === 0) return isSonDeltaBlink(entry);
+    return isT1DeltaBlink(entry);
+}
+
+function buildBitisStatsFromEntries(entries) {
+    let withBitis = 0;
+    let b1 = 0, b12 = 0, b123 = 0, b4 = 0, bOut = 0;
+    for (const entry of entries) {
+        const b = bitisValueForSort(entry);
+        if (b == null || b < 1) continue;
+        withBitis++;
+        if (b === 1) b1++;
+        if (b <= 2) b12++;
+        if (b <= 3) b123++;
+        if (b === 4) b4++;
+        if (b >= 5) bOut++;
+    }
+    return { matchedRows: entries.length, withBitis, b1, b12, b123, b4, bOut };
+}
+
+function renderStatsTableHtml(items, total) {
+    let h = '<table class="ptest-stats-table"><thead><tr>'
+        + '<th>Metrik</th><th>%</th><th>n/N</th></tr></thead><tbody>';
+    for (const it of items) {
+        const sub = it.sub ? ' title="' + AtSpeedUtils.escapeHtml(it.sub).replace(/"/g, '&quot;') + '"' : '';
+        h += '<tr><td class="ptest-stats-label"' + sub + '>' + AtSpeedUtils.escapeHtml(it.label) + '</td>'
+            + '<td class="ptest-stats-pct">' + pctFmt(it.count, total) + '</td>'
+            + '<td class="ptest-stats-n">' + it.count + '/' + total + '</td></tr>';
+    }
+    return h + '</tbody></table>';
+}
+
+function renderBitisStatsGridHtml(stats) {
+    const total = stats.withBitis;
+    const items = [
+        { label: '1. bitirme', count: stats.b1, sub: 'yalnızca birincilik' },
+        { label: '1. veya 2.', count: stats.b12, sub: 'ilk iki' },
+        { label: '1., 2. veya 3.', count: stats.b123, sub: 'ilk üç' },
+        { label: '4. bitirme', count: stats.b4, sub: 'yalnızca dördüncülük' },
+        { label: 'İlk 4 dışı (5+)', count: stats.bOut, sub: 'beşinci ve sonrası' }
+    ];
+    return renderStatsTableHtml(items, total);
+}
+
+/** Yeşil hücre içinde SON·Δ aralığı + yanıp sönen alt grupları */
+const YESIL_SON_DELTA_BUCKETS = [
+    { label: 'Tam %0', gapTest: g => g === 0, blink: false },
+    { label: 'Tam %0 · yanıp sönen', gapTest: g => g === 0, blink: true },
+    { label: '%5\'e kadar', gapTest: g => g > 0 && g <= 5, blink: false },
+    { label: '%5\'e kadar · yanıp sönen', gapTest: g => g > 0 && g <= 5, blink: true },
+    { label: '%10\'a kadar', gapTest: g => g > 5 && g <= 10, blink: false },
+    { label: '%10\'a kadar · yanıp sönen', gapTest: g => g > 5 && g <= 10, blink: true },
+    { label: '%15\'e kadar', gapTest: g => g > 10 && g <= 15, blink: false },
+    { label: '%15\'e kadar · yanıp sönen', gapTest: g => g > 10 && g <= 15, blink: true },
+    { label: '%15 – %20', gapTest: g => g > 15 && g <= 20, blink: false },
+    { label: '%15 – %20 · yanıp sönen', gapTest: g => g > 15 && g <= 20, blink: true },
+    { label: '%20 – %25', gapTest: g => g > 20 && g <= 25, blink: false },
+    { label: '%20 – %25 · yanıp sönen', gapTest: g => g > 20 && g <= 25, blink: true },
+    { label: '%25\'ten fazla', gapTest: g => g > 25, blink: false },
+    { label: '%25\'ten fazla · yanıp sönen', gapTest: g => g > 25, blink: true }
+];
+
+function yesilEntriesForBucket(bucket) {
+    const out = [];
+    for (const entry of flatEntries) {
+        if (!sonDeltaMatchesRule(entry, 'yesilHucre')) continue;
+        const g = sonDeltaGapPct(entry);
+        if (g == null || !bucket.gapTest(g)) continue;
+        if (!yesilBucketBlinkMatch(entry, bucket)) continue;
+        out.push(entry);
+    }
+    return out;
+}
+
+let ptestViewTab = 'tablo';
+
+function switchPtestViewTab(tabId) {
+    ptestViewTab = tabId === 'gosterge' ? 'gosterge' : 'tablo';
+    document.querySelectorAll('.ptest-view-tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.ptestView === ptestViewTab);
+    });
+    const tablo = document.getElementById('ptestTabTablo');
+    const gosterge = document.getElementById('ptestTabGosterge');
+    if (tablo) tablo.classList.toggle('hidden', ptestViewTab !== 'tablo');
+    if (gosterge) gosterge.classList.toggle('hidden', ptestViewTab !== 'gosterge');
+    if (ptestViewTab === 'gosterge' && flatEntries.length) {
+        renderTuruncuReport();
+    }
+}
+
+function bindPtestViewTabs() {
+    document.querySelectorAll('.ptest-view-tab-btn').forEach(btn => {
+        btn.onclick = () => switchPtestViewTab(btn.dataset.ptestView || 'tablo');
+    });
+}
+
+function updateGostergeTabVisibility() {
+    const empty = document.getElementById('gostergeEmptyMsg');
+    const content = document.getElementById('gostergeContentWrap');
+    const hasData = flatEntries.length > 0;
+    if (empty) empty.classList.toggle('hidden', hasData);
+    if (content) content.classList.toggle('hidden', !hasData);
+}
+
+const PTEST_BUILD = '20260830j';
+let gostergeRenderGen = 0;
+let gostergeDataRev = 0;
+let gostergeBitisDebounce = null;
+const gostergeRenderedRev = new Map();
+
+function gostergeCacheKey() {
+    return ptestGostergeMode + ':' + (ptestGostergeMode === 'depthPair' ? ptestDepthMetricTab : ptestGostergeMetricTab);
+}
+
+function invalidateGostergeCache() {
+    gostergeDataRev++;
+    gostergeRenderedRev.clear();
+}
+
+function showGostergeLoading(title, sub) {
+    const wrap = document.getElementById('gostergeContentWrap');
+    const overlay = document.getElementById('gostergeLoadingOverlay');
+    const titleEl = document.getElementById('gostergeLoadingTitle');
+    const subEl = document.getElementById('gostergeLoadingSub');
+    if (titleEl) titleEl.textContent = title || 'Göstergeler hesaplanıyor…';
+    if (subEl) subEl.textContent = sub || 'Lütfen bekleyin — büyük veri setlerinde bu işlem birkaç saniye sürebilir.';
+    if (overlay) overlay.classList.remove('hidden');
+    if (wrap) wrap.classList.add('ptest-gosterge-busy');
+}
+
+function hideGostergeLoading() {
+    const wrap = document.getElementById('gostergeContentWrap');
+    const overlay = document.getElementById('gostergeLoadingOverlay');
+    if (overlay) overlay.classList.add('hidden');
+    if (wrap) wrap.classList.remove('ptest-gosterge-busy');
+}
+
+function scheduleGostergeRefresh() {
+    invalidateGostergeCache();
+    void (async () => {
+        await applyGostergeTahminScoring();
+        if (ptestViewTab === 'tablo') {
+            renderTableBodyOnly();
+            updateSummaryMeta();
+        }
+        if (ptestViewTab !== 'gosterge') return;
+        clearTimeout(gostergeBitisDebounce);
+        gostergeBitisDebounce = setTimeout(() => renderTuruncuReport(), 500);
+    })();
+}
+
+function resetGostergePanels() {
+    invalidateGostergeCache();
+    const depthPanels = document.getElementById('gostergeDepthMetricPanels');
+    const metricPanels = document.getElementById('gostergeMetricPanels');
+    if (depthPanels) {
+        depthPanels.innerHTML = '';
+        delete depthPanels.dataset.depthBuilt;
+    }
+    if (metricPanels) {
+        metricPanels.innerHTML = '';
+        delete metricPanels.dataset.built;
+    }
+    const depthTabs = document.getElementById('gostergeDepthMetricTabs');
+    if (depthTabs) depthTabs.innerHTML = '';
+}
+let ptestGostergeMetricTab = 'son8001';
+let ptestGostergeMode = 'sonDelta';
+let ptestDepthMetricTab = 'son8001';
+
+function initGostergeModeTabs() {
+    const btns = document.querySelectorAll('.ptest-gosterge-mode-btn');
+    if (!btns.length || document.getElementById('gostergeContentWrap')?.dataset.modeBound === '1') return;
+    document.getElementById('gostergeContentWrap').dataset.modeBound = '1';
+    btns.forEach(btn => {
+        btn.onclick = () => {
+            ptestGostergeMode = btn.dataset.gostergeMode === 'depthPair' ? 'depthPair' : 'sonDelta';
+            btns.forEach(b => b.classList.toggle('active', b.dataset.gostergeMode === ptestGostergeMode));
+            document.getElementById('gostergeModeSonDelta')?.classList.toggle('hidden', ptestGostergeMode !== 'sonDelta');
+            document.getElementById('gostergeModeDepthPair')?.classList.toggle('hidden', ptestGostergeMode !== 'depthPair');
+            renderTuruncuReport();
+        };
+    });
+}
+
+function initGostergeDepthMetricTabs() {
+    const tabsEl = document.getElementById('gostergeDepthMetricTabs');
+    const panelsEl = document.getElementById('gostergeDepthMetricPanels');
+    if (!tabsEl || !panelsEl) return;
+    const metrics = PtestGostergeDepthEngine.allMetrics(flatEntries);
+    if (!metrics.some(m => m.id === ptestDepthMetricTab)) {
+        ptestDepthMetricTab = metrics[0]?.id || 'son8001';
+    }
+    const metricsFp = metrics.map(m => m.id).join(',');
+    if (tabsEl.dataset.metricsFp !== metricsFp) {
+        let th = '';
+        for (const m of metrics) {
+            const active = m.id === ptestDepthMetricTab ? ' active' : '';
+            th += '<button type="button" class="ptest-gosterge-metric-tab-btn ptest-depth-metric-tab-btn' + active
+                + '" data-ptest-depth-metric="' + m.id + '">' + AtSpeedUtils.escapeHtml(m.label) + '</button>';
+        }
+        tabsEl.innerHTML = th;
+        tabsEl.dataset.metricsFp = metricsFp;
+        delete panelsEl.dataset.depthBuilt;
+        panelsEl.innerHTML = '';
+    }
+    PtestGostergeDepthEngine.ensureDepthPanels(panelsEl, flatEntries);
+    if (tabsEl.dataset.bound !== '1') {
+        tabsEl.dataset.bound = '1';
+        tabsEl.addEventListener('click', (e) => {
+            const btn = e.target.closest('.ptest-depth-metric-tab-btn');
+            if (!btn) return;
+            ptestDepthMetricTab = btn.dataset.ptestDepthMetric || 'son8001';
+            PtestGostergeDepthEngine.switchDepthMetricTab(ptestDepthMetricTab);
+            tabsEl.querySelectorAll('.ptest-depth-metric-tab-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.ptestDepthMetric === ptestDepthMetricTab);
+            });
+            renderTuruncuReport();
+        });
+    } else {
+        tabsEl.querySelectorAll('.ptest-depth-metric-tab-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.ptestDepthMetric === ptestDepthMetricTab);
+        });
+    }
+    PtestGostergeDepthEngine.switchDepthMetricTab(ptestDepthMetricTab);
+}
+
+function getPtestScoringHost() {
+    return {
+        ...getPtestGostergeHost(),
+        bitisValueForSort
+    };
+}
+
+async function applyGostergeTahminScoring() {
+    const host = getPtestScoringHost();
+    await GostergeScoringEngine.calibrate(flatEntries, host);
+    GostergeScoringEngine.applyToFlatEntries(flatEntries);
+    const ladderEl = document.getElementById('gostergeScoringLadder');
+    if (ladderEl) ladderEl.innerHTML = GostergeScoringEngine.renderCalibrationHtml();
+    invalidateGostergeCache();
+}
+
+function getPtestGostergeHost() {
+    return {
+        flatEntries,
+        buildBitisStatsFromEntries,
+        buildRaceEntryGroups,
+        computeMetricRankInRace,
+        buildRaceRankStatsFromItems,
+        countUniqueRaces,
+        raceKey
+    };
+}
+
+function initGostergeMetricTabs() {
+    const tabsEl = document.getElementById('gostergeMetricTabs');
+    const panelsEl = document.getElementById('gostergeMetricPanels');
+    if (!tabsEl || !panelsEl) return;
+    if (tabsEl.dataset.bound !== '1') {
+        tabsEl.dataset.bound = '1';
+        let th = '';
+        for (const m of PtestGostergeEngine.METRICS) {
+            const active = m.id === ptestGostergeMetricTab ? ' active' : '';
+            th += '<button type="button" class="ptest-gosterge-metric-tab-btn' + active
+                + '" data-ptest-metric="' + m.id + '">' + AtSpeedUtils.escapeHtml(m.label) + '</button>';
+        }
+        tabsEl.innerHTML = th;
+        PtestGostergeEngine.ensureMetricPanels(panelsEl);
+        tabsEl.addEventListener('click', (e) => {
+            const btn = e.target.closest('.ptest-gosterge-metric-tab-btn');
+            if (!btn || btn.classList.contains('ptest-depth-metric-tab-btn')) return;
+            ptestGostergeMetricTab = btn.dataset.ptestMetric || 'son8001';
+            PtestGostergeEngine.switchMetricTab(ptestGostergeMetricTab);
+            tabsEl.querySelectorAll('.ptest-gosterge-metric-tab-btn:not(.ptest-depth-metric-tab-btn)').forEach(b => {
+                b.classList.toggle('active', b.dataset.ptestMetric === ptestGostergeMetricTab);
+            });
+            renderTuruncuReport();
+        });
+    } else {
+        tabsEl.querySelectorAll('.ptest-gosterge-metric-tab-btn:not(.ptest-depth-metric-tab-btn)').forEach(b => {
+            b.classList.toggle('active', b.dataset.ptestMetric === ptestGostergeMetricTab);
+        });
+    }
+    PtestGostergeEngine.switchMetricTab(ptestGostergeMetricTab);
+}
+
+function t1SariSonDeltaMatchesPct(entry, pct) {
+    if (!t1SonDeltaVisualFlags(entry).sariYazi) return false;
+    return t1SonDeltaGapPct(entry) === pct;
+}
+
+function entriesForT1SariPctAndS800Delta(t1Pct, tierMatch, bucket) {
+    const out = [];
+    for (const entry of flatEntries) {
+        if (!t1SariSonDeltaMatchesPct(entry, t1Pct)) continue;
+        if (!tierMatch(entry)) continue;
+        const g = sonDeltaGapPct(entry);
+        if (g == null || !bucket.gapTest(g)) continue;
+        out.push(entry);
+    }
+    return out;
+}
+
+/** SON800 · SON·Δ renk tonları — T1 sarı %N alt göstergeleri */
+const S800_SON_DELTA_TIERS = [
+    {
+        id: 'yesilHucre',
+        emoji: '🟢',
+        label: 'yeşil hücre',
+        wrapClass: 'ptest-t1-sari-yesil-wrap',
+        tierMatch(entry) { return sonDeltaMatchesRule(entry, 'yesilHucre'); },
+        comboMatch(entry, t1Pct) { return matchesT1SariS800YesilBlinkZero(entry, t1Pct); },
+        comboLabel: 'Δ yeşil yanıp sönen %0'
+    },
+    {
+        id: 'turuncuHucre',
+        emoji: '🟠',
+        label: 'turuncu hücre',
+        wrapClass: 'ptest-t1-sari-turuncu-wrap',
+        tierMatch(entry) { return sonDeltaMatchesRule(entry, 'turuncuHucre'); },
+        comboMatch(entry, t1Pct) {
+            return t1SariSonDeltaMatchesPct(entry, t1Pct) && sonDeltaMatchesRule(entry, 'turuncuHucre');
+        },
+        comboLabel: 'turuncu hücre · Δ tam %0'
+    },
+    {
+        id: 'sariYazi',
+        emoji: '🟡',
+        label: 'sarı yazı',
+        wrapClass: 'ptest-t1-sari-sariyazi-wrap',
+        tierMatch(entry) { return sonDeltaVisualFlags(entry).sariYazi; },
+        comboMatch(entry, t1Pct) {
+            return t1SariSonDeltaMatchesPct(entry, t1Pct) && sonDeltaVisualFlags(entry).sariYazi
+                && sonDeltaGapPct(entry) === t1Pct;
+        },
+        comboLabel: 'sarı yazı · Δ hizalı'
+    },
+    {
+        id: 'kirmiziIc',
+        emoji: '🔴',
+        label: 'kırmızı iç',
+        wrapClass: 'ptest-t1-sari-kirmizi-wrap',
+        tierMatch(entry) { return sonDeltaVisualFlags(entry).kirmiziIc; },
+        comboMatch(entry, t1Pct) {
+            return t1SariSonDeltaMatchesPct(entry, t1Pct) && sonDeltaVisualFlags(entry).kirmiziIc
+                && sonDeltaGapPct(entry) === 0;
+        },
+        comboLabel: 'kırmızı iç · Δ tam %0'
+    },
+    {
+        id: 'acikYesilIc',
+        emoji: '🟢',
+        label: 'açık yeşil iç',
+        wrapClass: 'ptest-t1-sari-acikyesil-wrap',
+        tierMatch(entry) { return sonDeltaVisualFlags(entry).acikYesilIc; },
+        comboMatch(entry, t1Pct) {
+            return t1SariSonDeltaMatchesPct(entry, t1Pct) && sonDeltaVisualFlags(entry).acikYesilIc
+                && sonDeltaGapPct(entry) === t1Pct;
+        },
+        comboLabel: 'açık yeşil · Δ hizalı'
+    },
+    {
+        id: 'koyuYesilIc',
+        emoji: '🟩',
+        label: 'koyu yeşil iç',
+        wrapClass: 'ptest-t1-sari-koyuyesil-wrap',
+        tierMatch(entry) { return sonDeltaVisualFlags(entry).koyuYesilIc; },
+        comboMatch(entry, t1Pct) {
+            return t1SariSonDeltaMatchesPct(entry, t1Pct) && sonDeltaVisualFlags(entry).koyuYesilIc
+                && sonDeltaGapPct(entry) === t1Pct;
+        },
+        comboLabel: 'koyu yeşil · Δ hizalı'
+    }
+];
+
+function renderT1SariS800TierDeltaSubgroupsHtml(t1Pct, tier) {
+    let h = '<div class="ptest-t1-sari-tier-wrap ' + tier.wrapClass + '">';
+    h += '<div class="ptest-t1-sari-tier-heading">' + tier.emoji
+        + ' SON800-1 · SON·Δ ' + AtSpeedUtils.escapeHtml(tier.label) + ' — 7 kırılım</div>';
+    for (const bucket of YESIL_RACE_DELTA_BUCKETS) {
+        const entries = entriesForT1SariPctAndS800Delta(t1Pct, tier.tierMatch, bucket);
+        const stats = buildBitisStatsFromEntries(entries);
+        h += '<div class="ptest-t1-sari-tier-subgroup">';
+        h += '<div class="ptest-t1-sari-tier-subgroup-title">'
+            + AtSpeedUtils.escapeHtml(tier.label) + ' · ' + AtSpeedUtils.escapeHtml(bucket.label) + '</div>';
+        h += '<div class="ptest-t1-sari-tier-subgroup-meta">T1 sarı %' + t1Pct + ' · '
+            + stats.matchedRows + ' satır · ' + stats.withBitis + ' bitiş</div>';
+        h += '<div class="ptest-stats-wrap">' + renderBitisStatsGridHtml(stats) + '</div>';
+        h += '</div>';
+    }
+    h += '</div>';
+    return h;
+}
+
+function entriesForT1SariTierComboBs(t1Pct, comboMatch, s800BsBucket) {
+    const out = [];
+    for (const entry of flatEntries) {
+        if (!comboMatch(entry, t1Pct)) continue;
+        const bs = s800SonBsPct(entry);
+        if (bs == null || !s800BsBucket.bsTest(bs)) continue;
+        out.push(entry);
+    }
+    return out;
+}
+
+function entriesForT1SariTierComboBsT1Bs(t1Pct, comboMatch, s800BsBucket, t1BsBucket) {
+    const out = [];
+    for (const entry of flatEntries) {
+        if (!comboMatch(entry, t1Pct)) continue;
+        const s800bs = s800SonBsPct(entry);
+        if (s800bs == null || !s800BsBucket.bsTest(s800bs)) continue;
+        const t1bs = t1SonDepthBsPct(entry);
+        if (t1bs == null || !t1BsBucket.bsTest(t1bs)) continue;
+        out.push(entry);
+    }
+    return out;
+}
+
+function renderT1DrSonBsNestedHtml(t1Pct, s800BsBucket, tier) {
+    let h = '<div class="ptest-t1-sari-t1bs-nested-wrap">';
+    h += '<div class="ptest-t1-sari-t1bs-nested-heading">T1×DR · SON·BS · '
+        + AtSpeedUtils.escapeHtml(s800BsBucket.label) + '</div>';
+    for (const t1BsBucket of T1_DR_SON_BS_RANGE_BUCKETS) {
+        const entries = entriesForT1SariTierComboBsT1Bs(t1Pct, tier.comboMatch, s800BsBucket, t1BsBucket);
+        const stats = buildBitisStatsFromEntries(entries);
+        h += '<div class="ptest-t1-sari-t1bs-nested-subgroup">';
+        h += '<div class="ptest-t1-sari-t1bs-nested-subgroup-title">'
+            + AtSpeedUtils.escapeHtml(t1BsBucket.label) + '</div>';
+        h += '<div class="ptest-t1-sari-t1bs-nested-subgroup-meta">T1 sarı %' + t1Pct
+            + ' · ' + AtSpeedUtils.escapeHtml(tier.comboLabel) + ' · '
+            + AtSpeedUtils.escapeHtml(s800BsBucket.label) + ' · '
+            + stats.matchedRows + ' satır · ' + stats.withBitis + ' bitiş</div>';
+        h += '<div class="ptest-stats-wrap">' + renderBitisStatsGridHtml(stats) + '</div>';
+        h += '</div>';
+    }
+    h += '</div>';
+    return h;
+}
+
+function renderT1SariS800TierBsComboHtml(t1Pct, tier) {
+    let h = '<div class="ptest-t1-sari-tier-bscombo ' + tier.wrapClass + '">';
+    h += '<div class="ptest-t1-sari-tier-bscombo-heading">' + tier.emoji
+        + ' T1 sarı %' + t1Pct + ' · SON800 · ' + AtSpeedUtils.escapeHtml(tier.comboLabel)
+        + ' · SON·BS kırılımları</div>';
+    for (const bsBucket of T1_SARI_S800_BS_BUCKETS) {
+        const entries = entriesForT1SariTierComboBs(t1Pct, tier.comboMatch, bsBucket);
+        const stats = buildBitisStatsFromEntries(entries);
+        h += '<div class="ptest-t1-sari-tier-bs-block">';
+        h += '<div class="ptest-t1-sari-tier-bs-block-title">' + AtSpeedUtils.escapeHtml(bsBucket.label) + '</div>';
+        h += '<div class="ptest-t1-sari-tier-bs-block-meta">'
+            + stats.matchedRows + ' satır · ' + stats.withBitis + ' bitiş</div>';
+        h += '<div class="ptest-stats-wrap">' + renderBitisStatsGridHtml(stats) + '</div>';
+        h += renderT1DrSonBsNestedHtml(t1Pct, bsBucket, tier);
+        h += '</div>';
+    }
+    h += '</div>';
+    return h;
+}
+
+function renderT1SariAllS800TiersHtml(t1Pct) {
+    let h = '';
+    for (const tier of S800_SON_DELTA_TIERS) {
+        h += renderT1SariS800TierDeltaSubgroupsHtml(t1Pct, tier);
+        h += renderT1SariS800TierBsComboHtml(t1Pct, tier);
+    }
+    return h;
+}
+
+/** T1×DR · SON·Δ sarı yazı — %1 … %25 tek tek gösterge */
+const T1_SARI_SON_DELTA_INDICATORS = Array.from({ length: 25 }, (_, i) => {
+    const pct = i + 1;
+    return {
+        id: 'sariDelta' + pct,
+        pct,
+        title: 'Sarı · SON·Δ %' + pct,
+        hint: 'T1×DR · SON·Δ sarı yazı · tam %' + pct,
+        matchEntry(entry) {
+            return t1SariSonDeltaMatchesPct(entry, pct);
+        }
+    };
+});
+
+/** T1×DR · SON derinlik — diğer göstergeler (sarı %1–%24 dışı) */
+const T1_DR_INDICATORS = [];
+
+function s800SonBsPct(entry) {
+    return entry.row.son8001Depths?.[0]?.successPct ?? null;
+}
+
+/** SON800 · yeşil hücre · SON·Δ tam %0 · yanıp sönen */
+const S800_YESIL_BLINK_ZERO_BUCKET = {
+    label: 'Tam %0 · yanıp sönen',
+    gapTest: g => g === 0,
+    blink: true
+};
+
+/** T1 sarı + SON800 yeşil yanıp sönen %0 + SON800 · SON·BS kırılımları */
+const T1_SARI_S800_BS_BUCKETS = [
+    { label: 'SON800 · SON·BS tam %100', bsTest: bs => bs === 100 },
+    { label: 'SON800 · SON·BS %95 – %99', bsTest: bs => bs >= 95 && bs <= 99 },
+    { label: 'SON800 · SON·BS %91 – %94', bsTest: bs => bs >= 91 && bs <= 94 },
+    { label: 'SON800 · SON·BS %90 – %95', bsTest: bs => bs >= 90 && bs <= 95 },
+    { label: 'SON800 · SON·BS %85 – %89', bsTest: bs => bs >= 85 && bs <= 89 },
+    { label: 'SON800 · SON·BS %80 – %84', bsTest: bs => bs >= 80 && bs <= 84 },
+    { label: 'SON800 · SON·BS %75 – %79', bsTest: bs => bs >= 75 && bs <= 79 },
+    { label: 'SON800 · SON·BS %75 altı', bsTest: bs => bs != null && bs < 75 }
+];
+
+function matchesT1SariS800YesilBlinkZero(entry, t1Pct) {
+    if (!t1SariSonDeltaMatchesPct(entry, t1Pct)) return false;
+    if (!sonDeltaMatchesRule(entry, 'yesilHucre')) return false;
+    const g = sonDeltaGapPct(entry);
+    if (g == null || !S800_YESIL_BLINK_ZERO_BUCKET.gapTest(g)) return false;
+    return yesilBucketBlinkMatch(entry, S800_YESIL_BLINK_ZERO_BUCKET);
+}
+
+function entriesForT1SariS800BlinkZeroBs(t1Pct, bsBucket) {
+    const out = [];
+    for (const entry of flatEntries) {
+        if (!matchesT1SariS800YesilBlinkZero(entry, t1Pct)) continue;
+        const bs = s800SonBsPct(entry);
+        if (bs == null || !bsBucket.bsTest(bs)) continue;
+        out.push(entry);
+    }
+    return out;
+}
+
+function buildRaceEntryGroups() {
+    const map = new Map();
+    for (const entry of flatEntries) {
+        const rk = raceKey(entry.kayitId, entry.raceNo);
+        if (!map.has(rk)) map.set(rk, []);
+        map.get(rk).push(entry);
+    }
+    return map;
+}
+
+/** Aynı koşuda metrik değerine göre sıra (yüksek = 1.) */
+function computeMetricRankInRace(entry, raceEntries, getMetric) {
+    const val = getMetric(entry);
+    if (val == null) return { rank: null, field: 0 };
+    let rank = 1;
+    let field = 0;
+    for (const other of raceEntries) {
+        const ov = getMetric(other);
+        if (ov == null) continue;
+        field++;
+        if (ov > val) rank++;
+    }
+    if (!field) return { rank: null, field: 0 };
+    return { rank, field };
+}
+
+/** Yeşil hücre — koşu içi kıyas için 7 SON·Δ aralığı (yanıp sönen birleşik) */
+const YESIL_RACE_DELTA_BUCKETS = [
+    { label: 'Tam %0', gapTest: g => g === 0 },
+    { label: '%5\'e kadar', gapTest: g => g > 0 && g <= 5 },
+    { label: '%10\'a kadar', gapTest: g => g > 5 && g <= 10 },
+    { label: '%15\'e kadar', gapTest: g => g > 10 && g <= 15 },
+    { label: '%15 – %20', gapTest: g => g > 15 && g <= 20 },
+    { label: '%20 – %25', gapTest: g => g > 20 && g <= 25 },
+    { label: '%25\'ten fazla', gapTest: g => g > 25 }
+];
+
+function yesilRaceDeltaMatch(entry, bucket) {
+    if (!sonDeltaMatchesRule(entry, 'yesilHucre')) return false;
+    const g = sonDeltaGapPct(entry);
+    return g != null && bucket.gapTest(g);
+}
+
+function buildRaceRankStatsFromItems(rankItems) {
+    let withRank = 0;
+    let r1 = 0, r12 = 0, r123 = 0, r4 = 0, rOut = 0;
+    for (const item of rankItems) {
+        const rank = item.rank;
+        if (rank == null) continue;
+        withRank++;
+        if (rank === 1) r1++;
+        if (rank <= 2) r12++;
+        if (rank <= 3) r123++;
+        if (rank === 4) r4++;
+        if (rank >= 5) rOut++;
+    }
+    return { matchedRows: rankItems.length, withBitis: withRank, b1: r1, b12: r12, b123: r123, b4: r4, bOut: rOut };
+}
+
+function renderRaceRankStatsGridHtml(stats) {
+    const total = stats.withBitis;
+    const items = [
+        { label: 'Koşuda SON·BS 1.', count: stats.b1, sub: 'rakipler arası en yüksek' },
+        { label: 'Koşuda SON·BS ilk 2', count: stats.b12, sub: 'aynı koşu sıralaması' },
+        { label: 'Koşuda SON·BS ilk 3', count: stats.b123, sub: 'aynı koşu sıralaması' },
+        { label: 'Koşuda SON·BS 4.', count: stats.b4, sub: 'aynı koşu sıralaması' },
+        { label: 'Koşuda SON·BS 5+', count: stats.bOut, sub: 'alt sıralar' }
+    ];
+    return renderStatsTableHtml(items, total);
+}
+
+function t1SonDepthBsPct(entry) {
+    const v = entry.row.t1drDepths?.[0]?.successPct;
+    return v != null ? v : null;
+}
+
+/** T1×DR · SON·BS aralık kırılımları — sarı+SON800 combo alt göstergeleri */
+const T1_DR_SON_BS_RANGE_BUCKETS = [
+    { label: 'T1×DR · SON·BS tam %100', bsTest: bs => bs === 100 },
+    { label: 'T1×DR · SON·BS %95 – %99', bsTest: bs => bs >= 95 && bs <= 99 },
+    { label: 'T1×DR · SON·BS %91 – %94', bsTest: bs => bs >= 91 && bs <= 94 },
+    { label: 'T1×DR · SON·BS %90 – %95', bsTest: bs => bs >= 90 && bs <= 95 },
+    { label: 'T1×DR · SON·BS %85 – %89', bsTest: bs => bs >= 85 && bs <= 89 },
+    { label: 'T1×DR · SON·BS %80 – %84', bsTest: bs => bs >= 80 && bs <= 84 },
+    { label: 'T1×DR · SON·BS %75 – %79', bsTest: bs => bs >= 75 && bs <= 79 },
+    { label: 'T1×DR · SON·BS %75 altı', bsTest: bs => bs != null && bs < 75 }
+];
+
+function entriesForTierDeltaAndBs(tierMatch, deltaBucket, bsBucket) {
+    const out = [];
+    for (const entry of flatEntries) {
+        if (!tierMatch(entry)) continue;
+        const g = sonDeltaGapPct(entry);
+        if (g == null || !deltaBucket.gapTest(g)) continue;
+        if (deltaBucket.blink != null && !yesilBucketBlinkMatch(entry, deltaBucket)) continue;
+        const bs = t1SonDepthBsPct(entry);
+        if (bs == null || !bsBucket.bsTest(bs)) continue;
+        out.push(entry);
+    }
+    return out;
+}
+
+function turuncuEntriesForBucket(bucket) {
+    const out = [];
+    for (const entry of flatEntries) {
+        if (!sonDeltaMatchesRule(entry, 'turuncuHucre')) continue;
+        const g = sonDeltaGapPct(entry);
+        if (g == null || !bucket.gapTest(g)) continue;
+        if (!yesilBucketBlinkMatch(entry, bucket)) continue;
+        out.push(entry);
+    }
+    return out;
+}
+
+function sariYaziEntriesForBucket(bucket) {
+    const out = [];
+    for (const entry of flatEntries) {
+        if (!sonDeltaVisualFlags(entry).sariYazi) continue;
+        const g = sonDeltaGapPct(entry);
+        if (g == null || !bucket.gapTest(g)) continue;
+        if (!yesilBucketBlinkMatch(entry, bucket)) continue;
+        out.push(entry);
+    }
+    return out;
+}
+
+/** T1×DR · SON·BS alt kırılımları — yeşil hücre detay raporu için 8 grup */
+const YESIL_T1_BS_BUCKETS = [
+    { label: 'T1×DR · SON·BS kırmızı iç · tam %0', bsTest: bs => bs === 0 },
+    { label: 'T1×DR · SON·BS tam %100', bsTest: bs => bs === 100 },
+    { label: 'T1×DR · SON·BS %90 – %99', bsTest: bs => bs >= 90 && bs <= 99 },
+    { label: 'T1×DR · SON·BS %80 – %89', bsTest: bs => bs >= 80 && bs <= 89 },
+    { label: 'T1×DR · SON·BS %70 – %79', bsTest: bs => bs >= 70 && bs <= 79 },
+    { label: 'T1×DR · SON·BS %60 – %69', bsTest: bs => bs >= 60 && bs <= 69 },
+    { label: 'T1×DR · SON·BS %50 – %59', bsTest: bs => bs >= 50 && bs <= 59 },
+    { label: 'T1×DR · SON·BS %1 – %49', bsTest: bs => bs >= 1 && bs <= 49 }
+];
+
+function yesilEntriesForDeltaAndBs(deltaBucket, bsBucket) {
+    const out = [];
+    for (const entry of flatEntries) {
+        if (!sonDeltaMatchesRule(entry, 'yesilHucre')) continue;
+        const g = sonDeltaGapPct(entry);
+        if (g == null || !deltaBucket.gapTest(g)) continue;
+        if (!yesilBucketBlinkMatch(entry, deltaBucket)) continue;
+        const bs = t1SonDepthBsPct(entry);
+        if (bs == null || !bsBucket.bsTest(bs)) continue;
+        out.push(entry);
+    }
+    return out;
+}
+
+function renderReportSubgroupsHtml(buckets, entriesFn) {
+    let h = '';
+    for (const bucket of buckets) {
+        const entries = entriesFn(bucket);
+        const stats = buildBitisStatsFromEntries(entries);
+        h += '<div class="ptest-report-subgroup">';
+        h += '<div class="ptest-report-subgroup-title">' + AtSpeedUtils.escapeHtml(bucket.label) + '</div>';
+        h += '<div class="ptest-report-subgroup-meta">'
+            + stats.matchedRows + ' satır · ' + stats.withBitis + ' bitiş bilgisi</div>';
+        h += '<div class="ptest-stats-wrap">' + renderBitisStatsGridHtml(stats) + '</div>';
+        h += '</div>';
+    }
+    return h;
+}
+
+function renderYesilDetailedReport() {
+    const el = document.getElementById('yesilReportDetail');
+    const panel = document.getElementById('yesilDetailPanel');
+    const tag = document.getElementById('yesilDetailBuildTag');
+    if (!el || !panel) return 0;
+    if (tag) tag.textContent = 'build ' + PTEST_BUILD;
+    el.innerHTML = renderReportSubgroupsHtml(YESIL_SON_DELTA_BUCKETS, yesilEntriesForBucket) || '<p>Veri yok</p>';
+    panel.classList.toggle('hidden', !flatEntries.length);
+    return YESIL_SON_DELTA_BUCKETS.length;
+}
+
+function renderYesilDeltaBsDetailedReport() {
+    const el = document.getElementById('yesilBlinkBsReportDetail');
+    const panel = document.getElementById('yesilBlinkBsDetailPanel');
+    const tag = document.getElementById('yesilBlinkBsBuildTag');
+    if (!el || !panel) return 0;
+    if (tag) tag.textContent = 'build ' + PTEST_BUILD;
+    let h = '';
+    for (const deltaBucket of YESIL_SON_DELTA_BUCKETS) {
+        const parentEntries = yesilEntriesForBucket(deltaBucket);
+        const parentStats = buildBitisStatsFromEntries(parentEntries);
+        h += '<div class="ptest-report-delta-section">';
+        h += '<div class="ptest-report-delta-section-title">' + AtSpeedUtils.escapeHtml(deltaBucket.label) + '</div>';
+        h += '<div class="ptest-report-delta-section-meta">'
+            + parentStats.matchedRows + ' satır · ' + parentStats.withBitis + ' bitiş bilgisi'
+            + ' · yeşil hücre · SON·Δ</div>';
+        h += renderReportSubgroupsHtml(YESIL_T1_BS_BUCKETS, bsBucket =>
+            yesilEntriesForDeltaAndBs(deltaBucket, bsBucket));
+        h += '</div>';
+    }
+    el.innerHTML = h || '<p>Veri yok</p>';
+    panel.classList.toggle('hidden', !flatEntries.length);
+    return YESIL_SON_DELTA_BUCKETS.length * YESIL_T1_BS_BUCKETS.length;
+}
+
+function renderYesilRaceRankReport() {
+    const el = document.getElementById('yesilRaceRankReportDetail');
+    const panel = document.getElementById('yesilRaceRankPanel');
+    const tag = document.getElementById('yesilRaceRankBuildTag');
+    if (!el || !panel) return 0;
+    if (tag) tag.textContent = 'build ' + PTEST_BUILD;
+    const raceGroups = buildRaceEntryGroups();
+    let h = '';
+    for (const bucket of YESIL_RACE_DELTA_BUCKETS) {
+        const rankItems = [];
+        let fieldSum = 0;
+        let fieldCount = 0;
+        for (const entry of flatEntries) {
+            if (!yesilRaceDeltaMatch(entry, bucket)) continue;
+            const rk = raceKey(entry.kayitId, entry.raceNo);
+            const raceEntries = raceGroups.get(rk) || [];
+            const { rank, field } = computeMetricRankInRace(entry, raceEntries, s800SonBsPct);
+            rankItems.push({ rank, field });
+            if (field > 0) {
+                fieldSum += field;
+                fieldCount++;
+            }
+        }
+        const stats = buildRaceRankStatsFromItems(rankItems);
+        const avgField = fieldCount ? (Math.round((fieldSum / fieldCount) * 10) / 10).toFixed(1) : '—';
+        h += '<div class="ptest-report-delta-section">';
+        h += '<div class="ptest-report-delta-section-title">' + AtSpeedUtils.escapeHtml(bucket.label) + '</div>';
+        h += '<div class="ptest-report-delta-section-meta">'
+            + stats.matchedRows + ' yeşil at · ' + stats.withBitis + ' koşu içi sıra hesaplı'
+            + ' · ortalama ' + avgField + ' at/koşu</div>';
+        h += '<div class="ptest-stats-wrap">' + renderRaceRankStatsGridHtml(stats) + '</div>';
+        h += '</div>';
+    }
+    el.innerHTML = h || '<p>Veri yok</p>';
+    panel.classList.toggle('hidden', !flatEntries.length);
+    return YESIL_RACE_DELTA_BUCKETS.length;
+}
+
+function turuncuEntriesForDeltaAndBs(deltaBucket, bsBucket) {
+    return entriesForTierDeltaAndBs(
+        e => sonDeltaMatchesRule(e, 'turuncuHucre'),
+        deltaBucket,
+        bsBucket
+    );
+}
+
+function sariYaziEntriesForDeltaAndBs(deltaBucket, bsBucket) {
+    return entriesForTierDeltaAndBs(
+        e => sonDeltaVisualFlags(e).sariYazi,
+        deltaBucket,
+        bsBucket
+    );
+}
+
+function renderTuruncuDetailedReport() {
+    const el = document.getElementById('turuncuReportDetail');
+    const panel = document.getElementById('turuncuDetailPanel');
+    const tag = document.getElementById('turuncuDetailBuildTag');
+    if (!el || !panel) return 0;
+    if (tag) tag.textContent = 'build ' + PTEST_BUILD;
+    el.innerHTML = renderReportSubgroupsHtml(YESIL_SON_DELTA_BUCKETS, turuncuEntriesForBucket) || '<p>Veri yok</p>';
+    panel.classList.toggle('hidden', !flatEntries.length);
+    return YESIL_SON_DELTA_BUCKETS.length;
+}
+
+function renderTuruncuDeltaBsDetailedReport() {
+    const el = document.getElementById('turuncuBlinkBsReportDetail');
+    const panel = document.getElementById('turuncuBlinkBsDetailPanel');
+    const tag = document.getElementById('turuncuBlinkBsBuildTag');
+    if (!el || !panel) return 0;
+    if (tag) tag.textContent = 'build ' + PTEST_BUILD;
+    let h = '';
+    for (const deltaBucket of YESIL_SON_DELTA_BUCKETS) {
+        const parentEntries = turuncuEntriesForBucket(deltaBucket);
+        const parentStats = buildBitisStatsFromEntries(parentEntries);
+        h += '<div class="ptest-report-delta-section">';
+        h += '<div class="ptest-report-delta-section-title">' + AtSpeedUtils.escapeHtml(deltaBucket.label) + '</div>';
+        h += '<div class="ptest-report-delta-section-meta">'
+            + parentStats.matchedRows + ' satır · ' + parentStats.withBitis + ' bitiş · turuncu hücre</div>';
+        h += renderReportSubgroupsHtml(YESIL_T1_BS_BUCKETS, bsBucket =>
+            turuncuEntriesForDeltaAndBs(deltaBucket, bsBucket));
+        h += '</div>';
+    }
+    el.innerHTML = h || '<p>Veri yok</p>';
+    panel.classList.toggle('hidden', !flatEntries.length);
+    return YESIL_SON_DELTA_BUCKETS.length * YESIL_T1_BS_BUCKETS.length;
+}
+
+function renderSariYaziDetailedReport() {
+    const el = document.getElementById('sariYaziReportDetail');
+    const panel = document.getElementById('sariYaziDetailPanel');
+    const tag = document.getElementById('sariYaziDetailBuildTag');
+    if (!el || !panel) return 0;
+    if (tag) tag.textContent = 'build ' + PTEST_BUILD;
+    el.innerHTML = renderReportSubgroupsHtml(YESIL_SON_DELTA_BUCKETS, sariYaziEntriesForBucket) || '<p>Veri yok</p>';
+    panel.classList.toggle('hidden', !flatEntries.length);
+    return YESIL_SON_DELTA_BUCKETS.length;
+}
+
+function renderSariYaziDeltaBsDetailedReport() {
+    const el = document.getElementById('sariYaziBlinkBsReportDetail');
+    const panel = document.getElementById('sariYaziBlinkBsDetailPanel');
+    const tag = document.getElementById('sariYaziBlinkBsBuildTag');
+    if (!el || !panel) return 0;
+    if (tag) tag.textContent = 'build ' + PTEST_BUILD;
+    let h = '';
+    for (const deltaBucket of YESIL_SON_DELTA_BUCKETS) {
+        const parentEntries = sariYaziEntriesForBucket(deltaBucket);
+        const parentStats = buildBitisStatsFromEntries(parentEntries);
+        h += '<div class="ptest-report-delta-section">';
+        h += '<div class="ptest-report-delta-section-title">' + AtSpeedUtils.escapeHtml(deltaBucket.label) + '</div>';
+        h += '<div class="ptest-report-delta-section-meta">'
+            + parentStats.matchedRows + ' satır · ' + parentStats.withBitis + ' bitiş · sarı yazı</div>';
+        h += renderReportSubgroupsHtml(YESIL_T1_BS_BUCKETS, bsBucket =>
+            sariYaziEntriesForDeltaAndBs(deltaBucket, bsBucket));
+        h += '</div>';
+    }
+    el.innerHTML = h || '<p>Veri yok</p>';
+    panel.classList.toggle('hidden', !flatEntries.length);
+    return YESIL_SON_DELTA_BUCKETS.length * YESIL_T1_BS_BUCKETS.length;
+}
+
+function renderT1IndicatorBlocks(indicators, contentEl, emptyMsg) {
+    if (!contentEl) return 0;
+    if (!indicators.length) {
+        contentEl.innerHTML = '<p style="margin:0;color:#789">' + AtSpeedUtils.escapeHtml(emptyMsg || 'Gösterge yok') + '</p>';
+        return 0;
+    }
+    let h = '';
+    for (const ind of indicators) {
+        const matched = [];
+        for (const entry of flatEntries) {
+            if (ind.matchEntry(entry)) matched.push(entry);
+        }
+        const stats = buildBitisStatsFromEntries(matched);
+        h += '<div class="ptest-t1-indicator-block" id="t1Indicator_' + ind.id + '">';
+        h += '<div class="ptest-t1-indicator-title">' + AtSpeedUtils.escapeHtml(ind.title) + '</div>';
+        h += '<div class="ptest-t1-indicator-meta">' + AtSpeedUtils.escapeHtml(ind.hint)
+            + ' · ' + stats.matchedRows + ' satır · ' + stats.withBitis + ' bitiş bilgisi</div>';
+        h += '<div class="ptest-stats-wrap">' + renderBitisStatsGridHtml(stats) + '</div>';
+        h += '</div>';
+    }
+    contentEl.innerHTML = h || '<p>Gösterge yok</p>';
+    return indicators.length;
+}
+
+function renderT1SariDeltaIndicators() {
+    const content = document.getElementById('t1SariDeltaIndicatorsContent');
+    const globalMeta = document.getElementById('t1SariDeltaGlobalMeta');
+    const tag = document.getElementById('t1SariDeltaBuildTag');
+    if (!content) return 0;
+    if (!flatEntries.length) return 0;
+    if (tag) tag.textContent = 'build ' + PTEST_BUILD;
+    if (globalMeta) {
+        globalMeta.textContent = '📈 T1×DR · SON·Δ sarı yazı · ' + T1_SARI_SON_DELTA_INDICATORS.length
+            + ' gösterge × ' + S800_SON_DELTA_TIERS.length + ' renk tonu · '
+            + YESIL_RACE_DELTA_BUCKETS.length + ' Δ · '
+            + T1_SARI_S800_BS_BUCKETS.length + ' SON800 BS × '
+            + T1_DR_SON_BS_RANGE_BUCKETS.length + ' T1 BS'
+            + ' · build ' + PTEST_BUILD;
+    }
+    let h = '';
+    for (const ind of T1_SARI_SON_DELTA_INDICATORS) {
+        const matched = [];
+        for (const entry of flatEntries) {
+            if (ind.matchEntry(entry)) matched.push(entry);
+        }
+        const stats = buildBitisStatsFromEntries(matched);
+        h += '<div class="ptest-t1-indicator-block" id="t1Indicator_' + ind.id + '">';
+        h += '<div class="ptest-t1-indicator-title">' + AtSpeedUtils.escapeHtml(ind.title) + '</div>';
+        h += '<div class="ptest-t1-indicator-meta">' + AtSpeedUtils.escapeHtml(ind.hint)
+            + ' · ' + stats.matchedRows + ' satır · ' + stats.withBitis + ' bitiş bilgisi</div>';
+        h += '<div class="ptest-stats-wrap">' + renderBitisStatsGridHtml(stats) + '</div>';
+        h += renderT1SariAllS800TiersHtml(ind.pct);
+        h += '</div>';
+    }
+    content.innerHTML = h || '<p>Gösterge yok</p>';
+    return T1_SARI_SON_DELTA_INDICATORS.length;
+}
+
+function renderT1Indicators() {
+    const content = document.getElementById('t1IndicatorsContent');
+    const globalMeta = document.getElementById('t1IndicatorsGlobalMeta');
+    const tag = document.getElementById('t1IndicatorsBuildTag');
+    if (!content) return 0;
+    if (!flatEntries.length) return 0;
+    if (tag) tag.textContent = 'build ' + PTEST_BUILD;
+    if (globalMeta) {
+        globalMeta.textContent = '📈 T1×DR ek göstergeler · ' + T1_DR_INDICATORS.length + ' gösterge'
+            + ' · build ' + PTEST_BUILD;
+    }
+    return renderT1IndicatorBlocks(T1_DR_INDICATORS, content, 'Henüz ek gösterge tanımlanmadı');
+}
+
+function buildColorBitisReport(ruleId) {
+    syncBitisInputsToMap();
+    rebuildBitisLookup();
+    const matched = [];
+    for (const entry of flatEntries) {
+        if (sonDeltaMatchesRule(entry, ruleId)) matched.push(entry);
+    }
+    return buildBitisStatsFromEntries(matched);
+}
+
+const BITIS_REPORT_RULE_HINTS = {
+    turuncuHucre: ' · (SON·Δ + T1·Δ ikisi %0 · turuncu hücre)',
+    turuncuCevre: ' · (SON·Δ + T1·Δ ikisi %0 · turuncu kenarlık)',
+    yesilHucre: ' · (SON·Δ + T1·Δ ikisi <%25 · neon yeşil)'
+};
+
+const BITIS_REPORT_SECTIONS = [
+    {
+        ruleId: 'turuncuHucre',
+        metaId: 'turuncuReportMeta',
+        gridId: 'turuncuReportGrid',
+        rowLabel: 'Turuncu hücre'
+    },
+    {
+        ruleId: 'turuncuCevre',
+        metaId: 'turuncuCevreReportMeta',
+        gridId: 'turuncuCevreReportGrid',
+        rowLabel: 'Turuncu çevre'
+    },
+    {
+        ruleId: 'yesilHucre',
+        metaId: 'yesilReportMeta',
+        gridId: 'yesilReportGrid',
+        rowLabel: 'Yeşil hücre'
+    }
+];
+
+function renderColorReportSection(section) {
+    const meta = document.getElementById(section.metaId);
+    const grid = document.getElementById(section.gridId);
+    if (!meta || !grid) return;
+    const r = buildColorBitisReport(section.ruleId);
+    meta.textContent = section.rowLabel + ' at satırı: ' + r.matchedRows
+        + ' · Bitiş bilgisi olan: ' + r.withBitis
+        + (BITIS_REPORT_RULE_HINTS[section.ruleId] || '');
+    grid.innerHTML = renderBitisStatsGridHtml(r);
+}
+
+async function renderTuruncuReport() {
+    updateGostergeTabVisibility();
+    initGostergeModeTabs();
+    if (!flatEntries.length) return;
+    if (ptestViewTab !== 'gosterge') return;
+
+    const cacheKey = gostergeCacheKey();
+    if (gostergeRenderedRev.get(cacheKey) === gostergeDataRev) return;
+
+    const gen = ++gostergeRenderGen;
+    const rowCount = flatEntries.length;
+    showGostergeLoading(
+        'Göstergeler hesaplanıyor…',
+        rowCount + ' at satırı · ' + (ptestGostergeMode === 'depthPair' ? 'Derinlik gelişme' : 'SON·Δ')
+            + ' · lütfen bekleyin'
+    );
+
+    await new Promise(r => requestAnimationFrame(() => setTimeout(r, 16)));
+    if (gen !== gostergeRenderGen) return;
+
+    const host = getPtestGostergeHost();
+    const renderOpts = {
+        isCancelled: () => gen !== gostergeRenderGen,
+        onProgress: (msg) => {
+            if (gen !== gostergeRenderGen) return;
+            const subEl = document.getElementById('gostergeLoadingSub');
+            if (subEl) subEl.textContent = msg + ' · ' + rowCount + ' satır';
+        }
+    };
+
+    try {
+        if (ptestGostergeMode === 'depthPair') {
+            initGostergeDepthMetricTabs();
+            const metrics = PtestGostergeDepthEngine.allMetrics(flatEntries);
+            const spec = metrics.find(m => m.id === ptestDepthMetricTab) || metrics[0];
+            if (spec) await PtestGostergeDepthEngine.renderDepthMetricGostergeAsync(spec, host, PTEST_BUILD, renderOpts);
+        } else {
+            initGostergeMetricTabs();
+            const spec = PtestGostergeEngine.METRICS.find(m => m.id === ptestGostergeMetricTab)
+                || PtestGostergeEngine.METRICS[0];
+            const ctx = PtestGostergeEngine.createContext(spec, host);
+            await PtestGostergeEngine.renderMetricGostergeAsync(ctx, host, PTEST_BUILD, renderOpts);
+        }
+        if (gen !== gostergeRenderGen) return;
+        gostergeRenderedRev.set(cacheKey, gostergeDataRev);
+    } catch (err) {
+        if (gen === gostergeRenderGen) {
+            const subEl = document.getElementById('gostergeLoadingSub');
+            if (subEl) subEl.textContent = 'Hata: ' + err.message;
+        }
+    } finally {
+        if (gen === gostergeRenderGen) hideGostergeLoading();
+    }
+}
+
+function hideBitisReportPanels() {
+    updateGostergeTabVisibility();
+}
+
+function tahminHtml(tahmin) {
+    if (!tahmin || tahmin.rank == null || tahmin.pct == null) return '<span class="ptest-pct ptest-pct-none">—</span>';
+    const top = tahmin.topTerms?.[0];
+    const title = top
+        ? ' title="' + AtSpeedUtils.escapeHtml(top.metricLabel + ' · #' + top.ruleRank + ' ' + top.ruleLabel).replace(/"/g, '&quot;') + '"'
+        : '';
+    return '<span class="ptest-tahmin-rank"' + title + '>' + tahmin.rank + '.</span><span class="ptest-pct ' + pctClass(tahmin.pct) + '">%' + tahmin.pct + '</span>';
+}
+
+const EXPORT_COL_COUNT = ptestTableColCount;
+
+const EXPORT_CSS = `
+body { margin: 16px; background: #f5f5f5; font-family: Inter, Arial, sans-serif; font-size: 12px; color: #37474f; }
+.export-meta { margin-bottom: 12px; padding: 12px 14px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; }
+.export-meta h1 { margin: 0 0 8px; font-size: 16px; color: #4a148c; }
+.export-meta p { margin: 4px 0; font-size: 12px; color: #546e7a; }
+.export-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.export-legend-item { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 6px; font-size: 11px; border: 1px solid #eceff1; background: #fafafa; }
+.export-legend-swatch { width: 18px; height: 18px; border-radius: 4px; border: 2px solid transparent; }
+.export-table-wrap { overflow: auto; border: 1px solid #cfd8dc; border-radius: 8px; background: #fff; }
+.export-table { border-collapse: separate; border-spacing: 0; min-width: 1280px; width: 100%; }
+.export-table th, .export-table td { padding: 5px 7px; border-bottom: 1px solid #eceff1; border-right: 1px solid #eceff1; text-align: center; white-space: nowrap; }
+.export-table thead th { background: #ede7f6; font-size: 11px; font-weight: 700; color: #1a237e; }
+.export-table .th-grp { background: #e1bee7; color: #0d1b4d; font-weight: 800; }
+.export-table .th-strip-delta { background: #cfd8dc; color: #1a237e; font-weight: 800; border-left: 3px solid #7b1fa2; border-right: 3px solid #7b1fa2; }
+.export-table .th-strip-son { background: #c8e6c9; color: #1b5e20; font-weight: 800; border-left: 3px solid #2e7d32; border-right: 3px solid #2e7d32; }
+.export-table .th-strip-ei { background: #fff9c4; color: #e65100; font-weight: 800; border-left: 3px solid #f9a825; border-right: 3px solid #f9a825; }
+.export-table .th-strip-ic { background: #e1f5fe; color: #01579b; font-weight: 800; border-left: 3px solid #0288d1; border-right: 3px solid #0288d1; }
+.export-table .th-strip-bs { background: #f3e5f5; color: #4a148c; font-weight: 800; border-left: 3px solid #8e24aa; border-right: 3px solid #8e24aa; }
+.strip-metric { display: block; font-size: 8px; font-weight: 800; color: #37474f; margin-bottom: 2px; }
+.strip-kind { display: block; font-size: 10px; font-weight: 900; }
+.strip-kind-delta { color: #1a237e; }
+.strip-kind-son { color: #1b5e20; }
+.strip-kind-ei { color: #e65100; }
+.strip-kind-ic { color: #01579b; }
+.strip-kind-bs { color: #4a148c; }
+.strip-kind-avg { display: block; font-size: 9px; font-weight: 900; color: #546e7a; }
+.strip-kind-dir { display: block; font-size: 11px; font-weight: 900; color: #546e7a; }
+.export-table td.strip-avg { background: #fafafa; }
+.export-table td.strip-dir { background: #f5f5f5; font-size: 14px; font-weight: 900; text-align: center; }
+.export-table td.strip-dir-up { color: #2e7d32; }
+.export-table td.strip-dir-down { color: #c62828; }
+.export-table td.strip-dir-eq { color: #546e7a; }
+.export-table td.strip-dir-none { color: #bdbdbd; }
+.strip-kind-diff { display: block; font-size: 9px; font-weight: 900; color: #546e7a; }
+.export-table td.strip-diff { background: #fafafa; font-size: 11px; font-weight: 900; text-align: center; font-variant-numeric: tabular-nums; }
+.export-table td.strip-diff-up { color: #1b5e20; background: #e8f5e9; }
+.export-table td.strip-diff-down { color: #b71c1c; background: #ffebee; }
+.export-table td.strip-diff-eq { color: #546e7a; }
+.export-table td.strip-diff-none { color: #bdbdbd; }
+.export-table .th-s800 { background: #b2ebf2; }
+.export-table .th-t1 { background: #ffe0b2; }
+.export-table .th-bitis { background: #fff9c4; }
+.export-table td.meta-col { background: #fafafa; font-weight: 600; color: #37474f; }
+.export-table td.hipodrom { text-align: left; font-weight: 700; color: #4a148c; }
+.export-table td.at { text-align: left; font-weight: 600; max-width: 160px; }
+.export-table tbody tr:nth-child(even) td { filter: brightness(0.99); }
+.pct { display: inline-block; min-width: 44px; padding: 3px 6px; border-radius: 4px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.pct-none { background: #f5f5f5; color: #9e9e9e; }
+.pct-low { background: #ffebee; color: #c62828; }
+.pct-mid { background: #fff8e1; color: #f57f17; }
+.pct-good { background: #e8f5e9; color: #1b5e20; }
+.pct-high { background: #a5d6a7; color: #0d3d0d; }
+.tahmin-rank { font-weight: 900; margin-right: 3px; }
+.bitis-filled { display: inline-block; min-width: 36px; padding: 4px 6px; border-radius: 4px; font-weight: 700; background: #e8f5e9; border: 1px solid #66bb6a; color: #1b5e20; }
+.bitis-empty { color: #9e9e9e; }
+.gap-twin-zero { background: #ff9800 !important; box-shadow: inset 0 0 0 2px #ef6c00; }
+.gap-twin-zero .pct { background: rgba(255,152,0,0.35) !important; }
+.gap-neon { background: #76ff03 !important; box-shadow: inset 0 0 0 2px #33691e, 0 0 8px rgba(118,255,3,0.6); }
+.gap-neon .pct { background: #76ff03 !important; color: #1b5e20 !important; }
+.gap-zero { color: #c62828 !important; font-weight: 900 !important; }
+.sep td { background: #f3e5f5 !important; height: 4px; padding: 0; border: none; }
+`;
+
+function esc(s) {
+    return AtSpeedUtils.escapeHtml(s);
+}
+
+function exportPctSpan(val, extraCls) {
+    if (val == null) return '<span class="pct pct-none">—</span>';
+    return '<span class="pct ' + pctClass(val).replace('ptest-pct-', 'pct-') + (extraCls ? ' ' + extraCls : '') + '">%' + val + '</span>';
+}
+
+function exportGapSpan(row, cell) {
+    if (!cell || cell.gapPct == null) return exportPctSpan(null);
+    const zeroCls = cell.gapPct === 0 ? ' gap-zero' : '';
+    return exportPctSpan(cell.gapPct, zeroCls.trim());
+}
+
+function exportGapTdClass(row, cell) {
+    const cls = gapTdClass(row, cell).trim();
+    return cls.replace(/ptest-/g, '');
+}
+
+function exportTahminHtml(tahmin) {
+    if (!tahmin || tahmin.rank == null || tahmin.pct == null) return '<span class="pct pct-none">—</span>';
+    return '<span class="tahmin-rank">' + tahmin.rank + '.</span><span class="pct ' + pctClass(tahmin.pct).replace('ptest-pct-', 'pct-') + '">%' + tahmin.pct + '</span>';
+}
+
+function exportBitisHtml(entry) {
+    const val = bitisValueForDisplay(entry);
+    if (val != null && val >= 1) return '<span class="bitis-filled">' + val + '</span>';
+    return '<span class="bitis-empty">—</span>';
+}
+
+function renderExportHead() {
+    const metrics = ptestTableMetrics();
+    let h = '<tr>';
+    h += '<th rowspan="2" class="meta-col">TARİH</th>';
+    h += '<th rowspan="2" class="meta-col">HİPODROM</th>';
+    h += '<th rowspan="2" class="meta-col">KOŞU</th>';
+    h += '<th rowspan="2" class="at">AT İSMİ</th>';
+    h += '<th rowspan="2" class="th-bitis">BİTİŞ</th>';
+    h += '<th rowspan="2">TAHMİN<small>Gösterge başarı skoru</small></th>';
+    for (const strip of ptestOverviewStrips()) {
+        h += '<th colspan="' + ptestMetricStripColCount() + '" class="th-grp th-strip-' + strip.id + '">'
+            + esc(strip.title) + '</th>';
+    }
+    for (const m of metrics) {
+        h += '<th colspan="' + ptestMetricColCount(m) + '" class="th-grp th-' + (m.id === 'son8001' ? 's800' : m.id === 't1dr' ? 't1' : m.id) + '">'
+            + AtSpeedUtils.escapeHtml(m.label) + ' · SON derinlik</th>';
+    }
+    h += '</tr><tr>';
+    for (const strip of ptestOverviewStrips()) {
+        for (const m of metrics) {
+            const thTag = m.id === 'son8001' ? 'th-s800' : m.id === 't1dr' ? 'th-t1' : 'th-' + m.id;
+            h += '<th class="' + thTag + '"><span class="strip-metric">' + esc(m.label)
+                + ' · SON derinlik</span><span class="strip-kind strip-kind-' + strip.id + '">' + strip.kind + '</span></th>';
+            h += '<th class="' + thTag + ' strip-avg-head"><span class="strip-metric">' + esc(m.label)
+                + '</span><span class="strip-kind-avg">ORT</span></th>';
+            h += '<th class="' + thTag + ' strip-dir-head"><span class="strip-metric">' + esc(m.label)
+                + '</span><span class="strip-kind-dir">↑↓</span></th>';
+            h += '<th class="' + thTag + ' strip-diff-head"><span class="strip-metric">' + esc(m.label)
+                + '</span><span class="strip-kind-diff">FARK</span></th>';
+        }
+    }
+    for (const m of metrics) {
+        const thTag = m.id === 'son8001' ? 'th-s800' : m.id === 't1dr' ? 'th-t1' : 'th-' + m.id;
+        if (m.id !== 't1dr') h += '<th class="' + thTag + '">SON</th>';
+        h += '<th class="' + thTag + '">SON·Eİ</th><th class="' + thTag + '">SON·İÇ</th>';
+        h += '<th class="' + thTag + '">SON·Δ</th><th class="' + thTag + '">SON·BS</th>';
+    }
+    h += '</tr>';
+    return h;
+}
+
+function renderExportRow(entry) {
+    const { row } = entry;
+    let h = '<tr>';
+    h += '<td class="meta-col">' + esc(entry.tarih) + '</td>';
+    h += '<td class="meta-col hipodrom">' + esc(entry.hipodrom || '—') + '</td>';
+    h += '<td class="meta-col">' + entry.raceNo + '</td>';
+    h += '<td class="at">' + esc(row.name || '—') + '</td>';
+    h += '<td>' + exportBitisHtml(entry) + '</td>';
+    h += '<td>' + exportTahminHtml(row.tahmin) + '</td>';
+    h += exportOverviewStripDataCells(entry);
+    for (const m of ptestTableMetrics()) {
+        h += exportMetricDataCells(row, m);
+    }
+    h += '</tr>';
+    return h;
+}
+
+function renderExportBody(entries) {
+    const parts = [];
+    let lastKey = '';
+    for (const entry of entries) {
+        const key = entry.tarih + '|' + entry.hipodrom + '|' + entry.raceNo + '|' + entry.kayitId;
+        if (lastKey && lastKey !== key) {
+            parts.push('<tr class="sep"><td colspan="' + EXPORT_COL_COUNT() + '"></td></tr>');
+        }
+        parts.push(renderExportRow(entry));
+        lastKey = key;
+    }
+    return parts.join('');
+}
+
+function buildExportHtml(entries) {
+    const now = new Date();
+    const modeLabel = activeSortSummary();
+    const html = '<!DOCTYPE html>\n<html lang="tr">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+        '<title>Puanlama Test — Renkli dışa aktarım</title>\n<style>' + EXPORT_CSS + '</style>\n</head>\n<body>\n' +
+        '<div class="export-meta">\n<h1>🧪 Puanlama Test — Renkli tablo</h1>\n' +
+        '<p><strong>Oluşturulma:</strong> ' + esc(now.toLocaleString('tr-TR')) + '</p>\n' +
+        '<p><strong>BİTİŞ sıralama:</strong> ' + esc(modeLabel) + '</p>\n' +
+        '<p><strong>Kayıtlar:</strong> ' + kayitCountLoaded + ' · <strong>Satır:</strong> ' + entries.length +
+        ' · <strong>Çıkan at:</strong> ' + countCikanHorses() + '</p>\n' +
+        '<div class="export-legend">\n' +
+        '<span class="export-legend-item"><span class="export-legend-swatch" style="background:#ff9800;border-color:#ef6c00"></span> Turuncu hücre — SON800·Δ ve T1×DR·Δ ikisi de %0</span>\n' +
+        '<span class="export-legend-item"><span class="export-legend-swatch" style="background:#76ff03;border-color:#33691e"></span> Neon yeşil — SON800·Δ ve T1×DR·Δ ikisi de &lt;%25</span>\n' +
+        '<span class="export-legend-item"><span class="export-legend-swatch pct-low"></span> Düşük % · <span class="export-legend-swatch pct-mid"></span> Orta · <span class="export-legend-swatch pct-good"></span> İyi · <span class="export-legend-swatch pct-high"></span> Yüksek</span>\n' +
+        '<span class="export-legend-item"><span class="pct gap-zero">%0</span> Kırmızı kalın — SON·Δ tam %0</span>\n' +
+        '</div>\n</div>\n' +
+        '<div class="export-table-wrap"><table class="export-table">\n<thead>' + renderExportHead() + '</thead>\n<tbody>\n' +
+        renderExportBody(entries) + '\n</tbody></table></div>\n</body>\n</html>';
+    return { html, now };
+}
+
+function downloadTextExport() {
+    if (!flatEntries.length || isTableProcessing) return;
+    syncBitisInputsToMap();
+    const entries = flatEntries.slice();
+    sortFlatEntries(entries);
+    const { html, now } = buildExportHtml(entries);
+    const modeSlug = (bitisSortMode === 1 ? 'bitis-1' : 'bitis-0')
+        + (sonDeltaSortMode !== '0' ? '-s800d-' + sonDeltaSortMode : '')
+        + (sonBsSortMode !== '0' ? '-s800bs-' + sonBsSortMode : '')
+        + (t1SonDeltaSortMode !== '0' ? '-t1d-' + t1SonDeltaSortMode : '')
+        + (t1SonBsSortMode !== '0' ? '-t1bs-' + t1SonBsSortMode : '')
+        + (bitisFilterPos ? '-bf-' + bitisFilterPos : '');
+    const ts = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const blob = new Blob(['\ufeff' + html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'puanlama-test-renkli-' + modeSlug + '-' + entries.length + 'satir-' + ts + '.html';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setProcessStatus(formatDoneStatus('renkli HTML indirildi · ' + modeSlug), false);
+}
+
+function setProcessStatus(html, isBusy) {
+    const status = document.getElementById('status');
+    status.innerHTML = '<span class="' + (isBusy ? 'ptest-status-busy' : 'ptest-status-done') + '">' + html + '</span>';
+}
+
+function tarihSortKey(tarih) {
+    if (!tarih) return '';
+    const s = String(tarih).trim();
+    const parts = s.indexOf('/') >= 0 ? s.split('/') : s.split('.');
+    if (parts.length === 3) {
+        const d = parts[0].padStart(2, '0');
+        const m = parts[1].padStart(2, '0');
+        const y = parts[2].padStart(4, '0');
+        return y + m + d;
+    }
+    return s;
+}
+
+function resolveBitisValue(entry) {
+    const key = rowKey(entry);
+    if (savedBitisMap[key] != null && savedBitisMap[key] >= 1) {
+        return savedBitisMap[key];
+    }
+    const fromName = AtSpeedUtils.extractBitisFromHorseName(entry.row?.name);
+    if (fromName != null) return fromName;
+    return null;
+}
+
+function bitisValueForDisplay(entry) {
+    return resolveBitisValue(entry);
+}
+
+function bitisValueForSort(entry) {
+    const key = rowKey(entry);
+    if (activeBitisLookup && activeBitisLookup.has(key)) {
+        return activeBitisLookup.get(key);
+    }
+    return resolveBitisValue(entry);
+}
+
+function rebuildBitisLookup() {
+    const lookup = new Map();
+    for (const entry of flatEntries) {
+        lookup.set(rowKey(entry), resolveBitisValue(entry));
+    }
+    activeBitisLookup = lookup;
+    return lookup;
+}
+
+function bitisFromRow(entry) {
+    return bitisValueForDisplay(entry);
+}
+
+function compareRaceMeta(a, b) {
+    const ta = tarihSortKey(a.tarih);
+    const tb = tarihSortKey(b.tarih);
+    if (ta !== tb) return ta.localeCompare(tb);
+    const hipCmp = String(a.hipodrom || '').localeCompare(String(b.hipodrom || ''), 'tr');
+    if (hipCmp !== 0) return hipCmp;
+    return a.raceNo - b.raceNo;
+}
+
+function compareDefaultWithinRace(a, b) {
+    if (a._loadOrder != null && b._loadOrder != null && a._loadOrder !== b._loadOrder) {
+        return a._loadOrder - b._loadOrder;
+    }
+    const na = parseInt(a.row.no, 10);
+    const nb = parseInt(b.row.no, 10);
+    if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
+    return String(a.row.name).localeCompare(String(b.row.name), 'tr');
+}
+
+function compareBitisGlobal(a, b) {
+    const ba = bitisValueForSort(a);
+    const bb = bitisValueForSort(b);
+    if (ba != null && bb != null && ba !== bb) return ba - bb;
+    if (ba != null && bb == null) return -1;
+    if (ba == null && bb != null) return 1;
+    const meta = compareRaceMeta(a, b);
+    if (meta !== 0) return meta;
+    return compareDefaultWithinRace(a, b);
+}
+
+function sortFlatEntries(flat) {
+    if (!activeBitisLookup) rebuildBitisLookup();
+    const yesilDeltaMode = isYesilDeltaRuleId(sonDeltaSortMode);
+    flat.sort((a, b) => {
+        if (bitisSortMode === 1 && !yesilDeltaMode) {
+            const bitisCmp = compareBitisGlobal(a, b);
+            if (bitisCmp !== 0) return bitisCmp;
+        }
+        if (sonDeltaSortMode && sonDeltaSortMode !== '0') {
+            const deltaCmp = compareSonDeltaRule(a, b, sonDeltaSortMode);
+            if (deltaCmp !== 0) return deltaCmp;
+        }
+        if (sonBsSortMode && sonBsSortMode !== '0') {
+            const bsCmp = compareSonBsSort(a, b);
+            if (bsCmp !== 0) return bsCmp;
+        }
+        if (bitisFilterPos) {
+            const bf = compareBitisFilterPos(a, b);
+            if (bf !== 0) return bf;
+        }
+        if (t1SonDeltaSortMode && t1SonDeltaSortMode !== '0') {
+            const t1Cmp = compareT1SonDeltaSort(a, b);
+            if (t1Cmp !== 0) return t1Cmp;
+        }
+        if (t1SonBsSortMode && t1SonBsSortMode !== '0') {
+            const t1BsCmp = compareT1SonBsSort(a, b);
+            if (t1BsCmp !== 0) return t1BsCmp;
+        }
+        if (bitisSortMode !== 1 && !yesilDeltaMode) {
+            const meta = compareRaceMeta(a, b);
+            if (meta !== 0) return meta;
+        }
+        if (yesilDeltaMode) {
+            const meta = compareRaceMeta(a, b);
+            if (meta !== 0) return meta;
+        }
+        return compareDefaultWithinRace(a, b);
+    });
+}
+
+function activeSortSummary() {
+    const parts = [];
+    if (bitisSortMode === 1) parts.push('bitiş(1)');
+    if (bitisFilterPos) parts.push('bitiş=' + bitisFilterPos);
+    if (sonDeltaSortMode && sonDeltaSortMode !== '0') {
+        let lbl = sonDeltaSortRuleLabel(sonDeltaSortMode).replace(/^[^—]+—\s*/, '');
+        if (isYesilDeltaRuleId(sonDeltaSortMode)) lbl += ' · bitiş→yanıp sönen→Δ↑';
+        parts.push('SON800·Δ:' + lbl);
+    }
+    if (t1SonDeltaSortMode && t1SonDeltaSortMode !== '0') {
+        let lbl = t1SonDeltaSortRuleLabel(t1SonDeltaSortMode).replace(/^[^—]+—\s*/, '');
+        if (t1SonDeltaSortMode === 'sariZeroYesil') lbl += ' · değer↑';
+        parts.push('T1·Δ:' + lbl);
+    }
+    if (sonBsSortMode && sonBsSortMode !== '0') {
+        parts.push('SON800·BS:' + sonBsSortRuleLabel(sonBsSortMode).replace(/^[^—]+—\s*/, ''));
+    }
+    if (t1SonBsSortMode && t1SonBsSortMode !== '0') {
+        parts.push('T1·BS:' + t1SonBsSortRuleLabel(t1SonBsSortMode).replace(/^[^—]+—\s*/, ''));
+    }
+    if (!parts.length) parts.push('normal(0)');
+    return parts.join(' → ');
+}
+
+function syncBitisInputsToMap() {
+    const fromDom = collectBitisFromDom();
+    for (const k of Object.keys(fromDom)) savedBitisMap[k] = fromDom[k];
+    rebuildBitisLookup();
+}
+
+function countSortableBitis() {
+    let n = 0;
+    for (const entry of flatEntries) {
+        if (bitisValueForSort(entry) != null) n++;
+    }
+    return n;
+}
+
+function formatDoneStatus(extra) {
+    const filled = countFilledBitisFromEntries();
+    const sortable = countSortableBitis();
+    const cikan = countCikanHorses();
+    const deltaMatch = sonDeltaSortMode !== '0' ? countSonDeltaRuleMatches(sonDeltaSortMode) : 0;
+    const sonBsMatch = sonBsSortMode !== '0' ? countSonBsRuleMatches(sonBsSortMode) : 0;
+    const t1BsMatch = t1SonBsSortMode !== '0' ? countT1SonBsRuleMatches(t1SonBsSortMode) : 0;
+    const bitisFilterMatch = countBitisFilterMatches();
+    const t1TierMatch = t1SonDeltaSortMode === 'sariZeroYesil' ? flatEntries.length : 0;
+    let sortLabel = activeSortSummary();
+    if (deltaMatch) sortLabel += ' (' + deltaMatch + ' SON800·Δ eşleşme)';
+    if (sonBsMatch) sortLabel += ' (' + sonBsMatch + ' SON800·BS eşleşme)';
+    if (t1BsMatch) sortLabel += ' (' + t1BsMatch + ' T1·BS eşleşme)';
+    if (bitisFilterMatch) sortLabel += ' (' + bitisFilterMatch + ' bitiş=' + bitisFilterPos + ')';
+    if (t1TierMatch && t1SonDeltaSortMode === 'sariZeroYesil') sortLabel += ' · T1 katman sırası';
+    return '✅ ' + flatEntries.length + ' satır · ' + filled + ' bitiş · ' + sortable +
+        ' sıralanabilir · ' + cikan + ' çıkan · sıra: ' + sortLabel + (extra ? ' · ' + extra : '');
+}
+
+function renderTableBodyOnly() {
+    const body = document.getElementById('gridBody');
+    const parts = [];
+    let lastKey = '';
+    for (const entry of flatEntries) {
+        const key = entry.tarih + '|' + entry.hipodrom + '|' + entry.raceNo + '|' + entry.kayitId;
+        if (lastKey && lastKey !== key) {
+            parts.push('<tr class="ptest-sep"><td colspan="' + COL_COUNT() + '"></td></tr>');
+        }
+        parts.push(renderRow(entry));
+        lastKey = key;
+    }
+    body.innerHTML = parts.length
+        ? parts.join('')
+        : '<tr><td colspan="' + COL_COUNT() + '">Satır yok</td></tr>';
+    bindTableEvents();
+    renderCikanPanel();
+    updateSummaryMeta();
+    renderTuruncuReport();
+}
+
+async function applySortAndRender() {
+    if (!flatEntries.length || isTableProcessing) return;
+    isTableProcessing = true;
+    const bitisSel = document.getElementById('bitisSortSelect');
+    const deltaSel = document.getElementById('sonDeltaSortSelect');
+    const sonBsSel = document.getElementById('sonBsSortSelect');
+    const t1BsSel = document.getElementById('t1SonBsSortSelect');
+    const bitisFilterSel = document.getElementById('bitisFilterSelect');
+    if (bitisSel) bitisSel.disabled = true;
+    if (deltaSel) deltaSel.disabled = true;
+    if (sonBsSel) sonBsSel.disabled = true;
+    if (t1BsSel) t1BsSel.disabled = true;
+    if (bitisFilterSel) bitisFilterSel.disabled = true;
+
+    setProcessStatus('⏳ ' + flatEntries.length + ' satır sıralanıyor (' + activeSortSummary() + ')…', true);
+
+    syncBitisInputsToMap();
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+    const t0 = performance.now();
+    try {
+        sortFlatEntries(flatEntries);
+        await new Promise(r => requestAnimationFrame(r));
+        renderTableBodyOnly();
+        const ms = Math.round(performance.now() - t0);
+        setProcessStatus(formatDoneStatus('tamamlandı ' + ms + 'ms'), false);
+    } catch (err) {
+        setProcessStatus('❌ ' + AtSpeedUtils.escapeHtml(err.message), false);
+    } finally {
+        isTableProcessing = false;
+        bindBitisSortSelect();
+        bindBitisFilterSelect();
+        bindSonDeltaSortSelect();
+        bindT1SonDeltaSortSelect();
+        bindSonBsSortSelect();
+        bindT1SonBsSortSelect();
+    }
+}
+
+function bindBitisSortSelect() {
+    const sel = document.getElementById('bitisSortSelect');
+    if (!sel) return;
+    sel.value = String(bitisSortMode);
+    sel.disabled = isTableProcessing;
+    sel.onchange = () => {
+        if (isTableProcessing) return;
+        bitisSortMode = parseInt(sel.value, 10) === 1 ? 1 : 0;
+        applySortAndRender();
+    };
+}
+
+function bindSonDeltaSortSelect() {
+    const sel = document.getElementById('sonDeltaSortSelect');
+    if (!sel) return;
+    sel.value = sonDeltaSortMode;
+    sel.disabled = isTableProcessing;
+    sel.onchange = () => {
+        if (isTableProcessing) return;
+        sonDeltaSortMode = sel.value || '0';
+        applySortAndRender();
+    };
+}
+
+function bindT1SonDeltaSortSelect() {
+    const sel = document.getElementById('t1SonDeltaSortSelect');
+    if (!sel) return;
+    sel.value = t1SonDeltaSortMode;
+    sel.disabled = isTableProcessing;
+    sel.onchange = () => {
+        if (isTableProcessing) return;
+        t1SonDeltaSortMode = sel.value || '0';
+        applySortAndRender();
+    };
+}
+
+function bindSonBsSortSelect() {
+    const sel = document.getElementById('sonBsSortSelect');
+    if (!sel) return;
+    sel.value = sonBsSortMode;
+    sel.disabled = isTableProcessing;
+    sel.onchange = () => {
+        if (isTableProcessing) return;
+        sonBsSortMode = sel.value || '0';
+        applySortAndRender();
+    };
+}
+
+function bindT1SonBsSortSelect() {
+    const sel = document.getElementById('t1SonBsSortSelect');
+    if (!sel) return;
+    sel.value = t1SonBsSortMode;
+    sel.disabled = isTableProcessing;
+    sel.onchange = () => {
+        if (isTableProcessing) return;
+        t1SonBsSortMode = sel.value || '0';
+        applySortAndRender();
+    };
+}
+
+function bindBitisFilterSelect() {
+    const sel = document.getElementById('bitisFilterSelect');
+    if (!sel) return;
+    const max = maxBitisPosition();
+    if (bitisFilterPos > max) bitisFilterPos = 0;
+    sel.value = String(bitisFilterPos);
+    sel.disabled = isTableProcessing;
+    sel.onchange = () => {
+        if (isTableProcessing) return;
+        bitisFilterPos = parseInt(sel.value, 10) || 0;
+        applySortAndRender();
+    };
+}
+
+function bitisInputHtml(entry) {
+    const key = rowKey(entry);
+    const val = bitisValueForDisplay(entry);
+    const filled = val != null && val >= 1;
+    const cls = filled ? ' ptest-bitis-filled' : '';
+    const valueAttr = filled ? ' value="' + val + '"' : '';
+    return '<input type="number" min="1" max="99" class="ptest-bitis-input' + cls + '" data-row-key="' + AtSpeedUtils.escapeHtml(key) + '"' + valueAttr + ' placeholder="—" title="Atın bitiş sırası (at adındaki parantez otomatik dolar)">';
+}
+
+function gapTdClassForMetric(row, cell, spec) {
+    if (!cell || cell.gapPct == null || !spec) return '';
+    const p = row[spec.primaryKey]?.[0]?.gapPct;
+    const c = row[spec.crossKey]?.[0]?.gapPct;
+    const isTwin = p === 0 && c === 0 && p != null && c != null;
+    if (isTwin && cell.gapPct === 0) return ' ptest-gap-twin-zero';
+    if (!isTwin && p != null && c != null && p < 25 && c < 25) return ' ptest-gap-neon';
+    return '';
+}
+
+function ptestTableMetrics() {
+    return PtestGostergeEngine.METRICS;
+}
+
+function ptestMetricThClass(spec) {
+    const map = {
+        son8001: 's800', oran1: 'oran1', oran2: 'oran2', fark827: 'f827', ff: 'ff', t8: 't8',
+        test1: 'test1', test2: 'test2', test3: 'test3', testsira: 'testsira', t1dr: 't1'
+    };
+    return 'ptest-th-' + (map[spec.id] || 'metric');
+}
+
+function ptestMetricColCount(spec) {
+    return spec.id === 't1dr' ? 4 : 5;
+}
+
+const PTEST_OVERVIEW_STRIPS = [
+    { id: 'delta', kind: 'SON·Δ', title: 'SON·Δ · tüm metrik grupları', mode: 'gap' },
+    { id: 'son', kind: 'SON', title: 'SON · tüm metrik grupları', mode: 'field', field: 'pct', skipT1dr: true },
+    { id: 'ei', kind: 'SON·Eİ', title: 'SON·Eİ · tüm metrik grupları', mode: 'field', field: 'horseBestPct' },
+    { id: 'ic', kind: 'SON·İÇ', title: 'SON·İÇ · tüm metrik grupları', mode: 'field', field: 'selfPct' },
+    { id: 'bs', kind: 'SON·BS', title: 'SON·BS · tüm metrik grupları', mode: 'field', field: 'successPct' }
+];
+
+function ptestOverviewStrips() {
+    return PTEST_OVERVIEW_STRIPS;
+}
+
+function ptestMetricStripColCount() {
+    return ptestTableMetrics().length * 4;
+}
+
+function overviewStripDiffInfo(val, avg) {
+    if (val == null || avg == null) {
+        return { text: '—', cls: 'ptest-strip-diff-none', title: 'Fark hesaplanamadı' };
+    }
+    const diff = val - avg;
+    if (diff > 0) {
+        return {
+            text: '+' + diff,
+            cls: 'ptest-strip-diff-up',
+            title: 'Ortalamanın üstünde · +' + diff + ' puan (%' + val + ' − %' + avg + ')'
+        };
+    }
+    if (diff < 0) {
+        return {
+            text: String(diff),
+            cls: 'ptest-strip-diff-down',
+            title: 'Ortalamanın altında · ' + diff + ' puan (%' + val + ' − %' + avg + ')'
+        };
+    }
+    return {
+        text: '0',
+        cls: 'ptest-strip-diff-eq',
+        title: 'Ortalamaya eşit · 0 puan'
+    };
+}
+
+function overviewStripDirInfo(val, avg) {
+    if (val == null || avg == null) {
+        return { symbol: '—', cls: 'ptest-strip-dir-none', title: 'Karşılaştırma yok' };
+    }
+    if (val > avg) {
+        return {
+            symbol: '↑',
+            cls: 'ptest-strip-dir-up',
+            title: 'Ortalamanın üstünde · %' + val + ' > %' + avg
+        };
+    }
+    if (val < avg) {
+        return {
+            symbol: '↓',
+            cls: 'ptest-strip-dir-down',
+            title: 'Ortalamanın altında · %' + val + ' < %' + avg
+        };
+    }
+    return {
+        symbol: '＝',
+        cls: 'ptest-strip-dir-eq',
+        title: 'Ortalamaya eşit · %' + val
+    };
+}
+
+function stripCellNumericValue(row, m, strip) {
+    const cell = row[m.primaryKey]?.[0] || null;
+    if (strip.mode === 'gap') {
+        if (!cell || cell.gapPct == null) return null;
+        return cell.gapPct;
+    }
+    if (strip.skipT1dr && m.id === 't1dr') return null;
+    return depthSon(cell, strip.field);
+}
+
+function overviewStripAvgKey(entry, strip, m) {
+    return strip.id + '|' + m.id + '|' + raceKey(entry.kayitId, entry.raceNo);
+}
+
+function overviewStripAvgForEntry(entry, strip, m) {
+    if (!overviewStripAvgLookup) return null;
+    return overviewStripAvgLookup.get(overviewStripAvgKey(entry, strip, m)) ?? null;
+}
+
+function rebuildOverviewStripAvgLookup() {
+    const buckets = new Map();
+    for (const entry of flatEntries) {
+        const rk = raceKey(entry.kayitId, entry.raceNo);
+        const row = entry.row;
+        for (const strip of ptestOverviewStrips()) {
+            for (const m of ptestTableMetrics()) {
+                const val = stripCellNumericValue(row, m, strip);
+                if (val == null) continue;
+                const key = strip.id + '|' + m.id + '|' + rk;
+                if (!buckets.has(key)) buckets.set(key, { sum: 0, count: 0 });
+                const b = buckets.get(key);
+                b.sum += val;
+                b.count += 1;
+            }
+        }
+    }
+    const lookup = new Map();
+    for (const [key, b] of buckets) {
+        if (b.count > 0) lookup.set(key, Math.round(b.sum / b.count));
+    }
+    overviewStripAvgLookup = lookup;
+}
+
+function ptestOverviewStripTotalCols() {
+    return ptestOverviewStrips().length * ptestMetricStripColCount();
+}
+
+function ptestTableColCount() {
+    let n = 7 + ptestOverviewStripTotalCols();
+    for (const m of ptestTableMetrics()) n += ptestMetricColCount(m);
+    return n;
+}
+
+function renderOverviewStripGroupHeaders() {
+    let h = '';
+    for (const strip of ptestOverviewStrips()) {
+        h += '<th colspan="' + ptestMetricStripColCount() + '" class="ptest-th-grp ptest-th-strip-grp ptest-th-strip-grp-' + strip.id + '">'
+            + AtSpeedUtils.escapeHtml(strip.title) + '</th>';
+    }
+    return h;
+}
+
+function renderOverviewStripSubHeaders() {
+    const metrics = ptestTableMetrics();
+    let h = '';
+    for (const strip of ptestOverviewStrips()) {
+        for (let i = 0; i < metrics.length; i++) {
+            const m = metrics[i];
+            let thCls = ptestMetricThClass(m) + ' ptest-th-strip-col ptest-th-strip-col-' + strip.id;
+            if (i === 0) thCls += ' ptest-strip-edge-l ptest-strip-edge-l-' + strip.id;
+            const title = AtSpeedUtils.escapeHtml(m.label + ' · SON derinlik · ' + strip.kind);
+            h += '<th class="' + thCls + '" title="' + title + '">'
+                + '<span class="ptest-strip-metric">' + AtSpeedUtils.escapeHtml(m.label) + ' · SON derinlik</span>'
+                + '<span class="ptest-strip-kind ptest-strip-kind-' + strip.id + '">' + strip.kind + '</span></th>';
+            let avgCls = ptestMetricThClass(m) + ' ptest-th-strip-avg-col ptest-th-strip-avg-col-' + strip.id;
+            const avgTitle = AtSpeedUtils.escapeHtml('Koşu ortalaması · ' + m.label + ' · ' + strip.kind);
+            h += '<th class="' + avgCls + '" title="' + avgTitle + '">'
+                + '<span class="ptest-strip-metric">' + AtSpeedUtils.escapeHtml(m.label) + '</span>'
+                + '<span class="ptest-strip-kind-avg">ORT</span></th>';
+            let dirCls = ptestMetricThClass(m) + ' ptest-th-strip-dir-col ptest-th-strip-dir-col-' + strip.id;
+            const dirTitle = AtSpeedUtils.escapeHtml('Ortalamaya göre yön · ' + m.label + ' · ' + strip.kind);
+            h += '<th class="' + dirCls + '" title="' + dirTitle + '">'
+                + '<span class="ptest-strip-metric">' + AtSpeedUtils.escapeHtml(m.label) + '</span>'
+                + '<span class="ptest-strip-kind-dir">↑↓</span></th>';
+            let diffCls = ptestMetricThClass(m) + ' ptest-th-strip-diff-col ptest-th-strip-diff-col-' + strip.id;
+            if (i === metrics.length - 1) diffCls += ' ptest-strip-edge-r ptest-strip-edge-r-' + strip.id;
+            const diffTitle = AtSpeedUtils.escapeHtml('Ortalamadan fark · ' + m.label + ' · ' + strip.kind);
+            h += '<th class="' + diffCls + '" title="' + diffTitle + '">'
+                + '<span class="ptest-strip-metric">' + AtSpeedUtils.escapeHtml(m.label) + '</span>'
+                + '<span class="ptest-strip-kind-diff">FARK</span></th>';
+        }
+    }
+    return h;
+}
+
+function renderOverviewStripCell(row, m, strip, edgeL) {
+    const cell = row[m.primaryKey]?.[0] || null;
+    let tdCls = 'ptest-metric-' + m.id + ' ptest-strip-cell ptest-strip-cell-' + strip.id;
+    if (edgeL) tdCls += ' ptest-strip-edge-l ptest-strip-edge-l-' + strip.id;
+    if (strip.mode === 'gap') {
+        const gapCls = gapTdClassForMetric(row, cell, m);
+        return '<td class="' + tdCls + gapCls + '">' + gapSpan(row, cell) + '</td>';
+    }
+    const val = (strip.skipT1dr && m.id === 't1dr') ? null : depthSon(cell, strip.field);
+    return '<td class="' + tdCls + '">' + pctSpan(val) + '</td>';
+}
+
+function renderOverviewStripAvgCell(entry, m, strip) {
+    let tdCls = 'ptest-metric-' + m.id + ' ptest-strip-avg-cell ptest-strip-avg-' + strip.id;
+    const avg = overviewStripAvgForEntry(entry, strip, m);
+    return '<td class="' + tdCls + '">' + pctSpan(avg) + '</td>';
+}
+
+function renderOverviewStripDirCell(entry, m, strip) {
+    const val = stripCellNumericValue(entry.row, m, strip);
+    const avg = overviewStripAvgForEntry(entry, strip, m);
+    const dir = overviewStripDirInfo(val, avg);
+    let tdCls = 'ptest-metric-' + m.id + ' ptest-strip-dir-cell ptest-strip-dir-' + strip.id + ' ' + dir.cls;
+    return '<td class="' + tdCls + '" title="' + AtSpeedUtils.escapeHtml(dir.title) + '">'
+        + '<span class="ptest-strip-dir-icon">' + dir.symbol + '</span></td>';
+}
+
+function renderOverviewStripDiffCell(entry, m, strip, edgeR) {
+    const val = stripCellNumericValue(entry.row, m, strip);
+    const avg = overviewStripAvgForEntry(entry, strip, m);
+    const diff = overviewStripDiffInfo(val, avg);
+    let tdCls = 'ptest-metric-' + m.id + ' ptest-strip-diff-cell ptest-strip-diff-' + strip.id + ' ' + diff.cls;
+    if (edgeR) tdCls += ' ptest-strip-edge-r ptest-strip-edge-r-' + strip.id;
+    return '<td class="' + tdCls + '" title="' + AtSpeedUtils.escapeHtml(diff.title) + '">'
+        + '<span class="ptest-strip-diff-val">' + diff.text + '</span></td>';
+}
+
+function renderOverviewStripDataCells(entry) {
+    const row = entry.row;
+    const metrics = ptestTableMetrics();
+    let h = '';
+    for (const strip of ptestOverviewStrips()) {
+        for (let i = 0; i < metrics.length; i++) {
+            h += renderOverviewStripCell(row, metrics[i], strip, i === 0);
+            h += renderOverviewStripAvgCell(entry, metrics[i], strip);
+            h += renderOverviewStripDirCell(entry, metrics[i], strip);
+            h += renderOverviewStripDiffCell(entry, metrics[i], strip, i === metrics.length - 1);
+        }
+    }
+    return h;
+}
+
+function exportOverviewStripCell(row, m, strip) {
+    const cell = row[m.primaryKey]?.[0] || null;
+    if (strip.mode === 'gap') {
+        const gapCls = exportGapTdClassForMetric(row, cell, m);
+        return '<td class="' + gapCls + '">' + exportGapSpan(row, cell) + '</td>';
+    }
+    const val = (strip.skipT1dr && m.id === 't1dr') ? null : depthSon(cell, strip.field);
+    return '<td>' + exportPctSpan(val) + '</td>';
+}
+
+function exportOverviewStripAvgCell(entry, m, strip) {
+    const avg = overviewStripAvgForEntry(entry, strip, m);
+    return '<td class="strip-avg">' + exportPctSpan(avg) + '</td>';
+}
+
+function exportOverviewStripDirCell(entry, m, strip) {
+    const val = stripCellNumericValue(entry.row, m, strip);
+    const avg = overviewStripAvgForEntry(entry, strip, m);
+    const dir = overviewStripDirInfo(val, avg);
+    return '<td class="strip-dir ' + dir.cls.replace('ptest-', '') + '" title="' + AtSpeedUtils.escapeHtml(dir.title) + '">'
+        + dir.symbol + '</td>';
+}
+
+function exportOverviewStripDiffCell(entry, m, strip) {
+    const val = stripCellNumericValue(entry.row, m, strip);
+    const avg = overviewStripAvgForEntry(entry, strip, m);
+    const diff = overviewStripDiffInfo(val, avg);
+    return '<td class="strip-diff ' + diff.cls.replace('ptest-', '') + '" title="' + AtSpeedUtils.escapeHtml(diff.title) + '">'
+        + diff.text + '</td>';
+}
+
+function exportOverviewStripDataCells(entry) {
+    const row = entry.row;
+    const metrics = ptestTableMetrics();
+    let h = '';
+    for (const strip of ptestOverviewStrips()) {
+        for (const m of metrics) {
+            h += exportOverviewStripCell(row, m, strip);
+            h += exportOverviewStripAvgCell(entry, m, strip);
+            h += exportOverviewStripDirCell(entry, m, strip);
+            h += exportOverviewStripDiffCell(entry, m, strip);
+        }
+    }
+    return h;
+}
+
+function htmlSonDeltaSortSelect() {
+    let h = '<select id="sonDeltaSortSelect" class="ptest-son-delta-sort-select" title="0: kapalı · yeşil hücre: yeşiller en üstte, içinde bitiş(1,2,3…)→yanıp sönen→Δ artan · diğer: eşleşen en üstte">';
+    for (const rule of SON_DELTA_SORT_RULES) {
+        h += '<option value="' + rule.id + '"' + (sonDeltaSortMode === rule.id ? ' selected' : '') + '>'
+            + AtSpeedUtils.escapeHtml(rule.label) + '</option>';
+    }
+    return h + '</select>';
+}
+
+function htmlSonBsSortSelect() {
+    let h = '<select id="sonBsSortSelect" class="ptest-son-bs-sort-select" title="0: kapalı · 1: SON·BS tam %100 eşleşenler en üstte">';
+    for (const rule of SON_BS_SORT_RULES) {
+        h += '<option value="' + rule.id + '"' + (sonBsSortMode === rule.id ? ' selected' : '') + '>'
+            + AtSpeedUtils.escapeHtml(rule.label) + '</option>';
+    }
+    return h + '</select>';
+}
+
+function htmlT1SonDeltaSortSelect() {
+    let h = '<select id="t1SonDeltaSortSelect" class="ptest-t1-delta-sort-select" title="0: kapalı · 1: sarı (değer↑)→%0→yeşil hücre (değer↑) · SON800·Δ seçicisinden bağımsız">';
+    for (const rule of T1_SON_DELTA_SORT_RULES) {
+        h += '<option value="' + rule.id + '"' + (t1SonDeltaSortMode === rule.id ? ' selected' : '') + '>'
+            + AtSpeedUtils.escapeHtml(rule.label) + '</option>';
+    }
+    return h + '</select>';
+}
+
+function htmlT1SonBsSortSelect() {
+    let h = '<select id="t1SonBsSortSelect" class="ptest-t1-bs-sort-select" title="0: kapalı · 1: SON·BS tam %100 eşleşenler en üstte">';
+    for (const rule of T1_SON_BS_SORT_RULES) {
+        h += '<option value="' + rule.id + '"' + (t1SonBsSortMode === rule.id ? ' selected' : '') + '>'
+            + AtSpeedUtils.escapeHtml(rule.label) + '</option>';
+    }
+    return h + '</select>';
+}
+
+function renderMetricSubHeadCells(spec) {
+    const thCls = ptestMetricThClass(spec);
+    let h = '';
+    if (spec.id !== 't1dr') {
+        h += '<th class="' + thCls + '">SON</th>';
+    }
+    h += '<th class="' + thCls + '">SON·Eİ</th>';
+    h += '<th class="' + thCls + '">SON·İÇ</th>';
+    if (spec.id === 'son8001') {
+        h += '<th class="' + thCls + '"><div class="ptest-th-son-delta-inner">SON·Δ' + htmlSonDeltaSortSelect() + '</div></th>';
+        h += '<th class="' + thCls + '"><div class="ptest-th-son-bs-inner">SON·BS' + htmlSonBsSortSelect() + '</div></th>';
+    } else if (spec.id === 't1dr') {
+        h += '<th class="' + thCls + '"><div class="ptest-th-son-delta-inner">SON·Δ' + htmlT1SonDeltaSortSelect() + '</div></th>';
+        h += '<th class="' + thCls + '"><div class="ptest-th-son-bs-inner">SON·BS' + htmlT1SonBsSortSelect() + '</div></th>';
+    } else {
+        h += '<th class="' + thCls + '">SON·Δ</th>';
+        h += '<th class="' + thCls + '">SON·BS</th>';
+    }
+    return h;
+}
+
+function renderMetricDataCells(row, spec) {
+    const cell = row[spec.primaryKey]?.[0] || null;
+    const gapCls = gapTdClassForMetric(row, cell, spec);
+    const tdCls = 'ptest-metric-' + spec.id;
+    let h = '';
+    if (spec.id !== 't1dr') {
+        h += '<td class="' + tdCls + '">' + pctSpan(depthSon(cell, 'pct')) + '</td>';
+    }
+    h += '<td class="' + tdCls + '">' + pctSpan(depthSon(cell, 'horseBestPct')) + '</td>';
+    h += '<td class="' + tdCls + '">' + pctSpan(depthSon(cell, 'selfPct')) + '</td>';
+    h += '<td class="' + tdCls + gapCls + '">' + gapSpan(row, cell) + '</td>';
+    h += '<td class="' + tdCls + '">' + pctSpan(depthSon(cell, 'successPct')) + '</td>';
+    return h;
+}
+
+function exportMetricDataCells(row, spec) {
+    const cell = row[spec.primaryKey]?.[0] || null;
+    const gapCls = exportGapTdClassForMetric(row, cell, spec);
+    let h = '';
+    if (spec.id !== 't1dr') {
+        h += '<td>' + exportPctSpan(depthSon(cell, 'pct')) + '</td>';
+    }
+    h += '<td>' + exportPctSpan(depthSon(cell, 'horseBestPct')) + '</td>';
+    h += '<td>' + exportPctSpan(depthSon(cell, 'selfPct')) + '</td>';
+    h += '<td class="' + gapCls + '">' + exportGapSpan(row, cell) + '</td>';
+    h += '<td>' + exportPctSpan(depthSon(cell, 'successPct')) + '</td>';
+    return h;
+}
+
+function exportGapTdClassForMetric(row, cell, spec) {
+    return gapTdClassForMetric(row, cell, spec).trim().replace(/ptest-/g, '');
+}
+
+function renderHead() {
+    const metrics = ptestTableMetrics();
+    let h = '<tr>';
+    h += '<th rowspan="2" class="ptest-meta-col">TARİH</th>';
+    h += '<th rowspan="2" class="ptest-meta-col">HİPODROM</th>';
+    h += '<th rowspan="2" class="ptest-meta-col">KOŞU</th>';
+    h += '<th rowspan="2" class="ptest-at">AT İSMİ</th>';
+    h += '<th rowspan="2" class="ptest-th-cikan">ÇIKAR</th>';
+    h += '<th rowspan="2" class="ptest-th-bitis"><div class="ptest-th-bitis-inner">BİTİŞ';
+    h += '<select id="bitisSortSelect" class="ptest-bitis-sort-select" title="0: tarih/koşu · 1: global bitiş sırası">';
+    h += '<option value="0"' + (bitisSortMode === 0 ? ' selected' : '') + '>0</option>';
+    h += '<option value="1"' + (bitisSortMode === 1 ? ' selected' : '') + '>1</option>';
+    h += '</select>';
+    h += '<select id="bitisFilterSelect" class="ptest-bitis-filter-select" title="Bitiş kırılımı — seçilen sıra en üstte">';
+    h += '<option value="0"' + (bitisFilterPos === 0 ? ' selected' : '') + '>tümü</option>';
+    const maxBitis = maxBitisPosition();
+    for (let p = 1; p <= maxBitis; p++) {
+        h += '<option value="' + p + '"' + (bitisFilterPos === p ? ' selected' : '') + '>' + p + '.</option>';
+    }
+    h += '</select></div></th>';
+    h += '<th rowspan="2">TAHMİN<small>Gösterge başarı skoru</small></th>';
+    h += renderOverviewStripGroupHeaders();
+    for (const m of metrics) {
+        h += '<th colspan="' + ptestMetricColCount(m) + '" class="ptest-th-grp ' + ptestMetricThClass(m) + '">'
+            + AtSpeedUtils.escapeHtml(m.label) + ' · SON derinlik</th>';
+    }
+    h += '</tr><tr>';
+    h += renderOverviewStripSubHeaders();
+    for (const m of metrics) {
+        h += renderMetricSubHeadCells(m);
+    }
+    h += '</tr>';
+    document.getElementById('gridHead').innerHTML = h;
+    bindBitisSortSelect();
+    bindBitisFilterSelect();
+    bindSonDeltaSortSelect();
+    bindT1SonDeltaSortSelect();
+    bindSonBsSortSelect();
+    bindT1SonBsSortSelect();
+}
+
+function depthSon(cell, field) {
+    const c = cell || {};
+    return c[field] != null ? c[field] : null;
+}
+
+function renderRow(entry) {
+    const { row } = entry;
+    const rk = raceKey(entry.kayitId, entry.raceNo);
+    let h = '<tr data-row-key="' + AtSpeedUtils.escapeHtml(rowKey(entry)) + '">';
+    h += '<td class="ptest-meta-col">' + AtSpeedUtils.escapeHtml(entry.tarih) + '</td>';
+    h += '<td class="ptest-meta-col ptest-hipodrom">' + AtSpeedUtils.escapeHtml(entry.hipodrom || '—') + '</td>';
+    h += '<td class="ptest-meta-col">' + entry.raceNo + '</td>';
+    h += '<td class="ptest-at">' + AtSpeedUtils.escapeHtml(row.name || '—') + '</td>';
+    h += '<td><button type="button" class="ptest-cikan-btn" data-race-key="' + AtSpeedUtils.escapeHtml(rk) + '" data-horse-no="' + AtSpeedUtils.escapeHtml(String(row.no ?? '')) + '" data-horse-name="' + AtSpeedUtils.escapeHtml(row.name || '') + '" title="Çıkan at — koşudan çıkar, metrikler yeniden hesaplanır">✕</button></td>';
+    h += '<td>' + bitisInputHtml(entry) + '</td>';
+    h += '<td>' + tahminHtml(row.tahmin) + '</td>';
+    h += renderOverviewStripDataCells(entry);
+    for (const m of ptestTableMetrics()) {
+        h += renderMetricDataCells(row, m);
+    }
+    h += '</tr>';
+    return h;
+}
+
+async function buildFlatFromCache() {
+    const flat = [];
+    cikanMetaList = [];
+    let loadOrder = 0;
+    for (const kayit of kayitCache.values()) {
+        const races = kayit.veri || [];
+        const raceEntries = races.map((race, i) => {
+            const raceNo = race.raceNo || (i + 1);
+            const filtered = raceWithoutCikan(race, kayit.id, raceNo);
+            const pkg = IE.buildRaceIstatistikPackage(filtered, kayit.hipodrom, kayit.tarih);
+            return { race, raceNo, pkg, filtered };
+        });
+        if (raceEntries.length) IE.applyProgramGlobalPctScales(raceEntries.map(e => e.pkg));
+        for (const { race, raceNo, pkg } of raceEntries) {
+            const exSet = getCikanSet(kayit.id, raceNo);
+            for (const horse of (race.horses || [])) {
+                if (exSet.has(String(horse.no))) {
+                    cikanMetaList.push({
+                        kayitId: kayit.id,
+                        raceNo,
+                        tarih: kayit.tarih,
+                        hipodrom: kayit.hipodrom,
+                        horseNo: String(horse.no),
+                        horseName: horse.name || '—',
+                        raceKey: raceKey(kayit.id, raceNo)
+                    });
+                }
+            }
+            for (const row of pkg.rows) {
+                row._extraSectionMeta = (pkg.extraSections || []).map(sec => ({
+                    id: sec.id,
+                    label: sec.label,
+                    depthsKey: sec.depthsKey
+                }));
+                flat.push({
+                    row,
+                    tarih: kayit.tarih,
+                    raceNo,
+                    hipodrom: kayit.hipodrom,
+                    kayitId: kayit.id,
+                    _loadOrder: loadOrder++
+                });
+            }
+        }
+    }
+    rebuildBitisLookup();
+    sortFlatEntries(flat);
+    flatEntries = flat;
+    rebuildOverviewStripAvgLookup();
+    await applyGostergeTahminScoring();
+    resetGostergePanels();
+    return flat;
+}
+
+function renderTable() {
+    renderTableBodyOnly();
+}
+
+async function renderTableAsync(doneExtra) {
+    if (isTableProcessing) return;
+    isTableProcessing = true;
+    setProcessStatus('⏳ Tablo oluşturuluyor (' + flatEntries.length + ' satır)…', true);
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const t0 = performance.now();
+    try {
+        renderTableBodyOnly();
+        const ms = Math.round(performance.now() - t0);
+        setProcessStatus(formatDoneStatus(doneExtra || ('yüklendi ' + ms + 'ms')), false);
+    } catch (err) {
+        setProcessStatus('❌ ' + AtSpeedUtils.escapeHtml(err.message), false);
+    } finally {
+        isTableProcessing = false;
+        bindBitisSortSelect();
+        bindBitisFilterSelect();
+        bindSonDeltaSortSelect();
+        bindT1SonDeltaSortSelect();
+        bindSonBsSortSelect();
+        bindT1SonBsSortSelect();
+    }
+}
+
+function bindTableEvents() {
+    document.querySelectorAll('.ptest-bitis-input').forEach(input => {
+        input.addEventListener('input', () => {
+            input.classList.toggle('ptest-bitis-filled', input.value.trim() !== '');
+        });
+        input.addEventListener('change', () => {
+            scheduleGostergeRefresh();
+            if (bitisSortMode === 1 || bitisFilterPos || (sonDeltaSortMode && sonDeltaSortMode !== '0')
+                || (t1SonDeltaSortMode && t1SonDeltaSortMode !== '0')
+                || (sonBsSortMode && sonBsSortMode !== '0')
+                || (t1SonBsSortMode && t1SonBsSortMode !== '0')) applySortAndRender();
+        });
+    });
+    document.querySelectorAll('.ptest-cikan-btn').forEach(btn => {
+        btn.onclick = () => markCikan(btn.dataset.raceKey, btn.dataset.horseNo, btn.dataset.horseName);
+    });
+}
+
+function renderCikanPanel() {
+    const panel = document.getElementById('cikanPanel');
+    const list = document.getElementById('cikanList');
+    const toggleBtn = document.getElementById('toggleCikanBtn');
+    const count = countCikanHorses();
+    toggleBtn.textContent = '👁 Çıkan atlar (' + count + ')';
+    toggleBtn.classList.toggle('hidden', count === 0);
+    if (!count) {
+        panel.classList.add('hidden');
+        cikanPanelOpen = false;
+        return;
+    }
+    if (!cikanPanelOpen) {
+        panel.classList.add('hidden');
+        return;
+    }
+    panel.classList.remove('hidden');
+    list.innerHTML = cikanMetaList.map(item =>
+        '<span class="ptest-cikan-chip">' +
+        AtSpeedUtils.escapeHtml(item.tarih) + ' · ' + AtSpeedUtils.escapeHtml(item.hipodrom) +
+        ' · Koşu ' + item.raceNo + ' · #' + AtSpeedUtils.escapeHtml(item.horseNo) + ' ' +
+        AtSpeedUtils.escapeHtml(item.horseName) +
+        ' <button type="button" class="ptest-cikan-restore" data-race-key="' + AtSpeedUtils.escapeHtml(item.raceKey) +
+        '" data-horse-no="' + AtSpeedUtils.escapeHtml(item.horseNo) + '">↩ Geri al</button></span>'
+    ).join('');
+    list.querySelectorAll('.ptest-cikan-restore').forEach(btn => {
+        btn.onclick = () => restoreCikan(btn.dataset.raceKey, btn.dataset.horseNo);
+    });
+}
+
+function collectBitisFromDom() {
+    const sonuclar = {};
+    document.querySelectorAll('.ptest-bitis-input').forEach(input => {
+        const raw = input.value.trim();
+        if (raw === '') return;
+        const n = parseInt(raw, 10);
+        if (n >= 1) sonuclar[input.dataset.rowKey] = n;
+    });
+    return sonuclar;
+}
+
+function countFilledBitisFromEntries() {
+    let n = 0;
+    for (const entry of flatEntries) {
+        if (bitisValueForDisplay(entry) != null) n++;
+    }
+    return n;
+}
+
+async function loadSavedData() {
+    try {
+        const res = await fetch('/api/puanlama-bitis-sonuclari');
+        const json = await res.json();
+        if (json.success) {
+            savedBitisMap = json.sonuclar || {};
+            savedCikanMap = json.cikanAtlar || {};
+        }
+    } catch (_) {
+        savedBitisMap = {};
+        savedCikanMap = {};
+    }
+}
+
+async function persistAll(showStatus) {
+    const sonuclar = collectBitisFromDom();
+    const res = await fetch('/api/puanlama-bitis-sonuclari', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sonuclar, cikanAtlar: savedCikanMap })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'Kayıt başarısız');
+    savedBitisMap = sonuclar;
+    if (showStatus) {
+        const status = document.getElementById('status');
+        status.innerHTML = '<span style="color:#2e7d32">💾 ' + Object.keys(sonuclar).length +
+            ' bitiş · ' + countCikanHorses() + ' çıkan at kaydedildi</span>';
+    }
+    return json;
+}
+
+async function saveAllSettings() {
+    const btn = document.getElementById('saveAllBtn');
+    btn.disabled = true;
+    try {
+        await persistAll(true);
+        updateSummaryMeta();
+        renderTuruncuReport();
+    } catch (err) {
+        document.getElementById('status').innerHTML =
+            '<span style="color:#c62828">❌ ' + AtSpeedUtils.escapeHtml(err.message) + '</span>';
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function markCikan(rk, horseNo, horseName) {
+    if (!confirm('«' + horseName + '» çıkan at olarak işaretlensin mi?\nKoşudaki tüm metrikler yeniden hesaplanır.')) return;
+    const arr = savedCikanMap[rk] ? [...savedCikanMap[rk]] : [];
+    if (!arr.map(String).includes(String(horseNo))) arr.push(String(horseNo));
+    savedCikanMap[rk] = arr;
+    delete savedBitisMap[rowKeyFromParts(rk, horseNo)];
+    const status = document.getElementById('status');
+    status.innerHTML = '<span style="color:#e65100">⏳ Çıkan at işlendi, metrikler yeniden hesaplanıyor…</span>';
+    try {
+        await persistAll(false);
+        await buildFlatFromCache();
+        await renderTableAsync('çıkan at güncellendi');
+    } catch (err) {
+        status.innerHTML = '<span style="color:#c62828">❌ ' + AtSpeedUtils.escapeHtml(err.message) + '</span>';
+    }
+}
+
+async function restoreCikan(rk, horseNo) {
+    const arr = (savedCikanMap[rk] || []).filter(n => String(n) !== String(horseNo));
+    if (arr.length) savedCikanMap[rk] = arr;
+    else delete savedCikanMap[rk];
+    const status = document.getElementById('status');
+    status.innerHTML = '<span style="color:#6a1b9a">⏳ At geri alınıyor, metrikler yeniden hesaplanıyor…</span>';
+    try {
+        await persistAll(false);
+        await buildFlatFromCache();
+        await renderTableAsync('at geri alındı');
+    } catch (err) {
+        status.innerHTML = '<span style="color:#c62828">❌ ' + AtSpeedUtils.escapeHtml(err.message) + '</span>';
+    }
+}
+
+function rowKeyFromParts(rk, horseNo) {
+    return rk + '|' + String(horseNo);
+}
+
+function updateSummaryMeta() {
+    const el = document.getElementById('summaryMeta');
+    const filled = flatEntries.length
+        ? countFilledBitisFromEntries()
+        : (Object.keys(collectBitisFromDom()).length || Object.keys(savedBitisMap).length);
+    const cikan = countCikanHorses();
+    if (kayitCountLoaded && flatEntries.length) {
+        el.textContent = kayitCountLoaded + ' kayıt · ' + flatEntries.length + ' at satırı · ' +
+            filled + ' bitiş · ' + cikan + ' çıkan · sıra:' + activeSortSummary();
+    }
+}
+
+async function loadAllKayitlar() {
+    const btn = document.getElementById('loadAllBtn');
+    const saveBtn = document.getElementById('saveAllBtn');
+    const exportBtn = document.getElementById('exportTxtBtn');
+    const status = document.getElementById('status');
+    btn.disabled = true;
+    saveBtn.disabled = true;
+    exportBtn.disabled = true;
+    status.innerHTML = '<span style="color:#6a1b9a">⏳ Kayıt listesi alınıyor…</span>';
+    renderHead();
+    kayitCache.clear();
+    await loadSavedData();
+
+    try {
+        const listRes = await fetch('/api/hesaplama-kayitlar');
+        const listJson = await listRes.json();
+        if (!listJson.success) throw new Error(listJson.error || 'Liste alınamadı');
+        const kayitlar = listJson.kayitlar || [];
+        if (!kayitlar.length) {
+            document.getElementById('gridBody').innerHTML = '<tr><td colspan="' + COL_COUNT() + '">Kayıt yok</td></tr>';
+            status.innerHTML = '<span style="color:#c62828">Kayıt bulunamadı</span>';
+            return;
+        }
+
+        let loaded = 0;
+        for (const meta of kayitlar) {
+            status.textContent = '⏳ Yükleniyor ' + (++loaded) + '/' + kayitlar.length + ' — ' + meta.tarih + ' ' + meta.hipodrom;
+            const res = await fetch('/api/hesaplama-kayit/' + meta.id);
+            const json = await res.json();
+            if (!json.success || !json.kayit?.veri) continue;
+            kayitCache.set(json.kayit.id, json.kayit);
+        }
+
+        kayitCountLoaded = kayitlar.length;
+        status.innerHTML = '<span style="color:#6a1b9a">⏳ TAHMİN gösterge skorları hesaplanıyor…</span>';
+        await buildFlatFromCache();
+        await renderTableAsync('ilk yükleme');
+        saveBtn.disabled = false;
+        exportBtn.disabled = false;
+    } catch (err) {
+        status.innerHTML = '<span style="color:#c62828">❌ ' + AtSpeedUtils.escapeHtml(err.message) + '</span>';
+        document.getElementById('gridBody').innerHTML = '<tr><td colspan="' + COL_COUNT() + '">Hata</td></tr>';
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function clearAllKayitlar() {
+    const msg = 'TÜM hesaplama kayıtları, bitiş sıraları ve çıkan at listesi kalıcı olarak silinecek.\n\n' +
+        'Temiz veri yükleyecekseniz devam edin.\n\nOnaylamak için SIL yazın:';
+    const onay = prompt(msg);
+    if (onay !== 'SIL') {
+        if (onay != null) alert('İptal edildi — onay metni eşleşmedi.');
+        return;
+    }
+    const btn = document.getElementById('clearAllBtn');
+    const status = document.getElementById('status');
+    btn.disabled = true;
+    status.innerHTML = '<span style="color:#c62828">⏳ Tüm kayıtlar siliniyor…</span>';
+    try {
+        const res = await fetch('/api/hesaplama-kayitlar-temizle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ onay: 'SIL' })
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Silme başarısız');
+        kayitCache.clear();
+        flatEntries = [];
+        savedBitisMap = {};
+        savedCikanMap = {};
+        cikanMetaList = [];
+        kayitCountLoaded = 0;
+        cikanPanelOpen = false;
+        document.getElementById('gridBody').innerHTML =
+            '<tr><td colspan="' + COL_COUNT() + '" style="padding:24px;color:#789">Kayıt yok — HESAPLAMA sekmesinden yeni veri kaydedin</td></tr>';
+        document.getElementById('saveAllBtn').disabled = true;
+        document.getElementById('exportTxtBtn').disabled = true;
+        document.getElementById('toggleCikanBtn').classList.add('hidden');
+        document.getElementById('cikanPanel').classList.add('hidden');
+        resetGostergePanels();
+        hideBitisReportPanels();
+        updateGostergeTabVisibility();
+        document.getElementById('summaryMeta').textContent = '0 kayıt';
+        status.innerHTML = '<span style="color:#2e7d32">🗑 ' + json.deletedHesaplama +
+            ' hesaplama kaydı silindi · puanlama verileri temizlendi</span>';
+    } catch (err) {
+        status.innerHTML = '<span style="color:#c62828">❌ ' + AtSpeedUtils.escapeHtml(err.message) + '</span>';
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+document.getElementById('loadAllBtn').onclick = loadAllKayitlar;
+document.getElementById('saveAllBtn').onclick = saveAllSettings;
+document.getElementById('exportTxtBtn').onclick = downloadTextExport;
+document.getElementById('clearAllBtn').onclick = clearAllKayitlar;
+document.getElementById('toggleCikanBtn').onclick = () => {
+    cikanPanelOpen = !cikanPanelOpen;
+    renderCikanPanel();
+};
+bindPtestViewTabs();
+updateGostergeTabVisibility();
+renderHead();
+</script>
+</body>
+</html>
