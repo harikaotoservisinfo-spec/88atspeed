@@ -5,6 +5,8 @@
 const GostergeScoringEngine = (function () {
     const MIN_RULE_SAMPLE = 5;
     const DEPTH_PAIR_WEIGHT_FACTOR = 0.65;
+    const T9V_SCORE_SHARE = 0.20;
+    const OTHER_SCORE_SHARE = 0.80;
     let SUCCESS_BLEND = { b1: 0.80, b12: 0.12, b123: 0.08 };
 
     let calibration = null;
@@ -244,16 +246,45 @@ const GostergeScoringEngine = (function () {
         return calibration;
     }
 
+    function metricBaseId(metricEntry) {
+        return metricEntry.spec?.id || metricEntry.id.replace(/__dp\d+$/, '');
+    }
+
+    function isT9vScoreMetric(metricEntry) {
+        return metricBaseId(metricEntry) === 't9v';
+    }
+
     function metricWeight(metricEntry) {
-        const baseId = metricEntry.spec?.id || metricEntry.id.replace(/__dp\d+$/, '');
+        const baseId = metricBaseId(metricEntry);
         let w = 1000;
         if (typeof IstatistikTahminEngine !== 'undefined' && IstatistikTahminEngine.getMetricGroupWeight) {
             w = IstatistikTahminEngine.getMetricGroupWeight(baseId);
+        }
+        if (baseId === 't9v') {
+            w = 1000;
         }
         if (metricEntry.mode === 'depthPair') {
             w = Math.round(w * DEPTH_PAIR_WEIGHT_FACTOR);
         }
         return w;
+    }
+
+    function blendGostergeScoreTotals(otherWeighted, t9vWeighted) {
+        if (t9vWeighted > 0 && otherWeighted > 0) {
+            const totalFromOther = otherWeighted / OTHER_SCORE_SHARE;
+            const totalFromT9v = t9vWeighted / T9V_SCORE_SHARE;
+            return Math.round(Math.min(totalFromOther, totalFromT9v));
+        }
+        return otherWeighted + t9vWeighted;
+    }
+
+    function scaleTermPoints(terms, rawTotal, finalTotal) {
+        if (!terms.length || rawTotal <= 0 || finalTotal === rawTotal) return;
+        const factor = finalTotal / rawTotal;
+        for (const term of terms) {
+            term.points = Math.round(term.points * factor);
+        }
+        terms.sort((a, b) => b.points - a.points);
     }
 
     function scoreEntryForMetric(entry, m, ladder) {
@@ -282,7 +313,8 @@ const GostergeScoringEngine = (function () {
         }
 
         const terms = [];
-        let totalScore = 0;
+        let otherWeighted = 0;
+        let t9vWeighted = 0;
 
         for (const m of calibration.metrics) {
             const ladder = calibration.ladders[m.id];
@@ -291,7 +323,8 @@ const GostergeScoringEngine = (function () {
             if (!bestRule) continue;
             const w = metricWeight(m);
             const weighted = Math.round((score * w) / 1000);
-            totalScore += weighted;
+            if (isT9vScoreMetric(m)) t9vWeighted += weighted;
+            else otherWeighted += weighted;
             terms.push({
                 metricId: m.id,
                 metricLabel: m.label,
@@ -306,6 +339,10 @@ const GostergeScoringEngine = (function () {
         }
 
         terms.sort((a, b) => b.points - a.points);
+        const rawTotal = otherWeighted + t9vWeighted;
+        const totalScore = blendGostergeScoreTotals(otherWeighted, t9vWeighted);
+        scaleTermPoints(terms, rawTotal, totalScore);
+
         return {
             score: totalScore,
             pct: null,
@@ -469,7 +506,8 @@ const GostergeScoringEngine = (function () {
         let h = '<div class="ptest-scoring-meta">📊 Gösterge puanlama · '
             + calibration.bitisRows + ' bitişli / ' + calibration.totalRows + ' satır · '
             + 'başarı: %' + Math.round(blend.b1 * 100) + ' 1. · %' + Math.round(blend.b12 * 100) + ' 1–2 · %'
-            + Math.round(blend.b123 * 100) + ' 1–3 · SON·Δ + derinlik çiftleri</div>';
+            + Math.round(blend.b123 * 100) + ' 1–3 · T9V %' + Math.round(T9V_SCORE_SHARE * 100)
+            + ' · diğer %' + Math.round(OTHER_SCORE_SHARE * 100) + '</div>';
 
         const shown = new Set();
         for (const m of calibration.metrics) {
@@ -530,7 +568,9 @@ const GostergeScoringEngine = (function () {
         makeBitisHost,
         setSuccessBlend,
         MIN_RULE_SAMPLE,
-        SUCCESS_BLEND: () => ({ ...SUCCESS_BLEND })
+        SUCCESS_BLEND: () => ({ ...SUCCESS_BLEND }),
+        T9V_SCORE_SHARE,
+        OTHER_SCORE_SHARE
     };
 })();
 
