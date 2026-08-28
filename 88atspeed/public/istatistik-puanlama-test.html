@@ -69,7 +69,7 @@
         }
         .ptest-table {
             border-collapse: separate; border-spacing: 0;
-            font-size: 12px; min-width: 7800px; width: 100%;
+            font-size: 12px; min-width: 11200px; width: 100%;
         }
         .ptest-table th, .ptest-table td {
             padding: 5px 7px; border-bottom: 1px solid #eceff1;
@@ -139,6 +139,21 @@
         .ptest-table td.ptest-strip-edge-r-ic, .ptest-table thead th.ptest-strip-edge-r-ic { border-right: 3px solid #0288d1 !important; }
         .ptest-table td.ptest-strip-edge-l-bs, .ptest-table thead th.ptest-strip-edge-l-bs { border-left: 3px solid #8e24aa !important; }
         .ptest-table td.ptest-strip-edge-r-bs, .ptest-table thead th.ptest-strip-edge-r-bs { border-right: 3px solid #8e24aa !important; }
+        .ptest-table .ptest-th-strip-avg-col {
+            font-size: 8px; line-height: 1.15; min-width: 42px; max-width: 56px;
+            white-space: normal; vertical-align: bottom; padding: 4px 4px;
+            background: rgba(255,255,255,0.45);
+        }
+        .ptest-strip-kind-avg {
+            display: block; font-size: 9px; font-weight: 900; color: #546e7a;
+            letter-spacing: 0.03em;
+        }
+        .ptest-table td.ptest-strip-avg-cell {
+            background: rgba(255,255,255,0.35) !important;
+            filter: none !important;
+        }
+        .ptest-table tbody tr:nth-child(even) td.ptest-strip-avg-cell,
+        .ptest-table tbody tr:hover td.ptest-strip-avg-cell { filter: none !important; }
         .ptest-table .ptest-th-bitis { background: #fff9c4; }
         .ptest-th-bitis-inner {
             display: flex; flex-direction: column; align-items: center; gap: 4px;
@@ -781,6 +796,7 @@ let sonBsSortMode = '0';
 let t1SonBsSortMode = '0';
 let isTableProcessing = false;
 let activeBitisLookup = null;
+let overviewStripAvgLookup = null;
 
 function rowKey(entry) {
     return String(entry.kayitId) + '|' + entry.raceNo + '|' + String(entry.row.no ?? '');
@@ -1243,7 +1259,7 @@ function updateGostergeTabVisibility() {
     if (content) content.classList.toggle('hidden', !hasData);
 }
 
-const PTEST_BUILD = '20260830g';
+const PTEST_BUILD = '20260830h';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
@@ -2206,6 +2222,8 @@ body { margin: 16px; background: #f5f5f5; font-family: Inter, Arial, sans-serif;
 .strip-kind-ei { color: #e65100; }
 .strip-kind-ic { color: #01579b; }
 .strip-kind-bs { color: #4a148c; }
+.strip-kind-avg { display: block; font-size: 9px; font-weight: 900; color: #546e7a; }
+.export-table td.strip-avg { background: #fafafa; }
 .export-table .th-s800 { background: #b2ebf2; }
 .export-table .th-t1 { background: #ffe0b2; }
 .export-table .th-bitis { background: #fff9c4; }
@@ -2284,6 +2302,8 @@ function renderExportHead() {
             const thTag = m.id === 'son8001' ? 'th-s800' : m.id === 't1dr' ? 'th-t1' : 'th-' + m.id;
             h += '<th class="' + thTag + '"><span class="strip-metric">' + esc(m.label)
                 + ' · SON derinlik</span><span class="strip-kind strip-kind-' + strip.id + '">' + strip.kind + '</span></th>';
+            h += '<th class="' + thTag + ' strip-avg-head"><span class="strip-metric">' + esc(m.label)
+                + '</span><span class="strip-kind-avg">ORT</span></th>';
         }
     }
     for (const m of metrics) {
@@ -2305,7 +2325,7 @@ function renderExportRow(entry) {
     h += '<td class="at">' + esc(row.name || '—') + '</td>';
     h += '<td>' + exportBitisHtml(entry) + '</td>';
     h += '<td>' + exportTahminHtml(row.tahmin) + '</td>';
-    h += exportOverviewStripDataCells(row);
+    h += exportOverviewStripDataCells(entry);
     for (const m of ptestTableMetrics()) {
         h += exportMetricDataCells(row, m);
     }
@@ -2735,7 +2755,50 @@ function ptestOverviewStrips() {
 }
 
 function ptestMetricStripColCount() {
-    return ptestTableMetrics().length;
+    return ptestTableMetrics().length * 2;
+}
+
+function stripCellNumericValue(row, m, strip) {
+    const cell = row[m.primaryKey]?.[0] || null;
+    if (strip.mode === 'gap') {
+        if (!cell || cell.gapPct == null) return null;
+        return cell.gapPct;
+    }
+    if (strip.skipT1dr && m.id === 't1dr') return null;
+    return depthSon(cell, strip.field);
+}
+
+function overviewStripAvgKey(entry, strip, m) {
+    return strip.id + '|' + m.id + '|' + raceKey(entry.kayitId, entry.raceNo);
+}
+
+function overviewStripAvgForEntry(entry, strip, m) {
+    if (!overviewStripAvgLookup) return null;
+    return overviewStripAvgLookup.get(overviewStripAvgKey(entry, strip, m)) ?? null;
+}
+
+function rebuildOverviewStripAvgLookup() {
+    const buckets = new Map();
+    for (const entry of flatEntries) {
+        const rk = raceKey(entry.kayitId, entry.raceNo);
+        const row = entry.row;
+        for (const strip of ptestOverviewStrips()) {
+            for (const m of ptestTableMetrics()) {
+                const val = stripCellNumericValue(row, m, strip);
+                if (val == null) continue;
+                const key = strip.id + '|' + m.id + '|' + rk;
+                if (!buckets.has(key)) buckets.set(key, { sum: 0, count: 0 });
+                const b = buckets.get(key);
+                b.sum += val;
+                b.count += 1;
+            }
+        }
+    }
+    const lookup = new Map();
+    for (const [key, b] of buckets) {
+        if (b.count > 0) lookup.set(key, Math.round(b.sum / b.count));
+    }
+    overviewStripAvgLookup = lookup;
 }
 
 function ptestOverviewStripTotalCols() {
@@ -2765,21 +2828,25 @@ function renderOverviewStripSubHeaders() {
             const m = metrics[i];
             let thCls = ptestMetricThClass(m) + ' ptest-th-strip-col ptest-th-strip-col-' + strip.id;
             if (i === 0) thCls += ' ptest-strip-edge-l ptest-strip-edge-l-' + strip.id;
-            if (i === metrics.length - 1) thCls += ' ptest-strip-edge-r ptest-strip-edge-r-' + strip.id;
             const title = AtSpeedUtils.escapeHtml(m.label + ' · SON derinlik · ' + strip.kind);
             h += '<th class="' + thCls + '" title="' + title + '">'
                 + '<span class="ptest-strip-metric">' + AtSpeedUtils.escapeHtml(m.label) + ' · SON derinlik</span>'
                 + '<span class="ptest-strip-kind ptest-strip-kind-' + strip.id + '">' + strip.kind + '</span></th>';
+            let avgCls = ptestMetricThClass(m) + ' ptest-th-strip-avg-col ptest-th-strip-avg-col-' + strip.id;
+            if (i === metrics.length - 1) avgCls += ' ptest-strip-edge-r ptest-strip-edge-r-' + strip.id;
+            const avgTitle = AtSpeedUtils.escapeHtml('Koşu ortalaması · ' + m.label + ' · ' + strip.kind);
+            h += '<th class="' + avgCls + '" title="' + avgTitle + '">'
+                + '<span class="ptest-strip-metric">' + AtSpeedUtils.escapeHtml(m.label) + '</span>'
+                + '<span class="ptest-strip-kind-avg">ORT</span></th>';
         }
     }
     return h;
 }
 
-function renderOverviewStripCell(row, m, strip, edgeL, edgeR) {
+function renderOverviewStripCell(row, m, strip, edgeL) {
     const cell = row[m.primaryKey]?.[0] || null;
     let tdCls = 'ptest-metric-' + m.id + ' ptest-strip-cell ptest-strip-cell-' + strip.id;
     if (edgeL) tdCls += ' ptest-strip-edge-l ptest-strip-edge-l-' + strip.id;
-    if (edgeR) tdCls += ' ptest-strip-edge-r ptest-strip-edge-r-' + strip.id;
     if (strip.mode === 'gap') {
         const gapCls = gapTdClassForMetric(row, cell, m);
         return '<td class="' + tdCls + gapCls + '">' + gapSpan(row, cell) + '</td>';
@@ -2788,12 +2855,21 @@ function renderOverviewStripCell(row, m, strip, edgeL, edgeR) {
     return '<td class="' + tdCls + '">' + pctSpan(val) + '</td>';
 }
 
-function renderOverviewStripDataCells(row) {
+function renderOverviewStripAvgCell(entry, m, strip, edgeR) {
+    let tdCls = 'ptest-metric-' + m.id + ' ptest-strip-avg-cell ptest-strip-avg-' + strip.id;
+    if (edgeR) tdCls += ' ptest-strip-edge-r ptest-strip-edge-r-' + strip.id;
+    const avg = overviewStripAvgForEntry(entry, strip, m);
+    return '<td class="' + tdCls + '">' + pctSpan(avg) + '</td>';
+}
+
+function renderOverviewStripDataCells(entry) {
+    const row = entry.row;
     const metrics = ptestTableMetrics();
     let h = '';
     for (const strip of ptestOverviewStrips()) {
         for (let i = 0; i < metrics.length; i++) {
-            h += renderOverviewStripCell(row, metrics[i], strip, i === 0, i === metrics.length - 1);
+            h += renderOverviewStripCell(row, metrics[i], strip, i === 0);
+            h += renderOverviewStripAvgCell(entry, metrics[i], strip, i === metrics.length - 1);
         }
     }
     return h;
@@ -2809,12 +2885,19 @@ function exportOverviewStripCell(row, m, strip) {
     return '<td>' + exportPctSpan(val) + '</td>';
 }
 
-function exportOverviewStripDataCells(row) {
+function exportOverviewStripAvgCell(entry, m, strip) {
+    const avg = overviewStripAvgForEntry(entry, strip, m);
+    return '<td class="strip-avg">' + exportPctSpan(avg) + '</td>';
+}
+
+function exportOverviewStripDataCells(entry) {
+    const row = entry.row;
     const metrics = ptestTableMetrics();
     let h = '';
     for (const strip of ptestOverviewStrips()) {
         for (const m of metrics) {
             h += exportOverviewStripCell(row, m, strip);
+            h += exportOverviewStripAvgCell(entry, m, strip);
         }
     }
     return h;
@@ -2967,7 +3050,7 @@ function renderRow(entry) {
     h += '<td><button type="button" class="ptest-cikan-btn" data-race-key="' + AtSpeedUtils.escapeHtml(rk) + '" data-horse-no="' + AtSpeedUtils.escapeHtml(String(row.no ?? '')) + '" data-horse-name="' + AtSpeedUtils.escapeHtml(row.name || '') + '" title="Çıkan at — koşudan çıkar, metrikler yeniden hesaplanır">✕</button></td>';
     h += '<td>' + bitisInputHtml(entry) + '</td>';
     h += '<td>' + tahminHtml(row.tahmin) + '</td>';
-    h += renderOverviewStripDataCells(row);
+    h += renderOverviewStripDataCells(entry);
     for (const m of ptestTableMetrics()) {
         h += renderMetricDataCells(row, m);
     }
@@ -3023,6 +3106,7 @@ async function buildFlatFromCache() {
     rebuildBitisLookup();
     sortFlatEntries(flat);
     flatEntries = flat;
+    rebuildOverviewStripAvgLookup();
     await applyGostergeTahminScoring();
     resetGostergePanels();
     return flat;
