@@ -531,6 +531,34 @@
         .ptest-gosterge1-subcol-hint {
             margin: -6px 0 12px; font-size: 10px; color: #789;
         }
+        .ptest-gosterge1-view-tabs {
+            display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 10px;
+        }
+        .ptest-gosterge1-view-tab-btn {
+            padding: 6px 14px; border: 2px solid #7b1fa2; border-radius: 8px;
+            background: #fff; color: #7b1fa2; font-size: 12px; font-weight: 800; cursor: pointer;
+        }
+        .ptest-gosterge1-view-tab-btn.active {
+            background: #7b1fa2; color: #fff;
+        }
+        .ptest-gosterge1-pair-block {
+            margin-bottom: 16px; padding: 12px 14px; background: #fafafa;
+            border: 2px solid #e1bee7; border-radius: 10px;
+        }
+        .ptest-gosterge1-pair-title {
+            margin: 0 0 12px; font-size: 13px; font-weight: 800; color: #4a148c;
+        }
+        .ptest-gosterge1-pair-subcol-block {
+            margin-bottom: 10px; padding: 10px 12px; background: #fff;
+            border: 1px solid #eceff1; border-radius: 8px;
+        }
+        .ptest-gosterge1-pair-subcol-title {
+            margin: 0 0 8px; font-size: 11px; font-weight: 800; color: #6a1b9a;
+        }
+        .ptest-gosterge1-side-panel-same { background: #e3f2fd; border-color: #90caf9; }
+        .ptest-gosterge1-side-panel-diff { background: #fff3e0; border-color: #ffcc80; }
+        .ptest-gosterge1-side-panel-same .ptest-gosterge1-side-heading { color: #1565c0; }
+        .ptest-gosterge1-side-panel-diff .ptest-gosterge1-side-heading { color: #e65100; }
         .ptest-scoring-panel {
             margin-bottom: 14px; padding: 12px 14px; background: #f3e5f5; border: 1px solid #ce93d8;
             border-radius: 10px;
@@ -866,6 +894,7 @@
             1. / 2. / 3. / 4. / 5+ bitiş ihtimalleri (PUANLAMA TEST BİTİŞ verisi).
         </p>
         <div class="ptest-gosterge-metric-tabs" id="gosterge1StripTabs"></div>
+        <div class="ptest-gosterge1-view-tabs" id="gosterge1ViewTabs"></div>
         <div class="ptest-gosterge1-subcol-tabs" id="gosterge1SubColTabs"></div>
         <p class="ptest-gosterge1-subcol-hint" id="gosterge1SubColHint"></p>
         <div id="gosterge1StripPanels"></div>
@@ -1365,7 +1394,21 @@ function yesilEntriesForBucket(bucket) {
 let ptestViewTab = 'tablo';
 let ptestGosterge1StripTab = 'delta';
 let ptestGosterge1SubColTab = 'val';
+let ptestGosterge1ViewMode = 'single';
 let gosterge1OrtGlobalLookup = null;
+
+const PTEST_G1_VIEW_MODES = [
+    { id: 'single', label: 'Tek metrik · alt/üst' },
+    { id: 'pair', label: 'Çift · yön eşleşmesi' }
+];
+
+const PTEST_G1_PRIORITY_PAIRS = [
+    ['son8001', 'oran1'],
+    ['fark827', 't8'],
+    ['fark827', 'test1'],
+    ['ff', 'fark827'],
+    ['ff', 't8']
+];
 
 const PTEST_G1_SUBCOLS = [
     { id: 'val', label: 'Değer', short: 'değer' },
@@ -1410,30 +1453,77 @@ function gosterge1OrtGlobalAvg(strip, m) {
     return gosterge1OrtGlobalLookup.get(strip.id + '|' + m.id) ?? null;
 }
 
+function gosterge1EntrySide(entry, strip, m, subCol) {
+    const val = stripCellNumericValue(entry.row, m, strip);
+    const avg = overviewStripAvgForEntry(entry, strip, m);
+    if (subCol === 'ort') {
+        const globalOrt = gosterge1OrtGlobalAvg(strip, m);
+        if (avg == null || globalOrt == null) return null;
+        if (avg < globalOrt) return 'down';
+        if (avg > globalOrt) return 'up';
+        return 'eq';
+    }
+    if (val == null || avg == null) return null;
+    if (subCol === 'val' || subCol === 'dir') {
+        if (val < avg) return 'down';
+        if (val > avg) return 'up';
+        return 'eq';
+    }
+    if (subCol === 'fark') {
+        const diff = val - avg;
+        if (diff < 0) return 'down';
+        if (diff > 0) return 'up';
+        return 'eq';
+    }
+    return null;
+}
+
+function gosterge1MetricById(id) {
+    return ptestTableMetrics().find(m => m.id === id) || null;
+}
+
+function gosterge1MetricPairsOrdered() {
+    const metrics = ptestTableMetrics();
+    const ids = metrics.map(m => m.id);
+    const seen = new Set();
+    const ordered = [];
+    function addPair(aId, bId) {
+        if (!aId || !bId || aId === bId) return;
+        const key = aId < bId ? aId + '|' + bId : bId + '|' + aId;
+        if (seen.has(key)) return;
+        seen.add(key);
+        const a = gosterge1MetricById(aId);
+        const b = gosterge1MetricById(bId);
+        if (a && b) ordered.push({ a, b });
+    }
+    for (const [aId, bId] of PTEST_G1_PRIORITY_PAIRS) addPair(aId, bId);
+    for (let i = 0; i < ids.length - 1; i++) addPair(ids[i], ids[i + 1]);
+    for (let i = 0; i < ids.length; i++) {
+        for (let j = i + 1; j < ids.length; j++) addPair(ids[i], ids[j]);
+    }
+    return ordered;
+}
+
 function entriesForGosterge1Side(strip, m, subCol, side) {
     const out = [];
-    const globalOrt = subCol === 'ort' ? gosterge1OrtGlobalAvg(strip, m) : null;
     for (const entry of flatEntries) {
-        const val = stripCellNumericValue(entry.row, m, strip);
-        const avg = overviewStripAvgForEntry(entry, strip, m);
-        if (subCol === 'val') {
-            if (val == null || avg == null) continue;
-            if (side === 'down' && val < avg) out.push(entry);
-            else if (side === 'up' && val > avg) out.push(entry);
-        } else if (subCol === 'ort') {
-            if (avg == null || globalOrt == null) continue;
-            if (side === 'down' && avg < globalOrt) out.push(entry);
-            else if (side === 'up' && avg > globalOrt) out.push(entry);
-        } else if (subCol === 'dir') {
-            if (val == null || avg == null) continue;
-            if (side === 'down' && val < avg) out.push(entry);
-            else if (side === 'up' && val > avg) out.push(entry);
-        } else if (subCol === 'fark') {
-            if (val == null || avg == null) continue;
-            const diff = val - avg;
-            if (side === 'down' && diff < 0) out.push(entry);
-            else if (side === 'up' && diff > 0) out.push(entry);
-        }
+        const s = gosterge1EntrySide(entry, strip, m, subCol);
+        if (s == null) continue;
+        if (side === 'down' && s === 'down') out.push(entry);
+        else if (side === 'up' && s === 'up') out.push(entry);
+    }
+    return out;
+}
+
+function entriesForGosterge1Pair(strip, mA, mB, subCol, match) {
+    const out = [];
+    for (const entry of flatEntries) {
+        const sideA = gosterge1EntrySide(entry, strip, mA, subCol);
+        const sideB = gosterge1EntrySide(entry, strip, mB, subCol);
+        if (sideA == null || sideB == null) continue;
+        const same = sideA === sideB;
+        if (match === 'same' && same) out.push(entry);
+        else if (match === 'diff' && !same) out.push(entry);
     }
     return out;
 }
@@ -1518,6 +1608,18 @@ function renderGosterge1SidePanel(strip, m, subCol, side) {
     const isDown = side === 'down';
     const panelCls = isDown ? 'ptest-gosterge1-side-panel-down' : 'ptest-gosterge1-side-panel-up';
     const heading = gosterge1SideHeading(subCol, side);
+    return renderGosterge1StatsPanel(panelCls, heading, stats);
+}
+
+function renderGosterge1PairSidePanel(strip, mA, mB, subCol, match) {
+    const entries = entriesForGosterge1Pair(strip, mA, mB, subCol, match);
+    const stats = buildBitisFinishBreakdownStats(entries);
+    const panelCls = match === 'same' ? 'ptest-gosterge1-side-panel-same' : 'ptest-gosterge1-side-panel-diff';
+    const heading = match === 'same' ? '✓ Aynı yön' : '✗ Farklı yön';
+    return renderGosterge1StatsPanel(panelCls, heading, stats);
+}
+
+function renderGosterge1StatsPanel(panelCls, heading, stats) {
     let h = '<div class="ptest-gosterge1-side-panel ' + panelCls + '">';
     h += '<div class="ptest-gosterge1-side-heading">' + heading + '</div>';
     h += '<div class="ptest-gosterge1-side-meta">' + stats.matchedRows + ' satır eşleşti · '
@@ -1526,6 +1628,34 @@ function renderGosterge1SidePanel(strip, m, subCol, side) {
         h += '<p style="margin:0;font-size:11px;color:#789">Bitiş verisi yok</p>';
     } else {
         h += '<div class="ptest-stats-wrap">' + renderBitisFinishBreakdownTable(stats) + '</div>';
+    }
+    h += '</div>';
+    return h;
+}
+
+function gosterge1PairMetricTitle(m, strip) {
+    return AtSpeedUtils.escapeHtml(m.label) + ' · SON derinlik · ' + AtSpeedUtils.escapeHtml(strip.kind);
+}
+
+function renderGosterge1PairSubColBlock(strip, mA, mB, subCol) {
+    const sc = gosterge1SubColSpec(subCol);
+    const subLabel = subCol === 'val' ? strip.kind : sc.label;
+    let h = '<div class="ptest-gosterge1-pair-subcol-block">';
+    h += '<div class="ptest-gosterge1-pair-subcol-title">' + AtSpeedUtils.escapeHtml(sc.label)
+        + ' · ' + AtSpeedUtils.escapeHtml(subLabel) + '</div>';
+    h += '<div class="ptest-gosterge1-side-grid">';
+    h += renderGosterge1PairSidePanel(strip, mA, mB, subCol, 'same');
+    h += renderGosterge1PairSidePanel(strip, mA, mB, subCol, 'diff');
+    h += '</div></div>';
+    return h;
+}
+
+function renderGosterge1PairBlock(strip, mA, mB) {
+    let h = '<div class="ptest-gosterge1-pair-block" id="g1p_' + strip.id + '_' + mA.id + '_' + mB.id + '">';
+    h += '<div class="ptest-gosterge1-pair-title">' + gosterge1PairMetricTitle(mA, strip)
+        + ' ↔ ' + gosterge1PairMetricTitle(mB, strip) + '</div>';
+    for (const sc of PTEST_G1_SUBCOLS) {
+        h += renderGosterge1PairSubColBlock(strip, mA, mB, sc.id);
     }
     h += '</div>';
     return h;
@@ -1544,7 +1674,7 @@ function renderGosterge1MetricBlock(strip, m, subCol) {
     return h;
 }
 
-function renderGosterge1StripPanel(strip, subCol) {
+function renderGosterge1StripPanelSingle(strip, subCol) {
     let h = '<div class="ptest-gosterge1-strip-panel' + (strip.id === ptestGosterge1StripTab ? ' active' : '')
         + '" data-gosterge1-strip="' + strip.id + '">';
     h += '<div class="ptest-gosterge-section-title">' + AtSpeedUtils.escapeHtml(strip.title) + '</div>';
@@ -1553,6 +1683,62 @@ function renderGosterge1StripPanel(strip, subCol) {
     }
     h += '</div>';
     return h;
+}
+
+function renderGosterge1StripPanelPair(strip) {
+    const pairs = gosterge1MetricPairsOrdered();
+    let h = '<div class="ptest-gosterge1-strip-panel' + (strip.id === ptestGosterge1StripTab ? ' active' : '')
+        + '" data-gosterge1-strip="' + strip.id + '">';
+    h += '<div class="ptest-gosterge-section-title">' + AtSpeedUtils.escapeHtml(strip.title)
+        + ' · ' + pairs.length + ' metrik çifti · Değer · ORT · ↑↓ · FARK</div>';
+    for (const pair of pairs) {
+        h += renderGosterge1PairBlock(strip, pair.a, pair.b);
+    }
+    h += '</div>';
+    return h;
+}
+
+function renderGosterge1StripPanel(strip, subCol) {
+    if (ptestGosterge1ViewMode === 'pair') return renderGosterge1StripPanelPair(strip);
+    return renderGosterge1StripPanelSingle(strip, subCol);
+}
+
+function initGosterge1ViewTabs(activeStrip) {
+    const tabsEl = document.getElementById('gosterge1ViewTabs');
+    const subColWrap = document.getElementById('gosterge1SubColTabs');
+    const hintEl = document.getElementById('gosterge1SubColHint');
+    if (!tabsEl) return;
+    if (!PTEST_G1_VIEW_MODES.some(v => v.id === ptestGosterge1ViewMode)) {
+        ptestGosterge1ViewMode = 'single';
+    }
+    let th = '';
+    for (const vm of PTEST_G1_VIEW_MODES) {
+        const active = vm.id === ptestGosterge1ViewMode ? ' active' : '';
+        th += '<button type="button" class="ptest-gosterge1-view-tab-btn' + active
+            + '" data-gosterge1-view="' + vm.id + '">' + AtSpeedUtils.escapeHtml(vm.label) + '</button>';
+    }
+    tabsEl.innerHTML = th;
+    const isPair = ptestGosterge1ViewMode === 'pair';
+    if (subColWrap) subColWrap.classList.toggle('hidden', isPair);
+    if (hintEl && activeStrip) {
+        hintEl.classList.remove('hidden');
+        hintEl.textContent = isPair
+            ? ('İki metrik arasında Değer · ORT · ↑↓ · FARK yönlerinin aynı/farklı olduğu '
+                + 'satırlarda 1./2./3./4./5+ bitiş ihtimalleri · ' + activeStrip.kind)
+            : gosterge1SubColHintText(activeStrip, ptestGosterge1SubColTab);
+    }
+    if (tabsEl.dataset.bound !== '1') {
+        tabsEl.dataset.bound = '1';
+        tabsEl.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-gosterge1-view]');
+            if (!btn) return;
+            ptestGosterge1ViewMode = btn.dataset.gosterge1View || 'single';
+            tabsEl.querySelectorAll('[data-gosterge1-view]').forEach(b => {
+                b.classList.toggle('active', b.dataset.gosterge1View === ptestGosterge1ViewMode);
+            });
+            initGosterge1StripTabs();
+        });
+    }
 }
 
 function initGosterge1SubColTabs(activeStrip) {
@@ -1595,7 +1781,10 @@ function initGosterge1StripTabs() {
         ptestGosterge1StripTab = strips[0]?.id || 'delta';
     }
     const activeStrip = strips.find(s => s.id === ptestGosterge1StripTab) || strips[0];
-    initGosterge1SubColTabs(activeStrip);
+    initGosterge1ViewTabs(activeStrip);
+    if (ptestGosterge1ViewMode === 'single') {
+        initGosterge1SubColTabs(activeStrip);
+    }
     let th = '';
     for (const strip of strips) {
         const active = strip.id === ptestGosterge1StripTab ? ' active' : '';
@@ -1621,8 +1810,11 @@ function initGosterge1StripTabs() {
                 p.classList.toggle('active', p.dataset.gosterge1Strip === ptestGosterge1StripTab);
             });
             const strip = strips.find(s => s.id === ptestGosterge1StripTab);
-            const hintEl = document.getElementById('gosterge1SubColHint');
-            if (hintEl && strip) hintEl.textContent = gosterge1SubColHintText(strip, ptestGosterge1SubColTab);
+            initGosterge1ViewTabs(strip);
+            if (ptestGosterge1ViewMode === 'single') {
+                const hintEl = document.getElementById('gosterge1SubColHint');
+                if (hintEl && strip) hintEl.textContent = gosterge1SubColHintText(strip, ptestGosterge1SubColTab);
+            }
         });
     }
 }
@@ -1635,15 +1827,15 @@ function renderGosterge1Report() {
     const intro = document.getElementById('gosterge1Intro');
     if (intro) {
         const bitisN = countFilledBitisFromEntries();
-        intro.innerHTML = 'Her strip ve metrik için <strong>Değer · ORT · ↑↓ · FARK</strong> alt kırılımlarında '
-            + 'koşu/genel ortalamaya göre <strong>alt ↓</strong> ve <strong>üst ↑</strong> gruplarında '
+        intro.innerHTML = '<strong>Tek metrik</strong>: Değer · ORT · ↑↓ · FARK alt/üst grupları · '
+            + '<strong>Çift · yön</strong>: iki metrik arasında yön eşleşmesi (aynı / farklı) · '
             + '1. / 2. / 3. / 4. / 5+ bitiş ihtimalleri · '
             + flatEntries.length + ' satır · ' + bitisN + ' bitiş kaydı · build ' + PTEST_BUILD;
     }
     initGosterge1StripTabs();
 }
 
-const PTEST_BUILD = '20260830l';
+const PTEST_BUILD = '20260830m';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
