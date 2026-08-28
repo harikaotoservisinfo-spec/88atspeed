@@ -740,6 +740,197 @@ const PtestGostergeEngine = (function () {
         });
     }
 
+    const DEFAULT_SUCCESS_BLEND = { b1: 0.80, b12: 0.12, b123: 0.08 };
+
+    function blendedGostergeSuccess(stats, blend) {
+        if (!stats?.withBitis) return -1;
+        const t = stats.withBitis;
+        const b = blend || DEFAULT_SUCCESS_BLEND;
+        return b.b1 * (stats.b1 / t) + b.b12 * (stats.b12 / t) + b.b123 * (stats.b123 / t);
+    }
+
+    function pushColorRow(rows, base, stats, statKind) {
+        const blend = base.successBlend || DEFAULT_SUCCESS_BLEND;
+        const t = stats.withBitis || 0;
+        const label = (base.modePrefix || '') + base.label;
+        rows.push({
+            id: base.id,
+            metricId: base.metricId,
+            metricLabel: base.metricLabel,
+            mode: base.mode || 'sonDelta',
+            pairLabel: base.pairLabel || '',
+            category: base.category || '',
+            label,
+            stats,
+            statKind: statKind || 'bitis',
+            successRate: blendedGostergeSuccess(stats, blend),
+            b1Rate: t ? stats.b1 / t : 0,
+            b12Rate: t ? stats.b12 / t : 0,
+            b123Rate: t ? stats.b123 / t : 0
+        });
+    }
+
+    /** Gösterge sekmesindeki tüm renk başarı panellerini tek listede toplar */
+    function collectColorGostergeRows(ctx, host, opts) {
+        opts = opts || {};
+        const rows = [];
+        const flatEntries = host.flatEntries;
+        if (!flatEntries?.length) return rows;
+
+        const index = buildGostergeIndex(ctx, flatEntries);
+        const tiers = ctx.buildColorTiers();
+        const primaryBsBuckets = ctx.primaryBsBuckets();
+        const metricLabel = ctx.spec.label;
+        const metricId = ctx.spec.id;
+        const mode = opts.mode || 'sonDelta';
+        const pairLabel = opts.pairLabel || '';
+        const modePrefix = opts.modePrefix != null ? opts.modePrefix
+            : (pairLabel ? '[' + pairLabel + '] ' : '');
+        const blend = opts.successBlend;
+
+        function add(category, label, stats, statKind, idSuffix) {
+            pushColorRow(rows, {
+                metricId,
+                metricLabel,
+                mode,
+                pairLabel,
+                modePrefix,
+                category,
+                label,
+                successBlend: blend,
+                id: metricId + '|' + mode + '|' + (pairLabel || '-') + '|' + idSuffix
+            }, stats, statKind);
+        }
+
+        for (const sec of BITIS_REPORT_SECTIONS) {
+            const matched = index.byRule[sec.ruleId] || [];
+            add('ozet', sec.rowLabel + ' (SON·Δ)', host.buildBitisStatsFromEntries(matched), 'bitis', 'ozet_' + sec.ruleId);
+        }
+
+        for (let i = 0; i < YESIL_SON_DELTA_BUCKETS.length; i++) {
+            const b = YESIL_SON_DELTA_BUCKETS[i];
+            add('yesil_delta', '🟢 Yeşil · ' + b.label,
+                host.buildBitisStatsFromEntries(index.yesilBySonBucket[i]), 'bitis', 'yesil_d' + i);
+            add('turuncu_delta', '🟠 Turuncu · ' + b.label,
+                host.buildBitisStatsFromEntries(index.turuncuBySonBucket[i]), 'bitis', 'turuncu_d' + i);
+            add('sari_delta', '🟡 Sarı · ' + b.label,
+                host.buildBitisStatsFromEntries(index.sariBySonBucket[i]), 'bitis', 'sari_d' + i);
+        }
+
+        for (let bi = 0; bi < YESIL_SON_DELTA_BUCKETS.length; bi++) {
+            const deltaBucket = YESIL_SON_DELTA_BUCKETS[bi];
+            const yesilEntries = index.yesilBySonBucket[bi];
+            const turuncuEntries = index.turuncuBySonBucket[bi];
+            const sariEntries = index.sariBySonBucket[bi];
+            for (let bsi = 0; bsi < YESIL_T1_BS_BUCKETS.length; bsi++) {
+                const bsBucket = YESIL_T1_BS_BUCKETS[bsi];
+                const yesilOut = [];
+                for (const entry of yesilEntries) {
+                    const bs = ctx.t1BsPct(entry);
+                    if (bs != null && bsBucket.bsTest(bs)) yesilOut.push(entry);
+                }
+                add('yesil_bs', '🟢 Yeşil · ' + deltaBucket.label + ' · ' + bsBucket.label,
+                    host.buildBitisStatsFromEntries(yesilOut), 'bitis', 'yesil_bs_' + bi + '_' + bsi);
+
+                const turuncuOut = [];
+                for (const entry of turuncuEntries) {
+                    const bs = ctx.t1BsPct(entry);
+                    if (bs != null && bsBucket.bsTest(bs)) turuncuOut.push(entry);
+                }
+                add('turuncu_bs', '🟠 Turuncu · ' + deltaBucket.label + ' · ' + bsBucket.label,
+                    host.buildBitisStatsFromEntries(turuncuOut), 'bitis', 'turuncu_bs_' + bi + '_' + bsi);
+
+                const sariOut = [];
+                for (const entry of sariEntries) {
+                    const bs = ctx.t1BsPct(entry);
+                    if (bs != null && bsBucket.bsTest(bs)) sariOut.push(entry);
+                }
+                add('sari_bs', '🟡 Sarı · ' + deltaBucket.label + ' · ' + bsBucket.label,
+                    host.buildBitisStatsFromEntries(sariOut), 'bitis', 'sari_bs_' + bi + '_' + bsi);
+            }
+        }
+
+        const raceGroups = host.buildRaceEntryGroups();
+        for (let i = 0; i < YESIL_RACE_DELTA_BUCKETS.length; i++) {
+            const bucket = YESIL_RACE_DELTA_BUCKETS[i];
+            const rankItems = [];
+            for (const entry of index.yesilByRaceBucket[i]) {
+                const rk = host.raceKey(entry.kayitId, entry.raceNo);
+                const { rank } = host.computeMetricRankInRace(
+                    entry, raceGroups.get(rk) || [], ctx.primaryBsPct);
+                rankItems.push({ rank });
+            }
+            add('yesil_race', '🟢 Yeşil · koşu içi BS · ' + bucket.label,
+                host.buildRaceRankStatsFromItems(rankItems), 'raceRank', 'yesil_race_' + i);
+        }
+
+        for (let pct = 1; pct <= 25; pct++) {
+            const matched = index.t1SariByPct[pct];
+            add('t1sari_base', '🟡 T1×DR sarı · SON·Δ %' + pct,
+                host.buildBitisStatsFromEntries(matched), 'bitis', 't1sari_' + pct);
+
+            for (let ti = 0; ti < tiers.length; ti++) {
+                const tier = tiers[ti];
+                for (let di = 0; di < YESIL_RACE_DELTA_BUCKETS.length; di++) {
+                    const bucket = YESIL_RACE_DELTA_BUCKETS[di];
+                    const tierEntries = [];
+                    for (const entry of matched) {
+                        if (!tier.tierMatch(entry)) continue;
+                        const g = ctx.primaryGapPct(entry);
+                        if (g != null && bucket.gapTest(g)) tierEntries.push(entry);
+                    }
+                    add('t1sari_tier_delta',
+                        tier.emoji + ' T1 sarı %' + pct + ' · ' + tier.label + ' · ' + bucket.label,
+                        host.buildBitisStatsFromEntries(tierEntries), 'bitis',
+                        't1sari_' + pct + '_t' + ti + '_d' + di);
+                }
+
+                for (let pbi = 0; pbi < primaryBsBuckets.length; pbi++) {
+                    const bsBucket = primaryBsBuckets[pbi];
+                    const bsEntries = [];
+                    for (const entry of matched) {
+                        if (!tier.comboMatch(entry, pct)) continue;
+                        const bs = ctx.primaryBsPct(entry);
+                        if (bs != null && bsBucket.bsTest(bs)) bsEntries.push(entry);
+                    }
+                    add('t1sari_tier_bs',
+                        tier.emoji + ' T1 sarı %' + pct + ' · ' + tier.comboLabel + ' · ' + bsBucket.label,
+                        host.buildBitisStatsFromEntries(bsEntries), 'bitis',
+                        't1sari_' + pct + '_t' + ti + '_pbs' + pbi);
+
+                    for (let t1i = 0; t1i < T1_DR_SON_BS_RANGE_BUCKETS.length; t1i++) {
+                        const t1Bs = T1_DR_SON_BS_RANGE_BUCKETS[t1i];
+                        const nested = [];
+                        for (const entry of bsEntries) {
+                            const tbs = ctx.t1BsPct(entry);
+                            if (tbs != null && t1Bs.bsTest(tbs)) nested.push(entry);
+                        }
+                        add('t1sari_tier_bs_nested',
+                            tier.emoji + ' T1 sarı %' + pct + ' · ' + bsBucket.label + ' · ' + t1Bs.label,
+                            host.buildBitisStatsFromEntries(nested), 'bitis',
+                            't1sari_' + pct + '_t' + ti + '_pbs' + pbi + '_t1bs' + t1i);
+                    }
+                }
+            }
+        }
+
+        return rows;
+    }
+
+    function sortColorGostergeRows(rows) {
+        const sorted = rows.slice();
+        sorted.sort((a, b) => {
+            if (b.successRate !== a.successRate) return b.successRate - a.successRate;
+            const bw = b.stats.withBitis || 0;
+            const aw = a.stats.withBitis || 0;
+            if (bw !== aw) return bw - aw;
+            if (b.b1Rate !== a.b1Rate) return b.b1Rate - a.b1Rate;
+            return a.label.localeCompare(b.label, 'tr');
+        });
+        for (let i = 0; i < sorted.length; i++) sorted[i].rank = i + 1;
+        return sorted;
+    }
+
     return {
         METRICS: PTEST_GOSTERGE_METRICS,
         createContext,
@@ -747,6 +938,10 @@ const PtestGostergeEngine = (function () {
         switchMetricTab,
         renderMetricGosterge,
         renderMetricGostergeAsync,
+        collectColorGostergeRows,
+        sortColorGostergeRows,
+        blendedGostergeSuccess,
+        DEFAULT_SUCCESS_BLEND,
         pid,
         _YESIL_SON_DELTA_BUCKETS: YESIL_SON_DELTA_BUCKETS,
         _YESIL_RACE_DELTA_BUCKETS: YESIL_RACE_DELTA_BUCKETS,

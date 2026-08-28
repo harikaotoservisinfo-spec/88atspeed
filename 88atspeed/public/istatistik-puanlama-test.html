@@ -967,6 +967,11 @@
     <div class="ptest-scoring-panel" id="gostergeScoringPanel">
         <h3>🏆 TAHMİN · Gösterge başarı puanlama merdiveni</h3>
         <div id="gostergeScoringLadder">Bitiş verisi yüklendikten sonra metrik gruplarına göre en başarılı göstergeler listelenir.</div>
+        <p style="margin:10px 0 0;font-size:11px">
+            <button type="button" class="btn btn-secondary" id="gostergeColorExportBtn" disabled
+                title="Tüm renk göstergelerini başarı sırasına göre .txt indir">📥 Renk gösterge sıralaması (.txt)</button>
+            <span id="gostergeColorExportStatus" style="margin-left:8px;color:#546e7a"></span>
+        </p>
     </div>
     <div id="gostergeLoadingOverlay" class="ptest-gosterge-loading hidden" aria-live="polite">
         <div class="ptest-gosterge-loading-box">
@@ -1083,9 +1088,10 @@
 <script src="js/istatistik-grids-extra.js?v=20260830b"></script>
 <script src="js/istatistik-gosterim-flags.js?v=20260830b"></script>
 <script src="js/istatistik-tahmin-engine.js?v=20260830b"></script>
-<script src="js/ptest-gosterge-engine.js?v=20260830b"></script>
-<script src="js/ptest-gosterge-depth-engine.js?v=20260830b"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260830u"></script>
+<script src="js/ptest-gosterge-engine.js?v=20260830v"></script>
+<script src="js/ptest-gosterge-depth-engine.js?v=20260830v"></script>
+<script src="js/ptest-color-gosterge-export.js?v=20260830v"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260830v"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -2374,7 +2380,37 @@ function updateGostergeTabVisibility() {
     const hasData = flatEntries.length > 0;
     if (empty) empty.classList.toggle('hidden', hasData);
     if (content) content.classList.toggle('hidden', !hasData);
+    const exportBtn = document.getElementById('gostergeColorExportBtn');
+    if (exportBtn) exportBtn.disabled = !hasData;
     updateGosterge1TabVisibility();
+}
+
+async function downloadColorGostergeExport() {
+    const btn = document.getElementById('gostergeColorExportBtn');
+    const statusEl = document.getElementById('gostergeColorExportStatus');
+    if (!flatEntries.length) {
+        if (statusEl) statusEl.textContent = 'Önce veri yükleyin.';
+        return;
+    }
+    if (btn) btn.disabled = true;
+    if (statusEl) statusEl.textContent = 'Hesaplanıyor… (tüm metrikler + derinlik çiftleri)';
+    try {
+        const host = getPtestScoringHost();
+        const result = await PtestColorGostergeExport.downloadColorGostergeTxt(flatEntries, host, {
+            buildTag: PTEST_BUILD,
+            onProgress: (msg) => {
+                if (statusEl) statusEl.textContent = msg;
+            }
+        });
+        if (statusEl) {
+            statusEl.textContent = result.rowCount.toLocaleString('tr-TR')
+                + ' gösterge · ' + result.filename + ' indirildi';
+        }
+    } catch (err) {
+        if (statusEl) statusEl.textContent = 'Hata: ' + err.message;
+    } finally {
+        if (btn) btn.disabled = !flatEntries.length;
+    }
 }
 
 function updateGosterge1TabVisibility() {
@@ -2622,7 +2658,7 @@ function renderGosterge1Report() {
     initGosterge1StripTabs();
 }
 
-const PTEST_BUILD = '20260830u';
+const PTEST_BUILD = '20260830v';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
@@ -4883,6 +4919,7 @@ async function clearAllKayitlar() {
 document.getElementById('loadAllBtn').onclick = loadAllKayitlar;
 document.getElementById('saveAllBtn').onclick = saveAllSettings;
 document.getElementById('exportTxtBtn').onclick = downloadTextExport;
+document.getElementById('gostergeColorExportBtn').onclick = () => void downloadColorGostergeExport();
 document.getElementById('clearAllBtn').onclick = clearAllKayitlar;
 document.getElementById('toggleCikanBtn').onclick = () => {
     cikanPanelOpen = !cikanPanelOpen;

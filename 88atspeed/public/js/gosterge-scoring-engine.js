@@ -836,6 +836,7 @@ const GostergeScoringEngine = (function () {
         METRIC_OTHER_SHARE,
         COLOR_RULE_IDS,
         isColorRule,
+        collectSonDeltaMetrics,
         MIN_RULE_SAMPLE,
         SUCCESS_BLEND: () => ({ ...SUCCESS_BLEND }),
         get T9V_SCORE_SHARE() { return T9V_SCORE_SHARE; },
