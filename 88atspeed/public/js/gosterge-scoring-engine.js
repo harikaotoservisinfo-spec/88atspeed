@@ -7,6 +7,8 @@ const GostergeScoringEngine = (function () {
     const DEPTH_PAIR_WEIGHT_FACTOR = 0.65;
     let T9V_SCORE_SHARE = 0.35;
     let OTHER_SCORE_SHARE = 0.65;
+    let METRIC_SWEEP_FOCUS_ID = null;
+    let METRIC_SWEEP_FOCUS_SHARE = 0;
     let SUCCESS_BLEND = { b1: 0.80, b12: 0.12, b123: 0.08 };
 
     let calibration = null;
@@ -19,6 +21,29 @@ const GostergeScoringEngine = (function () {
 
     function getT9vScoreShare() {
         return T9V_SCORE_SHARE;
+    }
+
+    function setMetricSweepFocus(metricId, shareWithinOther) {
+        METRIC_SWEEP_FOCUS_ID = metricId || null;
+        const s = Math.max(0, Math.min(1, Number(shareWithinOther) || 0));
+        METRIC_SWEEP_FOCUS_SHARE = METRIC_SWEEP_FOCUS_ID ? s : 0;
+    }
+
+    function clearMetricSweepFocus() {
+        METRIC_SWEEP_FOCUS_ID = null;
+        METRIC_SWEEP_FOCUS_SHARE = 0;
+    }
+
+    function getMetricSweepFocus() {
+        return {
+            metricId: METRIC_SWEEP_FOCUS_ID,
+            shareWithinOther: METRIC_SWEEP_FOCUS_SHARE
+        };
+    }
+
+    function isFocusScoreMetric(metricEntry) {
+        if (!METRIC_SWEEP_FOCUS_ID) return false;
+        return metricBaseId(metricEntry) === METRIC_SWEEP_FOCUS_ID;
     }
 
     function setSuccessBlend(blend) {
@@ -279,11 +304,29 @@ const GostergeScoringEngine = (function () {
         return w;
     }
 
-    function blendGostergeScoreTotals(otherWeighted, t9vWeighted) {
+    function blendScoreBuckets(buckets) {
+        const active = (buckets || []).filter(b => b.weighted > 0 && b.share > 0);
+        if (!active.length) return 0;
+        if (active.length === 1) return Math.round(active[0].weighted / active[0].share);
+        return Math.round(Math.min(...active.map(b => b.weighted / b.share)));
+    }
+
+    function blendGostergeScoreTotals(restWeighted, t9vWeighted, focusWeighted) {
+        if (METRIC_SWEEP_FOCUS_ID && METRIC_SWEEP_FOCUS_SHARE > 0) {
+            const focusShare = OTHER_SCORE_SHARE * METRIC_SWEEP_FOCUS_SHARE;
+            const restShare = OTHER_SCORE_SHARE * (1 - METRIC_SWEEP_FOCUS_SHARE);
+            return blendScoreBuckets([
+                { weighted: t9vWeighted, share: T9V_SCORE_SHARE },
+                { weighted: focusWeighted || 0, share: focusShare },
+                { weighted: restWeighted || 0, share: restShare }
+            ]);
+        }
+        const otherWeighted = (restWeighted || 0) + (focusWeighted || 0);
         if (t9vWeighted > 0 && otherWeighted > 0) {
-            const totalFromOther = otherWeighted / OTHER_SCORE_SHARE;
-            const totalFromT9v = t9vWeighted / T9V_SCORE_SHARE;
-            return Math.round(Math.min(totalFromOther, totalFromT9v));
+            return blendScoreBuckets([
+                { weighted: otherWeighted, share: OTHER_SCORE_SHARE },
+                { weighted: t9vWeighted, share: T9V_SCORE_SHARE }
+            ]);
         }
         return otherWeighted + t9vWeighted;
     }
@@ -323,7 +366,8 @@ const GostergeScoringEngine = (function () {
         }
 
         const terms = [];
-        let otherWeighted = 0;
+        let restWeighted = 0;
+        let focusWeighted = 0;
         let t9vWeighted = 0;
 
         for (const m of calibration.metrics) {
@@ -334,7 +378,8 @@ const GostergeScoringEngine = (function () {
             const w = metricWeight(m);
             const weighted = Math.round((score * w) / 1000);
             if (isT9vScoreMetric(m)) t9vWeighted += weighted;
-            else otherWeighted += weighted;
+            else if (isFocusScoreMetric(m)) focusWeighted += weighted;
+            else restWeighted += weighted;
             terms.push({
                 metricId: m.id,
                 metricLabel: m.label,
@@ -349,8 +394,8 @@ const GostergeScoringEngine = (function () {
         }
 
         terms.sort((a, b) => b.points - a.points);
-        const rawTotal = otherWeighted + t9vWeighted;
-        const totalScore = blendGostergeScoreTotals(otherWeighted, t9vWeighted);
+        const rawTotal = restWeighted + focusWeighted + t9vWeighted;
+        const totalScore = blendGostergeScoreTotals(restWeighted, t9vWeighted, focusWeighted);
         scaleTermPoints(terms, rawTotal, totalScore);
 
         return {
@@ -579,6 +624,9 @@ const GostergeScoringEngine = (function () {
         setSuccessBlend,
         setT9vScoreShare,
         getT9vScoreShare,
+        setMetricSweepFocus,
+        clearMetricSweepFocus,
+        getMetricSweepFocus,
         MIN_RULE_SAMPLE,
         SUCCESS_BLEND: () => ({ ...SUCCESS_BLEND }),
         get T9V_SCORE_SHARE() { return T9V_SCORE_SHARE; },

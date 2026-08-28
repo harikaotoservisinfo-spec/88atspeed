@@ -858,6 +858,30 @@
         }
         .ptest-t9v-sweep-table th { background: #fafafa; font-weight: 700; }
         .ptest-t9v-sweep-table td.ptest-sweep-at { text-align: left; font-weight: 600; max-width: 140px; }
+        /* Geçici — çekirdek metrik pay taraması (T9V %35 sabit) */
+        .ptest-metric-sweep-intro {
+            margin: 0 0 10px; padding: 10px 12px; background: #e3f2fd; border: 1px solid #90caf9;
+            border-radius: 8px; font-size: 12px; color: #546e7a; line-height: 1.45;
+        }
+        .ptest-metric-sweep-tabs {
+            display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;
+        }
+        .ptest-metric-sweep-tab {
+            padding: 5px 10px; border: 1px solid #90caf9; border-radius: 6px; background: #fff;
+            font-size: 11px; font-weight: 700; color: #1565c0; cursor: pointer;
+        }
+        .ptest-metric-sweep-tab:hover { background: #e3f2fd; }
+        .ptest-metric-sweep-tab.active {
+            background: #1565c0; color: #fff; border-color: #0d47a1;
+        }
+        .ptest-metric-sweep-summary th { background: #e3f2fd; }
+        .ptest-metric-sweep-summary tbody tr:hover { background: #e3f2fd; }
+        .ptest-metric-sweep-summary tbody tr.active { background: #bbdefb; font-weight: 800; }
+        .ptest-metric-sweep-detail-title { margin: 0 0 10px; font-size: 13px; font-weight: 800; color: #0d47a1; }
+        .ptest-metric-sweep-race-title {
+            margin: 0 0 6px; padding: 4px 8px; background: #e3f2fd; border-radius: 6px;
+            font-size: 11px; font-weight: 800; color: #0d47a1;
+        }
         .ptest-tahmin-split { display: flex; min-width: 120px; min-height: 44px; border-radius: 6px; overflow: hidden; border: 1px solid #cfd8dc; }
         .ptest-tahmin-half {
             flex: 1 1 50%; display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -896,6 +920,7 @@
         <button type="button" class="ptest-view-tab-btn" data-ptest-view="gosterge" id="ptestViewGostergeBtn">📈 Gösterge</button>
         <button type="button" class="ptest-view-tab-btn" data-ptest-view="gosterge1" id="ptestViewGosterge1Btn">📊 Gösterge 1</button>
         <button type="button" class="ptest-view-tab-btn ptest-temp-tab" data-ptest-view="t9vsweep" id="ptestViewT9vSweepBtn">🔬 T9V Tarama (geçici)</button>
+        <button type="button" class="ptest-view-tab-btn ptest-temp-tab" data-ptest-view="metricsweep" id="ptestViewMetricSweepBtn">🔬 Metrik Tarama (geçici)</button>
     </div>
     <div id="ptestTabTablo" class="ptest-tab-panel">
     <div class="ptest-cikan-panel hidden" id="cikanPanel">
@@ -978,6 +1003,30 @@
         </div>
     </div>
     </div>
+    <div id="ptestTabMetricSweep" class="ptest-tab-panel hidden">
+    <div class="ptest-gosterge-empty" id="metricSweepEmptyMsg" style="padding:24px;color:#789;text-align:center">
+        Veri yükleyin — metrik taraması &quot;Tüm kayıtları yükle&quot; sonrası görünür
+    </div>
+    <div id="metricSweepContentWrap" class="hidden">
+        <p class="ptest-metric-sweep-intro" id="metricSweepIntro">
+            T9V <strong>%35 sabit</strong> · kalan %65 içinde seçili metrik payı <strong>%1 – %50</strong> taranıyor ·
+            tam isabet = TAHMİN sırası = BİTİŞ · <em>Geçici ekran — sonra silinecek</em>
+        </p>
+        <div class="ptest-metric-sweep-tabs" id="metricSweepMetricTabs"></div>
+        <div class="ptest-t9v-sweep-layout ptest-metric-sweep-layout">
+            <div class="ptest-t9v-sweep-summary-wrap">
+                <table class="ptest-t9v-sweep-summary ptest-metric-sweep-summary" id="metricSweepSummaryTable">
+                    <thead><tr><th>Metrik %</th><th>Tam isabet</th><th>%</th></tr></thead>
+                    <tbody id="metricSweepSummaryBody"></tbody>
+                </table>
+            </div>
+            <div class="ptest-t9v-sweep-detail" id="metricSweepDetail">
+                <p class="ptest-t9v-sweep-detail-title ptest-metric-sweep-detail-title" id="metricSweepDetailTitle">Soldan bir % satırına tıklayın</p>
+                <div id="metricSweepDetailBody"></div>
+            </div>
+        </div>
+    </div>
+    </div>
 </div>
 
 <script src="js/utils.js?v=20260830b"></script>
@@ -987,7 +1036,7 @@
 <script src="js/istatistik-tahmin-engine.js?v=20260830b"></script>
 <script src="js/ptest-gosterge-engine.js?v=20260830b"></script>
 <script src="js/ptest-gosterge-depth-engine.js?v=20260830b"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260830p"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260830q"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -1476,6 +1525,26 @@ let ptestT9vSweepSelectedPct = 1;
 let t9vSweepTahminBaseline = null;
 const T9V_SWEEP_DEFAULT_SHARE = 0.35;
 
+const CORE_METRIC_SWEEP_LIST = [
+    { id: 'son8001', label: 'SON800-1', weight: 60 },
+    { id: 'oran1', label: '800-1 ORAN', weight: 30 },
+    { id: 'oran2', label: '800-2 ORAN', weight: 30 },
+    { id: 'fark827', label: '800Δ·7', weight: 20 },
+    { id: 'ff', label: 'FFΔ', weight: 40 },
+    { id: 't8', label: 'T8Δ', weight: 60 },
+    { id: 'test1', label: 'TEST1', weight: 250 },
+    { id: 'test2', label: 'TEST2', weight: 50 },
+    { id: 'test3', label: 'TEST3', weight: 50 },
+    { id: 'testsira', label: 'TEST·SIRA', weight: 50 },
+    { id: 't1dr', label: 'T1×DR', weight: 120 }
+];
+
+let ptestMetricSweepRows = null;
+let ptestMetricSweepRowsForId = null;
+let ptestMetricSweepSelectedPct = 10;
+let ptestMetricSweepSelectedId = 'son8001';
+let metricSweepTahminBaseline = null;
+
 function ptestTahminBitisMatch(tahmin, bitisVal) {
     if (bitisVal == null || bitisVal < 1 || !tahmin || tahmin.rank == null) return false;
     return Number(tahmin.rank) === Number(bitisVal);
@@ -1671,6 +1740,201 @@ async function renderT9vSweepReport() {
     renderT9vSweepDetail(ptestT9vSweepSelectedPct);
 }
 
+function coreMetricSweepSpec(metricId) {
+    return CORE_METRIC_SWEEP_LIST.find(m => m.id === metricId) || CORE_METRIC_SWEEP_LIST[0];
+}
+
+function applyMetricSweepSettings(metricId, pctWithinOther) {
+    GostergeScoringEngine.setT9vScoreShare(T9V_SWEEP_DEFAULT_SHARE);
+    GostergeScoringEngine.setMetricSweepFocus(metricId, (pctWithinOther || 0) / 100);
+}
+
+function clearMetricSweepSettings() {
+    GostergeScoringEngine.clearMetricSweepFocus();
+    GostergeScoringEngine.setT9vScoreShare(T9V_SWEEP_DEFAULT_SHARE);
+}
+
+function computeMetricSweepRow(metricId, pct) {
+    if (!GostergeScoringEngine.isCalibrated()) {
+        return { pct, exact: 0, total: 0, successPct: null };
+    }
+    const saved = snapshotFlatTahmin();
+    applyMetricSweepSettings(metricId, pct);
+    GostergeScoringEngine.applyToFlatEntries(flatEntries);
+    let exact = 0;
+    let total = 0;
+    for (const entry of flatEntries) {
+        const b = bitisValueForSort(entry);
+        if (b == null || b < 1) continue;
+        total++;
+        if (ptestTahminBitisMatch(entry.row.tahmin, b)) exact++;
+    }
+    restoreFlatTahmin(saved);
+    return {
+        pct,
+        exact,
+        total,
+        successPct: total ? Math.round((exact / total) * 1000) / 10 : null
+    };
+}
+
+function runMetricSweepScan(metricId) {
+    if (!flatEntries.length || !GostergeScoringEngine.isCalibrated()) return [];
+    const rows = [];
+    for (let pct = 1; pct <= 50; pct++) {
+        rows.push(computeMetricSweepRow(metricId, pct));
+    }
+    clearMetricSweepSettings();
+    return rows;
+}
+
+function renderMetricSweepMetricTabs() {
+    const wrap = document.getElementById('metricSweepMetricTabs');
+    if (!wrap) return;
+    let h = '';
+    for (const m of CORE_METRIC_SWEEP_LIST) {
+        const active = m.id === ptestMetricSweepSelectedId ? ' active' : '';
+        h += '<button type="button" class="ptest-metric-sweep-tab' + active + '" data-metric-sweep-id="'
+            + m.id + '">' + AtSpeedUtils.escapeHtml(m.label)
+            + ' <span style="opacity:.75;font-weight:600">(' + m.weight + ')</span></button>';
+    }
+    wrap.innerHTML = h;
+    wrap.querySelectorAll('[data-metric-sweep-id]').forEach(btn => {
+        btn.onclick = () => {
+            ptestMetricSweepSelectedId = btn.dataset.metricSweepId || 'son8001';
+            ptestMetricSweepSelectedPct = 10;
+            void renderMetricSweepReport(true);
+        };
+    });
+}
+
+function renderMetricSweepSummary() {
+    const body = document.getElementById('metricSweepSummaryBody');
+    if (!body || !ptestMetricSweepRows?.length) return;
+    const spec = coreMetricSweepSpec(ptestMetricSweepSelectedId);
+    let bestPct = -1;
+    let bestRate = -1;
+    for (const row of ptestMetricSweepRows) {
+        if (row.successPct != null && row.successPct > bestRate) {
+            bestRate = row.successPct;
+            bestPct = row.pct;
+        }
+    }
+    let h = '';
+    for (const row of ptestMetricSweepRows) {
+        const active = row.pct === ptestMetricSweepSelectedPct ? ' active' : '';
+        const best = row.pct === bestPct ? ' best' : '';
+        h += '<tr class="ptest-t9v-sweep-row' + active + best + '" data-metric-sweep-pct="' + row.pct + '">';
+        h += '<td>%' + row.pct + '</td>';
+        h += '<td>' + row.exact + '/' + row.total + '</td>';
+        h += '<td>' + (row.successPct != null ? '%' + row.successPct : '—') + '</td></tr>';
+    }
+    body.innerHTML = h;
+    body.querySelectorAll('[data-metric-sweep-pct]').forEach(tr => {
+        tr.onclick = () => {
+            ptestMetricSweepSelectedPct = Number(tr.dataset.metricSweepPct) || 1;
+            renderMetricSweepSummary();
+            renderMetricSweepDetail(ptestMetricSweepSelectedId, ptestMetricSweepSelectedPct);
+        };
+    });
+    const table = document.getElementById('metricSweepSummaryTable');
+    if (table) {
+        const th0 = table.querySelector('thead th');
+        if (th0) th0.textContent = spec.label + ' %';
+    }
+}
+
+function renderMetricSweepDetail(metricId, pct) {
+    const titleEl = document.getElementById('metricSweepDetailTitle');
+    const bodyEl = document.getElementById('metricSweepDetailBody');
+    if (!bodyEl || !flatEntries.length) return;
+    if (!GostergeScoringEngine.isCalibrated()) {
+        bodyEl.innerHTML = '<p style="color:#789">Kalibrasyon yok</p>';
+        return;
+    }
+    const spec = coreMetricSweepSpec(metricId);
+    applyMetricSweepSettings(metricId, pct);
+    GostergeScoringEngine.applyToFlatEntries(flatEntries);
+    const row = ptestMetricSweepRows?.find(r => r.pct === pct);
+    const totalOtherPct = Math.round(pct * 0.65 * 10) / 10;
+    if (titleEl) {
+        titleEl.textContent = spec.label + ' · %65 içinde %' + pct + ' (toplam ~%' + totalOtherPct + ') · T9V %35 · tam isabet '
+            + (row ? row.exact + '/' + row.total + ' (%' + row.successPct + ')' : '');
+    }
+    const byRace = new Map();
+    for (const entry of flatEntries) {
+        const rk = entry.tarih + '|' + entry.hipodrom + '|' + entry.raceNo + '|' + entry.kayitId;
+        if (!byRace.has(rk)) {
+            byRace.set(rk, { entry, horses: [] });
+        }
+        byRace.get(rk).horses.push(entry);
+    }
+    let h = '';
+    for (const { entry, horses } of byRace.values()) {
+        horses.sort((a, b) => (a.row.no ?? 0) - (b.row.no ?? 0));
+        const horseCount = horses.length;
+        h += '<div class="ptest-t9v-sweep-race-block">';
+        h += '<div class="ptest-t9v-sweep-race-title ptest-metric-sweep-race-title">' + AtSpeedUtils.escapeHtml(entry.tarih)
+            + ' · ' + AtSpeedUtils.escapeHtml(entry.hipodrom || '—') + ' · Koşu ' + entry.raceNo
+            + ' · ' + horseCount + ' at</div>';
+        h += '<table class="ptest-t9v-sweep-table"><thead><tr><th>#</th><th>AT</th>'
+            + '<th>TAHMİN | BİTİŞ<small>Tahmin skoru · PUANLAMA TEST bitiş</small></th></tr></thead><tbody>';
+        for (const he of horses) {
+            const b = bitisValueForSort(he);
+            const matched = ptestTahminBitisMatch(he.row.tahmin, b);
+            h += '<tr' + (matched ? ' style="background:#fcfff0"' : '') + '>';
+            h += '<td>' + AtSpeedUtils.escapeHtml(String(he.row.no ?? '')) + '</td>';
+            h += '<td class="ptest-sweep-at">' + AtSpeedUtils.escapeHtml(he.row.name || '—') + '</td>';
+            h += '<td>' + ptestFormatTahminBitisCell(he.row.tahmin, horseCount, b) + '</td></tr>';
+        }
+        h += '</tbody></table></div>';
+    }
+    bodyEl.innerHTML = h;
+}
+
+function restoreMetricSweepBaseline() {
+    restoreFlatTahmin(metricSweepTahminBaseline);
+    metricSweepTahminBaseline = null;
+    clearMetricSweepSettings();
+}
+
+function updateMetricSweepTabVisibility() {
+    const empty = document.getElementById('metricSweepEmptyMsg');
+    const content = document.getElementById('metricSweepContentWrap');
+    const hasData = flatEntries.length > 0 && GostergeScoringEngine.isCalibrated();
+    if (empty) empty.classList.toggle('hidden', hasData);
+    if (content) content.classList.toggle('hidden', !hasData);
+}
+
+async function renderMetricSweepReport(forceRescan) {
+    updateMetricSweepTabVisibility();
+    if (!flatEntries.length) return;
+    if (!GostergeScoringEngine.isCalibrated()) {
+        await applyGostergeTahminScoring();
+    }
+    updateMetricSweepTabVisibility();
+    if (!GostergeScoringEngine.isCalibrated()) return;
+    const spec = coreMetricSweepSpec(ptestMetricSweepSelectedId);
+    const intro = document.getElementById('metricSweepIntro');
+    if (intro) {
+        intro.innerHTML = 'T9V <strong>%35 sabit</strong> · kalan <strong>%65</strong> içinde '
+            + '<strong>' + AtSpeedUtils.escapeHtml(spec.label) + '</strong> payı '
+            + '<strong>%1 – %50</strong> taranıyor · grup ağırlığı ' + spec.weight + '/1000 · '
+            + flatEntries.length + ' satır · build ' + PTEST_BUILD
+            + ' · <em>Geçici ekran</em>';
+    }
+    if (metricSweepTahminBaseline == null) {
+        metricSweepTahminBaseline = snapshotFlatTahmin();
+    }
+    renderMetricSweepMetricTabs();
+    if (forceRescan || ptestMetricSweepRowsForId !== ptestMetricSweepSelectedId || !ptestMetricSweepRows?.length) {
+        ptestMetricSweepRows = runMetricSweepScan(ptestMetricSweepSelectedId);
+        ptestMetricSweepRowsForId = ptestMetricSweepSelectedId;
+    }
+    renderMetricSweepSummary();
+    renderMetricSweepDetail(ptestMetricSweepSelectedId, ptestMetricSweepSelectedPct);
+}
+
 let ptestGosterge1SubColTab = 'val';
 let ptestGosterge1ViewMode = 'single';
 let gosterge1OrtGlobalLookup = null;
@@ -1839,9 +2103,15 @@ function switchPtestViewTab(tabId) {
         restoreT9vSweepBaseline();
         ptestT9vSweepRows = null;
     }
+    if (ptestViewTab === 'metricsweep' && tabId !== 'metricsweep') {
+        restoreMetricSweepBaseline();
+        ptestMetricSweepRows = null;
+        ptestMetricSweepRowsForId = null;
+    }
     ptestViewTab = tabId === 'gosterge1' ? 'gosterge1'
         : (tabId === 'gosterge' ? 'gosterge'
-        : (tabId === 't9vsweep' ? 't9vsweep' : 'tablo'));
+        : (tabId === 't9vsweep' ? 't9vsweep'
+        : (tabId === 'metricsweep' ? 'metricsweep' : 'tablo')));
     document.querySelectorAll('.ptest-view-tab-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.ptestView === ptestViewTab);
     });
@@ -1849,10 +2119,12 @@ function switchPtestViewTab(tabId) {
     const gosterge = document.getElementById('ptestTabGosterge');
     const gosterge1 = document.getElementById('ptestTabGosterge1');
     const t9vsweep = document.getElementById('ptestTabT9vSweep');
+    const metricsweep = document.getElementById('ptestTabMetricSweep');
     if (tablo) tablo.classList.toggle('hidden', ptestViewTab !== 'tablo');
     if (gosterge) gosterge.classList.toggle('hidden', ptestViewTab !== 'gosterge');
     if (gosterge1) gosterge1.classList.toggle('hidden', ptestViewTab !== 'gosterge1');
     if (t9vsweep) t9vsweep.classList.toggle('hidden', ptestViewTab !== 't9vsweep');
+    if (metricsweep) metricsweep.classList.toggle('hidden', ptestViewTab !== 'metricsweep');
     if (ptestViewTab === 'gosterge' && flatEntries.length) {
         renderTuruncuReport();
     }
@@ -1861,6 +2133,9 @@ function switchPtestViewTab(tabId) {
     }
     if (ptestViewTab === 't9vsweep' && flatEntries.length) {
         void renderT9vSweepReport();
+    }
+    if (ptestViewTab === 'metricsweep' && flatEntries.length) {
+        void renderMetricSweepReport(false);
     }
 }
 
@@ -2124,7 +2399,7 @@ function renderGosterge1Report() {
     initGosterge1StripTabs();
 }
 
-const PTEST_BUILD = '20260830p';
+const PTEST_BUILD = '20260830q';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
