@@ -649,7 +649,7 @@
 <body>
 <div class="ptest-wrap">
     <div class="ptest-toolbar">
-        <h1>🧪 Puanlama test — tüm kayıtlar · Gösterge: 11 metrik sekmesi</h1>
+        <h1>🧪 Puanlama test — Tablo · 11 metrik grubu (SON derinlik)</h1>
         <button type="button" class="ptest-btn" id="loadAllBtn">Tüm kayıtları yükle</button>
         <button type="button" class="ptest-btn ptest-btn-success" id="saveAllBtn" disabled>💾 Kaydet</button>
         <button type="button" class="ptest-btn ptest-btn-outline" id="exportTxtBtn" disabled title="Seçili BİTİŞ sırasına göre (0 veya 1) renkli tabloyu .html olarak indir">📥 Renkli İndir</button>
@@ -706,14 +706,14 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260830a"></script>
-<script src="js/istatistik-engine.js?v=20260830a"></script>
-<script src="js/istatistik-grids-extra.js?v=20260830a"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260830a"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260830a"></script>
-<script src="js/ptest-gosterge-engine.js?v=20260830a"></script>
-<script src="js/ptest-gosterge-depth-engine.js?v=20260830a"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260830a"></script>
+<script src="js/utils.js?v=20260830b"></script>
+<script src="js/istatistik-engine.js?v=20260830b"></script>
+<script src="js/istatistik-grids-extra.js?v=20260830b"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260830b"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260830b"></script>
+<script src="js/ptest-gosterge-engine.js?v=20260830b"></script>
+<script src="js/ptest-gosterge-depth-engine.js?v=20260830b"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260830b"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -1196,7 +1196,7 @@ function updateGostergeTabVisibility() {
     if (content) content.classList.toggle('hidden', !hasData);
 }
 
-const PTEST_BUILD = '20260830a';
+const PTEST_BUILD = '20260830b';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
