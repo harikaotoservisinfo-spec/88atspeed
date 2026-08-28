@@ -69,7 +69,7 @@
         }
         .ptest-table {
             border-collapse: separate; border-spacing: 0;
-            font-size: 12px; min-width: 11200px; width: 100%;
+            font-size: 12px; min-width: 13400px; width: 100%;
         }
         .ptest-table th, .ptest-table td {
             padding: 5px 7px; border-bottom: 1px solid #eceff1;
@@ -154,6 +154,28 @@
         }
         .ptest-table tbody tr:nth-child(even) td.ptest-strip-avg-cell,
         .ptest-table tbody tr:hover td.ptest-strip-avg-cell { filter: none !important; }
+        .ptest-table .ptest-th-strip-dir-col {
+            font-size: 8px; line-height: 1.15; min-width: 28px; max-width: 36px;
+            white-space: normal; vertical-align: bottom; padding: 4px 2px;
+            background: rgba(255,255,255,0.55);
+        }
+        .ptest-strip-kind-dir {
+            display: block; font-size: 11px; font-weight: 900; color: #546e7a;
+            line-height: 1;
+        }
+        .ptest-table td.ptest-strip-dir-cell {
+            background: rgba(255,255,255,0.45) !important;
+            filter: none !important;
+        }
+        .ptest-table tbody tr:nth-child(even) td.ptest-strip-dir-cell,
+        .ptest-table tbody tr:hover td.ptest-strip-dir-cell { filter: none !important; }
+        .ptest-strip-dir-icon {
+            display: inline-block; font-size: 16px; font-weight: 900; line-height: 1;
+        }
+        .ptest-strip-dir-up .ptest-strip-dir-icon { color: #2e7d32; }
+        .ptest-strip-dir-down .ptest-strip-dir-icon { color: #c62828; }
+        .ptest-strip-dir-eq .ptest-strip-dir-icon { color: #546e7a; }
+        .ptest-strip-dir-none .ptest-strip-dir-icon { color: #bdbdbd; font-size: 13px; }
         .ptest-table .ptest-th-bitis { background: #fff9c4; }
         .ptest-th-bitis-inner {
             display: flex; flex-direction: column; align-items: center; gap: 4px;
@@ -1259,7 +1281,7 @@ function updateGostergeTabVisibility() {
     if (content) content.classList.toggle('hidden', !hasData);
 }
 
-const PTEST_BUILD = '20260830h';
+const PTEST_BUILD = '20260830i';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
@@ -2223,7 +2245,13 @@ body { margin: 16px; background: #f5f5f5; font-family: Inter, Arial, sans-serif;
 .strip-kind-ic { color: #01579b; }
 .strip-kind-bs { color: #4a148c; }
 .strip-kind-avg { display: block; font-size: 9px; font-weight: 900; color: #546e7a; }
+.strip-kind-dir { display: block; font-size: 11px; font-weight: 900; color: #546e7a; }
 .export-table td.strip-avg { background: #fafafa; }
+.export-table td.strip-dir { background: #f5f5f5; font-size: 14px; font-weight: 900; text-align: center; }
+.export-table td.strip-dir-up { color: #2e7d32; }
+.export-table td.strip-dir-down { color: #c62828; }
+.export-table td.strip-dir-eq { color: #546e7a; }
+.export-table td.strip-dir-none { color: #bdbdbd; }
 .export-table .th-s800 { background: #b2ebf2; }
 .export-table .th-t1 { background: #ffe0b2; }
 .export-table .th-bitis { background: #fff9c4; }
@@ -2304,6 +2332,8 @@ function renderExportHead() {
                 + ' · SON derinlik</span><span class="strip-kind strip-kind-' + strip.id + '">' + strip.kind + '</span></th>';
             h += '<th class="' + thTag + ' strip-avg-head"><span class="strip-metric">' + esc(m.label)
                 + '</span><span class="strip-kind-avg">ORT</span></th>';
+            h += '<th class="' + thTag + ' strip-dir-head"><span class="strip-metric">' + esc(m.label)
+                + '</span><span class="strip-kind-dir">↑↓</span></th>';
         }
     }
     for (const m of metrics) {
@@ -2755,7 +2785,32 @@ function ptestOverviewStrips() {
 }
 
 function ptestMetricStripColCount() {
-    return ptestTableMetrics().length * 2;
+    return ptestTableMetrics().length * 3;
+}
+
+function overviewStripDirInfo(val, avg) {
+    if (val == null || avg == null) {
+        return { symbol: '—', cls: 'ptest-strip-dir-none', title: 'Karşılaştırma yok' };
+    }
+    if (val > avg) {
+        return {
+            symbol: '↑',
+            cls: 'ptest-strip-dir-up',
+            title: 'Ortalamanın üstünde · %' + val + ' > %' + avg
+        };
+    }
+    if (val < avg) {
+        return {
+            symbol: '↓',
+            cls: 'ptest-strip-dir-down',
+            title: 'Ortalamanın altında · %' + val + ' < %' + avg
+        };
+    }
+    return {
+        symbol: '＝',
+        cls: 'ptest-strip-dir-eq',
+        title: 'Ortalamaya eşit · %' + val
+    };
 }
 
 function stripCellNumericValue(row, m, strip) {
@@ -2833,11 +2888,16 @@ function renderOverviewStripSubHeaders() {
                 + '<span class="ptest-strip-metric">' + AtSpeedUtils.escapeHtml(m.label) + ' · SON derinlik</span>'
                 + '<span class="ptest-strip-kind ptest-strip-kind-' + strip.id + '">' + strip.kind + '</span></th>';
             let avgCls = ptestMetricThClass(m) + ' ptest-th-strip-avg-col ptest-th-strip-avg-col-' + strip.id;
-            if (i === metrics.length - 1) avgCls += ' ptest-strip-edge-r ptest-strip-edge-r-' + strip.id;
             const avgTitle = AtSpeedUtils.escapeHtml('Koşu ortalaması · ' + m.label + ' · ' + strip.kind);
             h += '<th class="' + avgCls + '" title="' + avgTitle + '">'
                 + '<span class="ptest-strip-metric">' + AtSpeedUtils.escapeHtml(m.label) + '</span>'
                 + '<span class="ptest-strip-kind-avg">ORT</span></th>';
+            let dirCls = ptestMetricThClass(m) + ' ptest-th-strip-dir-col ptest-th-strip-dir-col-' + strip.id;
+            if (i === metrics.length - 1) dirCls += ' ptest-strip-edge-r ptest-strip-edge-r-' + strip.id;
+            const dirTitle = AtSpeedUtils.escapeHtml('Ortalamaya göre yön · ' + m.label + ' · ' + strip.kind);
+            h += '<th class="' + dirCls + '" title="' + dirTitle + '">'
+                + '<span class="ptest-strip-metric">' + AtSpeedUtils.escapeHtml(m.label) + '</span>'
+                + '<span class="ptest-strip-kind-dir">↑↓</span></th>';
         }
     }
     return h;
@@ -2855,11 +2915,20 @@ function renderOverviewStripCell(row, m, strip, edgeL) {
     return '<td class="' + tdCls + '">' + pctSpan(val) + '</td>';
 }
 
-function renderOverviewStripAvgCell(entry, m, strip, edgeR) {
+function renderOverviewStripAvgCell(entry, m, strip) {
     let tdCls = 'ptest-metric-' + m.id + ' ptest-strip-avg-cell ptest-strip-avg-' + strip.id;
-    if (edgeR) tdCls += ' ptest-strip-edge-r ptest-strip-edge-r-' + strip.id;
     const avg = overviewStripAvgForEntry(entry, strip, m);
     return '<td class="' + tdCls + '">' + pctSpan(avg) + '</td>';
+}
+
+function renderOverviewStripDirCell(entry, m, strip, edgeR) {
+    const val = stripCellNumericValue(entry.row, m, strip);
+    const avg = overviewStripAvgForEntry(entry, strip, m);
+    const dir = overviewStripDirInfo(val, avg);
+    let tdCls = 'ptest-metric-' + m.id + ' ptest-strip-dir-cell ptest-strip-dir-' + strip.id + ' ' + dir.cls;
+    if (edgeR) tdCls += ' ptest-strip-edge-r ptest-strip-edge-r-' + strip.id;
+    return '<td class="' + tdCls + '" title="' + AtSpeedUtils.escapeHtml(dir.title) + '">'
+        + '<span class="ptest-strip-dir-icon">' + dir.symbol + '</span></td>';
 }
 
 function renderOverviewStripDataCells(entry) {
@@ -2869,7 +2938,8 @@ function renderOverviewStripDataCells(entry) {
     for (const strip of ptestOverviewStrips()) {
         for (let i = 0; i < metrics.length; i++) {
             h += renderOverviewStripCell(row, metrics[i], strip, i === 0);
-            h += renderOverviewStripAvgCell(entry, metrics[i], strip, i === metrics.length - 1);
+            h += renderOverviewStripAvgCell(entry, metrics[i], strip);
+            h += renderOverviewStripDirCell(entry, metrics[i], strip, i === metrics.length - 1);
         }
     }
     return h;
@@ -2890,6 +2960,14 @@ function exportOverviewStripAvgCell(entry, m, strip) {
     return '<td class="strip-avg">' + exportPctSpan(avg) + '</td>';
 }
 
+function exportOverviewStripDirCell(entry, m, strip) {
+    const val = stripCellNumericValue(entry.row, m, strip);
+    const avg = overviewStripAvgForEntry(entry, strip, m);
+    const dir = overviewStripDirInfo(val, avg);
+    return '<td class="strip-dir ' + dir.cls.replace('ptest-', '') + '" title="' + AtSpeedUtils.escapeHtml(dir.title) + '">'
+        + dir.symbol + '</td>';
+}
+
 function exportOverviewStripDataCells(entry) {
     const row = entry.row;
     const metrics = ptestTableMetrics();
@@ -2898,6 +2976,7 @@ function exportOverviewStripDataCells(entry) {
         for (const m of metrics) {
             h += exportOverviewStripCell(row, m, strip);
             h += exportOverviewStripAvgCell(entry, m, strip);
+            h += exportOverviewStripDirCell(entry, m, strip);
         }
     }
     return h;
