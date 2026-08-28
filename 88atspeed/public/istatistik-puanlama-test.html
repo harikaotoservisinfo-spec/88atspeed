@@ -518,6 +518,19 @@
         }
         .ptest-gosterge1-strip-panel { display: none; }
         .ptest-gosterge1-strip-panel.active { display: block; }
+        .ptest-gosterge1-subcol-tabs {
+            display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px;
+        }
+        .ptest-gosterge1-subcol-tab-btn {
+            padding: 5px 12px; border: 1px solid #ce93d8; border-radius: 999px;
+            background: #fff; color: #6a1b9a; font-size: 11px; font-weight: 700; cursor: pointer;
+        }
+        .ptest-gosterge1-subcol-tab-btn.active {
+            background: #6a1b9a; color: #fff; border-color: #6a1b9a;
+        }
+        .ptest-gosterge1-subcol-hint {
+            margin: -6px 0 12px; font-size: 10px; color: #789;
+        }
         .ptest-scoring-panel {
             margin-bottom: 14px; padding: 12px 14px; background: #f3e5f5; border: 1px solid #ce93d8;
             border-radius: 10px;
@@ -853,6 +866,8 @@
             1. / 2. / 3. / 4. / 5+ bitiş ihtimalleri (PUANLAMA TEST BİTİŞ verisi).
         </p>
         <div class="ptest-gosterge-metric-tabs" id="gosterge1StripTabs"></div>
+        <div class="ptest-gosterge1-subcol-tabs" id="gosterge1SubColTabs"></div>
+        <p class="ptest-gosterge1-subcol-hint" id="gosterge1SubColHint"></p>
         <div id="gosterge1StripPanels"></div>
     </div>
     </div>
@@ -1349,6 +1364,107 @@ function yesilEntriesForBucket(bucket) {
 
 let ptestViewTab = 'tablo';
 let ptestGosterge1StripTab = 'delta';
+let ptestGosterge1SubColTab = 'val';
+let gosterge1OrtGlobalLookup = null;
+
+const PTEST_G1_SUBCOLS = [
+    { id: 'val', label: 'Değer', short: 'değer' },
+    { id: 'ort', label: 'ORT', short: 'koşu ortalaması' },
+    { id: 'dir', label: '↑↓', short: 'yön' },
+    { id: 'fark', label: 'FARK', short: 'fark' }
+];
+
+function gosterge1SubColSpec(id) {
+    return PTEST_G1_SUBCOLS.find(s => s.id === id) || PTEST_G1_SUBCOLS[0];
+}
+
+function rebuildGosterge1OrtGlobalLookup() {
+    const buckets = new Map();
+    const seen = new Set();
+    for (const entry of flatEntries) {
+        for (const strip of ptestOverviewStrips()) {
+            for (const m of ptestTableMetrics()) {
+                const ort = overviewStripAvgForEntry(entry, strip, m);
+                if (ort == null) continue;
+                const rk = strip.id + '|' + m.id + '|' + raceKey(entry.kayitId, entry.raceNo);
+                const dedupeKey = rk;
+                if (seen.has(dedupeKey)) continue;
+                seen.add(dedupeKey);
+                const key = strip.id + '|' + m.id;
+                if (!buckets.has(key)) buckets.set(key, { sum: 0, count: 0 });
+                const b = buckets.get(key);
+                b.sum += ort;
+                b.count += 1;
+            }
+        }
+    }
+    const lookup = new Map();
+    for (const [key, b] of buckets) {
+        if (b.count > 0) lookup.set(key, Math.round(b.sum / b.count));
+    }
+    gosterge1OrtGlobalLookup = lookup;
+}
+
+function gosterge1OrtGlobalAvg(strip, m) {
+    if (!gosterge1OrtGlobalLookup) return null;
+    return gosterge1OrtGlobalLookup.get(strip.id + '|' + m.id) ?? null;
+}
+
+function entriesForGosterge1Side(strip, m, subCol, side) {
+    const out = [];
+    const globalOrt = subCol === 'ort' ? gosterge1OrtGlobalAvg(strip, m) : null;
+    for (const entry of flatEntries) {
+        const val = stripCellNumericValue(entry.row, m, strip);
+        const avg = overviewStripAvgForEntry(entry, strip, m);
+        if (subCol === 'val') {
+            if (val == null || avg == null) continue;
+            if (side === 'down' && val < avg) out.push(entry);
+            else if (side === 'up' && val > avg) out.push(entry);
+        } else if (subCol === 'ort') {
+            if (avg == null || globalOrt == null) continue;
+            if (side === 'down' && avg < globalOrt) out.push(entry);
+            else if (side === 'up' && avg > globalOrt) out.push(entry);
+        } else if (subCol === 'dir') {
+            if (val == null || avg == null) continue;
+            if (side === 'down' && val < avg) out.push(entry);
+            else if (side === 'up' && val > avg) out.push(entry);
+        } else if (subCol === 'fark') {
+            if (val == null || avg == null) continue;
+            const diff = val - avg;
+            if (side === 'down' && diff < 0) out.push(entry);
+            else if (side === 'up' && diff > 0) out.push(entry);
+        }
+    }
+    return out;
+}
+
+function gosterge1SideHeading(subCol, side) {
+    const isDown = side === 'down';
+    if (subCol === 'ort') {
+        return isDown ? '↓ Genel ORT ortalamasının altında' : '↑ Genel ORT ortalamasının üstünde';
+    }
+    if (subCol === 'dir') {
+        return isDown ? '↓ Ortalamanın altında (↓)' : '↑ Ortalamanın üstünde (↑)';
+    }
+    if (subCol === 'fark') {
+        return isDown ? '↓ Negatif fark (ortalamanın altı)' : '↑ Pozitif fark (ortalamanın üstü)';
+    }
+    return isDown ? '↓ Ortalamanın altında (düşüş)' : '↑ Ortalamanın üstünde (yükseliş)';
+}
+
+function gosterge1SubColHintText(strip, subCol) {
+    const sc = gosterge1SubColSpec(subCol);
+    if (subCol === 'val') {
+        return strip.kind + ' ' + sc.short + ' · koşu ortalamasına göre alt/üst grupları';
+    }
+    if (subCol === 'ort') {
+        return 'ORT sütunu · tüm koşuların genel ORT ortalamasına göre alt/üst grupları · ' + strip.kind;
+    }
+    if (subCol === 'dir') {
+        return '↑↓ sütunu · ortalamanın altında (↓) ve üstünde (↑) grupları · ' + strip.kind;
+    }
+    return 'FARK sütunu · negatif (−) ve pozitif (+) fark grupları · ' + strip.kind;
+}
 
 function switchPtestViewTab(tabId) {
     ptestViewTab = tabId === 'gosterge1' ? 'gosterge1' : (tabId === 'gosterge' ? 'gosterge' : 'tablo');
@@ -1393,25 +1509,15 @@ function updateGosterge1TabVisibility() {
 }
 
 function entriesForStripAvgSide(strip, m, side) {
-    const out = [];
-    for (const entry of flatEntries) {
-        const val = stripCellNumericValue(entry.row, m, strip);
-        const avg = overviewStripAvgForEntry(entry, strip, m);
-        if (val == null || avg == null) continue;
-        if (side === 'down' && val < avg) out.push(entry);
-        else if (side === 'up' && val > avg) out.push(entry);
-    }
-    return out;
+    return entriesForGosterge1Side(strip, m, 'val', side);
 }
 
-function renderGosterge1SidePanel(strip, m, side) {
-    const entries = entriesForStripAvgSide(strip, m, side);
+function renderGosterge1SidePanel(strip, m, subCol, side) {
+    const entries = entriesForGosterge1Side(strip, m, subCol, side);
     const stats = buildBitisFinishBreakdownStats(entries);
     const isDown = side === 'down';
     const panelCls = isDown ? 'ptest-gosterge1-side-panel-down' : 'ptest-gosterge1-side-panel-up';
-    const heading = isDown
-        ? '↓ Ortalamanın altında (düşüş)'
-        : '↑ Ortalamanın üstünde (yükseliş)';
+    const heading = gosterge1SideHeading(subCol, side);
     let h = '<div class="ptest-gosterge1-side-panel ' + panelCls + '">';
     h += '<div class="ptest-gosterge1-side-heading">' + heading + '</div>';
     h += '<div class="ptest-gosterge1-side-meta">' + stats.matchedRows + ' satır eşleşti · '
@@ -1425,26 +1531,59 @@ function renderGosterge1SidePanel(strip, m, side) {
     return h;
 }
 
-function renderGosterge1MetricBlock(strip, m) {
-    let h = '<div class="ptest-gosterge1-metric-block" id="g1_' + strip.id + '_' + m.id + '">';
+function renderGosterge1MetricBlock(strip, m, subCol) {
+    const sc = gosterge1SubColSpec(subCol);
+    const subLabel = subCol === 'val' ? strip.kind : sc.label;
+    let h = '<div class="ptest-gosterge1-metric-block" id="g1_' + strip.id + '_' + m.id + '_' + subCol + '">';
     h += '<div class="ptest-gosterge1-metric-title">' + AtSpeedUtils.escapeHtml(m.label)
-        + ' · SON derinlik · ' + strip.kind + '</div>';
+        + ' · SON derinlik · ' + AtSpeedUtils.escapeHtml(subLabel) + '</div>';
     h += '<div class="ptest-gosterge1-side-grid">';
-    h += renderGosterge1SidePanel(strip, m, 'down');
-    h += renderGosterge1SidePanel(strip, m, 'up');
+    h += renderGosterge1SidePanel(strip, m, subCol, 'down');
+    h += renderGosterge1SidePanel(strip, m, subCol, 'up');
     h += '</div></div>';
     return h;
 }
 
-function renderGosterge1StripPanel(strip) {
+function renderGosterge1StripPanel(strip, subCol) {
     let h = '<div class="ptest-gosterge1-strip-panel' + (strip.id === ptestGosterge1StripTab ? ' active' : '')
         + '" data-gosterge1-strip="' + strip.id + '">';
     h += '<div class="ptest-gosterge-section-title">' + AtSpeedUtils.escapeHtml(strip.title) + '</div>';
     for (const m of ptestTableMetrics()) {
-        h += renderGosterge1MetricBlock(strip, m);
+        h += renderGosterge1MetricBlock(strip, m, subCol);
     }
     h += '</div>';
     return h;
+}
+
+function initGosterge1SubColTabs(activeStrip) {
+    const tabsEl = document.getElementById('gosterge1SubColTabs');
+    const hintEl = document.getElementById('gosterge1SubColHint');
+    if (!tabsEl) return;
+    if (!PTEST_G1_SUBCOLS.some(s => s.id === ptestGosterge1SubColTab)) {
+        ptestGosterge1SubColTab = 'val';
+    }
+    let th = '';
+    for (const sc of PTEST_G1_SUBCOLS) {
+        const active = sc.id === ptestGosterge1SubColTab ? ' active' : '';
+        th += '<button type="button" class="ptest-gosterge1-subcol-tab-btn' + active
+            + '" data-gosterge1-subcol="' + sc.id + '">' + AtSpeedUtils.escapeHtml(sc.label) + '</button>';
+    }
+    tabsEl.innerHTML = th;
+    if (hintEl && activeStrip) {
+        hintEl.textContent = gosterge1SubColHintText(activeStrip, ptestGosterge1SubColTab);
+    }
+    if (tabsEl.dataset.bound !== '1') {
+        tabsEl.dataset.bound = '1';
+        tabsEl.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-gosterge1-subcol]');
+            if (!btn) return;
+            ptestGosterge1SubColTab = btn.dataset.gosterge1Subcol || 'val';
+            tabsEl.querySelectorAll('[data-gosterge1-subcol]').forEach(b => {
+                b.classList.toggle('active', b.dataset.gosterge1Subcol === ptestGosterge1SubColTab);
+            });
+            initGosterge1StripTabs();
+        });
+    }
 }
 
 function initGosterge1StripTabs() {
@@ -1455,6 +1594,8 @@ function initGosterge1StripTabs() {
     if (!strips.some(s => s.id === ptestGosterge1StripTab)) {
         ptestGosterge1StripTab = strips[0]?.id || 'delta';
     }
+    const activeStrip = strips.find(s => s.id === ptestGosterge1StripTab) || strips[0];
+    initGosterge1SubColTabs(activeStrip);
     let th = '';
     for (const strip of strips) {
         const active = strip.id === ptestGosterge1StripTab ? ' active' : '';
@@ -1464,7 +1605,7 @@ function initGosterge1StripTabs() {
     tabsEl.innerHTML = th;
     let ph = '';
     for (const strip of strips) {
-        ph += renderGosterge1StripPanel(strip);
+        ph += renderGosterge1StripPanel(strip, ptestGosterge1SubColTab);
     }
     panelsEl.innerHTML = ph;
     if (tabsEl.dataset.bound !== '1') {
@@ -1479,6 +1620,9 @@ function initGosterge1StripTabs() {
             panelsEl.querySelectorAll('.ptest-gosterge1-strip-panel').forEach(p => {
                 p.classList.toggle('active', p.dataset.gosterge1Strip === ptestGosterge1StripTab);
             });
+            const strip = strips.find(s => s.id === ptestGosterge1StripTab);
+            const hintEl = document.getElementById('gosterge1SubColHint');
+            if (hintEl && strip) hintEl.textContent = gosterge1SubColHintText(strip, ptestGosterge1SubColTab);
         });
     }
 }
@@ -1487,17 +1631,19 @@ function renderGosterge1Report() {
     updateGosterge1TabVisibility();
     if (!flatEntries.length) return;
     rebuildOverviewStripAvgLookup();
+    rebuildGosterge1OrtGlobalLookup();
     const intro = document.getElementById('gosterge1Intro');
     if (intro) {
         const bitisN = countFilledBitisFromEntries();
-        intro.innerHTML = 'Her metrik sütunu için koşu ortalamasına göre <strong>alt ↓</strong> ve '
-            + '<strong>üst ↑</strong> gruplarında 1. / 2. / 3. / 4. / 5+ bitiş ihtimalleri · '
+        intro.innerHTML = 'Her strip ve metrik için <strong>Değer · ORT · ↑↓ · FARK</strong> alt kırılımlarında '
+            + 'koşu/genel ortalamaya göre <strong>alt ↓</strong> ve <strong>üst ↑</strong> gruplarında '
+            + '1. / 2. / 3. / 4. / 5+ bitiş ihtimalleri · '
             + flatEntries.length + ' satır · ' + bitisN + ' bitiş kaydı · build ' + PTEST_BUILD;
     }
     initGosterge1StripTabs();
 }
 
-const PTEST_BUILD = '20260830k';
+const PTEST_BUILD = '20260830l';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
