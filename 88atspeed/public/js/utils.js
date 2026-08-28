@@ -99,7 +99,10 @@ const AtSpeedUtils = {
      */
     pctLinearMaxBest(value, minVal, maxVal) {
         if (value == null || minVal == null || maxVal == null) return null;
-        if (maxVal === minVal) return 100;
+        if (maxVal === minVal) {
+            // Tüm atlar aynı Δ salise → kişisel en iyi (%0 fark) ise gösterge %0, aksi halde nötr %100
+            return minVal === 0 ? 0 : 100;
+        }
         const pct = ((value - minVal) / (maxVal - minVal)) * 100;
         return Math.round(Math.max(0, Math.min(100, pct)));
     },

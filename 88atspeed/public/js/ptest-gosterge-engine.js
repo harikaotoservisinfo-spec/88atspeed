@@ -722,7 +722,9 @@ const PtestGostergeEngine = (function () {
     }
 
     function ensureMetricPanels(container) {
-        if (!container || container.dataset.built === '1') return;
+        if (!container) return;
+        if (container.dataset.built === '1' && container.querySelector('.ptest-metric-panel')) return;
+        delete container.dataset.built;
         let h = '';
         for (const m of PTEST_GOSTERGE_METRICS) {
             h += buildMetricPanelHtml(m);
