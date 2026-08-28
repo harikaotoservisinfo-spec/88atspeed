@@ -445,7 +445,9 @@ const GostergeScoringEngine = (function () {
             bitisValueForSort(entry) {
                 const key = rowKeyParts(entry.kayitId, entry.raceNo, entry.row?.no);
                 const v = bitisMap[key];
-                return v != null && v >= 1 ? v : null;
+                if (v != null && v >= 1) return v;
+                if (entry._bitisPos != null && entry._bitisPos >= 1) return entry._bitisPos;
+                return AtSpeedUtils.extractBitisFromHorseName(entry.row?.name);
             },
             countUniqueRaces: () => new Set(flatEntries.map(e => e.kayitId + '|' + e.raceNo)).size,
             raceKey: (kayitId, raceNo) => String(kayitId) + '|' + raceNo

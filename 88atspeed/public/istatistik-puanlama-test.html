@@ -723,7 +723,7 @@
 <script src="js/istatistik-tahmin-engine.js?v=20260830b"></script>
 <script src="js/ptest-gosterge-engine.js?v=20260830b"></script>
 <script src="js/ptest-gosterge-depth-engine.js?v=20260830b"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260830b"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260830d"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -1206,7 +1206,7 @@ function updateGostergeTabVisibility() {
     if (content) content.classList.toggle('hidden', !hasData);
 }
 
-const PTEST_BUILD = '20260830c';
+const PTEST_BUILD = '20260830d';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
@@ -1241,14 +1241,16 @@ function hideGostergeLoading() {
 
 function scheduleGostergeRefresh() {
     invalidateGostergeCache();
-    applyGostergeTahminScoring();
-    if (ptestViewTab === 'tablo') {
-        renderTableBodyOnly();
-        updateSummaryMeta();
-    }
-    if (ptestViewTab !== 'gosterge') return;
-    clearTimeout(gostergeBitisDebounce);
-    gostergeBitisDebounce = setTimeout(() => renderTuruncuReport(), 500);
+    void (async () => {
+        await applyGostergeTahminScoring();
+        if (ptestViewTab === 'tablo') {
+            renderTableBodyOnly();
+            updateSummaryMeta();
+        }
+        if (ptestViewTab !== 'gosterge') return;
+        clearTimeout(gostergeBitisDebounce);
+        gostergeBitisDebounce = setTimeout(() => renderTuruncuReport(), 500);
+    })();
 }
 
 function resetGostergePanels() {
@@ -2817,7 +2819,7 @@ function renderRow(entry) {
     return h;
 }
 
-function buildFlatFromCache() {
+async function buildFlatFromCache() {
     const flat = [];
     cikanMetaList = [];
     let loadOrder = 0;
@@ -2865,7 +2867,7 @@ function buildFlatFromCache() {
     rebuildBitisLookup();
     sortFlatEntries(flat);
     flatEntries = flat;
-    applyGostergeTahminScoring();
+    await applyGostergeTahminScoring();
     resetGostergePanels();
     return flat;
 }
@@ -3021,7 +3023,7 @@ async function markCikan(rk, horseNo, horseName) {
     status.innerHTML = '<span style="color:#e65100">⏳ Çıkan at işlendi, metrikler yeniden hesaplanıyor…</span>';
     try {
         await persistAll(false);
-        buildFlatFromCache();
+        await buildFlatFromCache();
         await renderTableAsync('çıkan at güncellendi');
     } catch (err) {
         status.innerHTML = '<span style="color:#c62828">❌ ' + AtSpeedUtils.escapeHtml(err.message) + '</span>';
@@ -3036,7 +3038,7 @@ async function restoreCikan(rk, horseNo) {
     status.innerHTML = '<span style="color:#6a1b9a">⏳ At geri alınıyor, metrikler yeniden hesaplanıyor…</span>';
     try {
         await persistAll(false);
-        buildFlatFromCache();
+        await buildFlatFromCache();
         await renderTableAsync('at geri alındı');
     } catch (err) {
         status.innerHTML = '<span style="color:#c62828">❌ ' + AtSpeedUtils.escapeHtml(err.message) + '</span>';
@@ -3093,7 +3095,8 @@ async function loadAllKayitlar() {
         }
 
         kayitCountLoaded = kayitlar.length;
-        buildFlatFromCache();
+        status.innerHTML = '<span style="color:#6a1b9a">⏳ TAHMİN gösterge skorları hesaplanıyor…</span>';
+        await buildFlatFromCache();
         await renderTableAsync('ilk yükleme');
         saveBtn.disabled = false;
         exportBtn.disabled = false;
