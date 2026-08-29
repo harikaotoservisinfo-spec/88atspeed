@@ -300,6 +300,10 @@ module.exports = {
     makeGostergeHost,
     buildEntriesByFieldSize,
     buildBitisStatsFromEntries,
+    dbGet,
+    dbAll,
+    parsePuanlamaStore,
+    rowKeyParts,
     pct,
     pad,
     openDb

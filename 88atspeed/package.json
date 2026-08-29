@@ -10,7 +10,9 @@
     "test:gosterge": "node scripts/test-gosterge-exhaustive.js",
     "test:gosterge-quick": "node scripts/test-gosterge-exhaustive.js --quick",
     "test:hybrid-tahmin": "node scripts/test-hybrid-tahmin.js",
-    "test:hybrid-holdout": "node scripts/test-hybrid-tahmin.js --holdout 0.3"
+    "test:hybrid-holdout": "node scripts/test-hybrid-tahmin.js --holdout 0.3",
+    "test:race-similarity": "node scripts/test-race-similarity.js",
+    "test:race-similarity-quick": "node scripts/test-race-similarity.js --quick"
   },
   "dependencies": {
     "cheerio": "^1.2.0",
