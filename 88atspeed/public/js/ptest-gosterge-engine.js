@@ -768,7 +768,8 @@ const PtestGostergeEngine = (function () {
             successRate: blendedGostergeSuccess(stats, blend),
             b1Rate: t ? stats.b1 / t : 0,
             b12Rate: t ? stats.b12 / t : 0,
-            b123Rate: t ? stats.b123 / t : 0
+            b123Rate: t ? stats.b123 / t : 0,
+            match: base.match || null
         });
     }
 
@@ -790,7 +791,7 @@ const PtestGostergeEngine = (function () {
             : (pairLabel ? '[' + pairLabel + '] ' : '');
         const blend = opts.successBlend;
 
-        function add(category, label, stats, statKind, idSuffix) {
+        function add(category, label, stats, statKind, idSuffix, matchFn) {
             pushColorRow(rows, {
                 metricId,
                 metricLabel,
@@ -800,23 +801,41 @@ const PtestGostergeEngine = (function () {
                 category,
                 label,
                 successBlend: blend,
-                id: metricId + '|' + mode + '|' + (pairLabel || '-') + '|' + idSuffix
+                id: metricId + '|' + mode + '|' + (pairLabel || '-') + '|' + idSuffix,
+                match: matchFn || null
             }, stats, statKind);
         }
 
         for (const sec of BITIS_REPORT_SECTIONS) {
-            const matched = index.byRule[sec.ruleId] || [];
-            add('ozet', sec.rowLabel + ' (SON·Δ)', host.buildBitisStatsFromEntries(matched), 'bitis', 'ozet_' + sec.ruleId);
+            const ruleId = sec.ruleId;
+            const matched = index.byRule[ruleId] || [];
+            add('ozet', sec.rowLabel + ' (SON·Δ)', host.buildBitisStatsFromEntries(matched), 'bitis', 'ozet_' + ruleId,
+                e => ctx.primaryMatchesRule(e, ruleId));
         }
 
         for (let i = 0; i < YESIL_SON_DELTA_BUCKETS.length; i++) {
             const b = YESIL_SON_DELTA_BUCKETS[i];
             add('yesil_delta', '🟢 Yeşil · ' + b.label,
-                host.buildBitisStatsFromEntries(index.yesilBySonBucket[i]), 'bitis', 'yesil_d' + i);
+                host.buildBitisStatsFromEntries(index.yesilBySonBucket[i]), 'bitis', 'yesil_d' + i,
+                e => {
+                    if (!ctx.primaryMatchesRule(e, 'yesilHucre')) return false;
+                    const g = ctx.primaryGapPct(e);
+                    return g != null && b.gapTest(g) && ctx.yesilBucketBlinkMatch(e, b);
+                });
             add('turuncu_delta', '🟠 Turuncu · ' + b.label,
-                host.buildBitisStatsFromEntries(index.turuncuBySonBucket[i]), 'bitis', 'turuncu_d' + i);
+                host.buildBitisStatsFromEntries(index.turuncuBySonBucket[i]), 'bitis', 'turuncu_d' + i,
+                e => {
+                    if (!ctx.primaryMatchesRule(e, 'turuncuHucre')) return false;
+                    const g = ctx.primaryGapPct(e);
+                    return g != null && b.gapTest(g) && ctx.yesilBucketBlinkMatch(e, b);
+                });
             add('sari_delta', '🟡 Sarı · ' + b.label,
-                host.buildBitisStatsFromEntries(index.sariBySonBucket[i]), 'bitis', 'sari_d' + i);
+                host.buildBitisStatsFromEntries(index.sariBySonBucket[i]), 'bitis', 'sari_d' + i,
+                e => {
+                    if (!ctx.primaryVisualFlags(e).sariYazi) return false;
+                    const g = ctx.primaryGapPct(e);
+                    return g != null && b.gapTest(g) && ctx.yesilBucketBlinkMatch(e, b);
+                });
         }
 
         for (let bi = 0; bi < YESIL_SON_DELTA_BUCKETS.length; bi++) {
@@ -832,7 +851,14 @@ const PtestGostergeEngine = (function () {
                     if (bs != null && bsBucket.bsTest(bs)) yesilOut.push(entry);
                 }
                 add('yesil_bs', '🟢 Yeşil · ' + deltaBucket.label + ' · ' + bsBucket.label,
-                    host.buildBitisStatsFromEntries(yesilOut), 'bitis', 'yesil_bs_' + bi + '_' + bsi);
+                    host.buildBitisStatsFromEntries(yesilOut), 'bitis', 'yesil_bs_' + bi + '_' + bsi,
+                    e => {
+                        if (!ctx.primaryMatchesRule(e, 'yesilHucre')) return false;
+                        const g = ctx.primaryGapPct(e);
+                        if (g == null || !deltaBucket.gapTest(g) || !ctx.yesilBucketBlinkMatch(e, deltaBucket)) return false;
+                        const bs = ctx.t1BsPct(e);
+                        return bs != null && bsBucket.bsTest(bs);
+                    });
 
                 const turuncuOut = [];
                 for (const entry of turuncuEntries) {
@@ -840,7 +866,14 @@ const PtestGostergeEngine = (function () {
                     if (bs != null && bsBucket.bsTest(bs)) turuncuOut.push(entry);
                 }
                 add('turuncu_bs', '🟠 Turuncu · ' + deltaBucket.label + ' · ' + bsBucket.label,
-                    host.buildBitisStatsFromEntries(turuncuOut), 'bitis', 'turuncu_bs_' + bi + '_' + bsi);
+                    host.buildBitisStatsFromEntries(turuncuOut), 'bitis', 'turuncu_bs_' + bi + '_' + bsi,
+                    e => {
+                        if (!ctx.primaryMatchesRule(e, 'turuncuHucre')) return false;
+                        const g = ctx.primaryGapPct(e);
+                        if (g == null || !deltaBucket.gapTest(g) || !ctx.yesilBucketBlinkMatch(e, deltaBucket)) return false;
+                        const bs = ctx.t1BsPct(e);
+                        return bs != null && bsBucket.bsTest(bs);
+                    });
 
                 const sariOut = [];
                 for (const entry of sariEntries) {
@@ -848,7 +881,14 @@ const PtestGostergeEngine = (function () {
                     if (bs != null && bsBucket.bsTest(bs)) sariOut.push(entry);
                 }
                 add('sari_bs', '🟡 Sarı · ' + deltaBucket.label + ' · ' + bsBucket.label,
-                    host.buildBitisStatsFromEntries(sariOut), 'bitis', 'sari_bs_' + bi + '_' + bsi);
+                    host.buildBitisStatsFromEntries(sariOut), 'bitis', 'sari_bs_' + bi + '_' + bsi,
+                    e => {
+                        if (!ctx.primaryVisualFlags(e).sariYazi) return false;
+                        const g = ctx.primaryGapPct(e);
+                        if (g == null || !deltaBucket.gapTest(g) || !ctx.yesilBucketBlinkMatch(e, deltaBucket)) return false;
+                        const bs = ctx.t1BsPct(e);
+                        return bs != null && bsBucket.bsTest(bs);
+                    });
             }
         }
 
@@ -863,13 +903,19 @@ const PtestGostergeEngine = (function () {
                 rankItems.push({ rank });
             }
             add('yesil_race', '🟢 Yeşil · koşu içi BS · ' + bucket.label,
-                host.buildRaceRankStatsFromItems(rankItems), 'raceRank', 'yesil_race_' + i);
+                host.buildRaceRankStatsFromItems(rankItems), 'raceRank', 'yesil_race_' + i,
+                e => {
+                    if (!ctx.primaryMatchesRule(e, 'yesilHucre')) return false;
+                    const g = ctx.primaryGapPct(e);
+                    return g != null && bucket.gapTest(g);
+                });
         }
 
         for (let pct = 1; pct <= 25; pct++) {
             const matched = index.t1SariByPct[pct];
             add('t1sari_base', '🟡 T1×DR sarı · SON·Δ %' + pct,
-                host.buildBitisStatsFromEntries(matched), 'bitis', 't1sari_' + pct);
+                host.buildBitisStatsFromEntries(matched), 'bitis', 't1sari_' + pct,
+                e => ctx.t1SariMatchesPct(e, pct));
 
             for (let ti = 0; ti < tiers.length; ti++) {
                 const tier = tiers[ti];
@@ -884,7 +930,12 @@ const PtestGostergeEngine = (function () {
                     add('t1sari_tier_delta',
                         tier.emoji + ' T1 sarı %' + pct + ' · ' + tier.label + ' · ' + bucket.label,
                         host.buildBitisStatsFromEntries(tierEntries), 'bitis',
-                        't1sari_' + pct + '_t' + ti + '_d' + di);
+                        't1sari_' + pct + '_t' + ti + '_d' + di,
+                        e => {
+                            if (!ctx.t1SariMatchesPct(e, pct) || !tier.tierMatch(e)) return false;
+                            const g = ctx.primaryGapPct(e);
+                            return g != null && bucket.gapTest(g);
+                        });
                 }
 
                 for (let pbi = 0; pbi < primaryBsBuckets.length; pbi++) {
@@ -898,7 +949,12 @@ const PtestGostergeEngine = (function () {
                     add('t1sari_tier_bs',
                         tier.emoji + ' T1 sarı %' + pct + ' · ' + tier.comboLabel + ' · ' + bsBucket.label,
                         host.buildBitisStatsFromEntries(bsEntries), 'bitis',
-                        't1sari_' + pct + '_t' + ti + '_pbs' + pbi);
+                        't1sari_' + pct + '_t' + ti + '_pbs' + pbi,
+                        e => {
+                            if (!ctx.t1SariMatchesPct(e, pct) || !tier.comboMatch(e, pct)) return false;
+                            const bs = ctx.primaryBsPct(e);
+                            return bs != null && bsBucket.bsTest(bs);
+                        });
 
                     for (let t1i = 0; t1i < T1_DR_SON_BS_RANGE_BUCKETS.length; t1i++) {
                         const t1Bs = T1_DR_SON_BS_RANGE_BUCKETS[t1i];
@@ -910,7 +966,14 @@ const PtestGostergeEngine = (function () {
                         add('t1sari_tier_bs_nested',
                             tier.emoji + ' T1 sarı %' + pct + ' · ' + bsBucket.label + ' · ' + t1Bs.label,
                             host.buildBitisStatsFromEntries(nested), 'bitis',
-                            't1sari_' + pct + '_t' + ti + '_pbs' + pbi + '_t1bs' + t1i);
+                            't1sari_' + pct + '_t' + ti + '_pbs' + pbi + '_t1bs' + t1i,
+                            e => {
+                                if (!ctx.t1SariMatchesPct(e, pct) || !tier.comboMatch(e, pct)) return false;
+                                const bs = ctx.primaryBsPct(e);
+                                if (bs == null || !bsBucket.bsTest(bs)) return false;
+                                const tbs = ctx.t1BsPct(e);
+                                return tbs != null && t1Bs.bsTest(tbs);
+                            });
                     }
                 }
             }

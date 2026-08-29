@@ -858,6 +858,21 @@
         }
         .ptest-t9v-sweep-table th { background: #fafafa; font-weight: 700; }
         .ptest-t9v-sweep-table td.ptest-sweep-at { text-align: left; font-weight: 600; max-width: 140px; }
+        .ptest-color-bench-intro { font-size: 12px; color: #546e7a; margin: 0 0 12px; line-height: 1.45; }
+        .ptest-color-bench-toolbar { margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .ptest-color-bench-status { font-size: 11px; color: #546e7a; }
+        .ptest-color-bench-wrap {
+            max-height: 70vh; overflow: auto; border: 1px solid #e0e0e0; border-radius: 6px; background: #fff;
+        }
+        .ptest-color-bench-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+        .ptest-color-bench-table th, .ptest-color-bench-table td {
+            border: 1px solid #eee; padding: 5px 6px; text-align: center; white-space: nowrap;
+        }
+        .ptest-color-bench-table th { background: #ede7f6; position: sticky; top: 0; z-index: 1; }
+        .ptest-color-bench-table td.ptest-color-bench-label { text-align: left; max-width: 220px; white-space: normal; font-weight: 600; }
+        .ptest-color-bench-table tbody tr.best { background: #e8f5e9; box-shadow: inset 3px 0 0 #2e7d32; }
+        .ptest-color-bench-table tbody tr.legacy { background: #fff8e1; }
+        .ptest-color-bench-table tbody tr:hover { background: #f3e5f5; }
         /* Geçici — çekirdek metrik pay taraması (T9V %35 sabit) */
         .ptest-metric-sweep-intro {
             margin: 0 0 10px; padding: 10px 12px; background: #e3f2fd; border: 1px solid #90caf9;
@@ -946,6 +961,7 @@
         <button type="button" class="ptest-view-tab-btn ptest-temp-tab" data-ptest-view="t9vsweep" id="ptestViewT9vSweepBtn">🔬 T9V Tarama (geçici)</button>
         <button type="button" class="ptest-view-tab-btn ptest-temp-tab" data-ptest-view="metricsweep" id="ptestViewMetricSweepBtn">🔬 Metrik Tarama (geçici)</button>
         <button type="button" class="ptest-view-tab-btn ptest-temp-tab" data-ptest-view="extrasweep" id="ptestViewExtraSweepBtn">🔬 Ek Grup Tarama (geçici)</button>
+        <button type="button" class="ptest-view-tab-btn ptest-temp-tab" data-ptest-view="colorscoringbench" id="ptestViewColorScoringBenchBtn">🔬 Renk Puanlama Test</button>
     </div>
     <div id="ptestTabTablo" class="ptest-tab-panel">
     <div class="ptest-cikan-panel hidden" id="cikanPanel">
@@ -970,6 +986,8 @@
         <p style="margin:10px 0 0;font-size:11px">
             <button type="button" class="btn btn-secondary" id="gostergeColorExportBtn" disabled
                 title="Tüm renk göstergelerini başarı sırasına göre .txt indir">📥 Renk gösterge sıralaması (.txt)</button>
+            <button type="button" class="btn btn-secondary" id="gostergeColorBenchBtn" disabled
+                title="Export gösterge kuralları vs mevcut 7 sabit kural — 24 kombinasyon karşılaştırması">🔬 Renk puanlama karşılaştırması</button>
             <span id="gostergeColorExportStatus" style="margin-left:8px;color:#546e7a"></span>
         </p>
     </div>
@@ -1081,17 +1099,43 @@
         </div>
     </div>
     </div>
+    <div id="ptestTabColorScoringBench" class="ptest-tab-panel hidden">
+    <div class="ptest-gosterge-empty" id="colorScoringBenchEmptyMsg" style="padding:24px;color:#789;text-align:center">
+        Veri yükleyin — renk puanlama testi &quot;Tüm kayıtları yükle&quot; sonrası görünür
+    </div>
+    <div id="colorScoringBenchContentWrap" class="hidden">
+        <p class="ptest-color-bench-intro" id="colorScoringBenchIntro">
+            T9V <strong>%35</strong> · Renkler <strong>%45</strong> · Metrikler <strong>%16</strong> sabit ·
+            export .txt gösterge kuralları ile mevcut <strong>7 sabit kural</strong> karşılaştırması ·
+            Top-N (50/80/100) × eşleşme (en iyi tek / toplam) × derinlik × raceRank = <strong>24 + 1</strong> senaryo ·
+            <strong>Karışık</strong> = koşu lideri (TAHMİN #1) bitiş başarısı · %80×1. + %12×1–2 + %8×1–3
+        </p>
+        <div class="ptest-color-bench-toolbar">
+            <button type="button" class="btn btn-primary" id="colorScoringBenchRunBtn">▶ Karşılaştırmayı çalıştır</button>
+            <span class="ptest-color-bench-status" id="colorScoringBenchStatus"></span>
+        </div>
+        <div class="ptest-color-bench-wrap">
+            <table class="ptest-color-bench-table" id="colorScoringBenchTable">
+                <thead><tr>
+                    <th>#</th><th>Senaryo</th><th>Top-N</th><th>Eşleşme</th><th>Derinlik</th><th>RaceRank</th>
+                    <th>Lider 1.</th><th>1–2</th><th>1–3</th><th>Karışık</th><th>Tam isabet</th><th>n gösterge</th>
+                </tr></thead>
+                <tbody id="colorScoringBenchBody"><tr><td colspan="12">Henüz çalıştırılmadı</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+    </div>
 </div>
 
-<script src="js/utils.js?v=20260830x"></script>
-<script src="js/istatistik-engine.js?v=20260830x"></script>
-<script src="js/istatistik-grids-extra.js?v=20260830x"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260830x"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260830x"></script>
-<script src="js/ptest-gosterge-engine.js?v=20260830x"></script>
-<script src="js/ptest-gosterge-depth-engine.js?v=20260830x"></script>
-<script src="js/ptest-color-gosterge-export.js?v=20260830x"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260830y"></script>
+<script src="js/utils.js?v=20260830z"></script>
+<script src="js/istatistik-engine.js?v=20260830z"></script>
+<script src="js/istatistik-grids-extra.js?v=20260830z"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260830z"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260830z"></script>
+<script src="js/ptest-gosterge-engine.js?v=20260830z"></script>
+<script src="js/ptest-gosterge-depth-engine.js?v=20260830z"></script>
+<script src="js/ptest-color-gosterge-export.js?v=20260830z"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260830z"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -1634,6 +1678,106 @@ let ptestExtraSweepRowsForId = null;
 let ptestExtraSweepSelectedPct = 10;
 let ptestExtraSweepSelectedId = 'f802';
 let extraSweepTahminBaseline = null;
+
+let ptestColorScoringBenchResults = null;
+let ptestColorScoringBenchMeta = null;
+
+function pctBenchFmt(rate) {
+    if (rate == null || rate < 0) return '—';
+    return (Math.round(rate * 1000) / 10).toFixed(1) + '%';
+}
+
+function updateColorScoringBenchVisibility() {
+    const empty = document.getElementById('colorScoringBenchEmptyMsg');
+    const content = document.getElementById('colorScoringBenchContentWrap');
+    const hasData = flatEntries.length > 0;
+    if (empty) empty.classList.toggle('hidden', hasData);
+    if (content) content.classList.toggle('hidden', !hasData);
+}
+
+function renderColorScoringBenchTable() {
+    const body = document.getElementById('colorScoringBenchBody');
+    const statusEl = document.getElementById('colorScoringBenchStatus');
+    if (!body) return;
+    if (!ptestColorScoringBenchResults?.length) {
+        body.innerHTML = '<tr><td colspan="12">Henüz çalıştırılmadı — ▶ Karşılaştırmayı çalıştır</td></tr>';
+        return;
+    }
+    let h = '';
+    for (let i = 0; i < ptestColorScoringBenchResults.length; i++) {
+        const r = ptestColorScoringBenchResults[i];
+        const cfg = r.config || {};
+        const isBest = i === 0;
+        const isLegacy = !!cfg.legacy;
+        h += '<tr class="' + (isBest ? 'best' : '') + (isLegacy ? ' legacy' : '') + '">';
+        h += '<td>' + (i + 1) + '</td>';
+        h += '<td class="ptest-color-bench-label">' + AtSpeedUtils.escapeHtml(cfg.label || cfg.id || '—') + '</td>';
+        h += '<td>' + (cfg.legacy ? '7 sabit' : (cfg.topN || '—')) + '</td>';
+        h += '<td>' + (cfg.legacy ? '—' : (cfg.matchMode === 'sum' ? 'Toplam' : 'En iyi')) + '</td>';
+        h += '<td>' + (cfg.legacy ? '—' : (cfg.includeDepth ? '✓' : '—')) + '</td>';
+        h += '<td>' + (cfg.legacy ? '—' : (cfg.includeRaceRank ? '✓' : '—')) + '</td>';
+        h += '<td>' + pctBenchFmt(r.leaderB1Rate) + '</td>';
+        h += '<td>' + pctBenchFmt(r.leaderB12Rate) + '</td>';
+        h += '<td>' + pctBenchFmt(r.leaderB123Rate) + '</td>';
+        h += '<td><strong>' + pctBenchFmt(r.leaderBlended) + '</strong></td>';
+        h += '<td>' + r.exact + '/' + r.exactTotal + ' (' + pctBenchFmt(r.exactRate) + ')</td>';
+        h += '<td>' + (r.ladderCount || 0) + '</td>';
+        h += '</tr>';
+    }
+    body.innerHTML = h;
+    if (statusEl && ptestColorScoringBenchMeta) {
+        statusEl.textContent = ptestColorScoringBenchMeta.allColorRowsCount.toLocaleString('tr-TR')
+            + ' renk gösterge · ' + ptestColorScoringBenchResults.length + ' senaryo · '
+            + (ptestColorScoringBenchMeta.leaderTotal || 0) + ' koşu lideri';
+    }
+}
+
+async function runColorScoringBenchmarkReport() {
+    const statusEl = document.getElementById('colorScoringBenchStatus');
+    const runBtn = document.getElementById('colorScoringBenchRunBtn');
+    if (!flatEntries.length) {
+        if (statusEl) statusEl.textContent = 'Önce veri yükleyin.';
+        return;
+    }
+    if (!GostergeScoringEngine.isCalibrated()) {
+        if (statusEl) statusEl.textContent = 'Kalibrasyon yapılıyor…';
+        await applyGostergeTahminScoring();
+    }
+    if (!GostergeScoringEngine.isCalibrated()) {
+        if (statusEl) statusEl.textContent = 'Yeterli bitiş verisi yok.';
+        return;
+    }
+    if (runBtn) runBtn.disabled = true;
+    if (statusEl) statusEl.textContent = 'Başlıyor…';
+    try {
+        const configs = GostergeScoringEngine.generateColorBenchmarkConfigs();
+        const host = getPtestScoringHost();
+        const out = await GostergeScoringEngine.runColorScoringBenchmark(flatEntries, host, configs, (msg) => {
+            if (statusEl) statusEl.textContent = msg;
+        });
+        ptestColorScoringBenchResults = out.results;
+        ptestColorScoringBenchMeta = {
+            allColorRowsCount: out.allColorRowsCount,
+            leaderTotal: out.results[0]?.leaderTotal || 0
+        };
+        renderColorScoringBenchTable();
+        if (statusEl && out.results[0]) {
+            statusEl.textContent = 'Tamamlandı · en iyi: '
+                + (out.results[0].config?.label || '—')
+                + ' · karışık ' + pctBenchFmt(out.results[0].leaderBlended);
+        }
+    } catch (err) {
+        if (statusEl) statusEl.textContent = 'Hata: ' + err.message;
+    } finally {
+        if (runBtn) runBtn.disabled = false;
+    }
+}
+
+function openColorScoringBenchTab(andRun) {
+    switchPtestViewTab('colorscoringbench');
+    updateColorScoringBenchVisibility();
+    if (andRun) void runColorScoringBenchmarkReport();
+}
 
 function ptestTahminBitisMatch(tahmin, bitisVal) {
     if (bitisVal == null || bitisVal < 1 || !tahmin || tahmin.rank == null) return false;
@@ -2335,7 +2479,8 @@ function switchPtestViewTab(tabId) {
         : (tabId === 'gosterge' ? 'gosterge'
         : (tabId === 't9vsweep' ? 't9vsweep'
         : (tabId === 'metricsweep' ? 'metricsweep'
-        : (tabId === 'extrasweep' ? 'extrasweep' : 'tablo'))));
+        : (tabId === 'extrasweep' ? 'extrasweep'
+        : (tabId === 'colorscoringbench' ? 'colorscoringbench' : 'tablo')))));
     document.querySelectorAll('.ptest-view-tab-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.ptestView === ptestViewTab);
     });
@@ -2345,12 +2490,14 @@ function switchPtestViewTab(tabId) {
     const t9vsweep = document.getElementById('ptestTabT9vSweep');
     const metricsweep = document.getElementById('ptestTabMetricSweep');
     const extrasweep = document.getElementById('ptestTabExtraSweep');
+    const colorscoringbench = document.getElementById('ptestTabColorScoringBench');
     if (tablo) tablo.classList.toggle('hidden', ptestViewTab !== 'tablo');
     if (gosterge) gosterge.classList.toggle('hidden', ptestViewTab !== 'gosterge');
     if (gosterge1) gosterge1.classList.toggle('hidden', ptestViewTab !== 'gosterge1');
     if (t9vsweep) t9vsweep.classList.toggle('hidden', ptestViewTab !== 't9vsweep');
     if (metricsweep) metricsweep.classList.toggle('hidden', ptestViewTab !== 'metricsweep');
     if (extrasweep) extrasweep.classList.toggle('hidden', ptestViewTab !== 'extrasweep');
+    if (colorscoringbench) colorscoringbench.classList.toggle('hidden', ptestViewTab !== 'colorscoringbench');
     if (ptestViewTab === 'gosterge' && flatEntries.length) {
         renderTuruncuReport();
     }
@@ -2365,6 +2512,10 @@ function switchPtestViewTab(tabId) {
     }
     if (ptestViewTab === 'extrasweep' && flatEntries.length) {
         void renderExtraSweepReport(false);
+    }
+    if (ptestViewTab === 'colorscoringbench') {
+        updateColorScoringBenchVisibility();
+        if (ptestColorScoringBenchResults?.length) renderColorScoringBenchTable();
     }
 }
 
@@ -2382,6 +2533,9 @@ function updateGostergeTabVisibility() {
     if (content) content.classList.toggle('hidden', !hasData);
     const exportBtn = document.getElementById('gostergeColorExportBtn');
     if (exportBtn) exportBtn.disabled = !hasData;
+    const benchBtn = document.getElementById('gostergeColorBenchBtn');
+    if (benchBtn) benchBtn.disabled = !hasData;
+    updateColorScoringBenchVisibility();
     updateGosterge1TabVisibility();
 }
 
@@ -2658,7 +2812,7 @@ function renderGosterge1Report() {
     initGosterge1StripTabs();
 }
 
-const PTEST_BUILD = '20260830y';
+const PTEST_BUILD = '20260830z';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
@@ -4924,6 +5078,8 @@ document.getElementById('loadAllBtn').onclick = loadAllKayitlar;
 document.getElementById('saveAllBtn').onclick = saveAllSettings;
 document.getElementById('exportTxtBtn').onclick = downloadTextExport;
 document.getElementById('gostergeColorExportBtn').onclick = () => void downloadColorGostergeExport();
+document.getElementById('gostergeColorBenchBtn').onclick = () => openColorScoringBenchTab(true);
+document.getElementById('colorScoringBenchRunBtn').onclick = () => void runColorScoringBenchmarkReport();
 document.getElementById('clearAllBtn').onclick = clearAllKayitlar;
 document.getElementById('toggleCikanBtn').onclick = () => {
     cikanPanelOpen = !cikanPanelOpen;

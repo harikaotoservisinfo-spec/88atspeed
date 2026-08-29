@@ -529,10 +529,31 @@ const GostergeScoringEngine = (function () {
         return { score, bestRule: best, hits };
     }
 
-    function computeRowTahmin(entry) {
+    function scoreColorGostergeHits(entry, ladder, matchMode) {
+        if (!ladder?.length) return { score: 0, hits: [] };
+        const hits = [];
+        for (const rule of ladder) {
+            if (rule.match && rule.match(entry)) hits.push(rule);
+        }
+        if (!hits.length) return { score: 0, hits: [] };
+        let score = 0;
+        if (matchMode === 'sum') {
+            for (const h of hits) score += h.points || 0;
+        } else {
+            score = Math.max(...hits.map(h => h.points || 0));
+        }
+        return { score, hits };
+    }
+
+    function computeRowTahminWithOptions(entry, scoringOptions) {
         if (!calibration) {
             return { score: 0, pct: null, rank: null, terms: [], topTerms: [], source: 'none', metricCount: 0 };
         }
+
+        const opts = scoringOptions || {};
+        const colorMode = opts.colorMode || 'legacy';
+        const colorLadder = opts.colorLadder || null;
+        const colorMatchMode = opts.colorMatchMode || 'best';
 
         const terms = [];
         const bucketWeighted = { t9v: 0, colors: 0, focus: 0, rest: 0 };
@@ -548,7 +569,7 @@ const GostergeScoringEngine = (function () {
             const baseId = metricBaseId(m);
             if (isT9vScoreMetric(m)) bucketWeighted.t9v += weighted;
             else if (isFocusScoreMetric(m)) bucketWeighted.focus += weighted;
-            else if (!METRIC_SWEEP_FOCUS_ID && isColorRule(bestRule.id)) {
+            else if (colorMode === 'legacy' && !METRIC_SWEEP_FOCUS_ID && isColorRule(bestRule.id)) {
                 bucketWeighted.colors += weighted;
             } else if (!METRIC_SWEEP_FOCUS_ID && otherMetricShare(baseId) > 0) {
                 bucketWeighted[baseId] += weighted;
@@ -566,6 +587,25 @@ const GostergeScoringEngine = (function () {
             });
         }
 
+        if (colorMode === 'gosterge' && colorLadder?.length) {
+            const { score: colorScore, hits: colorHits } = scoreColorGostergeHits(entry, colorLadder, colorMatchMode);
+            if (colorScore > 0) {
+                bucketWeighted.colors += colorScore;
+                const top = colorHits.reduce((a, b) => (b.points > (a?.points || 0) ? b : a), colorHits[0]);
+                terms.push({
+                    metricId: '_colorGosterge',
+                    metricLabel: 'Renk gösterge',
+                    ruleId: top?.id || 'color',
+                    ruleLabel: top?.label || 'Renk gösterge',
+                    ruleRank: top?.rank || 0,
+                    ruleSuccess: top?.successRate || 0,
+                    hitCount: colorHits.length,
+                    points: colorScore,
+                    label: 'Renk · ' + (top?.label || colorHits.length + ' eşleşme')
+                });
+            }
+        }
+
         terms.sort((a, b) => b.points - a.points);
         const rawTotal = Object.values(bucketWeighted).reduce((a, b) => a + b, 0);
         const totalScore = blendGostergeScoreTotals(bucketWeighted);
@@ -580,6 +620,200 @@ const GostergeScoringEngine = (function () {
             metricCount: terms.length,
             source: 'gosterge'
         };
+    }
+
+    function computeRowTahmin(entry) {
+        return computeRowTahminWithOptions(entry, { colorMode: 'legacy' });
+    }
+
+    function rankRaceEntriesWithOptions(entries, scoringOptions) {
+        const scored = entries.map(entry => {
+            const tahmin = computeRowTahminWithOptions(entry, scoringOptions);
+            entry.row.tahmin = tahmin;
+            return { entry, tahmin, row: entry.row };
+        });
+        return finalizeRaceScores(scored);
+    }
+
+    function applyScoringOptionsToFlatEntries(flatEntries, scoringOptions) {
+        if (!calibration || !flatEntries?.length) return;
+        const byRace = new Map();
+        for (const entry of flatEntries) {
+            const rk = String(entry.kayitId) + '|' + entry.raceNo;
+            if (!byRace.has(rk)) byRace.set(rk, []);
+            byRace.get(rk).push(entry);
+        }
+        for (const group of byRace.values()) {
+            rankRaceEntriesWithOptions(group, scoringOptions);
+        }
+    }
+
+    function assignColorLadderPoints(rows) {
+        const n = rows.length;
+        for (let i = 0; i < n; i++) {
+            rows[i].rank = i + 1;
+            rows[i].points = Math.max(1, Math.round((n - i) * 80 + (rows[i].successRate || 0) * 500));
+        }
+        return rows;
+    }
+
+    function buildColorGostergeLadder(allRows, opts) {
+        opts = opts || {};
+        const topN = opts.topN || 50;
+        const minSample = opts.minSample != null ? opts.minSample : MIN_RULE_SAMPLE;
+        let rows = (allRows || []).filter(r =>
+            r.match && (r.stats?.withBitis || 0) >= minSample
+        );
+        if (!opts.includeRaceRank) rows = rows.filter(r => r.statKind !== 'raceRank');
+        if (!opts.includeDepth) rows = rows.filter(r => r.mode !== 'depthPair');
+        rows = PtestGostergeEngine.sortColorGostergeRows(rows).slice(0, topN);
+        return assignColorLadderPoints(rows);
+    }
+
+    function collectAllColorGostergeRows(flatEntries, host) {
+        if (typeof PtestColorGostergeExport !== 'undefined' && PtestColorGostergeExport.collectAllColorRows) {
+            return PtestColorGostergeExport.collectAllColorRows(flatEntries, host, {
+                successBlend: SUCCESS_BLEND
+            });
+        }
+        return [];
+    }
+
+    function evaluateTahminSuccess(flatEntries, bitisValueForSort, successBlend) {
+        const blend = successBlend || SUCCESS_BLEND;
+        const byRace = new Map();
+        for (const entry of flatEntries) {
+            const rk = String(entry.kayitId) + '|' + entry.raceNo;
+            if (!byRace.has(rk)) byRace.set(rk, []);
+            byRace.get(rk).push(entry);
+        }
+
+        let leaderB1 = 0;
+        let leaderB12 = 0;
+        let leaderB123 = 0;
+        let leaderTotal = 0;
+        let exact = 0;
+        let exactTotal = 0;
+
+        for (const group of byRace.values()) {
+            group.sort((a, b) => {
+                const sa = a.row?.tahmin?.score ?? 0;
+                const sb = b.row?.tahmin?.score ?? 0;
+                if (sb !== sa) return sb - sa;
+                return (a.row?.no ?? 0) - (b.row?.no ?? 0);
+            });
+            const leader = group[0];
+            const lb = bitisValueForSort?.(leader);
+            if (lb != null && lb >= 1) {
+                leaderTotal++;
+                if (lb === 1) leaderB1++;
+                if (lb <= 2) leaderB12++;
+                if (lb <= 3) leaderB123++;
+            }
+        }
+
+        for (const entry of flatEntries) {
+            const b = bitisValueForSort?.(entry);
+            if (b == null || b < 1) continue;
+            exactTotal++;
+            const rank = entry.row?.tahmin?.rank;
+            if (rank != null && Number(rank) === Number(b)) exact++;
+        }
+
+        const leaderBlended = leaderTotal
+            ? blend.b1 * (leaderB1 / leaderTotal)
+                + blend.b12 * (leaderB12 / leaderTotal)
+                + blend.b123 * (leaderB123 / leaderTotal)
+            : 0;
+
+        return {
+            leaderTotal,
+            leaderB1,
+            leaderB12,
+            leaderB123,
+            leaderB1Rate: leaderTotal ? leaderB1 / leaderTotal : 0,
+            leaderB12Rate: leaderTotal ? leaderB12 / leaderTotal : 0,
+            leaderB123Rate: leaderTotal ? leaderB123 / leaderTotal : 0,
+            leaderBlended,
+            exact,
+            exactTotal,
+            exactRate: exactTotal ? exact / exactTotal : 0
+        };
+    }
+
+    function evaluateColorScoringConfig(flatEntries, host, config, allColorRows) {
+        if (!calibration) return null;
+        const saved = flatEntries.map(e => e.row.tahmin);
+        let scoringOptions;
+        if (config?.legacy) {
+            scoringOptions = { colorMode: 'legacy' };
+        } else {
+            const ladder = buildColorGostergeLadder(allColorRows, config);
+            scoringOptions = {
+                colorMode: 'gosterge',
+                colorLadder: ladder,
+                colorMatchMode: config.matchMode || 'best'
+            };
+        }
+        applyScoringOptionsToFlatEntries(flatEntries, scoringOptions);
+        const stats = evaluateTahminSuccess(flatEntries, host.bitisValueForSort, SUCCESS_BLEND);
+        flatEntries.forEach((e, i) => { e.row.tahmin = saved[i]; });
+        return {
+            config,
+            ladderCount: config?.legacy ? 7 : (scoringOptions.colorLadder?.length || 0),
+            ...stats
+        };
+    }
+
+    async function runColorScoringBenchmark(flatEntries, host, configs, onProgress) {
+        if (!calibration) return [];
+        onProgress?.('Renk gösterge listesi toplanıyor…');
+        await yieldToMain();
+        const allColorRows = collectAllColorGostergeRows(flatEntries, host);
+        const results = [];
+        for (let i = 0; i < configs.length; i++) {
+            onProgress?.('Test ' + (i + 1) + '/' + configs.length + ': ' + (configs[i].label || configs[i].id));
+            results.push(evaluateColorScoringConfig(flatEntries, host, configs[i], allColorRows));
+            if (i % 3 === 2) await yieldToMain();
+        }
+        results.sort((a, b) => {
+            if (b.leaderBlended !== a.leaderBlended) return b.leaderBlended - a.leaderBlended;
+            return b.exactRate - a.exactRate;
+        });
+        return { results, allColorRowsCount: allColorRows.length };
+    }
+
+    function generateColorBenchmarkConfigs() {
+        const configs = [{
+            id: 'legacy',
+            label: 'Mevcut · 7 sabit renk kuralı',
+            legacy: true
+        }];
+        const topNs = [50, 80, 100];
+        const matchModes = [
+            { id: 'best', label: 'En iyi tek' },
+            { id: 'sum', label: 'Toplam' }
+        ];
+        for (const topN of topNs) {
+            for (const mm of matchModes) {
+                for (const includeDepth of [false, true]) {
+                    for (const includeRaceRank of [false, true]) {
+                        configs.push({
+                            id: 'n' + topN + '_' + mm.id + (includeDepth ? '_d' : '_nd') + (includeRaceRank ? '_r' : '_nr'),
+                            label: 'Top-' + topN + ' · ' + mm.label
+                                + (includeDepth ? ' · derinlik' : '')
+                                + (includeRaceRank ? ' · raceRank' : ''),
+                            topN,
+                            matchMode: mm.id,
+                            includeDepth,
+                            includeRaceRank,
+                            legacy: false
+                        });
+                    }
+                }
+            }
+        }
+        return configs;
     }
 
     function finalizeRaceScores(scored) {
@@ -819,6 +1053,14 @@ const GostergeScoringEngine = (function () {
         attachRaceTahmin,
         applyToFlatEntries,
         computeRowTahmin,
+        computeRowTahminWithOptions,
+        applyScoringOptionsToFlatEntries,
+        buildColorGostergeLadder,
+        collectAllColorGostergeRows,
+        evaluateTahminSuccess,
+        evaluateColorScoringConfig,
+        runColorScoringBenchmark,
+        generateColorBenchmarkConfigs,
         renderCalibrationHtml,
         getCalibration,
         isCalibrated,
