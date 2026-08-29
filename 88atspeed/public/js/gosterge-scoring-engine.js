@@ -17,6 +17,13 @@ const GostergeScoringEngine = (function () {
         'yesilHucre', 'turuncuHucre', 'turuncuCevre', 'sariYazi',
         'kirmiziIc', 'acikYesilIc', 'koyuYesilIc'
     ]);
+    /** Kalıcı renk puanlama — export gösterge Top-N (benchmark #1) */
+    const COLOR_GOSTERGE_CONFIG = {
+        topN: 80,
+        matchMode: 'sum',
+        includeDepth: true,
+        includeRaceRank: false
+    };
     let METRIC_SWEEP_FOCUS_ID = null;
     let METRIC_SWEEP_FOCUS_SHARE = 0;
     /** %65 dilimi payları (ham puanlar; normalize → toplam 1.0) */
@@ -174,7 +181,7 @@ const GostergeScoringEngine = (function () {
                 frac: COLOR_OTHER_SHARE,
                 pctWithin65: Math.round(COLOR_OTHER_SHARE * 1000) / 10,
                 pctOfTotal: Math.round(COLOR_OTHER_SHARE * OTHER_SCORE_SHARE * 1000) / 10,
-                label: 'Renkler (7 kural)'
+                label: 'Renkler (Top-' + COLOR_GOSTERGE_CONFIG.topN + ' export · Toplam)'
             },
             _metricSlice: {
                 pctWithin65: Math.round(METRIC_OTHER_SHARE * 1000) / 10,
@@ -426,17 +433,34 @@ const GostergeScoringEngine = (function () {
 
         const liveMatchers = buildLiveMatchers(metrics, host, depthScales);
 
+        const allColorRows = collectAllColorGostergeRows(flatEntries, host);
+        const colorLadder = buildColorGostergeLadder(allColorRows, COLOR_GOSTERGE_CONFIG);
+
         calibration = {
             ladders,
             metrics,
             depthScales,
             liveMatchers,
+            colorLadder,
+            colorGostergeConfig: { ...COLOR_GOSTERGE_CONFIG },
+            allColorRowsCount: allColorRows.length,
             bitisRows,
             totalRows: flatEntries.length,
             successBlend: { ...SUCCESS_BLEND },
             calibratedAt: Date.now()
         };
         return calibration;
+    }
+
+    function getDefaultColorScoringOptions() {
+        if (calibration?.colorLadder?.length) {
+            return {
+                colorMode: 'gosterge',
+                colorLadder: calibration.colorLadder,
+                colorMatchMode: calibration.colorGostergeConfig?.matchMode || COLOR_GOSTERGE_CONFIG.matchMode
+            };
+        }
+        return { colorMode: 'legacy' };
     }
 
     function metricBaseId(metricEntry) {
@@ -601,7 +625,9 @@ const GostergeScoringEngine = (function () {
                     ruleSuccess: top?.successRate || 0,
                     hitCount: colorHits.length,
                     points: colorScore,
-                    label: 'Renk · ' + (top?.label || colorHits.length + ' eşleşme')
+                    label: colorHits.length > 1
+                        ? 'Renk · ' + colorHits.length + ' eşleşme (toplam)'
+                        : 'Renk · ' + (top?.label || 'gösterge')
                 });
             }
         }
@@ -623,7 +649,7 @@ const GostergeScoringEngine = (function () {
     }
 
     function computeRowTahmin(entry) {
-        return computeRowTahminWithOptions(entry, { colorMode: 'legacy' });
+        return computeRowTahminWithOptions(entry, getDefaultColorScoringOptions());
     }
 
     function rankRaceEntriesWithOptions(entries, scoringOptions) {
@@ -979,6 +1005,11 @@ const GostergeScoringEngine = (function () {
             if (info) shareParts.push(info.label + ' %' + info.pctOfTotal);
         }
         if (sortedIds.length > 4) shareParts.push('+' + (sortedIds.length - 4) + ' metrik');
+        const colorCfg = calibration.colorGostergeConfig;
+        if (calibration.colorLadder?.length && colorCfg) {
+            shareParts[1] += ' · Top-' + colorCfg.topN + ' Toplam'
+                + (colorCfg.includeDepth ? '+derinlik' : '');
+        }
         let h = '<div class="ptest-scoring-meta">📊 Gösterge puanlama · '
             + calibration.bitisRows + ' bitişli / ' + calibration.totalRows + ' satır · '
             + 'başarı: %' + Math.round(blend.b1 * 100) + ' 1. · %' + Math.round(blend.b12 * 100) + ' 1–2 · %'
@@ -987,7 +1018,8 @@ const GostergeScoringEngine = (function () {
         h += '<table class="ptest-scoring-table"><thead><tr>'
             + '<th>Kova</th><th>%65 içi</th><th>Toplam ~%</th></tr></thead><tbody>';
         h += '<tr><td><strong>T9V</strong></td><td>—</td><td>35</td></tr>';
-        h += '<tr><td><strong>Renkler</strong> (yeşil/turuncu/sarı/kırmızı…)</td><td>'
+        h += '<tr><td><strong>Renkler</strong> (Top-' + (colorCfg?.topN || '?') + ' export · Toplam'
+            + (colorCfg?.includeDepth ? ' · derinlik' : '') + ')</td><td>'
             + shareInfo._colors.pctWithin65 + '</td><td>' + shareInfo._colors.pctOfTotal + '</td></tr>';
         h += '<tr><td colspan="3"><em>Metrik dilimi (%65 × 16/65 ≈ '
             + shareInfo._metricSlice.pctOfTotal + ' toplam)</em></td></tr>';
@@ -1001,6 +1033,15 @@ const GostergeScoringEngine = (function () {
                 + shareInfo._rest.pctWithin65 + '</td><td>' + shareInfo._rest.pctOfTotal + '</td></tr>';
         }
         h += '</tbody></table></details>';
+
+        if (calibration.colorLadder?.length) {
+            h += renderMetricLadderBlock(
+                'Renk gösterge · Top-' + (colorCfg?.topN || calibration.colorLadder.length)
+                    + ' · Toplam · %45 kova',
+                calibration.colorLadder,
+                true
+            );
+        }
 
         const shown = new Set();
         for (const m of calibration.metrics) {
@@ -1061,6 +1102,8 @@ const GostergeScoringEngine = (function () {
         evaluateColorScoringConfig,
         runColorScoringBenchmark,
         generateColorBenchmarkConfigs,
+        getDefaultColorScoringOptions,
+        COLOR_GOSTERGE_CONFIG,
         renderCalibrationHtml,
         getCalibration,
         isCalibrated,
