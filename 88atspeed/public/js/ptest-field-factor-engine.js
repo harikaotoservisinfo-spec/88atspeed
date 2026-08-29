@@ -74,9 +74,14 @@ const PtestFieldFactorEngine = (function () {
 
         let buckets;
         const termsTotal = bucketSum(fromTerms);
-        const engineTotal = tahmin?.buckets ? bucketSum(tahmin.buckets) : 0;
-        if (engineTotal > 0) {
+        if (tahmin?.attributedBuckets && bucketSum(tahmin.attributedBuckets) > 0) {
+            buckets = { ...tahmin.attributedBuckets };
+        } else if (tahmin?.buckets && bucketSum(tahmin.buckets) > 0) {
             buckets = { ...tahmin.buckets };
+            if ((buckets.colors || 0) <= 0 && fromTerms.colors > 0) buckets.colors = fromTerms.colors;
+            if ((buckets.t9v || 0) <= 0 && fromTerms.t9v > 0) buckets.t9v = fromTerms.t9v;
+            if ((buckets.metrics || 0) <= 0 && fromTerms.metrics > 0) buckets.metrics = fromTerms.metrics;
+            if ((buckets.rest || 0) <= 0 && fromTerms.rest > 0) buckets.rest = fromTerms.rest;
         } else if (termsTotal > 0) {
             buckets = { ...fromTerms };
         } else if (tahmin?.buckets) {
@@ -115,6 +120,11 @@ const PtestFieldFactorEngine = (function () {
             && e.hipodrom === race.hipodrom
             && String(e.raceNo) === String(race.raceNo)
         );
+    }
+
+    function resolveDominantBucket(tahmin, agg) {
+        if (tahmin?.bindingBucket) return tahmin.bindingBucket;
+        return dominantBucket(agg.buckets);
     }
 
     function dominantBucket(buckets) {
@@ -199,7 +209,7 @@ const PtestFieldFactorEngine = (function () {
             const agg = aggregateFactorBuckets(tahmin, metricShareIds, entry);
             for (const id of BUCKET_ORDER) bucket.bucketSum[id] += agg.buckets[id] || 0;
 
-            const dom = dominantBucket(agg.buckets);
+            const dom = resolveDominantBucket(tahmin, agg);
             if (b != null && b >= 1) {
                 bucket.bitisCount++;
                 if (dom) {
@@ -473,7 +483,7 @@ const PtestFieldFactorEngine = (function () {
             for (const he of horses) {
                 const b = host?.bitisValueForSort?.(he);
                 const agg = aggregateFactorBuckets(he.row?.tahmin, metricShareIds, he);
-                const dom = dominantBucket(agg.buckets);
+                const dom = resolveDominantBucket(he.row?.tahmin, agg);
                 const domLabel = dom ? BUCKET_LABELS[dom] : '—';
                 const matched = b != null && b >= 1 && he.row?.tahmin?.rank != null
                     && Number(he.row.tahmin.rank) === Number(b);
