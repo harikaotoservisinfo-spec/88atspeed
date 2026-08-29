@@ -25,6 +25,8 @@ const GostergeScoringEngine = (function () {
     };
     let METRIC_SWEEP_FOCUS_ID = null;
     let METRIC_SWEEP_FOCUS_SHARE = 0;
+    let fieldAdaptiveProfileBySize = null;
+    let fieldAdaptiveScoringEnabled = true;
     /** OTHER dilimi payları (ham puanlar; normalize → toplam 1.0) */
     const OTHER_METRIC_SHARE_PCT = {
         son8001: 3,
@@ -1329,25 +1331,91 @@ const GostergeScoringEngine = (function () {
         return finalizeRaceScores(scored);
     }
 
-    function attachRaceTahmin(pkg) {
+    function setFieldAdaptiveProfiles(profiles) {
+        fieldAdaptiveProfileBySize = profiles?.bySize || profiles || null;
+    }
+
+    function getFieldAdaptiveProfiles() {
+        return fieldAdaptiveProfileBySize;
+    }
+
+    function setFieldAdaptiveScoringEnabled(enabled) {
+        fieldAdaptiveScoringEnabled = !!enabled;
+    }
+
+    function isFieldAdaptiveScoringEnabled() {
+        return fieldAdaptiveScoringEnabled;
+    }
+
+    function resolveRaceFieldProfile(pkg, profileBySizeOverride) {
+        if (!fieldAdaptiveScoringEnabled) return null;
+        const profiles = profileBySizeOverride || fieldAdaptiveProfileBySize;
+        if (!profiles || !pkg?.rows?.length) return null;
+        return profiles[pkg.rows.length] || null;
+    }
+
+    function attachRaceTahmin(pkg, profileBySizeOverride) {
         if (!calibration || !pkg?.rows) return pkg;
 
-        const scored = pkg.rows.map(row => {
-            const tahmin = computeRowTahmin({ row });
-            row.tahmin = tahmin;
-            return { row, tahmin };
-        });
-        finalizeRaceScores(scored);
+        const profile = resolveRaceFieldProfile(pkg, profileBySizeOverride);
+        const saved = getScoreShareSplit();
+        if (profile?.shareSplit) {
+            setScoreShareSplit(
+                profile.shareSplit.t9v,
+                profile.shareSplit.colors,
+                profile.shareSplit.metrics,
+                profile.shareSplit.rest
+            );
+        }
+
+        const scoringOpts = {
+            ...getDefaultColorScoringOptions(),
+            fieldProfile: profile
+        };
+        const entries = pkg.rows.map(row => ({ row }));
+        rankRaceEntriesWithOptions(entries, scoringOpts);
+
+        if (profile?.shareSplit) {
+            setScoreShareSplit(saved.t9v, saved.colors, saved.metrics, saved.rest);
+        }
+
+        const leaderRow = pkg.rows.find(r => r.tahmin?.rank === 1)
+            || pkg.rows.slice().sort((a, b) => (a.tahmin?.rank ?? 99) - (b.tahmin?.rank ?? 99))[0];
 
         pkg.tahminOzeti = {
-            leader: scored[0]?.row?.name || null,
-            leaderPct: scored[0]?.tahmin?.pct ?? null,
-            leaderScore: scored[0]?.tahmin?.score ?? 0,
-            horseCount: scored.length,
+            leader: leaderRow?.name || null,
+            leaderPct: leaderRow?.tahmin?.pct ?? null,
+            leaderScore: leaderRow?.tahmin?.score ?? 0,
+            horseCount: pkg.rows.length,
             source: 'gosterge',
-            metricCount: scored[0]?.tahmin?.metricCount ?? 0
+            metricCount: leaderRow?.tahmin?.metricCount ?? 0,
+            fieldProfile: profile ? {
+                fieldSize: pkg.rows.length,
+                bestFactor: profile.bestFactor,
+                bestFactorLabel: profile.bestFactorLabel
+            } : null
         };
         return pkg;
+    }
+
+    async function buildFieldAdaptiveProfiles(buildBitisStatsFromEntries, opts) {
+        opts = opts || {};
+        if (typeof PtestFieldFactorEngine === 'undefined' || typeof PtestFieldAdaptiveEngine === 'undefined') {
+            return null;
+        }
+        const { flatEntries, bitisMap } = await buildFlatEntriesFromApi({ IE: IstatistikEngine });
+        const host = makeBitisHost(flatEntries, bitisMap, buildBitisStatsFromEntries);
+        if (!calibration) {
+            await calibrate(flatEntries, host);
+        }
+        applyToFlatEntries(flatEntries);
+        const factorResults = PtestFieldFactorEngine.analyzeFieldFactors(flatEntries, host);
+        const profiles = PtestFieldAdaptiveEngine.buildProfiles(factorResults, opts);
+        if (profiles?.bySize && Object.keys(profiles.bySize).length) {
+            setFieldAdaptiveProfiles(profiles);
+            if (PtestFieldAdaptiveEngine.saveProfiles) PtestFieldAdaptiveEngine.saveProfiles(profiles);
+        }
+        return profiles;
     }
 
     function applyToFlatEntries(flatEntries) {
@@ -1670,6 +1738,11 @@ const GostergeScoringEngine = (function () {
     return {
         calibrate,
         attachRaceTahmin,
+        setFieldAdaptiveProfiles,
+        getFieldAdaptiveProfiles,
+        setFieldAdaptiveScoringEnabled,
+        isFieldAdaptiveScoringEnabled,
+        buildFieldAdaptiveProfiles,
         applyToFlatEntries,
         applyToFlatEntriesWithProfiles,
         computeRowTahmin,

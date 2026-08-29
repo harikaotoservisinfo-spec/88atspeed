@@ -965,6 +965,11 @@
             Her metrik grubu için SON·Δ + derinlik çifti (SON↔1ÖNCE…) göstergeleri ayrı sıralanır.
             Başarı ağırlığı: <strong>%80 birincilik</strong>, %12 ilk iki, %8 ilk üç.</p>
         <div id="gostergeScoringStatus" class="istat-gos-metric-hint">Kalibrasyon yükleniyor…</div>
+        <label class="istat-gos-metric-hint" style="display:flex;align-items:center;gap:6px;margin:6px 0">
+            <input type="checkbox" id="istatFieldAdaptiveEnabled" checked>
+            At sayısına göre uyarlamalı puanlama (PUANLAMA TEST faktör analizi profili)
+        </label>
+        <div id="gostergeFieldAdaptiveStatus" class="istat-gos-metric-hint" style="font-size:11px"></div>
         <div id="gostergeScoringLadderIstat"></div>
     </details>
     <details class="istat-gosterim-controls" id="gosterimWeightPanel" open>
@@ -1023,17 +1028,19 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260831r"></script>
-<script src="js/formula-engine.js?v=20260831r"></script>
-<script src="js/istatistik-engine.js?v=20260831r"></script>
-<script src="js/istatistik-grids-extra.js?v=20260831r"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260831r"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260831r"></script>
-<script src="js/ptest-gosterge-engine.js?v=20260831r"></script>
-<script src="js/ptest-gosterge-depth-engine.js?v=20260831r"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260831r"></script>
+<script src="js/utils.js?v=20260831s"></script>
+<script src="js/formula-engine.js?v=20260831s"></script>
+<script src="js/istatistik-engine.js?v=20260831s"></script>
+<script src="js/istatistik-grids-extra.js?v=20260831s"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260831s"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260831s"></script>
+<script src="js/ptest-gosterge-engine.js?v=20260831s"></script>
+<script src="js/ptest-gosterge-depth-engine.js?v=20260831s"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260831s"></script>
+<script src="js/ptest-field-factor-engine.js?v=20260831s"></script>
+<script src="js/ptest-field-adaptive-engine.js?v=20260831s"></script>
 <script>
-const ISTAT_BUILD = '20260831r';
+const ISTAT_BUILD = '20260831s';
 const TAHMIN_METRIC_ALL = '__hepsi__';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
@@ -1529,16 +1536,63 @@ function buildIstatBitisStatsFromEntries(entries) {
 }
 
 let gostergeCalibrationPromise = null;
+let istatFieldAdaptiveProfiles = null;
+
+function syncIstatFieldAdaptiveEnabled() {
+    const cb = document.getElementById('istatFieldAdaptiveEnabled');
+    if (cb && PtestFieldAdaptiveEngine?.isAdaptiveEnabled) {
+        cb.checked = PtestFieldAdaptiveEngine.isAdaptiveEnabled();
+    }
+    const enabled = cb ? cb.checked : (PtestFieldAdaptiveEngine?.isAdaptiveEnabled?.() ?? true);
+    GostergeScoringEngine.setFieldAdaptiveScoringEnabled?.(enabled);
+    return enabled;
+}
+
+function renderIstatFieldAdaptiveStatus(profiles) {
+    const host = document.getElementById('gostergeFieldAdaptiveStatus');
+    if (!host) return;
+    if (!GostergeScoringEngine.isFieldAdaptiveScoringEnabled?.()) {
+        host.innerHTML = '<span style="color:#789">Uyarlamalı puanlama kapalı — standart 40/40/15/5 pay kullanılır</span>';
+        return;
+    }
+    if (!profiles?.bySize || !Object.keys(profiles.bySize).length) {
+        host.innerHTML = '<span style="color:#e65100">Profil yok — PUANLAMA TEST → At sayısı · Faktör analizi çalıştırın veya bitiş verisi bekleyin</span>';
+        return;
+    }
+    const parts = (profiles.list || Object.values(profiles.bySize))
+        .sort((a, b) => (a.fieldSize || 0) - (b.fieldSize || 0))
+        .map(p => p.fieldSize + ' at → ' + (p.bestFactorLabel || p.bestFactor));
+    host.innerHTML = '<strong>Uyarlamalı profil aktif</strong> · ' + parts.join(' · ');
+}
+
+async function ensureIstatFieldAdaptiveProfiles(force) {
+    syncIstatFieldAdaptiveEnabled();
+    if (!force && istatFieldAdaptiveProfiles?.bySize && Object.keys(istatFieldAdaptiveProfiles.bySize).length) {
+        GostergeScoringEngine.setFieldAdaptiveProfiles?.(istatFieldAdaptiveProfiles);
+        renderIstatFieldAdaptiveStatus(istatFieldAdaptiveProfiles);
+        return istatFieldAdaptiveProfiles;
+    }
+    let profiles = PtestFieldAdaptiveEngine?.loadProfiles?.() || null;
+    if (!profiles?.bySize || !Object.keys(profiles.bySize).length) {
+        const statusEl = document.getElementById('gostergeFieldAdaptiveStatus');
+        if (statusEl) statusEl.textContent = '⏳ At sayısı profili hesaplanıyor…';
+        profiles = await GostergeScoringEngine.buildFieldAdaptiveProfiles?.(buildIstatBitisStatsFromEntries);
+    }
+    istatFieldAdaptiveProfiles = profiles;
+    if (profiles?.bySize) GostergeScoringEngine.setFieldAdaptiveProfiles?.(profiles);
+    renderIstatFieldAdaptiveStatus(profiles);
+    return profiles;
+}
 
 function attachRaceTahminForPkg(pkg, teWeights) {
-    if (typeof GostergeScoringEngine !== 'undefined' && GostergeScoringEngine.isCalibrated()) {
+    if (typeof GostergeScoringEngine !== 'undefined' && GostergeScoringEngine.isCalibrated?.()) {
         return GostergeScoringEngine.attachRaceTahmin(pkg);
     }
     return IstatistikTahminEngine.attachRaceTahmin(pkg, teWeights);
 }
 
 async function ensureGostergeCalibration(force) {
-    if (!force && GostergeScoringEngine.isCalibrated()) return GostergeScoringEngine.getCalibration();
+    if (!force && GostergeScoringEngine.isCalibrated?.()) return GostergeScoringEngine.getCalibration?.();
     if (!force && gostergeCalibrationPromise) return gostergeCalibrationPromise;
     gostergeCalibrationPromise = (async () => {
         const statusEl = document.getElementById('gostergeScoringStatus');
@@ -1556,6 +1610,12 @@ async function ensureGostergeCalibration(force) {
             }
             if (ladderEl && cal) {
                 ladderEl.innerHTML = GostergeScoringEngine.renderCalibrationHtml();
+            }
+            if (cal && cal.bitisRows >= GostergeScoringEngine.MIN_RULE_SAMPLE) {
+                await ensureIstatFieldAdaptiveProfiles(false);
+                if (istatRaceCache.length) scheduleRefreshAllTahmin();
+            } else {
+                renderIstatFieldAdaptiveStatus(null);
             }
             return cal;
         } catch (err) {
@@ -1648,8 +1708,13 @@ function refreshAllTahmin() {
         const badge = card.querySelector('[data-tahmin-badge]');
         if (badge) {
             if (entry.pkg.tahminOzeti?.leader) {
-                badge.textContent = 'Tahmin: ' + entry.pkg.tahminOzeti.leader
+                let badgeText = 'Tahmin: ' + entry.pkg.tahminOzeti.leader
                     + ' %' + (entry.pkg.tahminOzeti.leaderPct ?? '?');
+                const fp = entry.pkg.tahminOzeti.fieldProfile;
+                if (fp?.bestFactorLabel && GostergeScoringEngine.isFieldAdaptiveScoringEnabled?.()) {
+                    badgeText += ' · ' + fp.fieldSize + ' at · ' + fp.bestFactorLabel;
+                }
+                badge.textContent = badgeText;
                 badge.style.display = '';
             } else {
                 badge.style.display = 'none';
@@ -3090,9 +3155,14 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
             html += '<span class="istatistik-race-badge">+' + extraSections.length + ' ek grup</span>';
         }
         if (pkg.tahminOzeti?.leader) {
-            html += '<span class="istatistik-race-badge" data-tahmin-badge>Tahmin: '
+            let tahminBadge = 'Tahmin: '
                 + AtSpeedUtils.escapeHtml(pkg.tahminOzeti.leader)
-                + ' %' + (pkg.tahminOzeti.leaderPct ?? '?') + '</span>';
+                + ' %' + (pkg.tahminOzeti.leaderPct ?? '?');
+            const fp = pkg.tahminOzeti.fieldProfile;
+            if (fp?.bestFactorLabel && GostergeScoringEngine.isFieldAdaptiveScoringEnabled?.()) {
+                tahminBadge += ' · ' + fp.fieldSize + ' at · ' + fp.bestFactorLabel;
+            }
+            html += '<span class="istatistik-race-badge" data-tahmin-badge>' + tahminBadge + '</span>';
         }
         html += '</div>';
         html += '<div class="istatistik-table-wrap">';
@@ -3283,6 +3353,20 @@ window.addEventListener('load', () => {
     bindDepthExpandControls();
     renderVisualScoreControls();
     loadIstatBitisMap();
+    const adaptiveCb = document.getElementById('istatFieldAdaptiveEnabled');
+    if (adaptiveCb && adaptiveCb.dataset.bound !== '1') {
+        adaptiveCb.dataset.bound = '1';
+        if (PtestFieldAdaptiveEngine?.isAdaptiveEnabled) {
+            adaptiveCb.checked = PtestFieldAdaptiveEngine.isAdaptiveEnabled();
+        }
+        GostergeScoringEngine.setFieldAdaptiveScoringEnabled?.(adaptiveCb.checked);
+        adaptiveCb.addEventListener('change', () => {
+            PtestFieldAdaptiveEngine?.setAdaptiveEnabled?.(adaptiveCb.checked);
+            GostergeScoringEngine.setFieldAdaptiveScoringEnabled?.(adaptiveCb.checked);
+            renderIstatFieldAdaptiveStatus(istatFieldAdaptiveProfiles);
+            if (istatRaceCache.length) scheduleRefreshAllTahmin();
+        });
+    }
     scheduleBackgroundCalibration();
     fetch('/VERSION.txt?v=' + Date.now())
         .then(r => r.ok ? r.text() : '')

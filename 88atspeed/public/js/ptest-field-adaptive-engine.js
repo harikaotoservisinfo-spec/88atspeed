@@ -3,6 +3,8 @@
  * Her koşu büyüklüğünde en yüksek başarılı faktör + kazanan göstergeler ağırlıklandırılır.
  */
 const PtestFieldAdaptiveEngine = (function () {
+    const STORAGE_KEY = 'ptestFieldAdaptiveProfiles';
+    const ENABLED_KEY = 'fieldAdaptiveScoringEnabled';
     const BUCKET_ORDER = ['t9v', 'colors', 'metrics', 'rest'];
     const BUCKET_LABELS = {
         t9v: 'T9V',
@@ -181,6 +183,52 @@ const PtestFieldAdaptiveEngine = (function () {
         return h;
     }
 
+    function saveProfiles(profiles) {
+        if (!profiles?.bySize) return false;
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                bySize: profiles.bySize,
+                list: profiles.list || Object.values(profiles.bySize),
+                builtAt: profiles.builtAt || Date.now()
+            }));
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function loadProfiles() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            if (!parsed?.bySize || !Object.keys(parsed.bySize).length) return null;
+            return {
+                bySize: parsed.bySize,
+                list: parsed.list || Object.values(parsed.bySize),
+                builtAt: parsed.builtAt || 0
+            };
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function isAdaptiveEnabled() {
+        try {
+            const v = localStorage.getItem(ENABLED_KEY);
+            if (v == null) return true;
+            return v !== '0' && v !== 'false';
+        } catch (_) {
+            return true;
+        }
+    }
+
+    function setAdaptiveEnabled(enabled) {
+        try {
+            localStorage.setItem(ENABLED_KEY, enabled ? '1' : '0');
+        } catch (_) { /* ignore */ }
+    }
+
     return {
         buildProfiles,
         buildProfile,
@@ -188,6 +236,12 @@ const PtestFieldAdaptiveEngine = (function () {
         renderDetailBlock,
         shareSplitForFactor,
         selectBestFactor,
+        saveProfiles,
+        loadProfiles,
+        isAdaptiveEnabled,
+        setAdaptiveEnabled,
+        STORAGE_KEY,
+        ENABLED_KEY,
         BUCKET_LABELS,
         DEFAULT_BASE,
         pct
