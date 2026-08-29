@@ -51,3 +51,4 @@ echo "  cd $APP_DIR && node scripts/test-race-similarity.js --db $APP_DIR/atlar.
 echo "  cd $APP_DIR && node scripts/test-race-similarity.js --db $APP_DIR/atlar.db --phase noise,features,rowflags,winner-field,deep10 --min-sample 3"
 echo "  cd $APP_DIR && node scripts/test-race-similarity.js --db $APP_DIR/atlar.db --field-size 10 --phase deep10,winner-field --min-sample 2"
 echo "  cd $APP_DIR && node scripts/test-race-segment-report.js --db $APP_DIR/atlar.db --field-size 10"
+echo "  cd $APP_DIR && node scripts/test-tip-a-db-diagnose.js --db $APP_DIR/atlar.db --field-size 10 --verbose"

@@ -1196,6 +1196,238 @@ function noiseFilterReport(profiles) {
     };
 }
 
+const DIAG_DEPTH_METRICS = [
+    {
+        id: 'son8001',
+        label: 'SON800-1',
+        depthsKey: 'son8001Depths',
+        buildChains(IE, race, tarih) {
+            return IE._buildSon800Chains(race, tarih, 'bir');
+        }
+    },
+    {
+        id: 'test1',
+        label: 'TEST1',
+        depthsKey: 'test1Depths',
+        buildChains(IE, race, tarih) {
+            return IE._buildTest1Chains(race, tarih);
+        }
+    },
+    {
+        id: 't1dr',
+        label: 'T1×DR',
+        depthsKey: 't1drDepths',
+        buildChains(IE, race, tarih) {
+            return IE._buildT1drChains(race, tarih);
+        }
+    }
+];
+
+function summarizeRawKosular(rawHorse, programTarih, hedefMesafe, IE) {
+    const kosular = rawHorse?.kosular || [];
+    const programNorm = programTarih ? IE._normalizeTarih(programTarih) : null;
+    let withTarih = 0;
+    let withSon800Bir = 0;
+    let withAtDerece = 0;
+    let withTest1Inputs = 0;
+    let excludedProgramDay = 0;
+
+    for (const k of kosular) {
+        if (!k?.tarih) continue;
+        withTarih++;
+        if (programNorm && IE._normalizeTarih(k.tarih) === programNorm) {
+            excludedProgramDay++;
+            continue;
+        }
+        const s800 = IE._sonKosuSon800Derece(k, 'bir');
+        if (s800) withSon800Bir++;
+        if (k.at_derece) withAtDerece++;
+        if (IE._kosuTest1Metrikleri(k, hedefMesafe)) withTest1Inputs++;
+    }
+
+    const son800Chain = IE._kosularSon800Zinciri(kosular, programTarih, 'bir');
+    const test1Chain = IE._kosularTest1Zinciri(kosular, programTarih, hedefMesafe);
+    const t1drChain = IE._kosularSon800DrKorelasyonZinciri(kosular, programTarih, false);
+
+    const sorted = [...kosular]
+        .filter(k => k?.tarih)
+        .sort((a, b) => {
+            const da = IE._parseKosuTarih(a.tarih);
+            const db = IE._parseKosuTarih(b.tarih);
+            if (!da && !db) return 0;
+            if (!da) return 1;
+            if (!db) return -1;
+            return db - da;
+        })
+        .slice(0, 5)
+        .map(k => ({
+            tarih: k.tarih,
+            mesafe: k.mesafe,
+            sira: k.sira,
+            son800_bir: k.son800_bir ?? '—',
+            at_derece: k.at_derece ?? '—',
+            birinci_derece: k.birinci_derece ?? '—',
+            programGunu: programNorm && IE._normalizeTarih(k.tarih) === programNorm
+        }));
+
+    return {
+        total: kosular.length,
+        withTarih,
+        excludedProgramDay,
+        withSon800Bir,
+        withAtDerece,
+        withTest1Inputs,
+        chainLengths: {
+            son8001: son800Chain.length,
+            test1: test1Chain.length,
+            t1dr: t1drChain.length
+        },
+        recentKosular: sorted
+    };
+}
+
+function diagnoseMetricDepthVerdict(raceMaxDepth, chainLen, cell0, fieldWithCell0, fieldSize) {
+    if (raceMaxDepth === 0) {
+        return {
+            code: 'SAHA_VERI_YOK',
+            label: 'Saha geneli derinlik 0',
+            detail: 'Koşudaki hiçbir at için bu metrikte geçmiş zincir yok'
+        };
+    }
+    if (chainLen === 0) {
+        return {
+            code: 'AT_ZINCIR_BOS',
+            label: 'At zinciri boş',
+            detail: 'Geçmiş koşularda metrik için yeterli ham alan yok (veri eksik)'
+        };
+    }
+    if (cell0) {
+        return {
+            code: 'HUCRE_VAR',
+            label: 'Hücre mevcut',
+            detail: 'depths[0] dolu — Tip A değil'
+        };
+    }
+    return {
+        code: 'HESAPLAMA_ANOMALI',
+        label: 'Zincir var ama hücre null',
+        detail: 'chainLen=' + chainLen + ' · saha depths[0]=' + fieldWithCell0 + '/' + fieldSize
+            + ' — grid hesaplaması beklenmedik'
+    };
+}
+
+function diagnoseHorseDepthPipeline(rawHorse, race, hipodrom, tarih, opts) {
+    opts = opts || {};
+    const IE = global.IstatistikEngine;
+    const horseKey = IE._horseKey(rawHorse);
+    const hedefMesafe = IE._hedefMesafe(race);
+
+    const pkgBare = IE.buildRaceIstatistikPackage(race, hipodrom, tarih);
+    const pkgFlags = IE.buildRaceIstatistikPackage(race, hipodrom, tarih);
+    IE.attachGosterimFlagsToPackage(pkgFlags, race, hipodrom, tarih);
+
+    const rowBare = pkgBare.rows.find(r => String(r.no) === String(rawHorse.no));
+    const rowFlags = pkgFlags.rows.find(r => String(r.no) === String(rawHorse.no));
+    const kosularSummary = summarizeRawKosular(rawHorse, tarih, hedefMesafe, IE);
+
+    const metrics = {};
+    for (const m of DIAG_DEPTH_METRICS) {
+        const { chains, maxDepth } = m.buildChains(IE, race, tarih);
+        const chain = chains.get(horseKey) || [];
+        const grid = m.id === 'son8001'
+            ? IE.computeSon800DepthGrid(race, tarih, 'bir')
+            : m.id === 'test1'
+                ? IE.computeTest1DepthGrid(race, tarih)
+                : IE.computeT1drDepthGrid(race, tarih);
+        const depthsArr = grid.byHorse.get(horseKey) || [];
+        const cell0 = depthsArr[0] || null;
+        const bareCell0 = rowBare?.[m.depthsKey]?.[0] || null;
+        const flagCell0 = rowFlags?.[m.depthsKey]?.[0] || null;
+
+        let fieldWithCell0 = 0;
+        for (const depths of grid.byHorse.values()) {
+            if (depths?.[0]) fieldWithCell0++;
+        }
+
+        const verdict = diagnoseMetricDepthVerdict(
+            maxDepth,
+            chain.length,
+            cell0,
+            fieldWithCell0,
+            (race.horses || []).length
+        );
+
+        metrics[m.id] = {
+            label: m.label,
+            raceMaxDepth: maxDepth,
+            chainLen: chain.length,
+            chainHead: chain[0] || null,
+            depthsLen: depthsArr.length,
+            cell0: cell0 ? {
+                pct: cell0.pct,
+                gapPct: cell0.gapPct,
+                successPct: cell0.successPct,
+                gosterim: cell0.gosterim || null,
+                comparedCount: cell0.comparedCount
+            } : null,
+            gosterimAfterFlags: flagCell0?.gosterim || null,
+            fieldWithDepth0: fieldWithCell0,
+            fieldSize: (race.horses || []).length,
+            verdict,
+            visual: cell0 ? IE.classifyCellVisual(cell0) : null,
+            toneBorder: cell0 ? IE.classifyRenderedToneBorder(cell0) : null
+        };
+    }
+
+    const allVerdicts = Object.values(metrics).map(m => m.verdict.code);
+    let overall;
+    if (allVerdicts.every(c => c === 'AT_ZINCIR_BOS' || c === 'SAHA_VERI_YOK')) {
+        overall = allVerdicts.includes('SAHA_VERI_YOK') && !allVerdicts.includes('AT_ZINCIR_BOS')
+            ? 'SAHA_VERI_YOK'
+            : 'AT_ZINCIR_BOS';
+    } else if (allVerdicts.includes('HESAPLAMA_ANOMALI')) {
+        overall = 'HESAPLAMA_ANOMALI';
+    } else {
+        overall = 'KARISIK';
+    }
+
+    return {
+        horseNo: rawHorse.no,
+        horseName: rawHorse.name,
+        atId: rawHorse.atId,
+        horseKey,
+        hedefMesafe,
+        kosularSummary,
+        metrics,
+        overallVerdict: overall,
+        rowBareHasSon8001: !!rowBare?.son8001Depths?.[0],
+        rowFlagsHasSon8001: !!rowFlags?.son8001Depths?.[0]
+    };
+}
+
+function collectTipAWinners(profiles, opts) {
+    opts = opts || {};
+    const fieldSize = opts.fieldSize != null ? opts.fieldSize : 10;
+    const targets = [];
+    for (const p of profiles) {
+        if (p.fieldSize !== fieldSize || !p.winnerEntry) continue;
+        const typed = classifyTenAtWinnerType(p, opts);
+        if (typed?.typeId !== 'A') continue;
+        targets.push({
+            profile: p,
+            hybrid: typed,
+            kayitId: p.winnerEntry.kayitId,
+            raceNo: p.winnerEntry.raceNo,
+            hipodrom: p.winnerEntry.hipodrom,
+            tarih: p.winnerEntry.tarih,
+            horseNo: p.winnerEntry.row?.no,
+            horseName: p.winnerEntry.row?.name,
+            label: raceLabel(p)
+        });
+    }
+    return targets;
+}
+
 function formatToken(tok) {
     const parts = tok.split('|');
     if (parts.length < 2) return tok;
@@ -1233,6 +1465,11 @@ module.exports = {
     diagnoseVisualNull,
     dumpWinnerRawCells,
     normalizeBucketFilter,
+    collectTipAWinners,
+    diagnoseHorseDepthPipeline,
+    diagnoseMetricDepthVerdict,
+    summarizeRawKosular,
+    DIAG_DEPTH_METRICS,
     analyzeSegmentRaces,
     metricCellSlice,
     buildDeepTenComboKey,

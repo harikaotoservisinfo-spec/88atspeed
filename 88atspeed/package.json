@@ -13,7 +13,8 @@
     "test:hybrid-holdout": "node scripts/test-hybrid-tahmin.js --holdout 0.3",
     "test:race-similarity": "node scripts/test-race-similarity.js",
     "test:race-similarity-quick": "node scripts/test-race-similarity.js --quick",
-    "test:race-segment": "node scripts/test-race-segment-report.js --field-size 10"
+    "test:race-segment": "node scripts/test-race-segment-report.js --field-size 10",
+    "test:tip-a-diagnose": "node scripts/test-tip-a-db-diagnose.js --field-size 10"
   },
   "dependencies": {
     "cheerio": "^1.2.0",
