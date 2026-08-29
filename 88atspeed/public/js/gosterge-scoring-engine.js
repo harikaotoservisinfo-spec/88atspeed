@@ -642,13 +642,71 @@ const GostergeScoringEngine = (function () {
         return blendScoreBuckets(buckets);
     }
 
-    function scaleTermPoints(terms, rawTotal, finalTotal) {
-        if (!terms.length || rawTotal <= 0 || finalTotal === rawTotal) return;
-        const factor = finalTotal / rawTotal;
+    function aggregateBucketTotals(bucketWeighted) {
+        let metrics = 0;
+        for (const id of Object.keys(OTHER_METRIC_SHARES)) {
+            metrics += bucketWeighted[id] || 0;
+        }
+        return {
+            t9v: bucketWeighted.t9v || 0,
+            colors: bucketWeighted.colors || 0,
+            metrics,
+            rest: bucketWeighted.rest || 0
+        };
+    }
+
+    function termBucketId(term) {
+        const base = String(term.metricId || '').replace(/__dp\d+$/, '');
+        if (base === 't9v') return 't9v';
+        if (base === '_colorGosterge') return 'colors';
+        if (OTHER_METRIC_SHARES[base]) return 'metrics';
+        return 'rest';
+    }
+
+    function distributeBucketPoints(group, target) {
+        if (!group?.length || target <= 0) {
+            if (group) group.forEach(t => { t.points = 0; });
+            return;
+        }
+        const raw = group.reduce((s, t) => s + (t.points || 0), 0);
+        if (raw <= 0) {
+            group[0].points = Math.round(target);
+            for (let i = 1; i < group.length; i++) group[i].points = 0;
+            return;
+        }
+        let assigned = 0;
+        for (let i = 0; i < group.length; i++) {
+            if (i === group.length - 1) {
+                group[i].points = Math.max(0, Math.round(target - assigned));
+            } else {
+                const p = Math.round((group[i].points / raw) * target);
+                group[i].points = p;
+                assigned += p;
+            }
+        }
+    }
+
+    function scaleTermPoints(terms, bucketWeighted, finalTotal) {
+        const agg = aggregateBucketTotals(bucketWeighted);
+        const rawTotal = agg.t9v + agg.colors + agg.metrics + agg.rest;
+        if (!terms.length || rawTotal <= 0) return agg;
+        if (finalTotal === rawTotal) return agg;
+
+        const targets = {
+            t9v: finalTotal * (agg.t9v / rawTotal),
+            colors: finalTotal * (agg.colors / rawTotal),
+            metrics: finalTotal * (agg.metrics / rawTotal),
+            rest: finalTotal * (agg.rest / rawTotal)
+        };
+        const groups = { t9v: [], colors: [], metrics: [], rest: [] };
         for (const term of terms) {
-            term.points = Math.round(term.points * factor);
+            groups[termBucketId(term)].push(term);
+        }
+        for (const key of Object.keys(groups)) {
+            distributeBucketPoints(groups[key], targets[key]);
         }
         terms.sort((a, b) => b.points - a.points);
+        return agg;
     }
 
     function scoreEntryForMetric(entry, m, ladder) {
@@ -671,11 +729,14 @@ const GostergeScoringEngine = (function () {
         return { score, bestRule: best, hits };
     }
 
-    /** Renk gösterge ham puanını metrik ölçeğine indirger (sum modda 10+ eşleşme) */
+    /** Renk gösterge ham puanını metrik ölçeğine indirger (sum modda çoklu eşleşme) */
     const COLOR_GOSTERGE_BUCKET_SCALE = 1000;
 
-    function colorScoreForBucket(rawColorScore) {
-        return Math.round((rawColorScore || 0) / COLOR_GOSTERGE_BUCKET_SCALE);
+    function colorScoreForBucket(rawColorScore, hitCount) {
+        const raw = rawColorScore || 0;
+        const scaled = Math.round(raw / COLOR_GOSTERGE_BUCKET_SCALE);
+        if (hitCount > 0 && raw > 0) return Math.max(1, scaled);
+        return scaled;
     }
 
     function scoreColorGostergeHits(entry, ladder, matchMode) {
@@ -736,9 +797,11 @@ const GostergeScoringEngine = (function () {
             });
         }
 
+        let colorHitCount = 0;
         if (colorMode === 'gosterge' && colorLadder?.length) {
             const { score: colorScore, hits: colorHits } = scoreColorGostergeHits(entry, colorLadder, colorMatchMode);
-            const colorWeighted = colorScoreForBucket(colorScore);
+            colorHitCount = colorHits.length;
+            const colorWeighted = colorScoreForBucket(colorScore, colorHitCount);
             if (colorWeighted > 0) {
                 bucketWeighted.colors += colorWeighted;
                 const top = colorHits.reduce((a, b) => (b.points > (a?.points || 0) ? b : a), colorHits[0]);
@@ -759,9 +822,8 @@ const GostergeScoringEngine = (function () {
         }
 
         terms.sort((a, b) => b.points - a.points);
-        const rawTotal = Object.values(bucketWeighted).reduce((a, b) => a + b, 0);
         const totalScore = blendGostergeScoreTotals(bucketWeighted);
-        scaleTermPoints(terms, rawTotal, totalScore);
+        const buckets = scaleTermPoints(terms, bucketWeighted, totalScore);
 
         return {
             score: totalScore,
@@ -770,7 +832,9 @@ const GostergeScoringEngine = (function () {
             terms,
             topTerms: terms.slice(0, 8),
             metricCount: terms.length,
-            source: 'gosterge'
+            source: 'gosterge',
+            buckets,
+            colorHitCount
         };
     }
 
@@ -1219,6 +1283,45 @@ const GostergeScoringEngine = (function () {
         return !!(calibration && calibration.bitisRows >= MIN_RULE_SAMPLE);
     }
 
+    function diagnoseColorScoring(flatEntries) {
+        if (!calibration || !flatEntries?.length) return null;
+        const opts = getDefaultColorScoringOptions();
+        const ladder = opts.colorLadder || [];
+        let withHits = 0;
+        let withWeight = 0;
+        let totalHits = 0;
+        let rawSum = 0;
+        let bucketSum = 0;
+        for (const entry of flatEntries) {
+            const { score, hits } = scoreColorGostergeHits(entry, ladder, opts.colorMatchMode || 'sum');
+            const w = colorScoreForBucket(score, hits.length);
+            if (hits.length) {
+                withHits++;
+                totalHits += hits.length;
+                rawSum += score;
+            }
+            if (w > 0) {
+                withWeight++;
+                bucketSum += w;
+            }
+        }
+        const n = flatEntries.length;
+        return {
+            colorMode: opts.colorMode,
+            matchMode: opts.colorMatchMode || COLOR_GOSTERGE_CONFIG.matchMode,
+            ladderSize: ladder.length,
+            allColorRowsCount: calibration.allColorRowsCount || 0,
+            horses: n,
+            withColorHits: withHits,
+            withColorWeight: withWeight,
+            hitRate: n ? withHits / n : 0,
+            weightRate: n ? withWeight / n : 0,
+            avgHitsWhenMatched: withHits ? totalHits / withHits : 0,
+            avgRawColorScore: withHits ? rawSum / withHits : 0,
+            avgColorBucketWeight: withWeight ? bucketSum / withWeight : 0
+        };
+    }
+
     return {
         calibrate,
         attachRaceTahmin,
@@ -1235,8 +1338,8 @@ const GostergeScoringEngine = (function () {
         getDefaultColorScoringOptions,
         COLOR_GOSTERGE_CONFIG,
         renderCalibrationHtml,
-        getCalibration,
-        isCalibrated,
+        diagnoseColorScoring,
+        aggregateBucketTotals,
         loadAndCalibrateFromApi,
         buildFlatEntriesFromApi,
         makeBitisHost,

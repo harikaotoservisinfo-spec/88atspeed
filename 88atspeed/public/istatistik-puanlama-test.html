@@ -1308,9 +1308,9 @@
 <script src="js/ptest-gosterge-engine.js?v=20260830z"></script>
 <script src="js/ptest-gosterge-depth-engine.js?v=20260830z"></script>
 <script src="js/ptest-color-gosterge-export.js?v=20260830z"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260831f"></script>
-<script src="js/ptest-final-share-report.js?v=20260831f"></script>
-<script src="js/ptest-field-factor-engine.js?v=20260831f"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260831g"></script>
+<script src="js/ptest-final-share-report.js?v=20260831g"></script>
+<script src="js/ptest-field-factor-engine.js?v=20260831g"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -2178,11 +2178,36 @@ async function renderFieldFactorReport() {
     updateFieldFactorTabVisibility();
     if (!GostergeScoringEngine.isCalibrated?.()) return;
     const intro = document.getElementById('fieldFactorIntro');
+    const diag = GostergeScoringEngine.diagnoseColorScoring?.(flatEntries);
     if (intro) {
-        intro.innerHTML = 'Her koşudaki <strong>at sayısına</strong> göre TAHMİN başarısı ve '
+        let h = 'Her koşudaki <strong>at sayısına</strong> göre TAHMİN başarısı ve '
             + '<strong>belirleyici faktör</strong> (T9V · Renkler · Metrikler · rest) · '
             + flatEntries.length + ' satır · build ' + PTEST_BUILD
             + ' · Soldan satıra tıklayın';
+        if (diag) {
+            h += '<div style="margin-top:8px;padding:8px 10px;border-radius:6px;background:#fff;border:1px solid #ffcc80;font-size:11px">';
+            h += '<strong>🎨 Renk teşhisi:</strong> ' + diag.colorMode + ' · Top-' + (GostergeScoringEngine.COLOR_GOSTERGE_CONFIG?.topN || '?')
+                + ' · merdiven <strong>' + diag.ladderSize + '</strong> kural';
+            h += ' · renk eşleşmesi <strong>' + diag.withColorHits + '/' + diag.horses
+                + '</strong> (' + pctBenchFmt(diag.hitRate) + ')';
+            h += ' · renk puanı &gt;0: <strong>' + diag.withColorWeight + '</strong> (' + pctBenchFmt(diag.weightRate) + ')';
+            if (diag.avgHitsWhenMatched) {
+                h += ' · ort. ' + diag.avgHitsWhenMatched.toFixed(1) + ' eşleşme/at';
+            }
+            if (diag.ladderSize === 0) {
+                h += ' <span style="color:#c62828">⚠ Renk merdiveni boş — kalibrasyon kontrol edin</span>';
+            } else if (diag.withColorHits === 0) {
+                h += ' <span style="color:#c62828">⚠ Hiç renk eşleşmesi yok</span>';
+            } else if (diag.withColorWeight === 0) {
+                h += ' <span style="color:#c62828">⚠ Eşleşme var ama puan 0 (ölçek hatası)</span>';
+            } else if (diag.weightRate < 0.9) {
+                h += ' <span style="color:#e65100">⚠ Bazı atlar renksiz puanlanıyor</span>';
+            } else {
+                h += ' <span style="color:#2e7d32">✓ Renkler puanlamaya giriyor</span>';
+            }
+            h += '</div>';
+        }
+        intro.innerHTML = h;
     }
     ptestFieldFactorResults = PtestFieldFactorEngine.analyzeFieldFactors(flatEntries, getPtestScoringHost());
     if (ptestFieldFactorSelectedSize == null && ptestFieldFactorResults.results?.length) {
@@ -3067,7 +3092,7 @@ function renderGosterge1Report() {
     initGosterge1StripTabs();
 }
 
-const PTEST_BUILD = '20260831f';
+const PTEST_BUILD = '20260831g';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;

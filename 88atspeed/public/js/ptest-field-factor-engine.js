@@ -30,6 +30,11 @@ const PtestFieldFactorEngine = (function () {
     }
 
     function aggregateFactorBuckets(tahmin, metricShareIds) {
+        if (tahmin?.buckets) {
+            const b = tahmin.buckets;
+            const total = (b.t9v || 0) + (b.colors || 0) + (b.metrics || 0) + (b.rest || 0);
+            return { buckets: { ...b }, metricDetail: {}, termDetail: {}, total };
+        }
         const buckets = { t9v: 0, colors: 0, metrics: 0, rest: 0 };
         const metricDetail = {};
         const termDetail = {};
