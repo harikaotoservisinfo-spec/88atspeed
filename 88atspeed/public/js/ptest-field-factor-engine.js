@@ -74,14 +74,14 @@ const PtestFieldFactorEngine = (function () {
 
         let buckets;
         const termsTotal = bucketSum(fromTerms);
-        if (tahmin?.buckets && bucketSum(tahmin.buckets) > 0) {
+        if (termsTotal > 0) {
+            buckets = { ...fromTerms };
+        } else if (tahmin?.buckets && bucketSum(tahmin.buckets) > 0) {
             buckets = { ...tahmin.buckets };
             if ((buckets.colors || 0) <= 0 && fromTerms.colors > 0) buckets.colors = fromTerms.colors;
             if ((buckets.t9v || 0) <= 0 && fromTerms.t9v > 0) buckets.t9v = fromTerms.t9v;
             if ((buckets.metrics || 0) <= 0 && fromTerms.metrics > 0) buckets.metrics = fromTerms.metrics;
             if ((buckets.rest || 0) <= 0 && fromTerms.rest > 0) buckets.rest = fromTerms.rest;
-        } else if (termsTotal > 0) {
-            buckets = { ...fromTerms };
         } else if (tahmin?.attributedBuckets && bucketSum(tahmin.attributedBuckets) > 0) {
             buckets = { ...tahmin.attributedBuckets };
         } else if (tahmin?.buckets) {
@@ -95,6 +95,10 @@ const PtestFieldFactorEngine = (function () {
 
     function ensureFlatEntriesScored(flatEntries) {
         if (!flatEntries?.length || !GostergeScoringEngine.applyToFlatEntries) return;
+        if (GostergeScoringEngine.isCalibrated?.()) {
+            GostergeScoringEngine.applyToFlatEntries(flatEntries);
+            return;
+        }
         let empty = 0;
         for (const entry of flatEntries) {
             const t = entry.row?.tahmin;
@@ -124,7 +128,19 @@ const PtestFieldFactorEngine = (function () {
 
     function resolveDominantBucket(tahmin, agg) {
         if (tahmin?.bindingBucket) return tahmin.bindingBucket;
-        return dominantBucket(agg.buckets);
+        if (agg?.buckets) return dominantBucket(agg.buckets);
+        return dominantBucketFromTahmin(tahmin);
+    }
+
+    function dominantBucketFromTahmin(tahmin) {
+        if (!tahmin) return null;
+        const b = tahmin.buckets || tahmin.attributedBuckets;
+        if (!b) return null;
+        return dominantBucket(b);
+    }
+
+    function countDominantBucket(tahmin, agg) {
+        return resolveDominantBucket(tahmin, agg);
     }
 
     function dominantBucket(buckets) {
@@ -149,6 +165,7 @@ const PtestFieldFactorEngine = (function () {
                 count: typeof val === 'object' ? val.count : 0,
                 bucket: typeof val === 'object' ? val.bucket : null
             }))
+            .filter(r => (r.points || 0) > 0 && (r.label || r.id))
             .sort((a, b) => b.points - a.points)
             .slice(0, limit || 15);
     }
@@ -172,6 +189,7 @@ const PtestFieldFactorEngine = (function () {
         const fieldByRace = buildFieldSizeLookup(flatEntries);
         const byFieldSize = {};
         const fieldSizeSet = new Set();
+        const globalDominantAll = { t9v: 0, colors: 0, metrics: 0, rest: 0 };
 
         for (const entry of flatEntries) {
             const rk = raceKey(entry);
@@ -210,6 +228,7 @@ const PtestFieldFactorEngine = (function () {
             for (const id of BUCKET_ORDER) bucket.bucketSum[id] += agg.buckets[id] || 0;
 
             const dom = resolveDominantBucket(tahmin, agg);
+            if (dom) globalDominantAll[dom]++;
             if (b != null && b >= 1) {
                 bucket.bitisCount++;
                 if (dom) {
@@ -346,7 +365,8 @@ const PtestFieldFactorEngine = (function () {
             fieldSizes,
             results,
             entriesByField,
-            bucketLabels: BUCKET_LABELS
+            bucketLabels: BUCKET_LABELS,
+            globalDominantAll
         };
     }
 
@@ -505,6 +525,8 @@ const PtestFieldFactorEngine = (function () {
         renderDetailPanel,
         aggregateFactorBuckets,
         dominantBucket,
+        dominantBucketFromTahmin,
+        resolveDominantBucket,
         BUCKET_LABELS,
         pct
     };

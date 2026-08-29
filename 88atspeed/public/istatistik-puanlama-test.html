@@ -1308,9 +1308,9 @@
 <script src="js/ptest-gosterge-engine.js?v=20260830z"></script>
 <script src="js/ptest-gosterge-depth-engine.js?v=20260830z"></script>
 <script src="js/ptest-color-gosterge-export.js?v=20260830z"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260831o"></script>
-<script src="js/ptest-final-share-report.js?v=20260831o"></script>
-<script src="js/ptest-field-factor-engine.js?v=20260831o"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260831p"></script>
+<script src="js/ptest-final-share-report.js?v=20260831p"></script>
+<script src="js/ptest-field-factor-engine.js?v=20260831p"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -2240,7 +2240,15 @@ async function renderFieldFactorReport() {
         return;
     }
     const intro = document.getElementById('fieldFactorIntro');
+    if (summaryHost) summaryHost.innerHTML = '<p style="padding:12px;color:#6a1b9a">⏳ At sayısı analizi hesaplanıyor…</p>';
+    await new Promise(r => setTimeout(r, 0));
+    ptestFieldFactorResults = PtestFieldFactorEngine.analyzeFieldFactors(flatEntries, host);
     const diag = GostergeScoringEngine.diagnoseColorScoring?.(flatEntries);
+    const globalDom = ptestFieldFactorResults?.globalDominantAll;
+    if (globalDom && diag) {
+        diag.colorBinding = globalDom.colors || diag.colorBinding;
+        diag.colorBindingRate = diag.horses ? diag.colorBinding / diag.horses : 0;
+    }
     if (intro) {
         let h = 'Her koşudaki <strong>at sayısına</strong> göre TAHMİN başarısı ve '
             + '<strong>belirleyici faktör</strong> (T9V · Renkler · Metrikler · rest) · '
@@ -2264,7 +2272,10 @@ async function renderFieldFactorReport() {
             if (diag.colorBinding != null) {
                 h += ' · renk <strong>belirleyici</strong> ' + diag.colorBinding + '/' + diag.horses
                     + ' (' + pctBenchFmt(diag.colorBindingRate) + ')';
-                if (diag.colorLimitsOther != null && diag.colorLimitsOther > diag.colorBinding) {
+                if (diag.colorBindingStrict != null && diag.colorBindingStrict !== diag.colorBinding) {
+                    h += ' · min-blend ' + diag.colorBindingStrict + '/' + diag.horses;
+                }
+                if (diag.colorLimitsOther != null && diag.colorLimitsOther > (diag.colorBindingStrict || 0)) {
                     h += ' · renk OTHER sınırı ' + diag.colorLimitsOther + '/' + diag.horses;
                 }
             }
@@ -2283,9 +2294,6 @@ async function renderFieldFactorReport() {
         }
         intro.innerHTML = h;
     }
-    if (summaryHost) summaryHost.innerHTML = '<p style="padding:12px;color:#6a1b9a">⏳ At sayısı analizi hesaplanıyor…</p>';
-    await new Promise(r => setTimeout(r, 0));
-    ptestFieldFactorResults = PtestFieldFactorEngine.analyzeFieldFactors(flatEntries, host);
     if (ptestFieldFactorSelectedSize == null && ptestFieldFactorResults.results?.length) {
         let best = ptestFieldFactorResults.results[0];
         for (const r of ptestFieldFactorResults.results) {
@@ -3169,7 +3177,7 @@ function renderGosterge1Report() {
     initGosterge1StripTabs();
 }
 
-const PTEST_BUILD = '20260831o';
+const PTEST_BUILD = '20260831p';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
@@ -3331,7 +3339,7 @@ async function applyGostergeTahminScoring() {
     } catch (err) {
         console.error('applyGostergeTahminScoring calibrate failed', err);
     }
-    if (GostergeScoringEngine.getCalibration?.()) {
+    if (GostergeScoringEngine.getCalibration?.() || GostergeScoringEngine.isCalibrated?.()) {
         GostergeScoringEngine.applyToFlatEntries(flatEntries);
     }
     const ladderEl = document.getElementById('gostergeScoringLadder');

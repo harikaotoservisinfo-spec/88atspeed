@@ -1542,11 +1542,23 @@ const GostergeScoringEngine = (function () {
         let bucketSum = 0;
         let usedTahmin = 0;
         let colorBinding = 0;
+        let colorBindingStrict = 0;
         let colorLimitsOther = 0;
         for (const entry of flatEntries) {
             const t = entry.row?.tahmin;
-            if (t?.bindingBucket === 'colors') colorBinding++;
+            if (t?.bindingBucket === 'colors') colorBindingStrict++;
             if (t?.colorLimitsOther) colorLimitsOther++;
+            let dom = t?.bindingBucket || null;
+            if (!dom && t?.buckets) {
+                let best = null;
+                let bestVal = -1;
+                for (const id of ['t9v', 'colors', 'metrics', 'rest']) {
+                    const v = t.buckets[id] || 0;
+                    if (v > bestVal) { bestVal = v; best = id; }
+                }
+                if (bestVal > 0) dom = best;
+            }
+            if (dom === 'colors') colorBinding++;
             if (t?.buckets || t?.colorHitCount != null) {
                 usedTahmin++;
                 const hits = t.colorHitCount || 0;
@@ -1587,6 +1599,8 @@ const GostergeScoringEngine = (function () {
             avgColorBucketWeight: withWeight ? bucketSum / withWeight : 0,
             colorBinding,
             colorBindingRate: n ? colorBinding / n : 0,
+            colorBindingStrict,
+            colorBindingStrictRate: n ? colorBindingStrict / n : 0,
             colorLimitsOther,
             colorLimitsOtherRate: n ? colorLimitsOther / n : 0,
             fromTahminCache: usedTahmin
