@@ -212,10 +212,19 @@ async function main() {
         }
 
         const summary = BPE.calibrateFromFlatEntries(flatEntries, host.bitisValueForSort);
+        if (summary?.global) {
+            const globalPreview = Object.entries(summary.global)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 3)
+                .map(([k, w]) => (BPE.STAT_CATALOG.find(s => s.key === k)?.label || k) + ' ' + w + '%')
+                .join(' · ');
+            console.log('\nGlobal profil (<' + BPE.MIN_RACES_FOR_SIZE_PROFILE + ' koşuda yedek): ' + globalPreview);
+        }
         if (summary?.list?.length) {
             console.log('\nAt sayısı profilleri (' + summary.list.length + '):');
             for (const p of summary.list.sort((a, b) => a.fieldSize - b.fieldSize)) {
-                let line = '  ' + p.fieldSize + ' at · ' + p.raceCount + ' koşu · karışık '
+                const src = p.profileSource === 'global' ? ' · global' : '';
+                let line = '  ' + p.fieldSize + ' at · ' + p.raceCount + ' koşu' + src + ' · karışık '
                     + pct(p.leaderBlended) + ' · ' + (p.preview || []).join(' · ');
                 if (p.previewCoverage?.length) {
                     line += ' (doluluk ' + p.previewCoverage.join(', ') + ')';

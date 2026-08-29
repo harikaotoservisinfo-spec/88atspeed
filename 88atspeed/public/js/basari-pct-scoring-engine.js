@@ -5,10 +5,12 @@
  */
 const BasariPctScoringEngine = (function () {
     const STORAGE_KEY = 'basariPctWeightsBySize';
-    const PROFILE_VERSION = 3;
+    const PROFILE_VERSION = 4;
+    /** At sayısı profili için en az koşu (altında global profil) */
     const MIN_RACES = 5;
-    /** Profil adayında en az bu oranda atda veri olmalı (Ş/M ~%14 elenir) */
-    const MIN_STAT_COVERAGE = 0.25;
+    const MIN_RACES_FOR_SIZE_PROFILE = 15;
+    /** Profil adayında en az bu oranda atda veri olmalı */
+    const MIN_STAT_COVERAGE = 0.50;
     const SUCCESS_BLEND = { b1: 0.80, b12: 0.12, b123: 0.08 };
 
     const PERIODS = ['gun15', 'ay1', 'ay3'];
@@ -55,6 +57,7 @@ const BasariPctScoringEngine = (function () {
     };
 
     let weightsBySize = null;
+    let globalProfileWeights = null;
     let calibrationSummary = null;
 
     function statLabel(key) {
@@ -104,7 +107,9 @@ const BasariPctScoringEngine = (function () {
 
     function lookupWeights(fieldSize) {
         const fs = Number(fieldSize);
-        if (!Number.isFinite(fs) || fs <= 0) return normalizeWeights(DEFAULT_WEIGHTS);
+        if (!Number.isFinite(fs) || fs <= 0) {
+            return mergeProfileWeights(globalProfileWeights || DEFAULT_WEIGHTS);
+        }
         const map = weightsBySize || {};
         const direct = map[fs] || map[String(fs)];
         if (direct) return mergeProfileWeights(direct);
@@ -112,17 +117,19 @@ const BasariPctScoringEngine = (function () {
             .map(k => Number(k))
             .filter(n => Number.isFinite(n) && n > 0)
             .sort((a, b) => a - b);
-        if (!sizes.length) return normalizeWeights(DEFAULT_WEIGHTS);
-        let nearest = sizes[0];
-        let minDiff = Math.abs(fs - nearest);
-        for (const n of sizes) {
-            const diff = Math.abs(fs - n);
-            if (diff < minDiff || (diff === minDiff && n > nearest)) {
-                minDiff = diff;
-                nearest = n;
+        if (sizes.length) {
+            let nearest = sizes[0];
+            let minDiff = Math.abs(fs - nearest);
+            for (const n of sizes) {
+                const diff = Math.abs(fs - n);
+                if (diff < minDiff || (diff === minDiff && n > nearest)) {
+                    minDiff = diff;
+                    nearest = n;
+                }
             }
+            return mergeProfileWeights(map[nearest] || map[String(nearest)]);
         }
-        return mergeProfileWeights(map[nearest] || map[String(nearest)] || DEFAULT_WEIGHTS);
+        return mergeProfileWeights(globalProfileWeights || DEFAULT_WEIGHTS);
     }
 
     function computeRowScore(row, weights) {
@@ -394,6 +401,45 @@ const BasariPctScoringEngine = (function () {
             : 0;
     }
 
+    function buildProfileForRaceGroups(raceGroups, bitisValueForSort, opts) {
+        opts = opts || {};
+        const minCov = opts.minCoverage != null ? opts.minCoverage : MIN_STAT_COVERAGE;
+        if (!raceGroups?.length) return null;
+
+        const statResults = [];
+        for (const { key } of STAT_CATALOG) {
+            const coverage = statCoverageInFieldSize(raceGroups, key);
+            if (coverage < minCov) continue;
+            const r = evaluateStatLeaderBlended(raceGroups, key, bitisValueForSort);
+            if (r.leaderTotal >= 3) {
+                r.coverage = coverage;
+                r.adjustedBlended = r.leaderBlended * coverage;
+                statResults.push(r);
+            }
+        }
+        statResults.sort((a, b) => b.adjustedBlended - a.adjustedBlended);
+        const top = statResults.slice(0, 8).filter(s => s.adjustedBlended > 0);
+        if (!top.length) return null;
+
+        const weights = {};
+        let sum = 0;
+        for (let i = 0; i < top.length; i++) {
+            const w = Math.max(5, Math.round((top[i].adjustedBlended * 100) * (top.length - i)));
+            weights[top[i].statKey] = w;
+            sum += w;
+        }
+        for (const k of Object.keys(weights)) {
+            weights[k] = Math.round((weights[k] / sum) * 1000) / 10;
+        }
+        const normalized = normalizeWeights(weights);
+        const combinedBlended = evaluateCombinedLeaderBlended(raceGroups, normalized, bitisValueForSort);
+        return {
+            weights: normalized,
+            combinedBlended: combinedBlended || top[0].leaderBlended,
+            top
+        };
+    }
+
     function calibrateFromFlatEntries(flatEntries, bitisValueForSort) {
         if (!flatEntries?.length || !bitisValueForSort) return null;
 
@@ -405,6 +451,12 @@ const BasariPctScoringEngine = (function () {
             byFieldSize[fs].push(entries);
         }
 
+        const allRaceGroups = [...byRace.values()];
+        const globalBuilt = buildProfileForRaceGroups(allRaceGroups, bitisValueForSort, {
+            minCoverage: 0.45
+        });
+        globalProfileWeights = globalBuilt?.weights || normalizeWeights(DEFAULT_WEIGHTS);
+
         const out = {};
         const list = [];
 
@@ -413,52 +465,50 @@ const BasariPctScoringEngine = (function () {
             const raceGroups = byFieldSize[fs];
             if (raceGroups.length < MIN_RACES) continue;
 
-            const statResults = [];
-            for (const { key } of STAT_CATALOG) {
-                const coverage = statCoverageInFieldSize(raceGroups, key);
-                if (coverage < MIN_STAT_COVERAGE) continue;
-                const r = evaluateStatLeaderBlended(raceGroups, key, bitisValueForSort);
-                if (r.leaderTotal >= 3) {
-                    r.coverage = coverage;
-                    r.adjustedBlended = r.leaderBlended * (0.35 + 0.65 * coverage);
-                    statResults.push(r);
+            let built;
+            let profileSource = 'size';
+            if (raceGroups.length < MIN_RACES_FOR_SIZE_PROFILE) {
+                built = {
+                    weights: { ...globalProfileWeights },
+                    combinedBlended: evaluateCombinedLeaderBlended(
+                        raceGroups, globalProfileWeights, bitisValueForSort
+                    ),
+                    top: globalBuilt?.top || []
+                };
+                profileSource = 'global';
+            } else {
+                built = buildProfileForRaceGroups(raceGroups, bitisValueForSort);
+                if (!built) {
+                    built = {
+                        weights: { ...globalProfileWeights },
+                        combinedBlended: evaluateCombinedLeaderBlended(
+                            raceGroups, globalProfileWeights, bitisValueForSort
+                        ),
+                        top: globalBuilt?.top || []
+                    };
+                    profileSource = 'global';
                 }
             }
-            statResults.sort((a, b) => b.adjustedBlended - a.adjustedBlended);
+            if (!built) continue;
 
-            const top = statResults.slice(0, 8).filter(s => s.adjustedBlended > 0);
-            if (!top.length) continue;
-
-            const weights = {};
-            let sum = 0;
-            for (let i = 0; i < top.length; i++) {
-                const w = Math.max(5, Math.round((top[i].adjustedBlended * 100) * (top.length - i)));
-                weights[top[i].statKey] = w;
-                sum += w;
-            }
-            for (const k of Object.keys(weights)) {
-                weights[k] = Math.round((weights[k] / sum) * 1000) / 10;
-            }
-
-            const normalized = normalizeWeights(weights);
-            const combinedBlended = evaluateCombinedLeaderBlended(raceGroups, normalized, bitisValueForSort);
-
-            out[fs] = normalized;
+            out[fs] = built.weights;
             list.push({
                 fieldSize: fs,
                 raceCount: raceGroups.length,
-                leaderBlended: combinedBlended || top[0].leaderBlended,
-                topStat: statLabel(top[0].statKey),
-                topCoverage: top[0].coverage,
+                leaderBlended: built.combinedBlended,
+                topStat: built.top[0] ? statLabel(built.top[0].statKey) : '—',
+                topCoverage: built.top[0]?.coverage,
                 weights: out[fs],
-                preview: top.slice(0, 3).map(t => statLabel(t.statKey)),
-                previewCoverage: top.slice(0, 3).map(t => Math.round((t.coverage || 0) * 100) + '%')
+                preview: built.top.slice(0, 3).map(t => statLabel(t.statKey)),
+                previewCoverage: built.top.slice(0, 3).map(t => Math.round((t.coverage || 0) * 100) + '%'),
+                profileSource
             });
         }
 
         weightsBySize = out;
         calibrationSummary = {
             bySize: out,
+            global: globalProfileWeights,
             list,
             builtAt: Date.now(),
             version: PROFILE_VERSION
@@ -504,6 +554,7 @@ const BasariPctScoringEngine = (function () {
             localStorage.setItem(STORAGE_KEY, JSON.stringify({
                 version: PROFILE_VERSION,
                 bySize: weightsBySize,
+                global: globalProfileWeights,
                 list: calibrationSummary?.list || [],
                 builtAt: calibrationSummary?.builtAt || Date.now()
             }));
@@ -521,8 +572,10 @@ const BasariPctScoringEngine = (function () {
             const parsed = JSON.parse(raw);
             if (parsed.version !== PROFILE_VERSION || !parsed.bySize) return null;
             weightsBySize = parsed.bySize;
+            globalProfileWeights = parsed.global || null;
             calibrationSummary = {
                 bySize: parsed.bySize,
+                global: parsed.global || null,
                 list: parsed.list || [],
                 builtAt: parsed.builtAt || 0,
                 version: parsed.version
@@ -551,10 +604,14 @@ const BasariPctScoringEngine = (function () {
         }
         const parts = (calibrationSummary?.list || [])
             .sort((a, b) => (a.fieldSize || 0) - (b.fieldSize || 0))
-            .map(p => p.fieldSize + ' at → ' + (p.preview || []).join(' · '));
+            .map(p => {
+                const tag = p.profileSource === 'global' ? ' (global)' : '';
+                return p.fieldSize + ' at' + tag + ' → ' + (p.preview || []).join(' · ');
+            });
         return '<strong>Başarı % profili aktif</strong> · ' + parts.join(' · ')
-            + '<br><span style="color:#789;font-size:10px">Gösterge / renk / T9V / metrik etkisiz · profil: min %'
-            + Math.round(MIN_STAT_COVERAGE * 100) + ' doluluk · yedek: GEN/MES/şehir</span>';
+            + '<br><span style="color:#789;font-size:10px">Gösterge / renk / T9V / metrik etkisiz · min %'
+            + Math.round(MIN_STAT_COVERAGE * 100) + ' doluluk · &lt;' + MIN_RACES_FOR_SIZE_PROFILE
+            + ' koşu: global profil</span>';
     }
 
     if (typeof localStorage !== 'undefined') loadWeights();
@@ -574,6 +631,7 @@ const BasariPctScoringEngine = (function () {
         saveWeights,
         getCalibrationSummary,
         getWeightsBySize,
+        getGlobalProfileWeights: () => globalProfileWeights,
         isCalibrated,
         renderStatusHtml,
         STAT_CATALOG,
@@ -581,6 +639,7 @@ const BasariPctScoringEngine = (function () {
         STORAGE_KEY,
         PROFILE_VERSION,
         MIN_STAT_COVERAGE,
+        MIN_RACES_FOR_SIZE_PROFILE,
         SUCCESS_BLEND
     };
 })();
