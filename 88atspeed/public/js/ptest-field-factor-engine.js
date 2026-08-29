@@ -115,9 +115,8 @@ const PtestFieldFactorEngine = (function () {
     function horsesForRace(entries, race) {
         if (!entries?.length || !race) return [];
         const groups = buildRaceGroups(entries);
-        let horses = groups.get(race.raceKey);
-        if (horses?.length) return horses;
         const nk = String(race.raceKey || '');
+        if (nk && groups.has(nk)) return groups.get(nk);
         for (const [rk, hs] of groups) {
             if (rk === nk || String(rk) === nk) return hs;
         }
@@ -500,7 +499,7 @@ const PtestFieldFactorEngine = (function () {
         let shown = 0;
         for (const race of races) {
             if (shown >= limit) break;
-            const horses = horsesForRace(entries || row.entries, race);
+            const horses = horsesForRace(entries, race);
             if (!horses.length) continue;
             shown++;
             horses.sort((a, b) => (a.row.no ?? 0) - (b.row.no ?? 0));
@@ -525,6 +524,7 @@ const PtestFieldFactorEngine = (function () {
             }
             h += '</tbody></table></div>';
         }
+        if (!shown) h += '<p style="color:#789;font-size:11px;padding:8px">Örnek koşu bulunamadı (bitiş verisi veya eşleşme yok)</p>';
         h += '</details>';
         return h;
     }

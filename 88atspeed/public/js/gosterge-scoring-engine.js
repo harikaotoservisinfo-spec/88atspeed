@@ -980,6 +980,34 @@ const GostergeScoringEngine = (function () {
         return { score, hits };
     }
 
+    function applyFieldProfileBoost(bucketWeighted, terms, profile) {
+        if (!profile?.bestFactor || !terms?.length) return;
+        const mult = profile.bucketBoost || 1.25;
+        const bf = profile.bestFactor;
+        if (bf === 't9v') bucketWeighted.t9v = Math.round((bucketWeighted.t9v || 0) * mult);
+        else if (bf === 'colors') bucketWeighted.colors = Math.round((bucketWeighted.colors || 0) * mult);
+        else if (bf === 'metrics') {
+            for (const id of Object.keys(OTHER_METRIC_SHARES)) {
+                bucketWeighted[id] = Math.round((bucketWeighted[id] || 0) * mult);
+            }
+        } else bucketWeighted.rest = Math.round((bucketWeighted.rest || 0) * mult);
+
+        for (const term of terms) {
+            const kind = termBucketId(term);
+            let termMult = 1;
+            if (kind === bf) termMult = mult;
+            else if ((profile.boostTerms || []).some(p => p && (term.label || '').includes(p))) {
+                termMult = mult * 1.12;
+            } else if ((profile.topMetrics || []).some(mid => {
+                const base = String(term.metricId || '').replace(/__dp\d+$/, '');
+                return base === mid || (term.metricLabel || '').includes(mid);
+            })) {
+                termMult = mult * 1.08;
+            }
+            if (termMult > 1) term.points = Math.round((term.points || 0) * termMult);
+        }
+    }
+
     function computeRowTahminWithOptions(entry, scoringOptions) {
         if (!calibration) {
             return { score: 0, pct: null, rank: null, terms: [], topTerms: [], source: 'none', metricCount: 0 };
@@ -1046,6 +1074,7 @@ const GostergeScoringEngine = (function () {
             }
         }
 
+        if (opts.fieldProfile) applyFieldProfileBoost(bucketWeighted, terms, opts.fieldProfile);
         terms.sort((a, b) => b.points - a.points);
         for (const term of terms) term.rawPoints = term.points;
         const totalScore = blendGostergeScoreTotals(bucketWeighted);
@@ -1068,7 +1097,11 @@ const GostergeScoringEngine = (function () {
             bindingId: binding.binderId,
             colorHitCount,
             colorLimitsOther: binding.colorLimitsOther,
-            colorDecisive: binding.colorDecisive
+            colorDecisive: binding.colorDecisive,
+            fieldProfile: opts.fieldProfile ? {
+                fieldSize: opts.fieldProfile.fieldSize,
+                bestFactor: opts.fieldProfile.bestFactor
+            } : null
         };
     }
 
@@ -1328,6 +1361,36 @@ const GostergeScoringEngine = (function () {
         for (const group of byRace.values()) {
             rankRaceEntries(group);
         }
+    }
+
+    /** At sayısına göre profil: pay + gösterge güçlendirme */
+    function applyToFlatEntriesWithProfiles(flatEntries, profileBySize) {
+        if (!calibration || !flatEntries?.length) return;
+        const saved = getScoreShareSplit();
+        const byRace = new Map();
+        for (const entry of flatEntries) {
+            const rk = String(entry.kayitId) + '|' + entry.raceNo;
+            if (!byRace.has(rk)) byRace.set(rk, []);
+            byRace.get(rk).push(entry);
+        }
+        for (const group of byRace.values()) {
+            const fs = group.length;
+            const profile = profileBySize?.[fs] || null;
+            if (profile?.shareSplit) {
+                setScoreShareSplit(
+                    profile.shareSplit.t9v,
+                    profile.shareSplit.colors,
+                    profile.shareSplit.metrics,
+                    profile.shareSplit.rest
+                );
+            }
+            const scoringOpts = {
+                ...getDefaultColorScoringOptions(),
+                fieldProfile: profile
+            };
+            rankRaceEntriesWithOptions(group, scoringOpts);
+        }
+        setScoreShareSplit(saved.t9v, saved.colors, saved.metrics, saved.rest);
     }
 
     function rowKeyParts(kayitId, raceNo, horseNo) {
@@ -1608,6 +1671,7 @@ const GostergeScoringEngine = (function () {
         calibrate,
         attachRaceTahmin,
         applyToFlatEntries,
+        applyToFlatEntriesWithProfiles,
         computeRowTahmin,
         computeRowTahminWithOptions,
         applyScoringOptionsToFlatEntries,
