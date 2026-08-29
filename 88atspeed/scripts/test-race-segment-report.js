@@ -1,23 +1,22 @@
 #!/usr/bin/env node
 /**
- * Kazanan profil segment raporu — at sayısı + metrik kırılım + benzer koşu analizi
- *
- * Her boyut (Renk, Δ, BS, SON·Δ, %) ayrı ayrı segmentlenir; segment içinde
- * alt faktörler, sahadaki at yoğunluğu ve benzer koşu kümeleri raporlanır.
+ * Kazanan profil segment raporu — at sayısı + kırılım + teşhis + 10-at hibrit tip
  *
  * Kullanım:
- *   node scripts/test-race-segment-report.js --db /var/www/88atspeed/atlar.db --field-size 10
- *   node scripts/test-race-segment-report.js --field-size 10 --metric son8001 --dimension visual
- *   node scripts/test-race-segment-report.js --field-size 10 --bucket yesil
- *   node scripts/test-race-segment-report.js --field-size 10 --phase overview,detail
+ *   node scripts/test-race-segment-report.js --db atlar.db --field-size 10
+ *   node scripts/test-race-segment-report.js --phase types,diagnose,raw,detail --verbose
+ *   node scripts/test-race-segment-report.js --metric son8001 --dimension visual --bucket yesil
+ *   node scripts/test-race-segment-report.js --metric son8001 --dimension visual --bucket -
  */
 const {
     loadSimilarityEngines,
     buildFlatEntriesWithFlagsFromDb,
     buildAllRaceProfiles,
     buildWinnerProfileSegments,
+    buildTenAtHybridTypeReport,
     formatToken,
     DEEP_TEN_METRICS,
+    normalizeBucketFilter,
     pct,
     pad
 } = require('./race-similarity-lib');
@@ -29,15 +28,17 @@ function argVal(flag) {
     return i >= 0 ? args[i + 1] : null;
 }
 
+const DEFAULT_PHASES = 'overview,types,diagnose,raw,detail,renk';
+
 const cli = {
     dbPath: argVal('--db') || require('path').join(__dirname, '..', 'atlar.db'),
     fieldSize: argVal('--field-size') ? Number(argVal('--field-size')) : 10,
     metric: argVal('--metric') || null,
     dimension: argVal('--dimension') || null,
-    bucket: argVal('--bucket') || null,
+    bucket: argVal('--bucket') != null ? normalizeBucketFilter(argVal('--bucket')) : null,
     minDetail: argVal('--min-detail') ? Number(argVal('--min-detail')) : 1,
     minJaccard: argVal('--min-jaccard') ? Number(argVal('--min-jaccard')) : 0.4,
-    phases: (argVal('--phase') || 'overview,detail').split(',').map(s => s.trim()).filter(Boolean),
+    phases: (argVal('--phase') || DEFAULT_PHASES).split(',').map(s => s.trim()).filter(Boolean),
     verbose: args.includes('--verbose') || args.includes('-v')
 };
 
@@ -57,8 +58,24 @@ function filterSegments(report) {
     let segs = report.segments;
     if (cli.metric) segs = segs.filter(s => s.metricId === cli.metric);
     if (cli.dimension) segs = segs.filter(s => s.dimension === cli.dimension);
-    if (cli.bucket) segs = segs.filter(s => s.bucket === cli.bucket);
+    if (cli.bucket != null) segs = segs.filter(s => s.bucket === cli.bucket);
     return segs;
+}
+
+function printRawCellDump(raw, metricId) {
+    const c = raw[metricId];
+    if (!c) return;
+    console.log('      ' + c.label + ': visual=' + c.visual
+        + ' · pct=' + (c.pct != null ? c.pct : 'null') + '(' + c.pctTier + ')'
+        + ' · gap=' + (c.gap != null ? c.gap : 'null') + '(' + c.gapBucket + ')'
+        + ' · BS=' + (c.bs != null ? c.bs : 'null') + '(' + c.bsBucket + ')');
+    console.log('        ton=' + c.tone + ' · kenar=' + c.border
+        + ' · SON·Δ=' + c.delta);
+    if (c.flags.length) console.log('        hücre bayrak: ' + c.flags.join(', '));
+    if (c.rowFlags.length) console.log('        satır bayrak: ' + c.rowFlags.join(', '));
+    if (c.visual === '—' && c.visualDiagnosis) {
+        console.log('        teşhis: [' + c.visualDiagnosis.reason + '] ' + c.visualDiagnosis.detail);
+    }
 }
 
 function printOverview(report, segs) {
@@ -89,6 +106,92 @@ function printOverview(report, segs) {
     }
 }
 
+function printHybridTypes(hybrid) {
+    hr(cli.fieldSize + ' at · Hibrit kazanan tipleri (A/B/C/D)');
+    console.log('  Toplam: ' + hybrid.poolSize + ' koşu');
+    console.log('  Tip A = SON800-1 renk — (görünmez) · Tip B = yesil kalabalık (≥5/10) · Tip C = seyrek yesilKirmizi (≤2/10)');
+
+    for (const key of ['A', 'B', 'C', 'D']) {
+        const t = hybrid.types[key];
+        if (!t.n) continue;
+        sub(t.typeLabel + ' · ' + t.n + ' koşu (' + pct(t.share) + ')');
+        console.log('  SON800-1 lider kazandı: ' + pct(t.leaderSonWinRate));
+        if (t.diagnosisCounts?.length) {
+            console.log('  Renk — teşhis: ' + t.diagnosisCounts
+                .map(d => d.key + '×' + d.count).join(' · '));
+        }
+        if (t.rowFlags?.length) {
+            console.log('  Satır bayrakları: ' + t.rowFlags
+                .map(r => r.key + ' ' + r.count + '/' + t.n).join(' · '));
+        }
+        if (t.similarClusters?.length) {
+            console.log('  Benzer koşu kümeleri:');
+            for (let i = 0; i < t.similarClusters.length; i++) {
+                const cl = t.similarClusters[i];
+                console.log('    K' + (i + 1) + ' · ' + cl.length + ' koşu: '
+                    + cl.map(r => r.hipodrom + ' K' + r.raceNo + ' #' + r.winnerSig?.horseNo).join(' · '));
+            }
+        }
+        console.log('  Koşular:');
+        for (const r of t.races) {
+            console.log('    ' + pad(r.label, 34)
+                + ' saha yesil ' + r.yesilInField + '/' + r.fieldSize
+                + ' · yk ' + r.ykInField
+                + ' · dom ' + (r.domSon || '—')
+                + ' · lider ' + (r.leaderSonWon ? '✓' : '✗'));
+            if (cli.verbose && r.raw) {
+                printRawCellDump(r.raw, 'son8001');
+            }
+        }
+    }
+}
+
+function printDiagnose(segs, poolSize) {
+    hr('Renk — teşhis (neden visual = — ?)');
+    const dashSegs = segs.filter(s => s.dimension === 'visual' && s.bucket === '—');
+    if (!dashSegs.length) {
+        console.log('  (— segmenti yok veya filtre dışında)');
+        return;
+    }
+    for (const seg of dashSegs) {
+        const a = seg.analysis;
+        if (!a) continue;
+        sub(seg.metricLabel + ' · Renk = — (' + a.n + ' koşu)');
+        const reasonCounts = {};
+        for (const r of a.raceDetails) {
+            const d = r.visualDiagnosis || r.rawDump?.[seg.metricId]?.visualDiagnosis;
+            if (d) reasonCounts[d.reason] = (reasonCounts[d.reason] || 0) + 1;
+        }
+        console.log('  Teşhis özeti: ' + Object.entries(reasonCounts)
+            .map(([k, v]) => k + '×' + v).join(' · '));
+        for (const r of a.raceDetails) {
+            const d = r.visualDiagnosis || r.rawDump?.[seg.metricId]?.visualDiagnosis;
+            console.log('    ' + pad(r.label, 34)
+                + (d ? '[' + d.reason + '] ' + d.detail : '—'));
+            if (r.winnerType) {
+                console.log('      hibrit tip: ' + r.winnerType.typeLabel);
+            }
+        }
+    }
+}
+
+function printRawDump(segs) {
+    hr('Kazanan ham hücre dump (SON800-1 · TEST1 · T1×DR)');
+    const seen = new Set();
+    for (const seg of segs) {
+        for (const r of seg.analysis?.raceDetails || []) {
+            if (seen.has(r.label)) continue;
+            seen.add(r.label);
+            console.log('\n  ' + r.label + (r.winnerType ? ' · ' + r.winnerType.type : ''));
+            if (r.rawDump) {
+                for (const m of DEEP_TEN_METRICS) {
+                    printRawCellDump(r.rawDump, m.id);
+                }
+            }
+        }
+    }
+}
+
 function printCrossBreakdown(analysis, primaryMetric) {
     for (const m of DEEP_TEN_METRICS) {
         const c = analysis.cross[m.id];
@@ -102,9 +205,7 @@ function printCrossBreakdown(analysis, primaryMetric) {
         if (c.deltas.length && c.deltas[0].key !== '—') {
             parts.push('SON·Δ:' + c.deltas.slice(0, 2).map(v => v.key + '×' + v.count).join(' '));
         }
-        if (parts.length) {
-            console.log('      ' + c.label + ': ' + parts.join(' · '));
-        }
+        if (parts.length) console.log('      ' + c.label + ': ' + parts.join(' · '));
     }
 }
 
@@ -120,9 +221,20 @@ function printSegmentDetail(seg, poolSize) {
     console.log('  Sahada aynı profil: ort ' + a.avgSameInField.toFixed(1) + ' at/koşu'
         + ' (' + pct(a.avgSamePctInField) + ' saha payı)');
 
+    if (seg.bucket === '—' && seg.dimension === 'visual') {
+        const reasons = {};
+        for (const r of a.raceDetails) {
+            const d = r.visualDiagnosis || r.rawDump?.[seg.metricId]?.visualDiagnosis;
+            if (d) reasons[d.reason] = (reasons[d.reason] || 0) + 1;
+        }
+        if (Object.keys(reasons).length) {
+            console.log('  Teşhis özeti: ' + Object.entries(reasons).map(([k, v]) => k + '×' + v).join(' · '));
+        }
+    }
+
     if (a.fieldSameCounts.length) {
-        const counts = a.fieldSameCounts.map(x => x.same + '/' + x.total).join(', ');
-        console.log('  Koşu bazında (aynı/toplam): ' + counts);
+        console.log('  Koşu bazında (aynı/toplam): '
+            + a.fieldSameCounts.map(x => x.same + '/' + x.total).join(', '));
     }
 
     if (a.rowFlags.length) {
@@ -145,19 +257,27 @@ function printSegmentDetail(seg, poolSize) {
             console.log('    Küme ' + (i + 1) + ' · ' + cl.length + ' koşu: '
                 + cl.map(r => r.hipodrom + ' K' + r.raceNo).join(' · '));
         }
-    } else if (a.n >= 2) {
-        console.log('  Benzer koşu kümesi: yok (Jaccard<' + cli.minJaccard + ')');
     }
 
     console.log('  Koşu listesi:');
     for (const r of a.raceDetails) {
-        console.log('    ' + pad(r.label, 32)
+        console.log('    ' + pad(r.label, 34)
             + ' saha ' + r.sameInField + '/' + r.fieldSize + ' (' + r.fieldPct + ')'
             + ' · dom S1:' + (r.domSon || '—')
-            + ' · lider:' + (r.leaderSonWon ? '✓' : '✗'));
-        if (cli.verbose) {
+            + ' · lider:' + (r.leaderSonWon ? '✓' : '✗')
+            + (r.winnerType ? ' · ' + r.winnerType.type : ''));
+        if (seg.bucket === '—' && seg.dimension === 'visual') {
+            const d = r.visualDiagnosis || r.rawDump?.[seg.metricId]?.visualDiagnosis;
+            if (d) console.log('      teşhis: [' + d.reason + '] ' + d.detail);
+        }
+        if (cli.verbose && r.rawDump) {
+            printRawCellDump(r.rawDump, 'son8001');
+            if (seg.dimension === 'visual') {
+                printRawCellDump(r.rawDump, 'test1');
+                printRawCellDump(r.rawDump, 't1dr');
+            }
+        } else if (cli.verbose) {
             console.log('      ' + r.winnerCombo);
-            console.log('      archetype: ' + r.archetype);
         }
     }
 }
@@ -174,10 +294,7 @@ function printDetail(report, segs) {
         }
         return b.races.length - a.races.length;
     });
-
-    for (const seg of ordered) {
-        printSegmentDetail(seg, report.poolSize);
-    }
+    for (const seg of ordered) printSegmentDetail(seg, report.poolSize);
 }
 
 function printRenkFocus(report, segs) {
@@ -191,8 +308,17 @@ function printRenkFocus(report, segs) {
             const a = s.analysis;
             console.log('\n  ◆ ' + s.bucket + ' — ' + a.n + ' koşu');
             console.log('    Saha yoğunluğu: ort ' + a.avgSameInField.toFixed(1) + ' at aynı renk');
-            const otherMetrics = DEEP_TEN_METRICS.filter(x => x.id !== m.id);
-            for (const om of otherMetrics) {
+            if (s.bucket === '—') {
+                const reasons = {};
+                for (const r of a.raceDetails) {
+                    const d = r.visualDiagnosis || r.rawDump?.son8001?.visualDiagnosis;
+                    if (d) reasons[d.reason] = (reasons[d.reason] || 0) + 1;
+                }
+                if (Object.keys(reasons).length) {
+                    console.log('    Teşhis: ' + Object.entries(reasons).map(([k, v]) => k + '×' + v).join(' · '));
+                }
+            }
+            for (const om of DEEP_TEN_METRICS.filter(x => x.id !== m.id)) {
                 const c = a.cross[om.id];
                 if (!c?.visuals.length) continue;
                 console.log('    Kazanan ' + om.label + ' renk: '
@@ -202,7 +328,8 @@ function printRenkFocus(report, segs) {
                 console.log('    Benzer: ' + a.similarClusters.map((cl, i) =>
                     'K' + (i + 1) + '(' + cl.length + ')').join(' '));
             }
-            console.log('    Koşular: ' + a.raceDetails.map(r => r.label).join(' · '));
+            console.log('    Koşular: ' + a.raceDetails.map(r => r.label
+                + (r.winnerType ? '(' + r.winnerType.type + ')' : '')).join(' · '));
         }
     }
 }
@@ -211,7 +338,7 @@ async function main() {
     loadSimilarityEngines();
     const db = openDb(cli.dbPath);
     console.log('╔══════════════════════════════════════════════════════════════╗');
-    console.log('║  Kazanan profil segment raporu — ' + cli.fieldSize + ' at                          ║');
+    console.log('║  Kazanan profil segment raporu v2 — ' + cli.fieldSize + ' at                   ║');
     console.log('╚══════════════════════════════════════════════════════════════╝');
     console.log('DB: ' + cli.dbPath);
 
@@ -230,16 +357,24 @@ async function main() {
             process.exit(0);
         }
 
+        const hybrid = buildTenAtHybridTypeReport(profiles, {
+            fieldSize: cli.fieldSize,
+            minJaccard: cli.minJaccard
+        });
+
         const segs = filterSegments(report);
 
         if (cli.phases.includes('overview')) printOverview(report, segs);
+        if (cli.phases.includes('types')) printHybridTypes(hybrid);
+        if (cli.phases.includes('diagnose')) printDiagnose(segs, report.poolSize);
+        if (cli.phases.includes('raw')) printRawDump(segs);
         if (cli.phases.includes('renk')) printRenkFocus(report, segs);
         if (cli.phases.includes('detail')) printDetail(report, segs);
 
         console.log('\n── Kullanım ──');
-        console.log('  node scripts/test-race-segment-report.js --field-size 10');
+        console.log('  node scripts/test-race-segment-report.js --field-size 10 --phase types,diagnose,raw,detail --verbose');
         console.log('  node scripts/test-race-segment-report.js --metric son8001 --dimension visual --bucket yesil');
-        console.log('  node scripts/test-race-segment-report.js --phase renk,detail --verbose');
+        console.log('  node scripts/test-race-segment-report.js --metric son8001 --dimension visual --bucket -');
         console.log('\nOK');
     } finally {
         db.close();

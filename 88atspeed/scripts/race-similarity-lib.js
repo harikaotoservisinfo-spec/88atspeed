@@ -585,9 +585,195 @@ function metricCellSlice(sig, metricId) {
         gap: cell.gapBucket?.label || '—',
         bs: cell.bsBucket?.label || '—',
         pct: cell.pctTier?.label || '—',
+        pctRaw: cell.pct,
+        gapRaw: cell.gapPct,
+        bsRaw: cell.successPct,
         tone: cell.toneBorder?.tone !== 'yok' ? cell.toneBorder.tone : '—',
-        border: cell.toneBorder?.border !== 'yok' ? cell.toneBorder.border : '—'
+        border: cell.toneBorder?.border !== 'yok' ? cell.toneBorder.border : '—',
+        flags: cell.flags || []
     };
+}
+
+function diagnoseVisualNull(winnerSig, metricId) {
+    const cell = winnerSig?.cells?.[metricId];
+    if (!cell) {
+        return { reason: 'hücre yok', detail: 'depths[0] null veya imza çıkarılamadı' };
+    }
+    if (cell.visual) {
+        return { reason: 'renk var', detail: cell.visual };
+    }
+    const tb = cell.toneBorder || { tone: 'yok', border: 'yok' };
+    const flags = cell.flags || [];
+    const pctStr = cell.pct != null ? String(cell.pct) : 'null';
+    const gapStr = cell.gapPct != null ? String(cell.gapPct) : 'null';
+    const bsStr = cell.successPct != null ? String(cell.successPct) : 'null';
+
+    if (!flags.length && tb.tone === 'yok' && tb.border === 'yok') {
+        return {
+            reason: 'gosterim yok / ton yok',
+            detail: 'pct=' + pctStr + ' · gap=' + gapStr + ' · BS=' + bsStr + ' · ton=yok · kenar=yok · bayrak yok'
+        };
+    }
+
+    const parts = [
+        'pct=' + pctStr,
+        'gap=' + gapStr,
+        'BS=' + bsStr,
+        'ton=' + tb.tone,
+        'kenar=' + tb.border
+    ];
+    if (flags.length) parts.push('bayrak:' + flags.join(','));
+    return { reason: 'profil dışı kombinasyon', detail: parts.join(' · ') };
+}
+
+function dumpWinnerRawCells(winnerSig, metrics) {
+    metrics = metrics || DEEP_TEN_METRICS;
+    const out = {};
+    for (const m of metrics) {
+        const slice = metricCellSlice(winnerSig, m.id);
+        const diag = diagnoseVisualNull(winnerSig, m.id);
+        out[m.id] = {
+            label: m.label,
+            visual: slice?.visual || '—',
+            pct: slice?.pctRaw,
+            pctTier: slice?.pct || '—',
+            gap: slice?.gapRaw,
+            gapBucket: slice?.gap || '—',
+            bs: slice?.bsRaw,
+            bsBucket: slice?.bs || '—',
+            tone: slice?.tone || '—',
+            border: slice?.border || '—',
+            flags: slice?.flags || [],
+            rowFlags: [...(winnerSig.rowFlagSet || [])].map(t => t.replace(/^ROW\|/, '')),
+            delta: deltaTagsForMetric(winnerSig.tokenSet, m.id),
+            visualDiagnosis: diag
+        };
+    }
+    return out;
+}
+
+function classifyTenAtWinnerType(profile, opts) {
+    opts = opts || {};
+    const crowdYesilMin = opts.crowdYesilMin != null ? opts.crowdYesilMin : 5;
+    const rareYkMax = opts.rareYkMax != null ? opts.rareYkMax : 2;
+    const w = profile.winnerSig;
+    if (!w) return null;
+
+    const sonVisual = metricCellSlice(w, 'son8001')?.visual || '—';
+    const yesilInField = countHorsesWithBucket(profile, 'son8001', 'visual', 'yesil');
+    const ykInField = countHorsesWithBucket(profile, 'son8001', 'visual', 'yesilKirmizi');
+    const dom = buildDeepTenFieldDominant(profile);
+
+    const base = {
+        raceKey: profile.raceKey,
+        label: raceLabel(profile),
+        sonVisual,
+        yesilInField,
+        ykInField,
+        fieldSize: profile.fieldSize,
+        leaderSonWon: profile.leaderSonWon,
+        domSon: dom.son8001,
+        raw: dumpWinnerRawCells(w)
+    };
+
+    if (sonVisual === '—') {
+        return Object.assign(base, {
+            type: 'A',
+            typeId: 'tipA_dash',
+            typeLabel: 'Tip A · Görünmez profil (SON800-1 renk —)',
+            hint: 'Saha yesil baskın olabilir; kazanan sınıflandırılamayan profil'
+        });
+    }
+    if (sonVisual === 'yesil' && yesilInField >= crowdYesilMin) {
+        return Object.assign(base, {
+            type: 'B',
+            typeId: 'tipB_yesil_crowd',
+            typeLabel: 'Tip B · Kalabalık yesil (' + yesilInField + '/' + profile.fieldSize + ' saha yesil)',
+            hint: 'Yesil kalabalıkta lider dışı kazanan'
+        });
+    }
+    if (sonVisual === 'yesilKirmizi' && ykInField <= rareYkMax) {
+        return Object.assign(base, {
+            type: 'C',
+            typeId: 'tipC_yk_rare',
+            typeLabel: 'Tip C · Seyrek yesilKirmizi (' + ykInField + '/' + profile.fieldSize + ' saha)',
+            hint: 'Nadir profil upset — kırmızı kenar sık'
+        });
+    }
+    return Object.assign(base, {
+        type: 'D',
+        typeId: 'tipD_other',
+        typeLabel: 'Tip D · Diğer (' + sonVisual + ' · saha yesil ' + yesilInField + ' · yk ' + ykInField + ')',
+        hint: 'yesilMavi, sari veya seyrek olmayan yesilKirmizi'
+    });
+}
+
+function buildTenAtHybridTypeReport(profiles, opts) {
+    opts = opts || {};
+    const fieldSize = opts.fieldSize != null ? opts.fieldSize : 10;
+    const pool = profiles.filter(p => p.fieldSize === fieldSize && p.hasWinner);
+    const typed = pool.map(p => classifyTenAtWinnerType(p, opts)).filter(Boolean);
+
+    const byType = { A: [], B: [], C: [], D: [] };
+    for (const t of typed) byType[t.type].push(t);
+
+    function summarizeType(list, typeKey) {
+        const n = list.length;
+        if (!n) return { type: typeKey, n: 0, races: [] };
+        let leaderWins = 0;
+        const diagnosisCounts = {};
+        const rowFlagCounts = {};
+        for (const t of list) {
+            if (t.leaderSonWon) leaderWins++;
+            const d = t.raw?.son8001?.visualDiagnosis;
+            if (d) diagnosisCounts[d.reason] = (diagnosisCounts[d.reason] || 0) + 1;
+            for (const rf of t.raw?.son8001?.rowFlags || []) {
+                rowFlagCounts[rf] = (rowFlagCounts[rf] || 0) + 1;
+            }
+        }
+        const clusters = clusterByTokenOverlap(
+            list.map(t => pool.find(p => p.raceKey === t.raceKey)).filter(Boolean),
+            opts.minJaccard || 0.4
+        ).filter(c => c.length >= 2);
+
+        return {
+            type: typeKey,
+            n,
+            share: pool.length ? n / pool.length : 0,
+            leaderSonWinRate: leaderWins / n,
+            label: list[0].typeLabel.split(' · ')[0] + ' · ' + list[0].typeLabel.split(' · ').slice(1).join(' · ').split('(')[0].trim(),
+            typeLabel: list[0].typeLabel.replace(/ \(.*\)$/, '').replace(/ · .+$/, ''),
+            diagnosisCounts: topCounts(diagnosisCounts, 6),
+            rowFlags: topCounts(rowFlagCounts, 8),
+            similarClusters: clusters,
+            races: list
+        };
+    }
+
+    const typeLabels = {
+        A: 'Tip A · Görünmez profil',
+        B: 'Tip B · Kalabalık yesil',
+        C: 'Tip C · Seyrek yesilKirmizi',
+        D: 'Tip D · Diğer'
+    };
+
+    return {
+        fieldSize,
+        poolSize: pool.length,
+        types: {
+            A: Object.assign({ typeLabel: typeLabels.A }, summarizeType(byType.A, 'A')),
+            B: Object.assign({ typeLabel: typeLabels.B }, summarizeType(byType.B, 'B')),
+            C: Object.assign({ typeLabel: typeLabels.C }, summarizeType(byType.C, 'C')),
+            D: Object.assign({ typeLabel: typeLabels.D }, summarizeType(byType.D, 'D'))
+        },
+        all: typed
+    };
+}
+
+function normalizeBucketFilter(bucket) {
+    if (bucket == null) return bucket;
+    if (bucket === '-' || bucket === '–' || bucket === '—') return '—';
+    return bucket;
 }
 
 function deltaTagsForMetric(tokenSet, metricId) {
@@ -695,6 +881,9 @@ function analyzeSegmentRaces(races, metricId, dimension, bucket, opts) {
         }
 
         const dom = buildDeepTenFieldDominant(p);
+        const visualDiag = (dimension === 'visual' && bucket === '—')
+            ? diagnoseVisualNull(p.winnerSig, metricId) : null;
+        const rawDump = dumpWinnerRawCells(p.winnerSig);
         raceDetails.push({
             label: raceLabel(p),
             fieldSize: p.fieldSize,
@@ -705,7 +894,10 @@ function analyzeSegmentRaces(races, metricId, dimension, bucket, opts) {
             domTest: dom.test1,
             domDr: dom.t1dr,
             winnerCombo: buildDeepTenComboKey(p.winnerSig),
-            archetype: p.archetypeShort
+            archetype: p.archetypeShort,
+            visualDiagnosis: visualDiag,
+            rawDump,
+            winnerType: classifyTenAtWinnerType(p)
         });
     }
 
@@ -1036,6 +1228,11 @@ module.exports = {
     winnerVsFieldAnalysis,
     deepTenHorseReport,
     buildWinnerProfileSegments,
+    buildTenAtHybridTypeReport,
+    classifyTenAtWinnerType,
+    diagnoseVisualNull,
+    dumpWinnerRawCells,
+    normalizeBucketFilter,
     analyzeSegmentRaces,
     metricCellSlice,
     buildDeepTenComboKey,
