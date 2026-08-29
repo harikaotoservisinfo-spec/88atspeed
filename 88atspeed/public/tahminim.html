@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <title>Tahminim - 88ATSPEED</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="css/theme.css?v=20260822a" rel="stylesheet">
+    <style>
+        #tahminimContainer { padding: 20px 24px 32px; max-width: 100%; }
+        .tahminim-controls { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+        .tahminim-btn {
+            padding: 10px 18px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+        .tahminim-btn:hover { background: var(--bg-surface); }
+        .tahminim-btn-primary {
+            background: linear-gradient(135deg, #0d47a1 0%, #1565c0 100%);
+            color: #fff;
+            border-color: #0d47a1;
+        }
+        .tahminim-btn-primary:hover { filter: brightness(1.05); }
+        .tahminim-btn-success {
+            background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%);
+            color: #fff;
+            border-color: #1b5e20;
+        }
+        .tahminim-meta {
+            padding: 12px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            margin-bottom: 16px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .basari-ozet-panel {
+            display: none;
+            margin-bottom: 20px;
+            padding: 16px 18px;
+            background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%);
+            border: 1px solid #81c784;
+            border-radius: var(--radius-lg);
+        }
+        .basari-ozet-panel.visible { display: block; }
+        .basari-ozet-title {
+            font-weight: 800;
+            font-size: 15px;
+            color: #1b5e20;
+            margin-bottom: 12px;
+        }
+        .basari-stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .basari-stat {
+            background: #fff;
+            border-radius: var(--radius-md);
+            padding: 10px 12px;
+            border: 1px solid #c8e6c9;
+            text-align: center;
+        }
+        .basari-stat-val {
+            font-size: 22px;
+            font-weight: 800;
+            color: #2e7d32;
+            line-height: 1.1;
+        }
+        .basari-stat-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #558b2f;
+            margin-top: 4px;
+        }
+        .rule-stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin-top: 8px;
+        }
+        .rule-stats-table th, .rule-stats-table td {
+            padding: 6px 10px;
+            border: 1px solid #c8e6c9;
+            text-align: left;
+        }
+        .rule-stats-table th { background: #e8f5e9; font-weight: 700; }
+        .arsiv-panel {
+            display: none;
+            margin-bottom: 20px;
+            padding: 14px 16px;
+            background: #fff8e1;
+            border: 1px solid #ffe082;
+            border-radius: var(--radius-lg);
+            max-height: 280px;
+            overflow-y: auto;
+        }
+        .arsiv-panel.visible { display: block; }
+        .arsiv-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 10px;
+            border-bottom: 1px solid #ffe082;
+            font-size: 13px;
+        }
+        .arsiv-item:last-child { border-bottom: none; }
+        .tahminim-layout {
+            display: grid;
+            grid-template-columns: 1fr min(400px, 100%);
+            gap: 16px;
+            align-items: start;
+        }
+        .tahminim-rules-sidebar {
+            position: sticky;
+            top: 8px;
+            max-height: calc(100vh - 24px);
+            overflow-y: auto;
+        }
+        @media (max-width: 1100px) {
+            .tahminim-layout { grid-template-columns: 1fr; }
+            .tahminim-rules-sidebar {
+                order: -1;
+                position: relative;
+                top: 0;
+                max-height: 420px;
+            }
+        }
+        .aktif-kural-banner {
+            display: none;
+            margin-bottom: 12px;
+            padding: 10px 14px;
+            background: linear-gradient(135deg, #e8eaf6 0%, #e3f2fd 100%);
+            border: 1px solid #9fa8da;
+            border-radius: var(--radius-md);
+            font-size: 12px;
+            font-weight: 600;
+            color: #1a237e;
+            line-height: 1.5;
+        }
+        .aktif-kural-banner.visible { display: block; }
+        .aktif-kural-banner strong { color: #0d47a1; }
+        .tahminim-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 16px;
+        }
+        .tahmin-race-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+        }
+        .tahmin-race-card.basari-yuksek { border-color: #66bb6a; }
+        .tahmin-race-card.basari-orta { border-color: #ffa726; }
+        .tahmin-race-card.basari-dusuk { border-color: #ef5350; }
+        .tahmin-race-header {
+            background: linear-gradient(135deg, #0d47a1 0%, #1565c0 100%);
+            color: #e3f2fd;
+            padding: 12px 16px;
+            font-weight: 700;
+            font-size: 14px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .tahmin-race-header-left { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .tahmin-race-badge {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .tahmin-race-basari {
+            background: rgba(255, 255, 255, 0.25);
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            display: none;
+        }
+        .tahmin-race-basari.visible { display: inline-block; }
+        .tahmin-race-body { padding: 12px 14px 14px; }
+        .tahmin-col-headers {
+            display: grid;
+            grid-template-columns: 36px 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 6px;
+            padding: 0 0 4px;
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .tahmin-col-headers span:nth-child(3) { color: #2e7d32; }
+        .tahmin-row {
+            display: grid;
+            grid-template-columns: 36px 1fr 1fr;
+            gap: 8px;
+            align-items: start;
+            margin-bottom: 8px;
+        }
+        .tahmin-row:last-child { margin-bottom: 0; }
+        .tahmin-row.row-exact .tahmin-sira { background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%); }
+        .tahmin-row.row-miss .tahmin-sira { background: linear-gradient(135deg, #b71c1c 0%, #c62828 100%); }
+        .tahmin-sira {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
+            color: #fff;
+            font-weight: 800;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .tahmin-cell { display: flex; flex-direction: column; gap: 2px; }
+        .tahmin-at-input, .gercek-at-input {
+            width: 100%;
+            padding: 9px 10px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            font-size: 12px;
+            font-weight: 600;
+            background: #fff;
+            color: var(--text-primary);
+        }
+        .tahmin-at-input { background: #e3f2fd; border-color: #90caf9; }
+        .gercek-at-input:focus {
+            outline: none;
+            border-color: #2e7d32;
+            box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.15);
+        }
+        .tahmin-at-input.tahmin-auto-filled { background: #bbdefb; border-color: #1565c0; }
+        .gercek-at-input.gercek-filled { background: #e8f5e9; border-color: #66bb6a; }
+        .gercek-at-input.gercek-exact { background: #c8e6c9; border-color: #2e7d32; }
+        .gercek-at-input.gercek-miss { background: #ffcdd2; border-color: #e53935; }
+        .gercek-at-input.gercek-kosmaz { background: #f5f5f5; border-color: #bdbdbd; color: #757575; }
+        .tahmin-row.row-kosmaz .tahmin-sira { background: linear-gradient(135deg, #757575 0%, #9e9e9e 100%); }
+        .tahmin-at-input::placeholder, .gercek-at-input::placeholder {
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 11px;
+        }
+        .tahmin-rule-tag {
+            font-size: 10px;
+            font-weight: 600;
+            color: #0d47a1;
+        }
+        .tahmin-rule-tag-priority {
+            color: #6a1b9a;
+            font-weight: 700;
+        }
+        .tahmin-row.row-tahmin-changed .tahmin-at-input {
+            background: #fff59d !important;
+            border-color: #f9a825 !important;
+        }
+        .tahmin-race-card.race-order-changed {
+            box-shadow: 0 0 0 2px #ffb300;
+        }
+        .tahmin-race-priority-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 10px;
+            font-weight: 700;
+        }
+        .tahmin-hint {
+            margin-top: 16px;
+            padding: 12px 14px;
+            background: #e3f2fd;
+            border: 1px solid #90caf9;
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            color: #0d47a1;
+        }
+        .kural-panel {
+            margin-top: 0;
+            padding: 18px 20px 20px;
+            background: #fff;
+            border: 2px solid #5c6bc0;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+        }
+        .kural-panel-title {
+            font-weight: 800;
+            font-size: 15px;
+            color: #1a237e;
+            margin-bottom: 4px;
+        }
+        .kural-panel-sub {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 14px;
+        }
+        .kural-list { display: flex; flex-direction: column; gap: 8px; }
+        .kural-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            background: #f5f7fa;
+            border: 1px solid #e0e6ed;
+            border-radius: var(--radius-md);
+            cursor: grab;
+            transition: box-shadow 0.15s, border-color 0.15s;
+        }
+        .kural-item:hover { border-color: #90caf9; }
+        .kural-item-off { opacity: 0.45; }
+        .kural-item-fixed {
+            cursor: default;
+            background: #eceff1;
+            border-style: dashed;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 13px;
+            color: #546e7a;
+        }
+        .kural-dragging { opacity: 0.5; }
+        .kural-drop-target { border-color: #1565c0; box-shadow: 0 0 0 2px rgba(21,101,192,0.2); }
+        .kural-grip { color: #90a4ae; font-size: 18px; user-select: none; flex-shrink: 0; }
+        .kural-no {
+            width: 28px; height: 28px; border-radius: 6px;
+            background: #1a237e; color: #fff; font-weight: 800; font-size: 12px;
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .kural-info { flex: 1; min-width: 0; }
+        .kural-title { font-weight: 700; font-size: 13px; color: #263238; }
+        .kural-title code { font-size: 11px; font-weight: 600; color: #1565c0; margin-left: 6px; }
+        .kural-conds { font-size: 11px; color: #78909c; margin-top: 3px; line-height: 1.35; }
+        .kural-badge {
+            display: inline-block; font-size: 10px; font-weight: 700;
+            padding: 2px 8px; border-radius: 999px; margin-left: 6px; vertical-align: middle;
+        }
+        .kural-badge-sira { background: #e3f2fd; color: #0d47a1; }
+        .kural-toggle { font-size: 11px; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+        .kural-del-btn {
+            border: none; background: #ffcdd2; color: #c62828;
+            width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-weight: 700; flex-shrink: 0;
+        }
+        .kural-move-btns { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
+        .kural-nudge-btn {
+            border: 1px solid #cfd8dc; background: #fff; color: #37474f;
+            width: 28px; height: 22px; border-radius: 4px; cursor: pointer; font-size: 10px; line-height: 1;
+            padding: 0;
+        }
+        .kural-nudge-btn:hover:not(:disabled) { background: #e3f2fd; border-color: #1565c0; }
+        .kural-nudge-btn:disabled { opacity: 0.35; cursor: default; }
+        .tahmin-at-input.tahmin-changed { animation: tahminFlash 0.8s ease; }
+        @keyframes tahminFlash {
+            0%, 100% { background: #e3f2fd; }
+            50% { background: #fff59d; }
+        }
+        .kural-panel-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+        .kural-yeni-form {
+            margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);
+        }
+        .kural-yeni-form h4 { margin: 0 0 10px; font-size: 14px; color: #37474f; }
+        .kural-cond-picker {
+            display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
+        }
+        .kural-cond-chip {
+            font-size: 11px; font-weight: 600; padding: 6px 10px;
+            background: #e3f2fd; border-radius: 999px; cursor: pointer; user-select: none;
+        }
+        .kural-cond-chip input { margin-right: 4px; }
+        .kural-yeni-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        .kural-yeni-row input[type="text"] {
+            flex: 1; min-width: 200px; padding: 8px 12px;
+            border: 1px solid var(--border); border-radius: var(--radius-md);
+        }
+        .kosul-matris-panel {
+            margin-top: 28px;
+            padding: 20px 22px 24px;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+        }
+        .kosul-matris-panel.empty { display: none; }
+        .kosul-matris-title {
+            font-weight: 800;
+            font-size: 16px;
+            color: #1a237e;
+            margin: 0 0 6px;
+        }
+        .kosul-matris-sub {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 14px;
+            line-height: 1.5;
+        }
+        .kosul-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 16px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .kosul-legend span { display: inline-flex; align-items: center; gap: 5px; }
+        .kosul-legend-box {
+            width: 14px; height: 14px; border-radius: 3px;
+            border: 1px solid rgba(0,0,0,0.12);
+        }
+        .kosul-legend-box.yes { background: #a5d6a7; }
+        .kosul-legend-box.no { background: #eeeeee; }
+        .kosul-legend-box.pri { background: #ce93d8; border-color: #8e24aa; }
+        .kosul-race-block {
+            margin-bottom: 22px;
+            border: 1px solid #e0e6ed;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+        .kosul-race-block:last-child { margin-bottom: 0; }
+        .kosul-race-title {
+            background: linear-gradient(135deg, #37474f 0%, #546e7a 100%);
+            color: #eceff1;
+            padding: 10px 14px;
+            font-weight: 700;
+            font-size: 13px;
+        }
+        .kosul-table-wrap { overflow-x: auto; }
+        .kosul-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            min-width: 900px;
+        }
+        .kosul-table th, .kosul-table td {
+            padding: 6px 5px;
+            border: 1px solid #e0e0e0;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .kosul-table th {
+            background: #f5f7fa;
+            font-weight: 700;
+            font-size: 10px;
+            color: #37474f;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        .kosul-table th.kosul-th-priority {
+            background: #f3e5f5;
+            color: #6a1b9a;
+        }
+        .kosul-table th.kosul-th-rule {
+            background: #e8eaf6;
+            color: #283593;
+            min-width: 44px;
+        }
+        .kosul-table td.kosul-sira {
+            font-weight: 800;
+            color: #1a237e;
+            background: #e8eaf6;
+            min-width: 36px;
+            position: sticky;
+            left: 0;
+            z-index: 2;
+        }
+        .kosul-table td.kosul-at {
+            text-align: left;
+            font-weight: 700;
+            color: #263238;
+            min-width: 130px;
+            max-width: 180px;
+            white-space: normal;
+            position: sticky;
+            left: 36px;
+            background: #fff;
+            z-index: 2;
+            box-shadow: 2px 0 4px rgba(0,0,0,0.04);
+        }
+        .kosul-table tr.kosul-row-top3 td.kosul-at { background: #e3f2fd; }
+        .kosul-cell-yes {
+            background: #c8e6c9 !important;
+            color: #1b5e20;
+            font-weight: 800;
+        }
+        .kosul-cell-no { background: #fafafa; color: #bdbdbd; }
+        .kosul-cell-priority-yes {
+            background: #ce93d8 !important;
+            color: #4a148c;
+            font-weight: 800;
+        }
+        .kosul-rule-cell {
+            font-weight: 700;
+            font-size: 10px;
+        }
+        .kosul-rule-full { background: #a5d6a7 !important; color: #1b5e20; }
+        .kosul-rule-partial { background: #fff9c4 !important; color: #f57f17; }
+        .kosul-rule-none { background: #fafafa; color: #bdbdbd; }
+        .kosul-skor-cell { font-weight: 800; background: #e3f2fd !important; color: #0d47a1; }
+        .kosul-th-metric, .kosul-metric-cell {
+            background: #fff3e0 !important;
+            color: #e65100;
+            font-weight: 700;
+            min-width: 72px;
+        }
+    </style>
+</head>
+<body>
+<div id="tahminimContainer">
+    <div class="tahminim-controls">
+        <button type="button" id="otomatikAktarBtn" class="tahminim-btn tahminim-btn-primary">⚡ Otomatik aktar</button>
+        <button type="button" id="kayitSenkronBtn" class="tahminim-btn">🔄 GÖSTERİM kaydını kullan</button>
+        <button type="button" id="kayitlariGetirBtn" class="tahminim-btn">📋 Kayıt listesinden seç</button>
+        <button type="button" id="tahminKaydetBtn" class="tahminim-btn">💾 Tahminleri kaydet</button>
+        <button type="button" id="sonucKaydetBtn" class="tahminim-btn tahminim-btn-success">✅ Sonuçları kaydet</button>
+        <button type="button" id="arsiveEkleBtn" class="tahminim-btn">📦 Arşive ekle</button>
+        <button type="button" id="arsivGosterBtn" class="tahminim-btn">📊 Arşiv özeti</button>
+        <button type="button" id="tahminTemizleBtn" class="tahminim-btn">🗑️ Temizle</button>
+    </div>
+    <div id="kayitListesi" class="kayit-listesi" style="display:none;"></div>
+    <div id="tahminimStatus"></div>
+    <div id="tahminimMeta" class="tahminim-meta" style="display:none;"></div>
+    <div id="aktifKuralBanner" class="aktif-kural-banner"></div>
+
+    <div class="tahminim-layout">
+        <div class="tahminim-left">
+            <div id="basariOzetPanel" class="basari-ozet-panel"></div>
+            <div id="arsivPanel" class="arsiv-panel"></div>
+            <div id="tahminimResults"><div class="empty">🎯 GÖSTERİM sekmesinde kayıt yükleyin veya buradan kayıt seçin</div></div>
+            <div class="tahmin-hint">
+                <strong>Gerçek sıra girişi:</strong> Sıra numarası (<code>7</code>) veya <code>koşmaz</code> yazın.
+                Koşmayan atlar başarı hesabına dahil edilmez. Başarı anında hesaplanır; arşive ekleyerek kural performansını izleyin.
+            </div>
+        </div>
+
+        <div class="tahminim-rules-sidebar">
+            <div class="kural-panel" id="kuralPanel">
+                <div class="kural-panel-title">📐 Kural sırası — sürükleyin veya ▲▼</div>
+                <div class="kural-panel-sub">Sıralama önceliği: <strong>T1×DR → DR/1DR → TEST1</strong> (düşük = iyi), ardından kural listesi. Listenin <strong>1. kuralı</strong> etiket ve matriste vurgulanır.</div>
+                <div id="kuralSiraList" class="kural-list"></div>
+                <div class="kural-item kural-item-fixed">SKOR — eşleşme yoksa en yüksek skorlu at (son çare, sabit)</div>
+                <div class="kural-panel-actions">
+                    <button type="button" id="kuralSiraResetBtn" class="tahminim-btn">↩️ Varsayılana dön</button>
+                </div>
+                <div class="kural-yeni-form">
+                    <h4>➕ Yeni özel kural ekle</h4>
+                    <div id="kuralCondPicker" class="kural-cond-picker"></div>
+                    <div class="kural-yeni-row">
+                        <input type="text" id="kuralYeniAd" placeholder="Kural adı (isteğe bağlı)">
+                        <label><input type="checkbox" id="kuralYeniSira1"> Sadece 1. sıra</label>
+                        <button type="button" id="kuralEkleBtn" class="tahminim-btn tahminim-btn-primary">Ekle ve uygula</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="kosulMatrisPanel" class="kosul-matris-panel empty">
+        <h3 class="kosul-matris-title">📊 Koşul & kural matrisi</h3>
+        <p class="kosul-matris-sub">Her koşuda atların hangi koşulları sağladığını ve aktif kurallara ne kadar uyduğunu görün. Tahmin sırasına göre listelenir.</p>
+        <div class="kosul-legend">
+            <span><i class="kosul-legend-box yes"></i> Koşul var (yeşil)</span>
+            <span><i class="kosul-legend-box no"></i> Koşul yok</span>
+            <span><i class="kosul-legend-box pri"></i> Öncelik kuralının koşulu</span>
+            <span>✓ = tam kural eşleşmesi</span>
+            <span>sarı = kısmi eşleşme (ör. 2/3)</span>
+        </div>
+        <div id="kosulMatrisContent"></div>
+    </div>
+</div>
+
+<script src="js/utils.js?v=20260827g"></script>
+<script src="js/formula-engine.js?v=20260824w"></script>
+<script src="js/tahmin-engine.js?v=20260824n"></script>
+<script src="js/sonuc-engine.js?v=20260824c"></script>
+<script src="js/kural-panel.js?v=20260824f"></script>
+<script>
+let currentKayitId = null;
+let currentKayitMeta = null;
+let currentRaceData = null;
+let lastAktarDetay = null;
+let lastRaceProfiles = null;
+
+function notifyParentResize() {
+    const h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+    try {
+        window.parent.postMessage({ type: '88atspeed-iframe-resize', frame: 'tahminim', height: h }, '*');
+    } catch (_) {}
+}
+
+function updateAktifKuralBanner() {
+    const banner = document.getElementById('aktifKuralBanner');
+    if (!banner) return;
+    const tiers = KuralPanel.getActiveTiers();
+    if (!tiers.length) {
+        banner.classList.remove('visible');
+        return;
+    }
+    const ilk3 = 'T1×DR → DR/1DR → TEST1 → ' + tiers.slice(0, 4).map((t, i) => (i + 1) + '. <strong>' + t.id + '</strong>').join(' → ');
+    banner.innerHTML = '⚡ Sıralama: ' + ilk3 + (tiers.length > 4 ? ' → …' : '') + ' → SKOR';
+    banner.classList.add('visible');
+    notifyParentResize();
+}
+
+function storageKey() {
+    return currentKayitId ? '88atspeed-tahmin-' + currentKayitId : null;
+}
+
+function loadTahminFromStorage() {
+    const key = storageKey();
+    if (!key) return null;
+    try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (_) { return null; }
+}
+
+function saveTahminToStorage(tahminler) {
+    const key = storageKey();
+    if (!key) return;
+    localStorage.setItem(key, JSON.stringify(tahminler));
+}
+
+function loadGercekFromStorage() {
+    if (!currentKayitId) return null;
+    return SonucEngine.loadGercekSonuc(currentKayitId);
+}
+
+function saveGercekToStorage(gercekler) {
+    if (!currentKayitId) return;
+    SonucEngine.saveGercekSonuc(currentKayitId, gercekler);
+}
+
+function getTahminlerFromDom() {
+    const tahminler = {};
+    document.querySelectorAll('.tahmin-race-card').forEach(card => {
+        const raceIdx = card.dataset.raceIndex;
+        tahminler[raceIdx] = [];
+        card.querySelectorAll('.tahmin-at-input').forEach(input => {
+            tahminler[raceIdx].push({
+                sira: parseInt(input.dataset.sira, 10),
+                name: input.value.trim()
+            });
+        });
+    });
+    return tahminler;
+}
+
+function getGerceklerFromDom() {
+    const gercekler = {};
+    document.querySelectorAll('.tahmin-race-card').forEach(card => {
+        const raceIdx = card.dataset.raceIndex;
+        gercekler[raceIdx] = [];
+        card.querySelectorAll('.gercek-at-input').forEach(input => {
+            gercekler[raceIdx].push({
+                sira: parseInt(input.dataset.sira, 10),
+                name: input.value.trim()
+            });
+        });
+    });
+    return gercekler;
+}
+
+function getHorseDatalist(race) {
+    return (race.horses || []).map(h => {
+        const no = h.no ? ' (' + h.no + ')' : '';
+        return (h.name || '') + no;
+    });
+}
+
+function applyTahminlerToDom(tahminler, detay, prevTahminler) {
+    if (!tahminler) return { degisen: 0, birinciDegisen: 0, kosuDegisen: 0 };
+    let degisenSayisi = 0;
+    let birinciDegisen = 0;
+    let kosuDegisen = 0;
+    const priorityRuleId = KuralPanel.getActiveTiers()[0]?.id || '-';
+
+    for (const raceIdx of Object.keys(tahminler)) {
+        const card = document.querySelector('.tahmin-race-card[data-race-index="' + raceIdx + '"]');
+        if (!card) continue;
+        const rows = tahminler[raceIdx] || [];
+        const prevRows = prevTahminler?.[raceIdx] || [];
+        const raceDetay = detay?.[raceIdx] || [];
+        let kosuIcindeDegisen = 0;
+
+        const badge = card.querySelector('.tahmin-race-priority-badge');
+        if (badge) badge.textContent = 'öncelik: T1×DR → DR/1DR → TEST1';
+
+        card.classList.remove('race-order-changed');
+        card.querySelectorAll('.tahmin-row').forEach(rowEl => {
+            rowEl.classList.remove('row-tahmin-changed');
+            const tag = rowEl.querySelector('.tahmin-rule-tag');
+            if (tag) tag.remove();
+        });
+        card.querySelectorAll('.tahmin-at-input').forEach(input => {
+            const sira = parseInt(input.dataset.sira, 10);
+            const found = rows.find(r => r.sira === sira);
+            const prev = prevRows.find(r => r.sira === sira);
+            const yeniAd = found?.name || '';
+            const eskiAd = prev?.name || '';
+            const rowEl = input.closest('.tahmin-row');
+            if (yeniAd && eskiAd && SonucEngine.normalizeHorseName(yeniAd) !== SonucEngine.normalizeHorseName(eskiAd)) {
+                degisenSayisi++;
+                kosuIcindeDegisen++;
+                if (sira === 1) birinciDegisen++;
+                input.classList.add('tahmin-changed');
+                rowEl?.classList.add('row-tahmin-changed');
+                setTimeout(() => {
+                    input.classList.remove('tahmin-changed');
+                    rowEl?.classList.remove('row-tahmin-changed');
+                }, 2500);
+            }
+            input.value = yeniAd;
+            input.classList.toggle('tahmin-auto-filled', !!yeniAd);
+            const m = raceDetay[sira - 1];
+            if (m && yeniAd) {
+                const cell = input.closest('.tahmin-cell');
+                const tag = document.createElement('div');
+                tag.className = 'tahmin-rule-tag tahmin-rule-tag-priority';
+                const pId = m.priorityRuleId || priorityRuleId;
+                const pMatch = m.priorityMatched != null ? m.priorityMatched : 0;
+                const pTotal = m.priorityTotal || 0;
+                const metricParts = [];
+                if (m.t1dr) metricParts.push('T1×DR ' + m.t1dr);
+                if (m.drOran) metricParts.push('DR/1DR ' + m.drOran);
+                if (m.test1Val) metricParts.push('TEST1 ' + m.test1Val);
+                const metricText = metricParts.length ? metricParts.join(' · ') + ' · ' : '';
+                tag.textContent = metricText + '★ ' + pId + ' (' + pMatch + '/' + pTotal + ') · skor ' + m.score + '/12';
+                cell.appendChild(tag);
+            }
+        });
+        if (kosuIcindeDegisen > 0) {
+            kosuDegisen++;
+            card.classList.add('race-order-changed');
+        }
+    }
+    return { degisen: degisenSayisi, birinciDegisen, kosuDegisen };
+}
+
+function applyGerceklerToDom(gercekler) {
+    if (!gercekler) return;
+    for (const raceIdx of Object.keys(gercekler)) {
+        const card = document.querySelector('.tahmin-race-card[data-race-index="' + raceIdx + '"]');
+        if (!card) continue;
+        const rows = gercekler[raceIdx] || [];
+        card.querySelectorAll('.gercek-at-input').forEach(input => {
+            const sira = parseInt(input.dataset.sira, 10);
+            const found = rows.find(r => r.sira === sira);
+            input.value = found?.name || '';
+        });
+    }
+}
+
+function updateBasariGosterim() {
+    const tahminler = getTahminlerFromDom();
+    const gercekler = getGerceklerFromDom();
+    const basari = SonucEngine.computeKayitBasari(tahminler, gercekler, lastAktarDetay);
+
+    for (const kosu of basari.kosular) {
+        const card = document.querySelector('.tahmin-race-card[data-race-index="' + kosu.raceIndex + '"]');
+        if (!card) continue;
+
+        card.classList.remove('basari-yuksek', 'basari-orta', 'basari-dusuk');
+        const badge = card.querySelector('.tahmin-race-basari');
+        if (kosu.hasGercek) {
+            badge.classList.add('visible');
+            const basariText = kosu.basariPuani != null ? kosu.basariPuani + '% başarı' : '—';
+            badge.textContent = basariText
+                + (kosu.birinciDogru ? ' ✓1.' : '')
+                + ' | ' + kosu.exactMatches + '/' + kosu.totalCompared + ' tam'
+                + (kosu.kosmazSayisi ? ' | ' + kosu.kosmazSayisi + ' koşmaz' : '');
+            if (kosu.basariPuani != null) {
+                if (kosu.basariPuani >= 70) card.classList.add('basari-yuksek');
+                else if (kosu.basariPuani >= 40) card.classList.add('basari-orta');
+                else card.classList.add('basari-dusuk');
+            }
+        } else {
+            badge.classList.remove('visible');
+        }
+
+        for (const p of kosu.pozisyonlar) {
+            const row = card.querySelector('.tahmin-row .gercek-at-input[data-sira="' + p.sira + '"]')?.closest('.tahmin-row');
+            if (!row) continue;
+            row.classList.remove('row-exact', 'row-miss', 'row-kosmaz');
+            const gInput = row.querySelector('.gercek-at-input');
+            const gCell = gInput.closest('.tahmin-cell');
+            const oldTag = gCell.querySelector('.gercek-sira-tag');
+            if (oldTag) oldTag.remove();
+
+            const hasGercekInput = !!(p.gercek && String(p.gercek).trim());
+            gInput.classList.remove('gercek-filled', 'gercek-exact', 'gercek-miss', 'gercek-kosmaz');
+
+            if (p.kosmaz) {
+                row.classList.add('row-kosmaz');
+                gInput.classList.add('gercek-kosmaz');
+                const tag = document.createElement('div');
+                tag.className = 'tahmin-rule-tag gercek-sira-tag';
+                tag.style.color = '#757575';
+                tag.textContent = 'koşmaz — değerlendirilmedi';
+                gCell.appendChild(tag);
+            } else if (hasGercekInput) {
+                gInput.classList.add('gercek-filled');
+                if (p.tahminGercekSira !== null && p.tahminGercekSira !== undefined) {
+                    const tag = document.createElement('div');
+                    tag.className = 'tahmin-rule-tag gercek-sira-tag';
+                    tag.style.color = p.exact ? '#2e7d32' : '#c62828';
+                    tag.textContent = '→ gerçek: ' + p.tahminGercekSira + '. sıra';
+                    gCell.appendChild(tag);
+                    if (p.exact) {
+                        row.classList.add('row-exact');
+                        gInput.classList.add('gercek-exact');
+                    } else if (SonucEngine.normalizeHorseName(p.tahmin)) {
+                        row.classList.add('row-miss');
+                        gInput.classList.add('gercek-miss');
+                    }
+                }
+            }
+        }
+    }
+
+    const panel = document.getElementById('basariOzetPanel');
+    if (!basari.kosuSayisi) {
+        panel.classList.remove('visible');
+        panel.innerHTML = '';
+        return;
+    }
+
+    panel.classList.add('visible');
+    panel.innerHTML = '<div class="basari-ozet-title">📈 Bu kayıt — başarı özeti (' + basari.kosuSayisi + ' koşu)</div>'
+        + '<div class="basari-stat-grid">'
+        + statBox((basari.ortalamaBasari != null ? basari.ortalamaBasari : '—') + '%', 'Ortalama başarı')
+        + statBox((basari.birinciPct != null ? basari.birinciPct : '—') + '%', '1. sıra (' + basari.birinciDogruSayisi + '/' + basari.birinciToplam + ')')
+        + statBox((basari.top3Pct != null ? basari.top3Pct : '—') + '%', 'Top 3 (' + basari.top3HitsToplam + '/' + basari.top3TotalToplam + ')')
+        + statBox((basari.exactPct != null ? basari.exactPct : '—') + '%', 'Tam eşleşme (' + basari.toplamExact + '/' + basari.toplamCompared + ')')
+        + (basari.toplamKosmaz ? statBox(basari.toplamKosmaz, 'Koşmaz (hariç)') : '')
+        + '</div>';
+
+    const ruleStats = SonucEngine.aggregateRuleStats([{
+        kosular: basari.kosular.map(k => ({ pozisyonlar: k.pozisyonlar }))
+    }]);
+    if (ruleStats.length) {
+        panel.innerHTML += '<div style="font-weight:700;font-size:13px;margin-bottom:6px;">Kural performansı (bu kayıt)</div>'
+            + ruleStatsTable(ruleStats);
+    }
+}
+
+function statBox(val, label) {
+    return '<div class="basari-stat"><div class="basari-stat-val">' + val + '</div>'
+        + '<div class="basari-stat-label">' + label + '</div></div>';
+}
+
+function ruleStatsTable(stats) {
+    let html = '<table class="rule-stats-table"><thead><tr>'
+        + '<th>Kural</th><th>Kullanım</th><th>Tam eşleşme</th><th>1. sıra</th></tr></thead><tbody>';
+    for (const s of stats) {
+        html += '<tr><td><strong>' + AtSpeedUtils.escapeHtml(s.ruleId) + '</strong></td>'
+            + '<td>' + s.total + '</td>'
+            + '<td>' + s.exact + ' (' + s.exactPct + '%)</td>'
+            + '<td>' + (s.birinciTotal ? s.birinci + '/' + s.birinciTotal + ' (' + s.birinciPct + '%)' : '-') + '</td></tr>';
+    }
+    return html + '</tbody></table>';
+}
+
+function renderArsivPanel() {
+    const archive = SonucEngine.getArchive();
+    const summary = SonucEngine.aggregateArchiveSummary(archive);
+    const panel = document.getElementById('arsivPanel');
+
+    if (!archive.length) {
+        panel.classList.add('visible');
+        panel.innerHTML = '<div style="font-weight:700;">📊 Arşiv boş — sonuç girdikten sonra "Arşive ekle" ile kaydedin.</div>';
+        return;
+    }
+
+    panel.classList.add('visible');
+    let html = '<div style="font-weight:800;font-size:14px;margin-bottom:10px;">📊 Arşiv özeti — '
+        + summary.kayitSayisi + ' kayıt, ' + summary.kosuSayisi + ' koşu'
+        + (summary.ortalamaBasari != null ? ', ort. başarı: ' + summary.ortalamaBasari + '%' : '')
+        + '</div>';
+
+    if (summary.ruleStats.length) {
+        html += '<div style="font-weight:700;font-size:12px;margin-bottom:4px;">Tüm arşiv — kural performansı</div>';
+        html += ruleStatsTable(summary.ruleStats);
+        html += '<hr style="margin:12px 0;border-color:#ffe082;">';
+    }
+
+    html += '<div style="font-weight:700;font-size:12px;margin-bottom:6px;">Kayıtlı sonuçlar</div>';
+    for (const entry of archive) {
+        const b = entry.basari;
+        html += '<div class="arsiv-item">'
+            + '<span>📅 ' + AtSpeedUtils.escapeHtml(entry.tarih)
+            + ' | ' + AtSpeedUtils.escapeHtml(entry.hipodrom)
+            + ' | Kayıt #' + entry.kayitId
+            + (b?.ortalamaBasari != null ? ' — <strong>' + b.ortalamaBasari + '%</strong>' : '')
+            + '</span>'
+            + '<button type="button" class="tahminim-btn" style="padding:4px 10px;font-size:11px;" data-arsiv-id="' + entry.id + '">Sil</button>'
+            + '</div>';
+    }
+    panel.innerHTML = html;
+
+    panel.querySelectorAll('[data-arsiv-id]').forEach(btn => {
+        btn.onclick = () => {
+            if (!confirm('Bu arşiv kaydı silinsin mi?')) return;
+            SonucEngine.removeFromArchive(btn.dataset.arsivId);
+            renderArsivPanel();
+            setStatus('<div class="status status-warning">⚠️ Arşiv kaydı silindi</div>');
+        };
+    });
+}
+
+function findProfileByName(profiles, horseName) {
+    if (!profiles?.length || !horseName) return null;
+    const norm = SonucEngine.normalizeHorseName(horseName);
+    return profiles.find(p => {
+        const n1 = SonucEngine.normalizeHorseName(p.name);
+        const n2 = SonucEngine.normalizeHorseName(p.name + ' (' + p.no + ')');
+        return n1 === norm || n2 === norm;
+    }) || null;
+}
+
+function renderKosulMatrisi(tahminler, detay, profiles) {
+    const panel = document.getElementById('kosulMatrisPanel');
+    const content = document.getElementById('kosulMatrisContent');
+    if (!panel || !content || !currentRaceData?.length || !tahminler || !profiles) {
+        if (panel) panel.classList.add('empty');
+        return;
+    }
+
+    const tiers = KuralPanel.getActiveTiers();
+    const priorityTier = tiers[0];
+    const priorityKeys = new Set(priorityTier?.required || []);
+    const ruleCols = tiers.slice(0, 8);
+    const condKeys = TahminEngine.CONDITION_KEYS;
+    const condShort = TahminEngine.CONDITION_SHORT;
+    const condLabels = TahminEngine.CONDITION_LABELS;
+
+    let html = '';
+    for (let raceIdx = 0; raceIdx < currentRaceData.length; raceIdx++) {
+        const race = currentRaceData[raceIdx];
+        const raceNo = race.raceNo || (raceIdx + 1);
+        const mesafe = (race.mesafe && race.mesafe !== '?') ? race.mesafe : (race.raceDistance || '?');
+        const pist = race.pist || '';
+        const mesafeGosterim = mesafe !== '?' ? mesafe + (pist ? ' ' + pist : '') : '?';
+        const rows = tahminler[raceIdx] || [];
+        const raceProfiles = profiles[raceIdx] || [];
+
+        html += '<div class="kosul-race-block">';
+        html += '<div class="kosul-race-title">🏁 ' + raceNo + '. KOŞU — ' + mesafeGosterim
+            + ' · öncelik: T1×DR → DR/1DR → TEST1</div>';
+        html += '<div class="kosul-table-wrap"><table class="kosul-table"><thead><tr>';
+        html += '<th class="kosul-sira">#</th>';
+        html += '<th class="kosul-at">At</th>';
+        html += '<th class="kosul-th-metric" title="TEST1 × DR/1DR (düşük = iyi)">T1×DR</th>';
+        html += '<th class="kosul-th-metric" title="DR/SL ÷ 1DR/SL (düşük = iyi)">DR/1DR</th>';
+        html += '<th class="kosul-th-metric" title="TEST1 (düşük = iyi)">TEST1</th>';
+        const metricKeys = TahminEngine.METRIC_KEYS;
+        const metricShort = TahminEngine.METRIC_SHORT;
+        const metricLabels = TahminEngine.METRIC_LABELS;
+        for (const key of metricKeys) {
+            const isPri = priorityKeys.has(key);
+            html += '<th class="' + (isPri ? 'kosul-th-priority' : '') + '" title="'
+                + AtSpeedUtils.escapeHtml(metricLabels[key] || key) + '">'
+                + AtSpeedUtils.escapeHtml(metricShort[key] || key) + '</th>';
+        }
+        for (const key of condKeys) {
+            const isPri = priorityKeys.has(key);
+            html += '<th class="' + (isPri ? 'kosul-th-priority' : '') + '" title="'
+                + AtSpeedUtils.escapeHtml(condLabels[key] || key) + '">'
+                + AtSpeedUtils.escapeHtml(condShort[key] || key) + '</th>';
+        }
+        for (const tier of ruleCols) {
+            html += '<th class="kosul-th-rule" title="' + AtSpeedUtils.escapeHtml(tier.label || tier.id) + '">'
+                + AtSpeedUtils.escapeHtml(tier.id) + '</th>';
+        }
+        html += '<th>SKOR</th></tr></thead><tbody>';
+
+        for (const row of rows) {
+            const profile = findProfileByName(raceProfiles, row.name);
+            if (!profile) continue;
+            const top3 = row.sira <= 3;
+            html += '<tr class="' + (top3 ? 'kosul-row-top3' : '') + '">';
+            html += '<td class="kosul-sira">' + row.sira + '</td>';
+            html += '<td class="kosul-at">' + AtSpeedUtils.escapeHtml(row.name) + '</td>';
+            const det = detay?.[raceIdx]?.[row.sira - 1] || {};
+            html += '<td class="kosul-metric-cell">' + AtSpeedUtils.escapeHtml(det.t1dr || '-') + '</td>';
+            html += '<td class="kosul-metric-cell">' + AtSpeedUtils.escapeHtml(det.drOran || '-') + '</td>';
+            html += '<td class="kosul-metric-cell">' + AtSpeedUtils.escapeHtml(det.test1Val || '-') + '</td>';
+
+            for (const key of metricKeys) {
+                const ok = !!profile.cond[key];
+                const isPri = priorityKeys.has(key);
+                let cls = ok ? 'kosul-cell-yes' : 'kosul-cell-no';
+                if (ok && isPri) cls = 'kosul-cell-priority-yes';
+                html += '<td class="' + cls + '" title="' + AtSpeedUtils.escapeHtml(metricLabels[key] || key) + '">'
+                    + (ok ? '✓' : '·') + '</td>';
+            }
+
+            for (const key of condKeys) {
+                const ok = !!profile.cond[key];
+                const isPri = priorityKeys.has(key);
+                let cls = ok ? 'kosul-cell-yes' : 'kosul-cell-no';
+                if (ok && isPri) cls = 'kosul-cell-priority-yes';
+                html += '<td class="' + cls + '" title="' + AtSpeedUtils.escapeHtml(condLabels[key] || key) + '">'
+                    + (ok ? '✓' : '·') + '</td>';
+            }
+
+            for (const tier of ruleCols) {
+                const matched = TahminEngine._matchCount(profile.cond, tier.required);
+                const total = tier.required.length;
+                const full = matched === total && total > 0;
+                const cls = full ? 'kosul-rule-full' : (matched > 0 ? 'kosul-rule-partial' : 'kosul-rule-none');
+                html += '<td class="kosul-rule-cell ' + cls + '">' + matched + '/' + total
+                    + (full ? ' ✓' : '') + '</td>';
+            }
+
+            html += '<td class="kosul-skor-cell">' + profile.score + '/12</td>';
+            html += '</tr>';
+        }
+
+        html += '</tbody></table></div></div>';
+    }
+
+    content.innerHTML = html;
+    panel.classList.remove('empty');
+    notifyParentResize();
+}
+
+function runOtomatikAktar() {
+    if (!currentRaceData || !currentKayitMeta) {
+        setStatus('<div class="status status-error">❌ Önce kayıt yükleyin</div>');
+        return;
+    }
+    const prevTahminler = getTahminlerFromDom();
+    const ruleTiers = KuralPanel.getActiveTiers();
+    const { tahminler, detay, profiles } = TahminEngine.computeAllRaces(currentRaceData, {
+        programTarih: currentKayitMeta.tarih,
+        hipodromSehir: currentKayitMeta.hipodrom,
+        ruleTiers
+    });
+    lastAktarDetay = detay;
+    lastRaceProfiles = profiles;
+    const { degisen, birinciDegisen, kosuDegisen } = applyTahminlerToDom(tahminler, detay, prevTahminler) || { degisen: 0, birinciDegisen: 0, kosuDegisen: 0 };
+    saveTahminToStorage(getTahminlerFromDom());
+
+    const ilkKural = ruleTiers[0]?.id || '-';
+    updateAktifKuralBanner();
+    let degisimMsg;
+    if (!degisen) {
+        degisimMsg = ' | <strong>sıralama aynı</strong>';
+    } else if (!birinciDegisen) {
+        degisimMsg = ' | <strong>' + degisen + ' sıra değişti</strong> (' + kosuDegisen + ' koşu) · 1. at aynı kaldı';
+    } else {
+        degisimMsg = ' | <strong>' + degisen + ' sıra değişti</strong> (' + kosuDegisen + ' koşu, 1. at dahil)';
+    }
+    setStatus('<div class="status status-success">⚡ Tahmin güncellendi — '
+        + Object.keys(tahminler).length + ' koşu | öncelik: <strong>T1×DR → DR/1DR → TEST1</strong>'
+        + ' · kural etiketi: <strong>' + ilkKural + '</strong>'
+        + degisimMsg
+        + ' · Her atın altında metrik + <strong>★ ' + ilkKural + ' (x/y)</strong> görünür'
+        + '</div>');
+    updateBasariGosterim();
+    renderKosulMatrisi(tahminler, detay, profiles);
+    notifyParentResize();
+}
+
+function setStatus(html) {
+    document.getElementById('tahminimStatus').innerHTML = html;
+}
+
+function updateMeta() {
+    const el = document.getElementById('tahminimMeta');
+    if (!currentKayitMeta || !currentRaceData) {
+        el.style.display = 'none';
+        return;
+    }
+    el.style.display = 'block';
+    el.innerHTML = '📅 ' + AtSpeedUtils.escapeHtml(currentKayitMeta.tarih)
+        + ' | 🏟️ ' + AtSpeedUtils.escapeHtml(currentKayitMeta.hipodrom)
+        + ' | 🏁 ' + currentRaceData.length + ' koşu'
+        + ' | Kayıt ID: ' + currentKayitId;
+}
+
+function buildTahminGrid(data) {
+    if (!data || !data.length) {
+        document.getElementById('tahminimResults').innerHTML = '<div class="empty">⚠️ Veri bulunamadı</div>';
+        document.getElementById('kosulMatrisPanel')?.classList.add('empty');
+        return;
+    }
+
+    let html = '<div class="tahminim-grid">';
+    for (let i = 0; i < data.length; i++) {
+        const race = data[i];
+        const raceNo = race.raceNo || (i + 1);
+        const mesafe = (race.mesafe && race.mesafe !== '?') ? race.mesafe : (race.raceDistance || '?');
+        const pist = race.pist || '';
+        const mesafeGosterim = mesafe !== '?' ? mesafe + (pist ? ' ' + pist : '') : '?';
+        const horseCount = (race.horses || []).length;
+        const datalistId = 'at-list-' + i;
+
+        html += '<div class="tahmin-race-card" data-race-index="' + i + '">';
+        html += '<div class="tahmin-race-header">';
+        html += '<div class="tahmin-race-header-left">';
+        html += '<span>🏁 ' + raceNo + '. KOŞU</span>';
+        html += '<span class="tahmin-race-badge">' + horseCount + ' AT</span>';
+        html += '<span class="tahmin-race-badge">' + AtSpeedUtils.escapeHtml(mesafeGosterim) + '</span>';
+        html += '<span class="tahmin-race-priority-badge">öncelik: -</span>';
+        html += '</div>';
+        html += '<span class="tahmin-race-basari"></span>';
+        html += '</div><div class="tahmin-race-body">';
+
+        html += '<div class="tahmin-col-headers"><span></span><span>Tahmin</span><span>Gerçek</span></div>';
+
+        for (let s = 1; s <= horseCount; s++) {
+            html += '<div class="tahmin-row">';
+            html += '<div class="tahmin-sira">' + s + '</div>';
+            html += '<div class="tahmin-cell">';
+            html += '<input type="text" class="tahmin-at-input" data-sira="' + s + '" readonly tabindex="-1"';
+            html += ' placeholder="Tahmin">';
+            html += '</div>';
+            html += '<div class="tahmin-cell">';
+            html += '<input type="text" class="gercek-at-input" data-sira="' + s + '" list="' + datalistId + '"';
+            html += ' placeholder="Sıra veya koşmaz" autocomplete="off">';
+            html += '</div></div>';
+        }
+
+        html += '<datalist id="' + datalistId + '">';
+        for (const name of getHorseDatalist(race)) {
+            html += '<option value="' + AtSpeedUtils.escapeHtml(name) + '">';
+        }
+        html += '</datalist>';
+
+        html += '</div></div>';
+    }
+    html += '</div>';
+    document.getElementById('tahminimResults').innerHTML = html;
+
+    applyTahminlerToDom(loadTahminFromStorage(), null);
+    applyGerceklerToDom(loadGercekFromStorage());
+
+    document.querySelectorAll('.gercek-at-input').forEach(input => {
+        input.addEventListener('input', () => {
+            saveGercekToStorage(getGerceklerFromDom());
+            updateBasariGosterim();
+        });
+    });
+
+    updateBasariGosterim();
+    notifyParentResize();
+}
+
+function onKayitLoaded(kayit) {
+    currentKayitId = kayit.id;
+    currentKayitMeta = {
+        tarih: kayit.tarih,
+        hipodrom: kayit.hipodrom,
+        race_count: kayit.race_count
+    };
+    currentRaceData = kayit.veri;
+    updateMeta();
+    buildTahminGrid(currentRaceData);
+    runOtomatikAktar();
+}
+
+async function loadKayitById(id) {
+    setStatus('<div class="status status-loading">⏳ Kayıt yükleniyor...</div>');
+    try {
+        const response = await fetch('/api/hesaplama-kayit/' + id);
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+        onKayitLoaded({
+            id: id,
+            tarih: result.kayit.tarih,
+            hipodrom: result.kayit.hipodrom,
+            race_count: result.kayit.race_count,
+            veri: result.kayit.veri
+        });
+    } catch (error) {
+        setStatus('<div class="status status-error">❌ ' + error.message + '</div>');
+    }
+}
+
+document.getElementById('kayitlariGetirBtn').onclick = async () => {
+    const kayitListesiDiv = document.getElementById('kayitListesi');
+    setStatus('<div class="status status-loading">⏳ Kayıtlar yükleniyor...</div>');
+    try {
+        const response = await fetch('/api/hesaplama-kayitlar');
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+        if (!result.kayitlar.length) {
+            kayitListesiDiv.innerHTML = '<div class="empty">Kayıt yok</div>';
+            kayitListesiDiv.style.display = 'block';
+            return;
+        }
+        let html = '<div class="kayit-listesi-title">📋 HESAPLAMA KAYITLARI</div>';
+        for (const k of result.kayitlar) {
+            html += AtSpeedUtils.hesaplamaKayitListItemHtml(k, '🏁 ' + k.race_count + ' koşu');
+        }
+        kayitListesiDiv.innerHTML = html;
+        kayitListesiDiv.style.display = 'block';
+        AtSpeedUtils.bindHesaplamaKayitList(kayitListesiDiv, async (id) => {
+            await loadKayitById(id);
+            kayitListesiDiv.style.display = 'none';
+        }, () => {
+            const left = kayitListesiDiv.querySelectorAll('.kayit-item').length;
+            if (left) {
+                setStatus('<div class="status status-success">✅ ' + left + ' kayıt kaldı</div>');
+            } else {
+                kayitListesiDiv.innerHTML = '<div class="empty">Kayıt yok</div>';
+                setStatus('<div class="status status-error">⚠️ Hiç kayıt yok</div>');
+            }
+        });
+        setStatus('<div class="status status-success">✅ ' + result.kayitlar.length + ' kayıt listelendi</div>');
+    } catch (error) {
+        setStatus('<div class="status status-error">❌ ' + error.message + '</div>');
+    }
+};
+
+document.getElementById('otomatikAktarBtn').onclick = runOtomatikAktar;
+
+document.getElementById('kayitSenkronBtn').onclick = () => {
+    window.parent.postMessage({ type: '88atspeed-request-gosterim-kayit' }, '*');
+    setStatus('<div class="status status-loading">⏳ GÖSTERİM sekmesinden kayıt isteniyor...</div>');
+};
+
+document.getElementById('tahminKaydetBtn').onclick = () => {
+    if (!currentKayitId) {
+        setStatus('<div class="status status-error">❌ Önce kayıt yükleyin</div>');
+        return;
+    }
+    saveTahminToStorage(getTahminlerFromDom());
+    setStatus('<div class="status status-success">✅ Tahminler kaydedildi (tarayıcıda)</div>');
+};
+
+document.getElementById('sonucKaydetBtn').onclick = () => {
+    if (!currentKayitId) {
+        setStatus('<div class="status status-error">❌ Önce kayıt yükleyin</div>');
+        return;
+    }
+    const gercekler = getGerceklerFromDom();
+    const hasAny = Object.values(gercekler).some(rows =>
+        rows.some(r => SonucEngine.normalizeHorseName(r.name))
+    );
+    if (!hasAny) {
+        setStatus('<div class="status status-error">❌ En az bir gerçek sonuç girin</div>');
+        return;
+    }
+    saveGercekToStorage(gercekler);
+    updateBasariGosterim();
+    const basari = SonucEngine.computeKayitBasari(getTahminlerFromDom(), gercekler, lastAktarDetay);
+    setStatus('<div class="status status-success">✅ Sonuçlar kaydedildi — '
+        + basari.kosuSayisi + ' koşu, ortalama başarı: ' + basari.ortalamaBasari + '%</div>');
+};
+
+document.getElementById('arsiveEkleBtn').onclick = () => {
+    if (!currentKayitId) {
+        setStatus('<div class="status status-error">❌ Önce kayıt yükleyin</div>');
+        return;
+    }
+    const tahminler = getTahminlerFromDom();
+    const gercekler = getGerceklerFromDom();
+    const basari = SonucEngine.computeKayitBasari(tahminler, gercekler, lastAktarDetay);
+    if (!basari.kosuSayisi) {
+        setStatus('<div class="status status-error">❌ Arşive eklemek için gerçek sonuç girin</div>');
+        return;
+    }
+    const entry = SonucEngine.buildArchiveEntry(
+        currentKayitId, currentKayitMeta, tahminler, gercekler, lastAktarDetay
+    );
+    const count = SonucEngine.addToArchive(entry);
+    renderArsivPanel();
+    setStatus('<div class="status status-success">📦 Arşive eklendi — toplam ' + count + ' kayıt, bu kayıt başarı: '
+        + basari.ortalamaBasari + '%</div>');
+};
+
+document.getElementById('arsivGosterBtn').onclick = () => {
+    const panel = document.getElementById('arsivPanel');
+    if (panel.classList.contains('visible')) {
+        panel.classList.remove('visible');
+    } else {
+        renderArsivPanel();
+    }
+};
+
+document.getElementById('tahminTemizleBtn').onclick = () => {
+    if (!currentKayitId) return;
+    if (!confirm('Bu kayıt için tahmin ve gerçek sonuçlar silinsin mi?')) return;
+    localStorage.removeItem(storageKey());
+    localStorage.removeItem(SonucEngine.gercekStorageKey(currentKayitId));
+    document.querySelectorAll('.tahmin-at-input').forEach(input => { input.value = ''; input.classList.remove('tahmin-auto-filled'); });
+    document.querySelectorAll('.gercek-at-input').forEach(input => { input.value = ''; });
+    document.querySelectorAll('.tahmin-rule-tag').forEach(t => t.remove());
+    document.getElementById('basariOzetPanel').classList.remove('visible');
+    setStatus('<div class="status status-warning">⚠️ Tahmin ve sonuçlar temizlendi</div>');
+    updateBasariGosterim();
+};
+
+window.addEventListener('message', (e) => {
+    if (e.data?.type === '88atspeed-kayit-loaded' && e.data.kayit) {
+        onKayitLoaded(e.data.kayit);
+    }
+});
+
+window.TahminimPage = {
+    getRaceData: () => currentRaceData,
+    getKayitId: () => currentKayitId,
+    getGercekler: () => getGerceklerFromDom(),
+    getBasari: () => SonucEngine.computeKayitBasari(getTahminlerFromDom(), getGerceklerFromDom(), lastAktarDetay),
+    setTahminAt: (raceIndex, sira, name) => {
+        const input = document.querySelector(
+            '.tahmin-race-card[data-race-index="' + raceIndex + '"] .tahmin-at-input[data-sira="' + sira + '"]'
+        );
+        if (input) {
+            input.value = name || '';
+            saveTahminToStorage(getTahminlerFromDom());
+        }
+    },
+    setTahminler: (tahminler, detay) => {
+        applyTahminlerToDom(tahminler, detay);
+        saveTahminToStorage(getTahminlerFromDom());
+        updateBasariGosterim();
+    },
+    runOtomatikAktar
+};
+
+KuralPanel.setOnChange(() => {
+    updateAktifKuralBanner();
+    if (currentRaceData && currentKayitMeta) runOtomatikAktar();
+});
+KuralPanel.init();
+updateAktifKuralBanner();
+window.addEventListener('resize', () => notifyParentResize());
+if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => notifyParentResize()).observe(document.getElementById('tahminimContainer'));
+}
+notifyParentResize();
+</script>
+</body>
+</html>
