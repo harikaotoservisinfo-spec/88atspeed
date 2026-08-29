@@ -5,8 +5,10 @@
  */
 const BasariPctScoringEngine = (function () {
     const STORAGE_KEY = 'basariPctWeightsBySize';
-    const PROFILE_VERSION = 2;
+    const PROFILE_VERSION = 3;
     const MIN_RACES = 5;
+    /** Profil adayında en az bu oranda atda veri olmalı (Ş/M ~%14 elenir) */
+    const MIN_STAT_COVERAGE = 0.25;
     const SUCCESS_BLEND = { b1: 0.80, b12: 0.12, b123: 0.08 };
 
     const PERIODS = ['gun15', 'ay1', 'ay3'];
@@ -34,20 +36,22 @@ const BasariPctScoringEngine = (function () {
     const STAT_CATALOG = buildStatCatalog();
 
     const DEFAULT_WEIGHTS = {
-        'smIlk1.gun15': 22,
-        'smIlk1.ay1': 18,
-        'smIlk1.ay3': 12,
-        'smIlk2.gun15': 10,
-        'smIlk2.ay1': 8,
-        'smIlk3.gun15': 6,
+        'genelIlk1.gun15': 14,
+        'genelIlk1.ay1': 12,
+        'genelIlk1.ay3': 10,
+        'genelIlk2.gun15': 8,
+        'genelIlk2.ay1': 6,
+        'genelIlk3.gun15': 5,
         'mesafeIlk1.gun15': 10,
         'mesafeIlk1.ay1': 8,
+        'mesafeIlk1.ay3': 6,
         'mesafeIlk2.gun15': 5,
-        'genelIlk1.gun15': 8,
-        'genelIlk1.ay1': 6,
-        'genelIlk2.gun15': 4,
-        'genelIlk3.gun15': 3,
-        'sehir': 4
+        'sehir': 8,
+        'smIlk1.gun15': 6,
+        'smIlk1.ay1': 5,
+        'smIlk1.ay3': 4,
+        'smIlk2.gun15': 4,
+        'smIlk2.ay1': 3
     };
 
     let weightsBySize = null;
@@ -301,6 +305,18 @@ const BasariPctScoringEngine = (function () {
         };
     }
 
+    function statCoverageInFieldSize(raceGroups, statKey) {
+        let total = 0;
+        let hit = 0;
+        for (const entries of raceGroups || []) {
+            for (const entry of entries) {
+                total++;
+                if (resolveBasariPct(entry.row, statKey) != null) hit++;
+            }
+        }
+        return total ? hit / total : 0;
+    }
+
     function evaluateStatLeaderBlended(raceGroups, statKey, bitisValueForSort) {
         let leaderTotal = 0;
         let leaderB1 = 0;
@@ -399,18 +415,24 @@ const BasariPctScoringEngine = (function () {
 
             const statResults = [];
             for (const { key } of STAT_CATALOG) {
+                const coverage = statCoverageInFieldSize(raceGroups, key);
+                if (coverage < MIN_STAT_COVERAGE) continue;
                 const r = evaluateStatLeaderBlended(raceGroups, key, bitisValueForSort);
-                if (r.leaderTotal >= 3) statResults.push(r);
+                if (r.leaderTotal >= 3) {
+                    r.coverage = coverage;
+                    r.adjustedBlended = r.leaderBlended * (0.35 + 0.65 * coverage);
+                    statResults.push(r);
+                }
             }
-            statResults.sort((a, b) => b.leaderBlended - a.leaderBlended);
+            statResults.sort((a, b) => b.adjustedBlended - a.adjustedBlended);
 
-            const top = statResults.slice(0, 8).filter(s => s.leaderBlended > 0);
+            const top = statResults.slice(0, 8).filter(s => s.adjustedBlended > 0);
             if (!top.length) continue;
 
             const weights = {};
             let sum = 0;
             for (let i = 0; i < top.length; i++) {
-                const w = Math.max(5, Math.round((top[i].leaderBlended * 100) * (top.length - i)));
+                const w = Math.max(5, Math.round((top[i].adjustedBlended * 100) * (top.length - i)));
                 weights[top[i].statKey] = w;
                 sum += w;
             }
@@ -427,8 +449,10 @@ const BasariPctScoringEngine = (function () {
                 raceCount: raceGroups.length,
                 leaderBlended: combinedBlended || top[0].leaderBlended,
                 topStat: statLabel(top[0].statKey),
+                topCoverage: top[0].coverage,
                 weights: out[fs],
-                preview: top.slice(0, 3).map(t => statLabel(t.statKey))
+                preview: top.slice(0, 3).map(t => statLabel(t.statKey)),
+                previewCoverage: top.slice(0, 3).map(t => Math.round((t.coverage || 0) * 100) + '%')
             });
         }
 
@@ -529,7 +553,8 @@ const BasariPctScoringEngine = (function () {
             .sort((a, b) => (a.fieldSize || 0) - (b.fieldSize || 0))
             .map(p => p.fieldSize + ' at → ' + (p.preview || []).join(' · '));
         return '<strong>Başarı % profili aktif</strong> · ' + parts.join(' · ')
-            + '<br><span style="color:#789;font-size:10px">Gösterge / renk / T9V / metrik faktörleri TAHMİN\'e girmez · eksik profil alanında yedek yüzdeler kullanılır</span>';
+            + '<br><span style="color:#789;font-size:10px">Gösterge / renk / T9V / metrik etkisiz · profil: min %'
+            + Math.round(MIN_STAT_COVERAGE * 100) + ' doluluk · yedek: GEN/MES/şehir</span>';
     }
 
     if (typeof localStorage !== 'undefined') loadWeights();
@@ -543,6 +568,7 @@ const BasariPctScoringEngine = (function () {
         calibrateFromFlatEntries,
         loadAndCalibrateFromApi,
         evaluateTahminSuccess,
+        statCoverageInFieldSize,
         setWeightsBySize,
         loadWeights,
         saveWeights,
@@ -554,6 +580,7 @@ const BasariPctScoringEngine = (function () {
         DEFAULT_WEIGHTS,
         STORAGE_KEY,
         PROFILE_VERSION,
+        MIN_STAT_COVERAGE,
         SUCCESS_BLEND
     };
 })();

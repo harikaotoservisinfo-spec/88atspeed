@@ -215,8 +215,12 @@ async function main() {
         if (summary?.list?.length) {
             console.log('\nAt sayısı profilleri (' + summary.list.length + '):');
             for (const p of summary.list.sort((a, b) => a.fieldSize - b.fieldSize)) {
-                console.log('  ' + p.fieldSize + ' at · ' + p.raceCount + ' koşu · karışık '
-                    + pct(p.leaderBlended) + ' · ' + (p.preview || []).join(' · '));
+                let line = '  ' + p.fieldSize + ' at · ' + p.raceCount + ' koşu · karışık '
+                    + pct(p.leaderBlended) + ' · ' + (p.preview || []).join(' · ');
+                if (p.previewCoverage?.length) {
+                    line += ' (doluluk ' + p.previewCoverage.join(', ') + ')';
+                }
+                console.log(line);
             }
         } else {
             console.log('\n⚠ Profil kalibre edilemedi (yeterli koşu yok) — varsayılan ağırlıklar');
@@ -247,9 +251,10 @@ async function main() {
             console.log('  ' + pad(s.label, 22) + flatEntries.length + ' satırın '
                 + pct(s.rate) + ' (' + s.n + ')');
         }
-        const rare = statDiag.filter(s => s.rate < 0.15 && s.rate > 0);
+        const rare = statDiag.filter(s => s.rate < BPE.MIN_STAT_COVERAGE && s.rate > 0);
         if (rare.length) {
-            console.log('\n⚠ Seyrek alanlar (<15% doluluk) — profilde öne çıkarsa çoğu at skorsuz kalır:');
+            console.log('\n⚠ Seyrek alanlar (<' + Math.round(BPE.MIN_STAT_COVERAGE * 100)
+                + '% doluluk) — profilden otomatik elendi:');
             for (const s of rare.slice(0, 6)) {
                 console.log('  ' + s.label + ' ' + pct(s.rate));
             }
