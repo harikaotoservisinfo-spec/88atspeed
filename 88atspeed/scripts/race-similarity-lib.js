@@ -1412,7 +1412,7 @@ function collectTipAWinners(profiles, opts) {
     for (const p of profiles) {
         if (p.fieldSize !== fieldSize || !p.winnerEntry) continue;
         const typed = classifyTenAtWinnerType(p, opts);
-        if (typed?.typeId !== 'A') continue;
+        if (typed?.type !== 'A') continue;
         targets.push({
             profile: p,
             hybrid: typed,

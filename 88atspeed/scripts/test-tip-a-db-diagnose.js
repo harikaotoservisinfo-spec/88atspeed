@@ -209,7 +209,7 @@ async function main() {
             .filter(p => p.fieldSize === cli.fieldSize && p.hasWinner);
 
         const hybrid = buildTenAtHybridTypeReport(profiles, { fieldSize: cli.fieldSize });
-        console.log('Tip A havuzu: ' + (hybrid.types.A?.count ?? 0) + ' / ' + hybrid.total + ' koşu');
+        console.log('Tip A havuzu: ' + (hybrid.types.A?.n ?? 0) + ' / ' + (hybrid.poolSize ?? 0) + ' koşu');
 
         const targets = await resolveTargets(db, profiles);
         const kayitlar = await loadKayitlar(db);
