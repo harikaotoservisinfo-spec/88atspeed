@@ -45,3 +45,8 @@ echo ""
 curl -s "http://127.0.0.1:3023/istatistikler.html" | grep -oE '20260826m|·BS|successPct' | head -5 || true
 echo ""
 pm2 status 88atspeed
+echo ""
+echo "📋 Terminal testleri (önce cd $APP_DIR):"
+echo "  cd $APP_DIR && node scripts/test-race-similarity.js --db $APP_DIR/atlar.db"
+echo "  cd $APP_DIR && node scripts/test-race-similarity.js --db $APP_DIR/atlar.db --phase noise,features,rowflags,winner-field,deep10 --min-sample 3"
+echo "  cd $APP_DIR && node scripts/test-race-similarity.js --db $APP_DIR/atlar.db --field-size 10 --phase deep10,winner-field --min-sample 2"
