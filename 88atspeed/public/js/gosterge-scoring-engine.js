@@ -1389,9 +1389,12 @@ const GostergeScoringEngine = (function () {
             const sa = a.tahmin.score;
             const sb = b.tahmin.score;
             if (sb !== sa) return sb - sa;
-            const na = a.row?.no ?? a.entry?.row?.no ?? 0;
-            const nb = b.row?.no ?? b.entry?.row?.no ?? 0;
-            return na - nb;
+            const rowA = a.row ?? a.entry?.row;
+            const rowB = b.row ?? b.entry?.row;
+            if (typeof AtSpeedUtils !== 'undefined' && AtSpeedUtils.compareTahminTieBreak) {
+                return AtSpeedUtils.compareTahminTieBreak(rowA, rowB);
+            }
+            return (rowA?.no ?? 0) - (rowB?.no ?? 0);
         });
         for (let i = 0; i < scored.length; i++) {
             scored[i].tahmin.rank = i + 1;

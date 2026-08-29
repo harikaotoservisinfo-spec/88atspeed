@@ -170,6 +170,9 @@ const HybridTahminScoringEngine = (function () {
             const sa = a.tahmin.score;
             const sb = b.tahmin.score;
             if (sb !== sa) return sb - sa;
+            if (typeof AtSpeedUtils !== 'undefined' && AtSpeedUtils.compareTahminTieBreak) {
+                return AtSpeedUtils.compareTahminTieBreak(a.row, b.row);
+            }
             return (a.row?.no ?? 0) - (b.row?.no ?? 0);
         });
         for (let i = 0; i < scored.length; i++) {
@@ -280,6 +283,9 @@ const HybridTahminScoringEngine = (function () {
                 return a.tahmin.ineligible ? 1 : -1;
             }
             if (b.tahmin.score !== a.tahmin.score) return b.tahmin.score - a.tahmin.score;
+            if (typeof AtSpeedUtils !== 'undefined' && AtSpeedUtils.compareTahminTieBreak) {
+                return AtSpeedUtils.compareTahminTieBreak(a.row, b.row);
+            }
             return (a.row?.no ?? 0) - (b.row?.no ?? 0);
         });
         for (let i = 0; i < blended.length; i++) {

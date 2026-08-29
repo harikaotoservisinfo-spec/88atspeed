@@ -303,6 +303,26 @@ const AtSpeedUtils = {
             '<button type="button" class="kayit-delete-btn" data-action="delete" title="Kaydı sil">🗑 Sil</button>' +
             '<button type="button" class="kayit-load-btn" data-action="load">Yükle →</button>' +
             '</div></div>';
+    },
+
+    /** Eşit TAHMİN skorunda ikincil sıra: SON800-1 → TEST1 → T1×DR derinlik % */
+    depthTieBreakScore(row) {
+        if (!row) return -1;
+        const s = row.son8001Depths?.[0]?.pct;
+        const t = row.test1Depths?.[0]?.pct;
+        const d = row.t1drDepths?.[0]?.pct;
+        let score = 0;
+        if (s != null) score += s * 10000;
+        if (t != null) score += t * 100;
+        if (d != null) score += d;
+        return score;
+    },
+
+    compareTahminTieBreak(rowA, rowB) {
+        const sa = AtSpeedUtils.depthTieBreakScore(rowA);
+        const sb = AtSpeedUtils.depthTieBreakScore(rowB);
+        if (sb !== sa) return sb - sa;
+        return (rowA?.no ?? 0) - (rowB?.no ?? 0);
     }
 };
 

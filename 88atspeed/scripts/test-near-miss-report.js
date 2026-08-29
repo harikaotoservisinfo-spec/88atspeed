@@ -2,8 +2,11 @@
 /**
  * TAHMİN vs BİTİŞ — yakın isabet (±1) nüans raporu
  *
+ * Varsayılan motor: gösterge (PUANLAMA TEST ile aynı yol)
+ *
  *   node scripts/test-near-miss-report.js --db atlar.db --kayit 133 --race 6 --verbose
  *   node scripts/test-near-miss-report.js --db atlar.db --field-size 10
+ *   node scripts/test-near-miss-report.js --engine hybrid --field-size 10
  */
 const fs = require('fs');
 const path = require('path');
@@ -28,6 +31,7 @@ const cli = {
     kayitId: argVal('--kayit') ? Number(argVal('--kayit')) : null,
     raceNo: argVal('--race') ? Number(argVal('--race')) : null,
     fieldSize: argVal('--field-size') ? Number(argVal('--field-size')) : null,
+    engine: (argVal('--engine') || 'gosterge').toLowerCase(),
     verbose: args.includes('--verbose') || args.includes('-v')
 };
 
@@ -65,10 +69,24 @@ function topTerms(tahmin, n) {
     );
 }
 
+function attachRaceTahminForEngine(entries) {
+    const rows = entries.map(e => e.row);
+    const srcPkg = entries[0]?._pkg;
+    const pkg = {
+        rows,
+        depthCoverage: srcPkg?.depthCoverage || null,
+        kosuHistorySummary: srcPkg?.kosuHistorySummary || null
+    };
+
+    if (cli.engine === 'hybrid') {
+        global.HybridTahminScoringEngine.attachRaceTahmin(pkg);
+        return;
+    }
+    global.GostergeScoringEngine.attachRaceTahmin(pkg);
+}
+
 function analyzeRace(entries, host, label) {
-    const H = global.HybridTahminScoringEngine;
-    const pkg = { rows: entries.map(e => e.row) };
-    H.attachRaceTahmin(pkg);
+    attachRaceTahminForEngine(entries);
 
     const rows = entries.map(e => {
         const bitis = host.bitisValueForSort(e);
@@ -182,19 +200,23 @@ function printRaceReport(rep) {
         console.log('  Oran → tam ' + rate(rep.exact) + ' · ±1 ' + rate(rep.pm1) + ' · ±2 ' + rate(rep.pm2));
     }
 
+    const showBlendCols = cli.engine === 'hybrid';
     console.log('\n  ' + pad('TAHMİN', 6) + pad('BİTİŞ', 6) + pad('Δ', 4)
-        + pad('skor', 6) + pad('%', 4) + pad('B%', 4) + pad('G%', 4)
+        + pad('skor', 6) + pad('%', 4)
+        + (showBlendCols ? pad('B%', 4) + pad('G%', 4) : '')
         + '  At');
     for (const r of rep.rows) {
         const mark = r.delta === 0 ? '✓' : (r.delta === 1 || r.delta === -1 ? '~' : (r.delta != null ? '✗' : ' '));
-        console.log('  ' + mark + ' ' + pad(r.pred != null ? r.pred + '.' : '—', 5)
+        let line = '  ' + mark + ' ' + pad(r.pred != null ? r.pred + '.' : '—', 5)
             + pad(r.bitis != null ? r.bitis + '.' : '—', 5)
             + pad(r.delta != null ? (r.delta > 0 ? '+' + r.delta : String(r.delta)) : '—', 4)
             + pad(r.score, 5)
-            + pad(r.pct ?? '—', 4)
-            + pad(r.basariPct ?? '—', 4)
-            + pad(r.gostergePct ?? '—', 4)
-            + '  #' + r.no + ' ' + (r.name || ''));
+            + pad(r.pct ?? '—', 4);
+        if (showBlendCols) {
+            line += pad(r.basariPct ?? '—', 4) + pad(r.gostergePct ?? '—', 4);
+        }
+        line += '  #' + r.no + ' ' + (r.name || '');
+        console.log(line);
         if (cli.verbose && r.terms.length) {
             console.log('      ' + r.terms.join(' · '));
             console.log('      S800=' + (r.metrics.son8001 ?? '—') + ' T1=' + (r.metrics.test1 ?? '—')
@@ -234,14 +256,33 @@ function printRaceReport(rep) {
     }
 }
 
+async function calibrateScoring(flatEntries, host) {
+    if (cli.engine === 'hybrid') {
+        return global.HybridTahminScoringEngine.calibrateFromFlatEntries(
+            flatEntries, host.bitisValueForSort, { host }
+        );
+    }
+    await global.GostergeScoringEngine.calibrate(flatEntries, host);
+    if (global.GostergeScoringEngine.isCalibrated?.()) {
+        global.GostergeScoringEngine.applyToFlatEntries(flatEntries);
+    }
+    return global.GostergeScoringEngine.getCalibration?.();
+}
+
 async function main() {
-    loadHybridEngines();
+    if (cli.engine === 'hybrid') {
+        loadHybridEngines();
+    } else {
+        loadGostergeEngines();
+    }
+
     const db = openDb(cli.dbPath);
     try {
         console.log('╔══════════════════════════════════════════════════════════════╗');
         console.log('║  TAHMİN yakın isabet (±1) nüans raporu                      ║');
         console.log('╚══════════════════════════════════════════════════════════════╝');
         console.log('DB: ' + cli.dbPath);
+        console.log('Motor: ' + cli.engine + (cli.engine === 'gosterge' ? ' (PUANLAMA TEST ile aynı)' : ''));
 
         let { flatEntries, bitisMap } = await buildFlatEntriesFromDb(db, {
             filterKayit: cli.kayitId,
@@ -250,9 +291,7 @@ async function main() {
         const host = makeGostergeHost(flatEntries, bitisMap);
 
         console.log('⏳ Kalibrasyon…');
-        const cal = await global.HybridTahminScoringEngine.calibrateFromFlatEntries(
-            flatEntries, host.bitisValueForSort, { host }
-        );
+        const cal = await calibrateScoring(flatEntries, host);
         if (!cal) {
             console.error('Kalibrasyon başarısız — bitiş verisi yetersiz olabilir.');
             process.exit(1);
@@ -323,12 +362,13 @@ async function main() {
 
         console.log('\n── Yorum ──');
         console.log('  ~ = ±1 yakın isabet (6 tahmin → 7 bitiş vb.)');
-        console.log('  pct kümesi (%6×N) = skor normalize sonrası orta sıra atlar birbirine yapışık');
-        console.log('  ±1 çiftlerde SON800/TEST1 farkına bak — tie-break kural adayı');
+        console.log('  pct kümesi = skor normalize sonrası orta sıra atlar birbirine yapışık');
+        console.log('  ±1 çiftlerde SON800/TEST1 farkına bak — tie-break: SON800→TEST1→T1×DR');
 
         hr('Kullanım');
         console.log('  node scripts/test-near-miss-report.js --kayit 133 --race 6 --verbose');
         console.log('  node scripts/test-near-miss-report.js --field-size 10');
+        console.log('  node scripts/test-near-miss-report.js --engine hybrid --field-size 10');
         console.log('\nOK');
     } finally {
         db.close();
