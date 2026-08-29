@@ -7,12 +7,11 @@ const GostergeScoringEngine = (function () {
     const DEPTH_PAIR_WEIGHT_FACTOR = 0.65;
     let T9V_SCORE_SHARE = 0.35;
     let OTHER_SCORE_SHARE = 0.65;
-    /** %65 diliminde renk kovası — toplam ~%45 (45/65) */
-    const COLOR_OTHER_SHARE = 45 / 65;
-    /** %65 diliminde metrik kovaları — toplam ~%16 (16/65) */
-    const METRIC_OTHER_SHARE = 16 / 65;
-    /** %65 diliminde rest (SON800-2, SON800·DR…) — toplam ~%4 (4/65) */
-    const REST_OTHER_SHARE = 4 / 65;
+    /** %65 diliminde kova oranları (toplam pay = OTHER × frac) */
+    let COLOR_OTHER_SHARE = 45 / 65;
+    let METRIC_OTHER_SHARE = 16 / 65;
+    let REST_OTHER_SHARE = 4 / 65;
+    const DEFAULT_SCORE_SHARE_SPLIT = { t9v: 35, colors: 45, metrics: 16, rest: 4 };
     const COLOR_RULE_IDS = new Set([
         'yesilHucre', 'turuncuHucre', 'turuncuCevre', 'sariYazi',
         'kirmiziIc', 'acikYesilIc', 'koyuYesilIc'
@@ -130,6 +129,100 @@ const GostergeScoringEngine = (function () {
 
     function getT9vScoreShare() {
         return T9V_SCORE_SHARE;
+    }
+
+    function getScoreShareSplit() {
+        const colorsTotal = OTHER_SCORE_SHARE * COLOR_OTHER_SHARE;
+        const metricsTotal = OTHER_SCORE_SHARE * METRIC_OTHER_SHARE;
+        const restTotal = OTHER_SCORE_SHARE * REST_OTHER_SHARE;
+        return {
+            t9v: Math.round(T9V_SCORE_SHARE * 1000) / 10,
+            colors: Math.round(colorsTotal * 1000) / 10,
+            metrics: Math.round(metricsTotal * 1000) / 10,
+            rest: Math.round(restTotal * 1000) / 10
+        };
+    }
+
+    function setScoreShareSplit(t9vPct, colorsPct, metricsPct, restPct) {
+        let t = Math.max(0, Number(t9vPct) || 0);
+        let c = Math.max(0, Number(colorsPct) || 0);
+        let m = Math.max(0, Number(metricsPct) || 0);
+        let r = Math.max(0, Number(restPct) || 0);
+        const sum = t + c + m + r;
+        if (sum <= 0) return getScoreShareSplit();
+        t /= sum;
+        c /= sum;
+        m /= sum;
+        r /= sum;
+        T9V_SCORE_SHARE = t;
+        OTHER_SCORE_SHARE = 1 - t;
+        const otherTotal = c + m + r;
+        if (otherTotal <= 0) {
+            COLOR_OTHER_SHARE = 0;
+            METRIC_OTHER_SHARE = 0;
+            REST_OTHER_SHARE = 0;
+        } else {
+            COLOR_OTHER_SHARE = c / otherTotal;
+            METRIC_OTHER_SHARE = m / otherTotal;
+            REST_OTHER_SHARE = r / otherTotal;
+        }
+        return getScoreShareSplit();
+    }
+
+    function resetScoreShareSplit() {
+        const d = DEFAULT_SCORE_SHARE_SPLIT;
+        return setScoreShareSplit(d.t9v, d.colors, d.metrics, d.rest);
+    }
+
+    function evaluateShareSplit(flatEntries, host, split) {
+        if (!calibration || !flatEntries?.length) return null;
+        const savedSplit = getScoreShareSplit();
+        const savedTahmin = flatEntries.map(e => e.row.tahmin);
+        const normalized = setScoreShareSplit(split.t9v, split.colors, split.metrics, split.rest);
+        applyToFlatEntries(flatEntries);
+        const stats = evaluateTahminSuccess(flatEntries, host.bitisValueForSort, SUCCESS_BLEND);
+        flatEntries.forEach((e, i) => { e.row.tahmin = savedTahmin[i]; });
+        setScoreShareSplit(savedSplit.t9v, savedSplit.colors, savedSplit.metrics, savedSplit.rest);
+        return { split: { ...split }, normalized, ...stats };
+    }
+
+    function generateShareSplitSweepConfigs() {
+        const configs = [];
+        const t9vVals = [25, 30, 35, 40, 45];
+        const colorVals = [35, 40, 45, 50, 55];
+        const metricVals = [10, 16, 20, 25];
+        for (const t9v of t9vVals) {
+            for (const colors of colorVals) {
+                for (const metrics of metricVals) {
+                    const rest = Math.round((100 - t9v - colors - metrics) * 10) / 10;
+                    if (rest < 0 || rest > 25) continue;
+                    configs.push({
+                        id: 't' + t9v + '_c' + colors + '_m' + metrics + '_r' + rest,
+                        label: 'T9V %' + t9v + ' · Renkler %' + colors + ' · Metrikler %' + metrics + ' · rest %' + rest,
+                        t9v, colors, metrics, rest
+                    });
+                }
+            }
+        }
+        return configs;
+    }
+
+    async function runShareSplitSweep(flatEntries, host, onProgress) {
+        if (!calibration) return { results: [], configCount: 0 };
+        const configs = generateShareSplitSweepConfigs();
+        const results = [];
+        for (let i = 0; i < configs.length; i++) {
+            const cfg = configs[i];
+            onProgress?.('Pay taraması ' + (i + 1) + '/' + configs.length + ': ' + cfg.label);
+            const row = evaluateShareSplit(flatEntries, host, cfg);
+            if (row) results.push({ config: cfg, ...row });
+            if (i % 5 === 4) await yieldToMain();
+        }
+        results.sort((a, b) => {
+            if (b.leaderBlended !== a.leaderBlended) return b.leaderBlended - a.leaderBlended;
+            return b.exactRate - a.exactRate;
+        });
+        return { results, configCount: configs.length };
     }
 
     function setMetricSweepFocus(metricId, shareWithinOther) {
@@ -991,11 +1084,12 @@ const GostergeScoringEngine = (function () {
         }
 
         const blend = calibration.successBlend || SUCCESS_BLEND;
+        const shareSplit = getScoreShareSplit();
         let shareParts = [
-            'T9V %' + Math.round(T9V_SCORE_SHARE * 100),
-            'Renkler %' + Math.round(COLOR_OTHER_SHARE * OTHER_SCORE_SHARE * 1000) / 10,
-            'Metrikler %' + Math.round(METRIC_OTHER_SHARE * OTHER_SCORE_SHARE * 1000) / 10,
-            'rest %' + Math.round(REST_OTHER_SHARE * OTHER_SCORE_SHARE * 1000) / 10
+            'T9V %' + shareSplit.t9v,
+            'Renkler %' + shareSplit.colors,
+            'Metrikler %' + shareSplit.metrics,
+            'rest %' + shareSplit.rest
         ];
         const shareInfo = getOtherMetricShares();
         const sortedIds = Object.keys(OTHER_METRIC_SHARE_PCT).sort((a, b) =>
@@ -1014,7 +1108,9 @@ const GostergeScoringEngine = (function () {
             + calibration.bitisRows + ' bitişli / ' + calibration.totalRows + ' satır · '
             + 'başarı: %' + Math.round(blend.b1 * 100) + ' 1. · %' + Math.round(blend.b12 * 100) + ' 1–2 · %'
             + Math.round(blend.b123 * 100) + ' 1–3 · ' + shareParts.join(' · ') + '</div>';
-        h += '<details class="ptest-scoring-share-table"><summary>Pay dağılımı · T9V %35 · Renkler %45 · Metrikler %16 · rest %4</summary>';
+        h += '<details class="ptest-scoring-share-table"><summary>Pay dağılımı · T9V %' + shareSplit.t9v
+            + ' · Renkler %' + shareSplit.colors + ' · Metrikler %' + shareSplit.metrics
+            + ' · rest %' + shareSplit.rest + '</summary>';
         h += '<table class="ptest-scoring-table"><thead><tr>'
             + '<th>Kova</th><th>%65 içi</th><th>Toplam ~%</th></tr></thead><tbody>';
         h += '<tr><td><strong>T9V</strong></td><td>—</td><td>35</td></tr>';
@@ -1113,6 +1209,13 @@ const GostergeScoringEngine = (function () {
         setSuccessBlend,
         setT9vScoreShare,
         getT9vScoreShare,
+        setScoreShareSplit,
+        getScoreShareSplit,
+        resetScoreShareSplit,
+        evaluateShareSplit,
+        runShareSplitSweep,
+        generateShareSplitSweepConfigs,
+        DEFAULT_SCORE_SHARE_SPLIT,
         setMetricSweepFocus,
         clearMetricSweepFocus,
         getMetricSweepFocus,
@@ -1120,9 +1223,9 @@ const GostergeScoringEngine = (function () {
         getCoreOtherMetricShares,
         OTHER_METRIC_SHARE_PCT,
         OTHER_METRIC_SHARES,
-        COLOR_OTHER_SHARE,
-        METRIC_OTHER_SHARE,
-        REST_OTHER_SHARE,
+        get COLOR_OTHER_SHARE() { return COLOR_OTHER_SHARE; },
+        get METRIC_OTHER_SHARE() { return METRIC_OTHER_SHARE; },
+        get REST_OTHER_SHARE() { return REST_OTHER_SHARE; },
         COLOR_RULE_IDS,
         isColorRule,
         collectSonDeltaMetrics,

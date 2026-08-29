@@ -873,6 +873,38 @@
         .ptest-color-bench-table tbody tr.best { background: #e8f5e9; box-shadow: inset 3px 0 0 #2e7d32; }
         .ptest-color-bench-table tbody tr.legacy { background: #fff8e1; }
         .ptest-color-bench-table tbody tr:hover { background: #f3e5f5; }
+        .ptest-final-share-panel {
+            margin-top: 14px; padding: 12px; border: 1px solid #ce93d8; border-radius: 8px;
+            background: linear-gradient(180deg, #faf5ff 0%, #fff 100%);
+        }
+        .ptest-final-share-panel h4 { margin: 0 0 10px; font-size: 13px; color: #4a148c; }
+        .ptest-final-share-grid {
+            display: grid; grid-template-columns: repeat(4, minmax(70px, 1fr)) auto;
+            gap: 8px; align-items: end; margin-bottom: 10px;
+        }
+        .ptest-final-share-field label { display: block; font-size: 10px; color: #546e7a; margin-bottom: 2px; }
+        .ptest-final-share-field input {
+            width: 100%; padding: 4px 6px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px;
+        }
+        .ptest-final-share-sum { font-size: 11px; font-weight: 700; padding-bottom: 4px; }
+        .ptest-final-share-sum.ok { color: #2e7d32; }
+        .ptest-final-share-sum.bad { color: #c62828; }
+        .ptest-final-share-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+        .ptest-final-share-result {
+            font-size: 11px; color: #37474f; padding: 8px; background: #fff; border-radius: 4px;
+            border: 1px solid #e0e0e0; min-height: 2em;
+        }
+        .ptest-final-share-sweep-wrap {
+            max-height: 280px; overflow: auto; margin-top: 10px; border: 1px solid #e0e0e0; border-radius: 4px;
+        }
+        .ptest-final-share-sweep-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+        .ptest-final-share-sweep-table th, .ptest-final-share-sweep-table td {
+            border: 1px solid #eee; padding: 4px 5px; text-align: center;
+        }
+        .ptest-final-share-sweep-table th { background: #ede7f6; position: sticky; top: 0; }
+        .ptest-final-share-sweep-table tbody tr.best { background: #e8f5e9; }
+        .ptest-final-share-sweep-table tbody tr { cursor: pointer; }
+        .ptest-final-share-sweep-table tbody tr:hover { background: #f3e5f5; }
         /* Geçici — çekirdek metrik pay taraması (T9V %35 sabit) */
         .ptest-metric-sweep-intro {
             margin: 0 0 10px; padding: 10px 12px; background: #e3f2fd; border: 1px solid #90caf9;
@@ -990,6 +1022,39 @@
                 title="Export gösterge kuralları vs mevcut 7 sabit kural — 24 kombinasyon karşılaştırması">🔬 Renk puanlama karşılaştırması</button>
             <span id="gostergeColorExportStatus" style="margin-left:8px;color:#546e7a"></span>
         </p>
+        <div class="ptest-final-share-panel" id="finalSharePanel">
+            <h4>🎯 Final puanlama · pay dağılımı testi</h4>
+            <p style="margin:0 0 8px;font-size:11px;color:#546e7a">
+                T9V · Renkler · Metrikler · rest toplamı <strong>%100</strong> olmalı.
+                Test = geçici dene · Uygula = tabloya yaz · Tarama = ~100 kombinasyon.
+            </p>
+            <div class="ptest-final-share-grid">
+                <div class="ptest-final-share-field"><label for="finalShareT9v">T9V %</label>
+                    <input type="number" id="finalShareT9v" min="0" max="100" step="1" value="35"></div>
+                <div class="ptest-final-share-field"><label for="finalShareColors">Renkler %</label>
+                    <input type="number" id="finalShareColors" min="0" max="100" step="1" value="45"></div>
+                <div class="ptest-final-share-field"><label for="finalShareMetrics">Metrikler %</label>
+                    <input type="number" id="finalShareMetrics" min="0" max="100" step="1" value="16"></div>
+                <div class="ptest-final-share-field"><label for="finalShareRest">rest %</label>
+                    <input type="number" id="finalShareRest" min="0" max="100" step="1" value="4"></div>
+                <div class="ptest-final-share-sum ok" id="finalShareSum">Toplam: 100%</div>
+            </div>
+            <div class="ptest-final-share-actions">
+                <button type="button" class="btn btn-secondary" id="finalShareTestBtn" disabled>Test et</button>
+                <button type="button" class="btn btn-primary" id="finalShareApplyBtn" disabled>Final puanlama uygula</button>
+                <button type="button" class="btn btn-secondary" id="finalShareSweepBtn" disabled>Pay taraması</button>
+                <button type="button" class="btn btn-secondary" id="finalShareResetBtn" disabled>Sıfırla (35/45/16/4)</button>
+            </div>
+            <div class="ptest-final-share-result" id="finalShareResult">Payları ayarlayıp Test et veya Final puanlama uygula.</div>
+            <div class="ptest-final-share-sweep-wrap hidden" id="finalShareSweepWrap">
+                <table class="ptest-final-share-sweep-table">
+                    <thead><tr>
+                        <th>#</th><th>Paylar</th><th>Lider 1.</th><th>1–2</th><th>1–3</th><th>Karışık</th><th>Tam isabet</th>
+                    </tr></thead>
+                    <tbody id="finalShareSweepBody"></tbody>
+                </table>
+            </div>
+        </div>
     </div>
     <div id="gostergeLoadingOverlay" class="ptest-gosterge-loading hidden" aria-live="polite">
         <div class="ptest-gosterge-loading-box">
@@ -1136,7 +1201,7 @@
 <script src="js/ptest-gosterge-engine.js?v=20260830z"></script>
 <script src="js/ptest-gosterge-depth-engine.js?v=20260830z"></script>
 <script src="js/ptest-color-gosterge-export.js?v=20260830z"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260831a"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260831b"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -2536,6 +2601,7 @@ function updateGostergeTabVisibility() {
     if (exportBtn) exportBtn.disabled = !hasData;
     const benchBtn = document.getElementById('gostergeColorBenchBtn');
     if (benchBtn) benchBtn.disabled = !hasData;
+    updateFinalSharePanelState();
     updateColorScoringBenchVisibility();
     updateGosterge1TabVisibility();
 }
@@ -2813,7 +2879,7 @@ function renderGosterge1Report() {
     initGosterge1StripTabs();
 }
 
-const PTEST_BUILD = '20260831a';
+const PTEST_BUILD = '20260831b';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
@@ -2953,7 +3019,181 @@ async function applyGostergeTahminScoring() {
     GostergeScoringEngine.applyToFlatEntries(flatEntries);
     const ladderEl = document.getElementById('gostergeScoringLadder');
     if (ladderEl) ladderEl.innerHTML = GostergeScoringEngine.renderCalibrationHtml();
+    syncFinalShareInputsFromEngine();
+    updateFinalSharePanelState();
     invalidateGostergeCache();
+}
+
+function readFinalShareInputs() {
+    return {
+        t9v: Number(document.getElementById('finalShareT9v')?.value) || 0,
+        colors: Number(document.getElementById('finalShareColors')?.value) || 0,
+        metrics: Number(document.getElementById('finalShareMetrics')?.value) || 0,
+        rest: Number(document.getElementById('finalShareRest')?.value) || 0
+    };
+}
+
+function syncFinalShareInputsFromEngine() {
+    if (!GostergeScoringEngine.getScoreShareSplit) return;
+    const s = GostergeScoringEngine.getScoreShareSplit();
+    const set = (id, v) => {
+        const el = document.getElementById(id);
+        if (el) el.value = String(v);
+    };
+    set('finalShareT9v', s.t9v);
+    set('finalShareColors', s.colors);
+    set('finalShareMetrics', s.metrics);
+    set('finalShareRest', s.rest);
+    updateFinalShareSumDisplay();
+}
+
+function updateFinalShareSumDisplay() {
+    const s = readFinalShareInputs();
+    const sum = Math.round((s.t9v + s.colors + s.metrics + s.rest) * 10) / 10;
+    const el = document.getElementById('finalShareSum');
+    if (el) {
+        el.textContent = 'Toplam: ' + sum + '%';
+        el.classList.toggle('ok', sum === 100);
+        el.classList.toggle('bad', sum !== 100);
+    }
+}
+
+function updateFinalSharePanelState() {
+    const enabled = flatEntries.length > 0 && GostergeScoringEngine.isCalibrated?.();
+    for (const id of ['finalShareTestBtn', 'finalShareApplyBtn', 'finalShareSweepBtn', 'finalShareResetBtn']) {
+        const el = document.getElementById(id);
+        if (el) el.disabled = !enabled;
+    }
+}
+
+function formatShareSplitResultLine(stats, prefix) {
+    if (!stats) return prefix + 'Sonuç yok';
+    return prefix + ' · Lider 1. ' + pctBenchFmt(stats.leaderB1Rate)
+        + ' · 1–2 ' + pctBenchFmt(stats.leaderB12Rate)
+        + ' · 1–3 ' + pctBenchFmt(stats.leaderB123Rate)
+        + ' · <strong>Karışık ' + pctBenchFmt(stats.leaderBlended) + '</strong>'
+        + ' · Tam isabet ' + stats.exact + '/' + stats.exactTotal
+        + ' (' + pctBenchFmt(stats.exactRate) + ')';
+}
+
+async function testFinalShareSplit() {
+    const resultEl = document.getElementById('finalShareResult');
+    const split = readFinalShareInputs();
+    const sum = split.t9v + split.colors + split.metrics + split.rest;
+    if (Math.round(sum * 10) / 10 !== 100) {
+        if (resultEl) resultEl.innerHTML = '<span style="color:#c62828">Toplam %100 olmalı (şu an %' + sum + ')</span>';
+        return;
+    }
+    if (!GostergeScoringEngine.isCalibrated()) {
+        if (resultEl) resultEl.textContent = 'Kalibrasyon yapılıyor…';
+        await applyGostergeTahminScoring();
+    }
+    if (!GostergeScoringEngine.isCalibrated()) {
+        if (resultEl) resultEl.textContent = 'Yeterli bitiş verisi yok.';
+        return;
+    }
+    if (resultEl) resultEl.textContent = 'Test ediliyor…';
+    const host = getPtestScoringHost();
+    const stats = GostergeScoringEngine.evaluateShareSplit(flatEntries, host, split);
+    if (resultEl && stats) {
+        const n = stats.normalized || split;
+        resultEl.innerHTML = formatShareSplitResultLine(stats,
+            'Test · T9V %' + n.t9v + ' · Renkler %' + n.colors + ' · Metrikler %' + n.metrics + ' · rest %' + n.rest);
+    }
+}
+
+async function applyFinalShareSplit() {
+    const resultEl = document.getElementById('finalShareResult');
+    const split = readFinalShareInputs();
+    const sum = split.t9v + split.colors + split.metrics + split.rest;
+    if (Math.round(sum * 10) / 10 !== 100) {
+        if (resultEl) resultEl.innerHTML = '<span style="color:#c62828">Toplam %100 olmalı</span>';
+        return;
+    }
+    if (!GostergeScoringEngine.isCalibrated()) {
+        await applyGostergeTahminScoring();
+    }
+    if (!GostergeScoringEngine.isCalibrated()) return;
+    GostergeScoringEngine.setScoreShareSplit(split.t9v, split.colors, split.metrics, split.rest);
+    GostergeScoringEngine.applyToFlatEntries(flatEntries);
+    const ladderEl = document.getElementById('gostergeScoringLadder');
+    if (ladderEl) ladderEl.innerHTML = GostergeScoringEngine.renderCalibrationHtml();
+    syncFinalShareInputsFromEngine();
+    invalidateGostergeCache();
+    if (ptestViewTab === 'tablo') await renderTableAsync('final puanlama');
+    const host = getPtestScoringHost();
+    const stats = GostergeScoringEngine.evaluateTahminSuccess(flatEntries, host.bitisValueForSort);
+    if (resultEl) {
+        const n = GostergeScoringEngine.getScoreShareSplit();
+        resultEl.innerHTML = formatShareSplitResultLine(stats,
+            '✅ Uygulandı · T9V %' + n.t9v + ' · Renkler %' + n.colors + ' · Metrikler %' + n.metrics + ' · rest %' + n.rest);
+    }
+}
+
+async function runFinalShareSweep() {
+    const resultEl = document.getElementById('finalShareResult');
+    const wrap = document.getElementById('finalShareSweepWrap');
+    const body = document.getElementById('finalShareSweepBody');
+    if (!GostergeScoringEngine.isCalibrated()) {
+        await applyGostergeTahminScoring();
+    }
+    if (!GostergeScoringEngine.isCalibrated()) return;
+    if (resultEl) resultEl.textContent = 'Pay taraması başlıyor…';
+    const host = getPtestScoringHost();
+    const out = await GostergeScoringEngine.runShareSplitSweep(flatEntries, host, (msg) => {
+        if (resultEl) resultEl.textContent = msg;
+    });
+    ptestFinalShareSweepResults = out.results || [];
+    if (wrap) wrap.classList.remove('hidden');
+    if (body) {
+        let h = '';
+        for (let i = 0; i < ptestFinalShareSweepResults.length; i++) {
+            const r = ptestFinalShareSweepResults[i];
+            const c = r.config || {};
+            h += '<tr class="' + (i === 0 ? 'best' : '') + '" data-idx="' + i + '">';
+            h += '<td>' + (i + 1) + '</td>';
+            h += '<td style="text-align:left;font-size:9px">T9V %' + c.t9v + ' · R %' + c.colors
+                + ' · M %' + c.metrics + ' · rest %' + c.rest + '</td>';
+            h += '<td>' + pctBenchFmt(r.leaderB1Rate) + '</td>';
+            h += '<td>' + pctBenchFmt(r.leaderB12Rate) + '</td>';
+            h += '<td>' + pctBenchFmt(r.leaderB123Rate) + '</td>';
+            h += '<td><strong>' + pctBenchFmt(r.leaderBlended) + '</strong></td>';
+            h += '<td>' + r.exact + '/' + r.exactTotal + '</td></tr>';
+        }
+        body.innerHTML = h || '<tr><td colspan="7">Sonuç yok</td></tr>';
+        body.querySelectorAll('tr[data-idx]').forEach(tr => {
+            tr.onclick = () => {
+                const r = ptestFinalShareSweepResults[Number(tr.dataset.idx)];
+                if (!r?.config) return;
+                const c = r.config;
+                document.getElementById('finalShareT9v').value = c.t9v;
+                document.getElementById('finalShareColors').value = c.colors;
+                document.getElementById('finalShareMetrics').value = c.metrics;
+                document.getElementById('finalShareRest').value = c.rest;
+                updateFinalShareSumDisplay();
+                if (resultEl) {
+                    resultEl.innerHTML = formatShareSplitResultLine(r, 'Seçildi · satıra tıklandı');
+                }
+            };
+        });
+    }
+    if (resultEl && out.results?.[0]) {
+        const b = out.results[0];
+        resultEl.innerHTML = 'Tarama tamam (' + out.configCount + ' kombinasyon) · En iyi: T9V %'
+            + b.config.t9v + ' · Renkler %' + b.config.colors + ' · Karışık <strong>'
+            + pctBenchFmt(b.leaderBlended) + '</strong> · satıra tıklayıp uygulayın';
+    }
+}
+
+let ptestFinalShareSweepResults = null;
+
+function resetFinalShareSplit() {
+    if (GostergeScoringEngine.resetScoreShareSplit) {
+        GostergeScoringEngine.resetScoreShareSplit();
+    }
+    syncFinalShareInputsFromEngine();
+    const resultEl = document.getElementById('finalShareResult');
+    if (resultEl) resultEl.textContent = 'Varsayılan paylar: T9V %35 · Renkler %45 · Metrikler %16 · rest %4';
 }
 
 function getPtestGostergeHost() {
@@ -5081,6 +5321,14 @@ document.getElementById('exportTxtBtn').onclick = downloadTextExport;
 document.getElementById('gostergeColorExportBtn').onclick = () => void downloadColorGostergeExport();
 document.getElementById('gostergeColorBenchBtn').onclick = () => openColorScoringBenchTab(true);
 document.getElementById('colorScoringBenchRunBtn').onclick = () => void runColorScoringBenchmarkReport();
+['finalShareT9v', 'finalShareColors', 'finalShareMetrics', 'finalShareRest'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', updateFinalShareSumDisplay);
+});
+document.getElementById('finalShareTestBtn').onclick = () => void testFinalShareSplit();
+document.getElementById('finalShareApplyBtn').onclick = () => void applyFinalShareSplit();
+document.getElementById('finalShareSweepBtn').onclick = () => void runFinalShareSweep();
+document.getElementById('finalShareResetBtn').onclick = () => resetFinalShareSplit();
 document.getElementById('clearAllBtn').onclick = clearAllKayitlar;
 document.getElementById('toggleCikanBtn').onclick = () => {
     cikanPanelOpen = !cikanPanelOpen;
