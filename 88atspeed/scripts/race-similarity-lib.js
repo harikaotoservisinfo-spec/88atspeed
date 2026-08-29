@@ -621,6 +621,177 @@ function buildDeepTenFieldDominant(profile) {
     return dom;
 }
 
+function winnerBucketValue(profile, metricId, dimension) {
+    const w = profile.winnerSig;
+    if (!w) return '—';
+    const slice = metricCellSlice(w, metricId);
+    if (dimension === 'delta') return deltaTagsForMetric(w.tokenSet, metricId);
+    if (dimension === 'gap') return slice?.gap || '—';
+    if (dimension === 'bs') return slice?.bs || '—';
+    if (dimension === 'pct') return slice?.pct || '—';
+    if (dimension === 'visual') return slice?.visual || '—';
+    return '—';
+}
+
+function countHorsesWithVisual(profile, metricId, visual) {
+    if (!visual || visual === '—') return 0;
+    return profile.horses.filter(h => h.cells[metricId]?.visual === visual).length;
+}
+
+function countHorsesWithBucket(profile, metricId, dimension, bucket) {
+    if (!bucket || bucket === '—') return 0;
+    return profile.horses.filter(h => {
+        const slice = metricCellSlice(h, metricId);
+        if (dimension === 'delta') return deltaTagsForMetric(h.tokenSet, metricId) === bucket;
+        if (dimension === 'gap') return slice?.gap === bucket;
+        if (dimension === 'bs') return slice?.bs === bucket;
+        if (dimension === 'pct') return slice?.pct === bucket;
+        if (dimension === 'visual') return slice?.visual === bucket;
+        return false;
+    }).length;
+}
+
+function raceLabel(p) {
+    return p.hipodrom + ' ' + p.tarih + ' K' + p.raceNo + ' #' + (p.winnerSig?.horseNo || '?');
+}
+
+function analyzeSegmentRaces(races, metricId, dimension, bucket, opts) {
+    opts = opts || {};
+    const n = races.length;
+    if (!n) return null;
+
+    const cross = {};
+    for (const m of DEEP_TEN_METRICS) {
+        cross[m.id] = { visual: {}, gap: {}, bs: {}, delta: {}, pct: {} };
+    }
+    const rowFlags = {};
+    const fieldSameCounts = [];
+    const fieldSizes = [];
+    const archetypes = {};
+    const leaderWon = [];
+    const raceDetails = [];
+
+    for (const p of races) {
+        fieldSizes.push(p.fieldSize);
+        leaderWon.push(p.leaderSonWon ? 1 : 0);
+        archetypes[p.archetypeShort] = (archetypes[p.archetypeShort] || 0) + 1;
+
+        const sameInField = countHorsesWithBucket(p, metricId, dimension, bucket);
+        fieldSameCounts.push({ same: sameInField, total: p.fieldSize, pct: sameInField / p.fieldSize });
+
+        for (const rf of p.winnerSig?.rowFlagSet || []) {
+            rowFlags[rf] = (rowFlags[rf] || 0) + 1;
+        }
+        for (const m of DEEP_TEN_METRICS) {
+            const slice = metricCellSlice(p.winnerSig, m.id);
+            if (slice) {
+                cross[m.id].visual[slice.visual] = (cross[m.id].visual[slice.visual] || 0) + 1;
+                cross[m.id].gap[slice.gap] = (cross[m.id].gap[slice.gap] || 0) + 1;
+                cross[m.id].bs[slice.bs] = (cross[m.id].bs[slice.bs] || 0) + 1;
+                cross[m.id].pct[slice.pct] = (cross[m.id].pct[slice.pct] || 0) + 1;
+            }
+            const dTag = deltaTagsForMetric(p.winnerSig.tokenSet, m.id);
+            cross[m.id].delta[dTag] = (cross[m.id].delta[dTag] || 0) + 1;
+        }
+
+        const dom = buildDeepTenFieldDominant(p);
+        raceDetails.push({
+            label: raceLabel(p),
+            fieldSize: p.fieldSize,
+            leaderSonWon: p.leaderSonWon,
+            sameInField,
+            fieldPct: (sameInField / p.fieldSize * 100).toFixed(0) + '%',
+            domSon: dom.son8001,
+            domTest: dom.test1,
+            domDr: dom.t1dr,
+            winnerCombo: buildDeepTenComboKey(p.winnerSig),
+            archetype: p.archetypeShort
+        });
+    }
+
+    const avgSame = fieldSameCounts.reduce((s, x) => s + x.same, 0) / n;
+    const avgSamePct = fieldSameCounts.reduce((s, x) => s + x.pct, 0) / n;
+
+    let similarClusters = [];
+    if (n >= 2) {
+        similarClusters = clusterByTokenOverlap(races, opts.minJaccard || 0.4)
+            .filter(c => c.length >= 2)
+            .sort((a, b) => b.length - a.length);
+    }
+
+    const crossFormatted = {};
+    for (const m of DEEP_TEN_METRICS) {
+        crossFormatted[m.id] = {
+            label: m.label,
+            visuals: topCounts(cross[m.id].visual, 8),
+            gaps: topCounts(cross[m.id].gap, 8),
+            bs: topCounts(cross[m.id].bs, 8),
+            deltas: topCounts(cross[m.id].delta, 6),
+            pcts: topCounts(cross[m.id].pct, 6)
+        };
+    }
+
+    return {
+        n,
+        metricId,
+        dimension,
+        bucket,
+        leaderSonWinRate: leaderWon.reduce((a, b) => a + b, 0) / n,
+        avgSameInField: avgSame,
+        avgSamePctInField: avgSamePct,
+        fieldSameCounts,
+        cross: crossFormatted,
+        rowFlags: topCounts(rowFlags, 10),
+        archetypes: topCounts(archetypes, 8),
+        similarClusters,
+        raceDetails
+    };
+}
+
+function buildWinnerProfileSegments(profiles, opts) {
+    opts = opts || {};
+    const fieldSize = opts.fieldSize != null ? opts.fieldSize : 10;
+    const metrics = opts.metrics || DEEP_TEN_METRICS;
+    const dimensions = opts.dimensions || ['visual', 'gap', 'bs', 'delta', 'pct'];
+    const pool = profiles.filter(p => p.fieldSize === fieldSize && p.hasWinner);
+    const segments = [];
+
+    for (const m of metrics) {
+        for (const dim of dimensions) {
+            const buckets = {};
+            for (const p of pool) {
+                const bucket = winnerBucketValue(p, m.id, dim);
+                if (!buckets[bucket]) buckets[bucket] = [];
+                buckets[bucket].push(p);
+            }
+            const dimLabel = { visual: 'Renk', gap: 'Δ', bs: 'BS', delta: 'SON·Δ', pct: '%' }[dim] || dim;
+            for (const [bucket, races] of Object.entries(buckets)) {
+                segments.push({
+                    metricId: m.id,
+                    metricLabel: m.label,
+                    dimension: dim,
+                    dimensionLabel: dimLabel,
+                    bucket,
+                    races,
+                    analysis: analyzeSegmentRaces(races, m.id, dim, bucket, opts)
+                });
+            }
+        }
+    }
+
+    segments.sort((a, b) => b.races.length - a.races.length
+        || a.metricLabel.localeCompare(b.metricLabel)
+        || a.dimension.localeCompare(b.dimension));
+
+    return {
+        fieldSize,
+        poolSize: pool.length,
+        segments,
+        metrics,
+        dimensions
+    };
+}
+
 function winnerVsFieldAnalysis(profiles, minSample) {
     minSample = minSample || 5;
     const stats = {};
@@ -628,7 +799,6 @@ function winnerVsFieldAnalysis(profiles, minSample) {
     for (const p of profiles) {
         if (!p.hasWinner || !p.winnerSig) continue;
         const winnerTokens = p.winnerSig.tokenSet;
-        const fieldSize = p.fieldSize;
 
         for (const [tok] of Object.entries(p.metricTokenCounts)) {
             if (!isMetricSpecificToken(tok)) continue;
@@ -649,16 +819,13 @@ function winnerVsFieldAnalysis(profiles, minSample) {
             st.racesInField++;
             st.fieldHorseTotal += p.metricTokenCounts[tok] || 0;
 
-            const horsesWith = p.horses.filter(h => h.tokenSet.has(tok)).length;
-            const winnerHas = winnerTokens.has(tok);
-            if (winnerHas) st.winnerHas++;
+            if (winnerTokens.has(tok)) st.winnerHas++;
             else st.winnerLacks++;
 
-            if (horsesWith > 0) {
-                const sorted = p.horses
-                    .map(h => ({ h, has: h.tokenSet.has(tok) }))
-                    .filter(x => x.has);
-                const winnerIdx = sorted.findIndex(x => x.h.horseNo === p.winnerSig.horseNo);
+            const horsesWith = p.horses.filter(h => h.tokenSet.has(tok)).length;
+            if (horsesWith > 0 && winnerTokens.has(tok)) {
+                const sorted = p.horses.filter(h => h.tokenSet.has(tok));
+                const winnerIdx = sorted.findIndex(h => h.horseNo === p.winnerSig.horseNo);
                 if (winnerIdx >= 0) {
                     st.winnerRankSum += (winnerIdx + 1) / sorted.length;
                     st.winnerRankCount++;
@@ -693,16 +860,6 @@ function winnerVsFieldAnalysis(profiles, minSample) {
             if (winnerTokens.has(tok)) st.winnerHas++;
             else st.winnerLacks++;
 
-            const horsesWith = p.horses.filter(h => h.tokenSet.has(tok)).length;
-            if (horsesWith > 0 && winnerTokens.has(tok)) {
-                const sorted = p.horses.filter(h => h.tokenSet.has(tok));
-                const winnerIdx = sorted.findIndex(h => h.horseNo === p.winnerSig.horseNo);
-                if (winnerIdx >= 0) {
-                    st.winnerRankSum += (winnerIdx + 1) / sorted.length;
-                    st.winnerRankCount++;
-                }
-            }
-
             if (p.leaderSonSig) {
                 if (p.leaderSonSig.tokenSet.has(tok)) st.leaderHas++;
                 else st.leaderLacks++;
@@ -715,11 +872,6 @@ function winnerVsFieldAnalysis(profiles, minSample) {
         if (st.racesInField < minSample) continue;
         const winnerHasRate = st.winnerHas / st.racesInField;
         const winnerLacksRate = st.winnerLacks / st.racesInField;
-        const avgFieldCount = st.fieldHorseTotal / st.racesInField;
-        const avgWinnerRank = st.winnerRankCount ? st.winnerRankSum / st.winnerRankCount : null;
-        const leaderMatchRate = (st.leaderHas + st.leaderLacks)
-            ? st.leaderHas / (st.leaderHas + st.leaderLacks) : null;
-
         rows.push({
             token: st.token,
             races: st.racesInField,
@@ -727,9 +879,10 @@ function winnerVsFieldAnalysis(profiles, minSample) {
             winnerLacks: st.winnerLacks,
             winnerHasRate,
             winnerLacksRate,
-            avgFieldCount,
-            avgWinnerRank,
-            leaderMatchRate,
+            avgFieldCount: st.fieldHorseTotal / st.racesInField,
+            avgWinnerRank: st.winnerRankCount ? st.winnerRankSum / st.winnerRankCount : null,
+            leaderMatchRate: (st.leaderHas + st.leaderLacks)
+                ? st.leaderHas / (st.leaderHas + st.leaderLacks) : null,
             divergence: winnerLacksRate - winnerHasRate
         });
     }
@@ -742,7 +895,6 @@ function winnerVsFieldAnalysis(profiles, minSample) {
 }
 
 function deepTenHorseReport(profiles, minSample) {
-    minSample = minSample || 2;
     const tenAt = profiles.filter(p => p.fieldSize === 10 && p.hasWinner);
     const comboStats = {};
     const crossTabs = {
@@ -883,6 +1035,10 @@ module.exports = {
     rowFlagOutcomeCorrelation,
     winnerVsFieldAnalysis,
     deepTenHorseReport,
+    buildWinnerProfileSegments,
+    analyzeSegmentRaces,
+    metricCellSlice,
+    buildDeepTenComboKey,
     noiseFilterReport,
     isMetricSpecificToken,
     isRowFlagToken,
