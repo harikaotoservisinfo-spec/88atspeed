@@ -727,38 +727,76 @@ const GostergeScoringEngine = (function () {
         return buckets;
     }
 
+    /** Belirleyici faktör: metrikleri tek kovada topla (tek tek düşük paylı metrikler renkleri gölgelemesin) */
+    function buildBindingBlendBuckets(bucketWeighted) {
+        let metricsWeighted = 0;
+        for (const id of Object.keys(OTHER_METRIC_SHARES)) {
+            metricsWeighted += bucketWeighted[id] || 0;
+        }
+        const buckets = [
+            { id: 't9v', weighted: bucketWeighted.t9v || 0, share: T9V_SCORE_SHARE },
+            {
+                id: 'colors',
+                weighted: bucketWeighted.colors || 0,
+                share: OTHER_SCORE_SHARE * COLOR_OTHER_SHARE
+            },
+            {
+                id: 'metrics',
+                weighted: metricsWeighted,
+                share: OTHER_SCORE_SHARE * METRIC_OTHER_SHARE
+            }
+        ];
+        if (REST_OTHER_SHARE > 0) {
+            buckets.push({
+                id: 'rest',
+                weighted: bucketWeighted.rest || 0,
+                share: OTHER_SCORE_SHARE * REST_OTHER_SHARE
+            });
+        }
+        return buckets;
+    }
+
     function blendBucketGroup(id) {
         if (id === 't9v') return 't9v';
         if (id === 'colors') return 'colors';
+        if (id === 'metrics') return 'metrics';
         if (id === 'rest') return 'rest';
         if (OTHER_METRIC_SHARES[id]) return 'metrics';
         return 'rest';
     }
 
-    /** Min-blend: hangi kova nihai skoru sınırlıyor (TAHMİN puanlaması) */
+    /** Min-blend: hangi kova nihai skoru sınırlıyor (TAHMİN puanlaması · 4 kova) */
     function computeScoreBinding(bucketWeighted, opts) {
         opts = opts || {};
-        const blendBuckets = buildBlendBuckets(bucketWeighted);
+        const blendBuckets = buildBindingBlendBuckets(bucketWeighted);
+        const compareWeighted = (b) => {
+            if (b.id !== 'colors') return b.weighted;
+            // Renk ham puanı metrik /1000 ölçeğine indir — skor aynı, belirleyici adil
+            return Math.max(1, Math.round(b.weighted / 1000));
+        };
         const active = blendBuckets.filter(b => b.weighted > 0 && b.share > 0);
         if (!active.length) {
             return {
                 group: null,
                 binderId: null,
                 finalTotal: 0,
-                attributed: { t9v: 0, colors: 0, metrics: 0, rest: 0 }
+                attributed: { t9v: 0, colors: 0, metrics: 0, rest: 0 },
+                colorLimitsOther: false,
+                colorDecisive: false
             };
         }
         const tiePriority = { colors: 0, t9v: 1, metrics: 2, rest: 3 };
         let minRatio = Infinity;
         let binder = active[0];
         for (const b of active) {
-            const ratio = b.weighted / b.share;
+            const ratio = compareWeighted(b) / b.share;
             const group = blendBucketGroup(b.id);
             const pri = tiePriority[group] ?? 9;
             const binderGroup = blendBucketGroup(binder.id);
             const binderPri = tiePriority[binderGroup] ?? 9;
-            const nearTie = minRatio < Infinity && Math.abs(ratio - minRatio) <= Math.max(0.5, minRatio * 0.002);
-            const colorPrefer = (opts.colorHitCount || 0) > 0 && group === 'colors' && nearTie;
+            const nearTie = minRatio < Infinity && Math.abs(ratio - minRatio) <= Math.max(1, minRatio * 0.01);
+            const colorPrefer = (opts.colorHitCount || 0) > 0 && group === 'colors'
+                && (nearTie || ratio <= minRatio + 1e-9);
             if (ratio < minRatio - 1e-9 || (nearTie && (colorPrefer || pri < binderPri))) {
                 minRatio = ratio;
                 binder = b;
@@ -768,7 +806,38 @@ const GostergeScoringEngine = (function () {
         const group = blendBucketGroup(binder.id);
         const attributed = { t9v: 0, colors: 0, metrics: 0, rest: 0 };
         if (group) attributed[group] = finalTotal;
-        return { group, binderId: binder.id, finalTotal, attributed };
+
+        const others = blendBuckets.filter(b => b.id !== 't9v');
+        const activeOthers = others.filter(b => b.weighted > 0 && b.share > 0);
+        let colorLimitsOther = false;
+        let otherMinRatio = Infinity;
+        if (activeOthers.length) {
+            otherMinRatio = Math.min(...activeOthers.map(b => compareWeighted(b) / b.share));
+            let otherBinder = activeOthers[0];
+            for (const b of activeOthers) {
+                const r = compareWeighted(b) / b.share;
+                const near = Math.abs(r - otherMinRatio) <= Math.max(1, otherMinRatio * 0.01);
+                const pri = tiePriority[blendBucketGroup(b.id)] ?? 9;
+                const obPri = tiePriority[blendBucketGroup(otherBinder.id)] ?? 9;
+                if (r < otherMinRatio - 1e-9 || (near && pri < obPri)) otherBinder = b;
+            }
+            colorLimitsOther = otherBinder.id === 'colors';
+        }
+        const t9vB = blendBuckets.find(b => b.id === 't9v');
+        const t9vRatio = t9vB && t9vB.weighted > 0 && t9vB.share > 0
+            ? compareWeighted(t9vB) / t9vB.share
+            : Infinity;
+        const colorDecisive = !!(opts.colorHitCount > 0 && colorLimitsOther
+            && otherMinRatio <= t9vRatio + Math.max(1, t9vRatio * 0.01));
+
+        return {
+            group,
+            binderId: binder.id,
+            finalTotal,
+            attributed,
+            colorLimitsOther,
+            colorDecisive
+        };
     }
 
     function scaledBucketTotals(bucketWeighted, finalTotal) {
@@ -999,7 +1068,9 @@ const GostergeScoringEngine = (function () {
             attributedBuckets: binding.attributed,
             bindingBucket: binding.group,
             bindingId: binding.binderId,
-            colorHitCount
+            colorHitCount,
+            colorLimitsOther: binding.colorLimitsOther,
+            colorDecisive: binding.colorDecisive
         };
     }
 
@@ -1471,9 +1542,11 @@ const GostergeScoringEngine = (function () {
         let bucketSum = 0;
         let usedTahmin = 0;
         let colorBinding = 0;
+        let colorLimitsOther = 0;
         for (const entry of flatEntries) {
             const t = entry.row?.tahmin;
             if (t?.bindingBucket === 'colors') colorBinding++;
+            if (t?.colorLimitsOther) colorLimitsOther++;
             if (t?.buckets || t?.colorHitCount != null) {
                 usedTahmin++;
                 const hits = t.colorHitCount || 0;
@@ -1514,6 +1587,8 @@ const GostergeScoringEngine = (function () {
             avgColorBucketWeight: withWeight ? bucketSum / withWeight : 0,
             colorBinding,
             colorBindingRate: n ? colorBinding / n : 0,
+            colorLimitsOther,
+            colorLimitsOtherRate: n ? colorLimitsOther / n : 0,
             fromTahminCache: usedTahmin
         };
     }

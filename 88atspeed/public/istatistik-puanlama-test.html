@@ -1308,9 +1308,9 @@
 <script src="js/ptest-gosterge-engine.js?v=20260830z"></script>
 <script src="js/ptest-gosterge-depth-engine.js?v=20260830z"></script>
 <script src="js/ptest-color-gosterge-export.js?v=20260830z"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260831n"></script>
-<script src="js/ptest-final-share-report.js?v=20260831n"></script>
-<script src="js/ptest-field-factor-engine.js?v=20260831n"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260831o"></script>
+<script src="js/ptest-final-share-report.js?v=20260831o"></script>
+<script src="js/ptest-field-factor-engine.js?v=20260831o"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -2264,6 +2264,9 @@ async function renderFieldFactorReport() {
             if (diag.colorBinding != null) {
                 h += ' · renk <strong>belirleyici</strong> ' + diag.colorBinding + '/' + diag.horses
                     + ' (' + pctBenchFmt(diag.colorBindingRate) + ')';
+                if (diag.colorLimitsOther != null && diag.colorLimitsOther > diag.colorBinding) {
+                    h += ' · renk OTHER sınırı ' + diag.colorLimitsOther + '/' + diag.horses;
+                }
             }
             if (diag.ladderSize === 0) {
                 h += ' <span style="color:#c62828">⚠ Renk merdiveni boş — kalibrasyon kontrol edin</span>';
@@ -3166,7 +3169,7 @@ function renderGosterge1Report() {
     initGosterge1StripTabs();
 }
 
-const PTEST_BUILD = '20260831n';
+const PTEST_BUILD = '20260831o';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;

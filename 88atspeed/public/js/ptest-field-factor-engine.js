@@ -74,9 +74,7 @@ const PtestFieldFactorEngine = (function () {
 
         let buckets;
         const termsTotal = bucketSum(fromTerms);
-        if (tahmin?.attributedBuckets && bucketSum(tahmin.attributedBuckets) > 0) {
-            buckets = { ...tahmin.attributedBuckets };
-        } else if (tahmin?.buckets && bucketSum(tahmin.buckets) > 0) {
+        if (tahmin?.buckets && bucketSum(tahmin.buckets) > 0) {
             buckets = { ...tahmin.buckets };
             if ((buckets.colors || 0) <= 0 && fromTerms.colors > 0) buckets.colors = fromTerms.colors;
             if ((buckets.t9v || 0) <= 0 && fromTerms.t9v > 0) buckets.t9v = fromTerms.t9v;
@@ -84,6 +82,8 @@ const PtestFieldFactorEngine = (function () {
             if ((buckets.rest || 0) <= 0 && fromTerms.rest > 0) buckets.rest = fromTerms.rest;
         } else if (termsTotal > 0) {
             buckets = { ...fromTerms };
+        } else if (tahmin?.attributedBuckets && bucketSum(tahmin.attributedBuckets) > 0) {
+            buckets = { ...tahmin.attributedBuckets };
         } else if (tahmin?.buckets) {
             buckets = { ...tahmin.buckets };
         } else {
