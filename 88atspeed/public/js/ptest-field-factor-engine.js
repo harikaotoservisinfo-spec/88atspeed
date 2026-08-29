@@ -16,7 +16,7 @@ const PtestFieldFactorEngine = (function () {
     }
 
     function raceKey(entry) {
-        return String(entry.kayitId) + '|' + entry.raceNo;
+        return String(entry.kayitId) + '|' + String(entry.raceNo ?? '');
     }
 
     function buildRaceGroups(flatEntries) {
@@ -29,32 +29,57 @@ const PtestFieldFactorEngine = (function () {
         return groups;
     }
 
+    function termBucketKind(base, metricShareIds) {
+        if (base === 't9v') return 't9v';
+        if (base === '_colorGosterge') return 'colors';
+        if (metricShareIds?.[base]) return 'metrics';
+        return 'rest';
+    }
+
     function aggregateFactorBuckets(tahmin, metricShareIds) {
-        if (tahmin?.buckets) {
-            const b = tahmin.buckets;
-            const total = (b.t9v || 0) + (b.colors || 0) + (b.metrics || 0) + (b.rest || 0);
-            return { buckets: { ...b }, metricDetail: {}, termDetail: {}, total };
-        }
-        const buckets = { t9v: 0, colors: 0, metrics: 0, rest: 0 };
         const metricDetail = {};
         const termDetail = {};
+        const fromTerms = { t9v: 0, colors: 0, metrics: 0, rest: 0 };
+
         for (const t of tahmin?.terms || []) {
             const pts = t.points || 0;
             if (pts <= 0) continue;
             const base = String(t.metricId || '').replace(/__dp\d+$/, '');
-            if (base === 't9v') buckets.t9v += pts;
-            else if (base === '_colorGosterge') buckets.colors += pts;
-            else if (metricShareIds && metricShareIds[base]) {
-                buckets.metrics += pts;
+            const kind = termBucketKind(base, metricShareIds);
+            fromTerms[kind] += pts;
+            if (kind === 'metrics') {
                 metricDetail[base] = (metricDetail[base] || 0) + pts;
-            } else buckets.rest += pts;
+            }
             const key = t.label || t.ruleLabel || base;
-            if (!termDetail[key]) termDetail[key] = { label: key, points: 0, count: 0, bucket: base === 't9v' ? 't9v' : (base === '_colorGosterge' ? 'colors' : (metricShareIds?.[base] ? 'metrics' : 'rest')) };
+            if (!termDetail[key]) {
+                termDetail[key] = { label: key, points: 0, count: 0, bucket: kind };
+            }
             termDetail[key].points += pts;
             termDetail[key].count++;
         }
-        const total = buckets.t9v + buckets.colors + buckets.metrics + buckets.rest;
-        return { buckets, metricDetail, termDetail, total };
+
+        const buckets = tahmin?.buckets
+            ? { ...tahmin.buckets }
+            : { ...fromTerms };
+        const total = (buckets.t9v || 0) + (buckets.colors || 0) + (buckets.metrics || 0) + (buckets.rest || 0)
+            || (fromTerms.t9v + fromTerms.colors + fromTerms.metrics + fromTerms.rest);
+        return { buckets, metricDetail, termDetail, total: total || 1 };
+    }
+
+    function horsesForRace(entries, race) {
+        if (!entries?.length || !race) return [];
+        const groups = buildRaceGroups(entries);
+        let horses = groups.get(race.raceKey);
+        if (horses?.length) return horses;
+        const nk = String(race.raceKey || '');
+        for (const [rk, hs] of groups) {
+            if (rk === nk || String(rk) === nk) return hs;
+        }
+        return entries.filter(e =>
+            e.tarih === race.tarih
+            && e.hipodrom === race.hipodrom
+            && String(e.raceNo) === String(race.raceNo)
+        );
     }
 
     function dominantBucket(buckets) {
@@ -395,11 +420,10 @@ const PtestFieldFactorEngine = (function () {
         limit = limit != null ? limit : 8;
         const races = (row.races || []).slice().sort((a, b) => b.exactCount - a.exactCount || b.bitisCount - a.bitisCount);
         let h = '<details class="ptest-field-factor-block"><summary>Örnek koşular (tam isabet / ' + row.fieldSize + ' at)</summary>';
-        const groups = buildRaceGroups(entries || row.entries);
         let shown = 0;
         for (const race of races) {
             if (shown >= limit) break;
-            const horses = groups.get(race.raceKey) || [];
+            const horses = horsesForRace(entries || row.entries, race);
             if (!horses.length) continue;
             shown++;
             horses.sort((a, b) => (a.row.no ?? 0) - (b.row.no ?? 0));

@@ -1308,9 +1308,9 @@
 <script src="js/ptest-gosterge-engine.js?v=20260830z"></script>
 <script src="js/ptest-gosterge-depth-engine.js?v=20260830z"></script>
 <script src="js/ptest-color-gosterge-export.js?v=20260830z"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260831i"></script>
-<script src="js/ptest-final-share-report.js?v=20260831i"></script>
-<script src="js/ptest-field-factor-engine.js?v=20260831i"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260831j"></script>
+<script src="js/ptest-final-share-report.js?v=20260831j"></script>
+<script src="js/ptest-field-factor-engine.js?v=20260831j"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -2170,6 +2170,15 @@ function renderFieldFactorDetail() {
     });
 }
 
+function countEntriesWithGostergeTahmin() {
+    let n = 0;
+    for (const entry of flatEntries) {
+        const t = entry.row?.tahmin;
+        if (t?.source === 'gosterge' && ((t.terms?.length || 0) > 0 || (t.score || 0) > 0)) n++;
+    }
+    return n;
+}
+
 async function renderFieldFactorReport() {
     updateFieldFactorTabVisibility();
     if (!flatEntries.length) return;
@@ -2193,6 +2202,10 @@ async function renderFieldFactorReport() {
         if (detailHost) detailHost.innerHTML = '<p style="color:#789">—</p>';
         return;
     }
+    if (summaryHost) {
+        summaryHost.innerHTML = '<p style="padding:12px;color:#6a1b9a">⏳ Kalibrasyon ve skor hesaplanıyor… '
+            + bitisCount + ' bitiş · büyük veri setlerinde birkaç dakika sürebilir</p>';
+    }
     let calibrateError = null;
     try {
         await applyGostergeTahminScoring();
@@ -2200,25 +2213,36 @@ async function renderFieldFactorReport() {
         calibrateError = err?.message || String(err);
     }
     await new Promise(r => setTimeout(r, 0));
+    const host = getPtestScoringHost();
     const calibrated = !!GostergeScoringEngine.isCalibrated?.();
+    const scoringReady = calibrated
+        || !!GostergeScoringEngine.isScoringReady?.(flatEntries, host.bitisValueForSort)
+        || countEntriesWithGostergeTahmin() >= Math.min(bitisCount, 20);
+    if (!scoringReady) {
+        const intro = document.getElementById('fieldFactorIntro');
+        if (intro) {
+            intro.innerHTML = '<span style="color:#c62828">Skor hesaplanamadı — ' + bitisCount
+                + ' bitiş var ama TAHMİN skorları oluşmadı.'
+                + (calibrateError ? ' Hata: ' + AtSpeedUtils.escapeHtml(calibrateError) : '')
+                + ' Gösterge sekmesinde kalibrasyonu kontrol edin.</span>';
+        }
+        if (summaryHost) {
+            summaryHost.innerHTML = '<p style="padding:12px;color:#c62828">TAHMİN skorları yok — analiz tamamlanamadı.</p>';
+        }
+        if (detailHost) detailHost.innerHTML = '<p style="color:#789">—</p>';
+        return;
+    }
     const intro = document.getElementById('fieldFactorIntro');
-    const diag = calibrated ? GostergeScoringEngine.diagnoseColorScoring?.(flatEntries) : null;
+    const diag = GostergeScoringEngine.diagnoseColorScoring?.(flatEntries);
     if (intro) {
         let h = 'Her koşudaki <strong>at sayısına</strong> göre TAHMİN başarısı ve '
             + '<strong>belirleyici faktör</strong> (T9V · Renkler · Metrikler · rest) · '
             + flatEntries.length + ' satır · ' + bitisCount + ' bitiş · build ' + PTEST_BUILD
             + ' · Soldan satıra tıklayın';
-        if (!calibrated) {
+        if (!calibrated && calibrateError) {
             h += '<div style="margin-top:8px;padding:8px 10px;border-radius:6px;background:#fff3e0;border:1px solid #ffb74d;font-size:11px">';
-            h += '<strong>⚠ Kalibrasyon uyarısı:</strong> ' + bitisCount + ' bitiş var';
-            const cal = GostergeScoringEngine.getCalibration?.();
-            if (cal?.bitisRows != null) h += ' (motor sayımı: ' + cal.bitisRows + ')';
-            if (calibrateError) {
-                h += ' · hata: ' + AtSpeedUtils.escapeHtml(calibrateError);
-            } else {
-                h += ' — skor merdiveni eksik olabilir, sonuçlar kısmen gösterilir';
-            }
-            h += '</div>';
+            h += '<strong>⚠ Kalibrasyon yenileme hatası:</strong> ' + AtSpeedUtils.escapeHtml(calibrateError)
+                + ' · mevcut skorlarla analiz gösteriliyor</div>';
         }
         if (diag) {
             h += '<div style="margin-top:8px;padding:8px 10px;border-radius:6px;background:#fff;border:1px solid #ffcc80;font-size:11px">';
@@ -2245,8 +2269,9 @@ async function renderFieldFactorReport() {
         }
         intro.innerHTML = h;
     }
+    if (summaryHost) summaryHost.innerHTML = '<p style="padding:12px;color:#6a1b9a">⏳ At sayısı analizi hesaplanıyor…</p>';
     await new Promise(r => setTimeout(r, 0));
-    ptestFieldFactorResults = PtestFieldFactorEngine.analyzeFieldFactors(flatEntries, getPtestScoringHost());
+    ptestFieldFactorResults = PtestFieldFactorEngine.analyzeFieldFactors(flatEntries, host);
     if (ptestFieldFactorSelectedSize == null && ptestFieldFactorResults.results?.length) {
         let best = ptestFieldFactorResults.results[0];
         for (const r of ptestFieldFactorResults.results) {
@@ -3129,7 +3154,7 @@ function renderGosterge1Report() {
     initGosterge1StripTabs();
 }
 
-const PTEST_BUILD = '20260831i';
+const PTEST_BUILD = '20260831j';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
@@ -3282,6 +3307,12 @@ async function applyGostergeTahminScoring() {
     syncBitisBeforeScoring();
     const host = getPtestScoringHost();
     await GostergeScoringEngine.calibrate(flatEntries, host);
+    if (!GostergeScoringEngine.isCalibrated?.() && flatEntries.length) {
+        const cal = GostergeScoringEngine.getCalibration?.();
+        if (!cal && host.buildBitisStatsFromEntries) {
+            throw new Error('Kalibrasyon nesnesi oluşmadı');
+        }
+    }
     GostergeScoringEngine.applyToFlatEntries(flatEntries);
     const ladderEl = document.getElementById('gostergeScoringLadder');
     if (ladderEl) ladderEl.innerHTML = GostergeScoringEngine.renderCalibrationHtml();

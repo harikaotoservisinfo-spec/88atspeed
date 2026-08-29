@@ -540,7 +540,8 @@ const GostergeScoringEngine = (function () {
         let bitisRows = 0;
 
         for (const entry of flatEntries) {
-            if (host.bitisValueForSort?.(entry) != null) bitisRows++;
+            const b = host.bitisValueForSort?.(entry);
+            if (b != null && b >= 1) bitisRows++;
         }
 
         for (let i = 0; i < metrics.length; i++) {
@@ -549,10 +550,21 @@ const GostergeScoringEngine = (function () {
             if (i > 0 && i % 4 === 0) await yieldToMain();
         }
 
-        const liveMatchers = buildLiveMatchers(metrics, host, depthScales);
+        let liveMatchers = {};
+        try {
+            liveMatchers = buildLiveMatchers(metrics, host, depthScales);
+        } catch (err) {
+            console.warn('buildLiveMatchers failed', err);
+        }
 
-        const allColorRows = collectAllColorGostergeRows(flatEntries, host);
-        const colorLadder = buildColorGostergeLadder(allColorRows, COLOR_GOSTERGE_CONFIG);
+        let allColorRows = [];
+        let colorLadder = [];
+        try {
+            allColorRows = collectAllColorGostergeRows(flatEntries, host);
+            colorLadder = buildColorGostergeLadder(allColorRows, COLOR_GOSTERGE_CONFIG);
+        } catch (err) {
+            console.warn('color ladder build failed', err);
+        }
 
         calibration = {
             ladders,
@@ -1283,6 +1295,19 @@ const GostergeScoringEngine = (function () {
         return !!(calibration && calibration.bitisRows >= MIN_RULE_SAMPLE);
     }
 
+    function isScoringReady(flatEntries, bitisValueForSort) {
+        if (isCalibrated()) return true;
+        if (!calibration?.metrics?.length || !flatEntries?.length) return false;
+        let bitis = 0;
+        let scored = 0;
+        for (const entry of flatEntries) {
+            if (bitisValueForSort?.(entry) != null) bitis++;
+            const t = entry.row?.tahmin;
+            if (t?.source === 'gosterge' && ((t.terms?.length || 0) > 0 || (t.score || 0) > 0)) scored++;
+        }
+        return bitis >= MIN_RULE_SAMPLE && scored >= MIN_RULE_SAMPLE;
+    }
+
     function diagnoseColorScoring(flatEntries) {
         if (!calibration || !flatEntries?.length) return null;
         const opts = getDefaultColorScoringOptions();
@@ -1353,6 +1378,7 @@ const GostergeScoringEngine = (function () {
         COLOR_GOSTERGE_CONFIG,
         renderCalibrationHtml,
         diagnoseColorScoring,
+        isScoringReady,
         aggregateBucketTotals,
         loadAndCalibrateFromApi,
         buildFlatEntriesFromApi,
