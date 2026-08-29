@@ -5,13 +5,13 @@
 const GostergeScoringEngine = (function () {
     const MIN_RULE_SAMPLE = 5;
     const DEPTH_PAIR_WEIGHT_FACTOR = 0.65;
-    let T9V_SCORE_SHARE = 0.35;
-    let OTHER_SCORE_SHARE = 0.65;
-    /** %65 diliminde kova oranları (toplam pay = OTHER × frac) */
-    let COLOR_OTHER_SHARE = 45 / 65;
-    let METRIC_OTHER_SHARE = 16 / 65;
-    let REST_OTHER_SHARE = 4 / 65;
-    const DEFAULT_SCORE_SHARE_SPLIT = { t9v: 35, colors: 45, metrics: 16, rest: 4 };
+    let T9V_SCORE_SHARE = 0.40;
+    let OTHER_SCORE_SHARE = 0.60;
+    /** %60 diliminde kova oranları — sweep en iyi: Renkler 40 · Metrikler 15 · rest 5 */
+    let COLOR_OTHER_SHARE = 40 / 60;
+    let METRIC_OTHER_SHARE = 15 / 60;
+    let REST_OTHER_SHARE = 5 / 60;
+    const DEFAULT_SCORE_SHARE_SPLIT = { t9v: 40, colors: 40, metrics: 15, rest: 5 };
     const COLOR_RULE_IDS = new Set([
         'yesilHucre', 'turuncuHucre', 'turuncuCevre', 'sariYazi',
         'kirmiziIc', 'acikYesilIc', 'koyuYesilIc'
@@ -1145,13 +1145,14 @@ const GostergeScoringEngine = (function () {
             + ' · Renkler %' + shareSplit.colors + ' · Metrikler %' + shareSplit.metrics
             + ' · rest %' + shareSplit.rest + '</summary>';
         h += '<table class="ptest-scoring-table"><thead><tr>'
-            + '<th>Kova</th><th>%65 içi</th><th>Toplam ~%</th></tr></thead><tbody>';
-        h += '<tr><td><strong>T9V</strong></td><td>—</td><td>35</td></tr>';
+            + '<th>Kova</th><th>%' + Math.round(OTHER_SCORE_SHARE * 100) + ' içi</th><th>Toplam ~%</th></tr></thead><tbody>';
+        h += '<tr><td><strong>T9V</strong></td><td>—</td><td>' + shareSplit.t9v + '</td></tr>';
         h += '<tr><td><strong>Renkler</strong> (Top-' + (colorCfg?.topN || '?') + ' export · Toplam'
             + (colorCfg?.includeDepth ? ' · derinlik' : '') + ')</td><td>'
             + shareInfo._colors.pctWithin65 + '</td><td>' + shareInfo._colors.pctOfTotal + '</td></tr>';
-        h += '<tr><td colspan="3"><em>Metrik dilimi (%65 × 16/65 ≈ '
-            + shareInfo._metricSlice.pctOfTotal + ' toplam)</em></td></tr>';
+        h += '<tr><td colspan="3"><em>Metrik dilimi (%' + Math.round(OTHER_SCORE_SHARE * 100)
+            + ' × ' + shareSplit.metrics + '/' + Math.round(OTHER_SCORE_SHARE * 100)
+            + ' ≈ ' + shareInfo._metricSlice.pctOfTotal + ' toplam)</em></td></tr>';
         for (const id of Object.keys(OTHER_METRIC_SHARE_PCT)) {
             const info = shareInfo[id];
             h += '<tr><td>' + AtSpeedUtils.escapeHtml(info.label) + '</td><td>'
@@ -1166,7 +1167,7 @@ const GostergeScoringEngine = (function () {
         if (calibration.colorLadder?.length) {
             h += renderMetricLadderBlock(
                 'Renk gösterge · Top-' + (colorCfg?.topN || calibration.colorLadder.length)
-                    + ' · Toplam · %45 kova',
+                    + ' · Toplam · %' + shareSplit.colors + ' kova',
                 calibration.colorLadder,
                 true
             );
