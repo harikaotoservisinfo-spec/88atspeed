@@ -289,6 +289,64 @@ const IstatistikEngine = {
         return chain;
     },
 
+    /** Tek koşu kaydında SON800 veya TEST1 için yeterli ham alan var mı */
+    _kosuHasUsableMetrics(kosu) {
+        if (!kosu) return false;
+        if (kosu.son800_bir && kosu.son800_bir !== '-') return true;
+        const d = kosu.at_derece;
+        return !!(d && d !== '-' && AtSpeedUtils.dereceToSalise(d) != null);
+    },
+
+    /**
+     * Geçmiş koşu profili — debut / kısmi / tam; TAHMİN uygunluğu.
+     * API en fazla 7 koşu döner; program günü hariç geçmiş sayılır.
+     */
+    analyzeKosuHistory(kosular, programTarih) {
+        const programNorm = programTarih ? this._normalizeTarih(programTarih) : null;
+        let total = 0;
+        let pastExcludingProgram = 0;
+        let usablePast = 0;
+        let son800Past = 0;
+        let test1Past = 0;
+        let programDayMetrics = false;
+
+        for (const k of kosular || []) {
+            if (!k?.tarih) continue;
+            total++;
+            const isProgramDay = programNorm && this._normalizeTarih(k.tarih) === programNorm;
+            if (isProgramDay) {
+                if (this._kosuHasUsableMetrics(k)) programDayMetrics = true;
+                continue;
+            }
+            pastExcludingProgram++;
+            if (this._kosuHasUsableMetrics(k)) usablePast++;
+            if (k.son800_bir && k.son800_bir !== '-') son800Past++;
+            const d = k.at_derece;
+            if (d && d !== '-' && AtSpeedUtils.dereceToSalise(d) != null) test1Past++;
+        }
+
+        const noHistory = total === 0;
+        const debut = !noHistory && pastExcludingProgram === 0;
+        const partial = pastExcludingProgram > 0 && pastExcludingProgram < 3;
+        const tahminEligible = !noHistory && (pastExcludingProgram > 0 || programDayMetrics);
+        const depthEligible = usablePast > 0 || programDayMetrics;
+
+        return {
+            total,
+            pastExcludingProgram,
+            usablePast,
+            son800Past,
+            test1Past,
+            programDayMetrics,
+            noHistory,
+            debut,
+            partial,
+            tahminEligible,
+            depthEligible,
+            tier: noHistory ? 'yok' : debut ? 'debut' : partial ? 'kismi' : 'tam'
+        };
+    },
+
     /** Atın koşularını yeniden eskiye SON800 zinciri (program günü hariç; yalnız koşu varsa fallback) */
     _kosularSon800Zinciri(kosular, programTarih, alan = 'bir') {
         const programNorm = programTarih ? this._normalizeTarih(programTarih) : null;
@@ -1673,10 +1731,12 @@ const IstatistikEngine = {
             const test3Depths = test3Grid.byHorse.get(key) || [];
             const test123SiraliDepths = test123SiraliGrid.byHorse.get(key) || [];
             const t1drDepths = t1drGrid.byHorse.get(key) || [];
+            const kosuHistory = this.analyzeKosuHistory(kosular, programTarih);
             return {
                 no: horse.no,
                 name: horse.name || '-',
                 atId: horse.atId,
+                kosuHistory,
                 hedefMesafe,
                 sehir,
                 son8001Depths,
@@ -1770,6 +1830,8 @@ const IstatistikEngine = {
             testsiraMinRulePct: test123SiraliGrid.minRulePct,
             testsiraMaxRulePct: test123SiraliGrid.maxRulePct,
             maxDepthT1dr: t1drGrid.maxDepth,
+            programTarih,
+            hedefSehir,
             rows
         };
     },
@@ -2087,8 +2149,16 @@ const IstatistikEngine = {
         let t1dr = 0;
         let anyCore = 0;
         let programDayOnly = 0;
+        let tahminEligible = 0;
+        let debut = 0;
+        let partial = 0;
 
         for (const row of pkg.rows) {
+            const hist = row.kosuHistory || {};
+            if (hist.debut) debut++;
+            else if (hist.partial) partial++;
+            if (hist.tahminEligible) tahminEligible++;
+
             const miss = {
                 son8001: row.son8001Depths?.[0]?.pct == null,
                 test1: row.test1Depths?.[0]?.pct == null,
@@ -2097,6 +2167,7 @@ const IstatistikEngine = {
             miss.anyPrimary = miss.son8001 || miss.test1;
             miss.anyCore = miss.son8001 && miss.test1 && miss.t1dr;
             row.depthsMissing = miss;
+            if (!hist.tahminEligible) row.tahminIneligible = true;
 
             const pd = !!(row.son8001Depths?.[0]?.programDayOnly
                 || row.test1Depths?.[0]?.programDayOnly
@@ -2116,8 +2187,12 @@ const IstatistikEngine = {
             test1: n ? test1 / n : 0,
             t1dr: n ? t1dr / n : 0,
             coreMissingRate: n ? anyCore / n : 0,
-            programDayOnlyRate: n ? programDayOnly / n : 0
+            programDayOnlyRate: n ? programDayOnly / n : 0,
+            tahminEligibleRate: n ? tahminEligible / n : 0,
+            debutRate: n ? debut / n : 0,
+            partialRate: n ? partial / n : 0
         };
+        pkg.kosuHistorySummary = { fieldSize: n, tahminEligible, debut, partial, excluded: n - tahminEligible };
         return pkg;
     },
 

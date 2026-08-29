@@ -138,14 +138,35 @@ const HybridTahminScoringEngine = (function () {
         return sum / rows.length;
     }
 
-    function finalizeRaceScores(scored) {
-        const maxScore = Math.max(...scored.map(s => s.tahmin.score), 1);
+    function applyTahminEligibility(scored) {
         for (const s of scored) {
+            const hist = s.row?.kosuHistory;
+            if (!hist || hist.tahminEligible !== false) continue;
+            s.tahmin.ineligible = true;
+            s.tahmin.ineligibleReason = hist.noHistory ? 'kosu_yok'
+                : hist.debut ? 'debut' : 'veri_yetersiz';
+            s.tahmin.score = 0;
+            s.tahmin.pct = 0;
+        }
+    }
+
+    function finalizeRaceScores(scored) {
+        applyTahminEligibility(scored);
+        const eligible = scored.filter(s => !s.tahmin.ineligible);
+        const pool = eligible.length ? eligible : scored;
+        const maxScore = Math.max(...pool.map(s => s.tahmin.score), 1);
+        for (const s of pool) {
             s.tahmin.pct = s.tahmin.score > 0
                 ? Math.max(1, Math.round((s.tahmin.score / maxScore) * 100))
                 : 0;
         }
+        for (const s of scored) {
+            if (s.tahmin.ineligible) s.tahmin.pct = 0;
+        }
         scored.sort((a, b) => {
+            if (a.tahmin.ineligible !== b.tahmin.ineligible) {
+                return a.tahmin.ineligible ? 1 : -1;
+            }
             const sa = a.tahmin.score;
             const sb = b.tahmin.score;
             if (sb !== sa) return sb - sa;
@@ -253,7 +274,11 @@ const HybridTahminScoringEngine = (function () {
             };
         });
 
+        applyTahminEligibility(blended);
         blended.sort((a, b) => {
+            if (a.tahmin.ineligible !== b.tahmin.ineligible) {
+                return a.tahmin.ineligible ? 1 : -1;
+            }
             if (b.tahmin.score !== a.tahmin.score) return b.tahmin.score - a.tahmin.score;
             return (a.row?.no ?? 0) - (b.row?.no ?? 0);
         });
@@ -380,6 +405,7 @@ const HybridTahminScoringEngine = (function () {
             gostergeWeight: leader?.tahmin?.gostergeWeight ?? (1 - basariWeight),
             raceCoverage,
             depthCoverage,
+            kosuHistorySummary: pkg.kosuHistorySummary || null,
             fieldProfile: profile ? {
                 fieldSize,
                 bestFactor: profile.bestFactor,

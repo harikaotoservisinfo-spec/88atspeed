@@ -130,8 +130,18 @@ function fetchAtKosular(apiBase, atId, atAdi) {
     });
 }
 
+function formatKosuPreview(kosular) {
+    if (!kosular?.length) return '(boş)';
+    const first = kosular[0];
+    const last = kosular[kosular.length - 1];
+    return kosular.length + ' koşu · ' + (last.tarih || '?') + '…' + (first.tarih || '?')
+        + ' · örn: ' + (first.sehir || '?') + ' ' + (first.mesafe || '?');
+}
+
 async function runFetchPlan(plan, apiBase, delayMs) {
     hr('TJK fetch (' + apiBase + ')');
+    console.log('  Not: TJK atId sayfasından çekilir — tarih/hipodrom/at eşleşmesi atId ile garanti.');
+    console.log('  API son 7 koşuyu detaylı döner (son800, derece dahil).');
     let ok = 0;
     let fail = 0;
     for (const p of plan) {
@@ -142,7 +152,8 @@ async function runFetchPlan(plan, apiBase, delayMs) {
                 p.fetched = data.kosular;
                 ok++;
                 console.log('  ✓ fetch ' + p.atId + ' #' + p.horseNo + ' ' + (p.horseName || '')
-                    + ' → ' + data.kosular.length + ' koşu');
+                    + ' → ' + formatKosuPreview(data.kosular)
+                    + (data.atAdi ? ' · TJK adı: ' + data.atAdi : ''));
             } else {
                 fail++;
                 console.log('  ✗ fetch ' + p.atId + ' #' + p.horseNo + ' → boş'
