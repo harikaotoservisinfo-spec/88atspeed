@@ -1290,15 +1290,29 @@ const GostergeScoringEngine = (function () {
         let withHits = 0;
         let withWeight = 0;
         let totalHits = 0;
-        let rawSum = 0;
         let bucketSum = 0;
+        let usedTahmin = 0;
         for (const entry of flatEntries) {
+            const t = entry.row?.tahmin;
+            if (t?.buckets || t?.colorHitCount != null) {
+                usedTahmin++;
+                const hits = t.colorHitCount || 0;
+                const w = t.buckets?.colors || 0;
+                if (hits > 0) {
+                    withHits++;
+                    totalHits += hits;
+                }
+                if (w > 0) {
+                    withWeight++;
+                    bucketSum += w;
+                }
+                continue;
+            }
             const { score, hits } = scoreColorGostergeHits(entry, ladder, opts.colorMatchMode || 'sum');
             const w = colorScoreForBucket(score, hits.length);
             if (hits.length) {
                 withHits++;
                 totalHits += hits.length;
-                rawSum += score;
             }
             if (w > 0) {
                 withWeight++;
@@ -1317,8 +1331,8 @@ const GostergeScoringEngine = (function () {
             hitRate: n ? withHits / n : 0,
             weightRate: n ? withWeight / n : 0,
             avgHitsWhenMatched: withHits ? totalHits / withHits : 0,
-            avgRawColorScore: withHits ? rawSum / withHits : 0,
-            avgColorBucketWeight: withWeight ? bucketSum / withWeight : 0
+            avgColorBucketWeight: withWeight ? bucketSum / withWeight : 0,
+            fromTahminCache: usedTahmin
         };
     }
 

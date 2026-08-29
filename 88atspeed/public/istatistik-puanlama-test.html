@@ -1308,9 +1308,9 @@
 <script src="js/ptest-gosterge-engine.js?v=20260830z"></script>
 <script src="js/ptest-gosterge-depth-engine.js?v=20260830z"></script>
 <script src="js/ptest-color-gosterge-export.js?v=20260830z"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260831g"></script>
-<script src="js/ptest-final-share-report.js?v=20260831g"></script>
-<script src="js/ptest-field-factor-engine.js?v=20260831g"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260831h"></script>
+<script src="js/ptest-final-share-report.js?v=20260831h"></script>
+<script src="js/ptest-field-factor-engine.js?v=20260831h"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -2130,7 +2130,7 @@ let ptestFieldFactorSelectedSize = null;
 function updateFieldFactorTabVisibility() {
     const empty = document.getElementById('fieldFactorEmptyMsg');
     const content = document.getElementById('fieldFactorContentWrap');
-    const hasData = flatEntries.length > 0 && GostergeScoringEngine.isCalibrated?.();
+    const hasData = flatEntries.length > 0;
     if (empty) empty.classList.toggle('hidden', hasData);
     if (content) content.classList.toggle('hidden', !hasData);
 }
@@ -2165,18 +2165,38 @@ function renderFieldFactorDetail() {
         fmtPct: pctBenchFmt,
         host: getPtestScoringHost(),
         formatTahminCell: ptestFormatTahminBitisCell,
-        raceLimit: 10
+        raceLimit: 10,
+        entries: ptestFieldFactorResults?.entriesByField?.[row?.fieldSize] || []
     });
 }
 
 async function renderFieldFactorReport() {
     updateFieldFactorTabVisibility();
     if (!flatEntries.length) return;
+    const summaryHost = document.getElementById('fieldFactorSummaryHost');
+    const detailHost = document.getElementById('fieldFactorDetailHost');
+    if (summaryHost) summaryHost.innerHTML = '<p style="padding:12px;color:#6a1b9a">⏳ Analiz hesaplanıyor…</p>';
+    if (detailHost) detailHost.innerHTML = '<p style="color:#789">Hesaplanıyor…</p>';
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     if (!GostergeScoringEngine.isCalibrated?.()) {
         await applyGostergeTahminScoring();
     }
-    updateFieldFactorTabVisibility();
-    if (!GostergeScoringEngine.isCalibrated?.()) return;
+    await new Promise(r => setTimeout(r, 0));
+    const calibrated = !!GostergeScoringEngine.isCalibrated?.();
+    if (!calibrated) {
+        const cal = GostergeScoringEngine.getCalibration?.();
+        const intro = document.getElementById('fieldFactorIntro');
+        if (intro) {
+            intro.innerHTML = '<span style="color:#c62828">Kalibrasyon yetersiz — PUANLAMA TEST BİTİŞ sütunlarını doldurun'
+                + (cal?.bitisRows != null ? ' (bitiş örneği: ' + cal.bitisRows + ', min 5 gerekli)' : '')
+                + '.</span>';
+        }
+        if (summaryHost) {
+            summaryHost.innerHTML = '<p style="padding:12px;color:#c62828">Bitiş sırası yeterli değil — analiz yapılamıyor.</p>';
+        }
+        if (detailHost) detailHost.innerHTML = '<p style="color:#789">—</p>';
+        return;
+    }
     const intro = document.getElementById('fieldFactorIntro');
     const diag = GostergeScoringEngine.diagnoseColorScoring?.(flatEntries);
     if (intro) {
@@ -2209,6 +2229,7 @@ async function renderFieldFactorReport() {
         }
         intro.innerHTML = h;
     }
+    await new Promise(r => setTimeout(r, 0));
     ptestFieldFactorResults = PtestFieldFactorEngine.analyzeFieldFactors(flatEntries, getPtestScoringHost());
     if (ptestFieldFactorSelectedSize == null && ptestFieldFactorResults.results?.length) {
         let best = ptestFieldFactorResults.results[0];
@@ -3092,7 +3113,7 @@ function renderGosterge1Report() {
     initGosterge1StripTabs();
 }
 
-const PTEST_BUILD = '20260831g';
+const PTEST_BUILD = '20260831h';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
@@ -3139,6 +3160,9 @@ function scheduleGostergeRefresh() {
         }
         if (ptestViewTab === 'gosterge1') {
             renderGosterge1Report();
+        }
+        if (ptestViewTab === 'fieldfactor' && flatEntries.length) {
+            void renderFieldFactorReport();
         }
     })();
 }

@@ -83,18 +83,29 @@ const PtestFieldFactorEngine = (function () {
             .slice(0, limit || 15);
     }
 
+    function buildFieldSizeLookup(flatEntries) {
+        const fieldByRace = new Map();
+        const groups = buildRaceGroups(flatEntries);
+        for (const [rk, horses] of groups) {
+            fieldByRace.set(rk, horses.length);
+        }
+        return fieldByRace;
+    }
+
     function analyzeFieldFactors(flatEntries, host) {
         if (!flatEntries?.length || !host?.bitisValueForSort) {
-            return { fieldSizes: [], byFieldSize: {}, races: [] };
+            return { fieldSizes: [], results: [] };
         }
         const metricShareIds = GostergeScoringEngine.OTHER_METRIC_SHARES || {};
         const shareInfo = GostergeScoringEngine.getOtherMetricShares?.() || {};
-        const groups = buildRaceGroups(flatEntries);
+        const fieldByRace = buildFieldSizeLookup(flatEntries);
         const byFieldSize = {};
         const fieldSizeSet = new Set();
 
-        for (const [rk, horses] of groups) {
-            const fs = horses.length;
+        for (const entry of flatEntries) {
+            const rk = raceKey(entry);
+            const fs = fieldByRace.get(rk) || 0;
+            if (!fs) continue;
             fieldSizeSet.add(fs);
             if (!byFieldSize[fs]) {
                 byFieldSize[fs] = {
@@ -102,8 +113,7 @@ const PtestFieldFactorEngine = (function () {
                     raceCount: 0,
                     horseCount: 0,
                     bitisCount: 0,
-                    entries: [],
-                    races: [],
+                    raceKeys: new Set(),
                     bucketSum: { t9v: 0, colors: 0, metrics: 0, rest: 0 },
                     dominantFactor: { t9v: 0, colors: 0, metrics: 0, rest: 0 },
                     dominantExact: { t9v: 0, colors: 0, metrics: 0, rest: 0, total: { t9v: 0, colors: 0, metrics: 0, rest: 0 } },
@@ -112,92 +122,99 @@ const PtestFieldFactorEngine = (function () {
                     metricPoints: {},
                     termPoints: {},
                     termWinners: {},
-                    termLeaders: {}
+                    termLeaders: {},
+                    races: []
                 };
             }
             const bucket = byFieldSize[fs];
-            bucket.raceCount++;
-            bucket.horseCount += horses.length;
-
-            let leaderEntry = null;
-            let leaderScore = -1;
-            for (const he of horses) {
-                bucket.entries.push(he);
-                const sc = he.row?.tahmin?.score ?? 0;
-                if (sc > leaderScore) {
-                    leaderScore = sc;
-                    leaderEntry = he;
-                }
+            bucket.horseCount++;
+            if (!bucket.raceKeys.has(rk)) {
+                bucket.raceKeys.add(rk);
+                bucket.raceCount++;
             }
 
-            let raceExact = 0;
-            let raceBitis = 0;
-            for (const he of horses) {
-                const b = host.bitisValueForSort(he);
-                if (b == null || b < 1) continue;
-                raceBitis++;
-                bucket.bitisCount++;
-                const agg = aggregateFactorBuckets(he.row?.tahmin, metricShareIds);
-                const total = agg.total || 1;
-                for (const id of BUCKET_ORDER) bucket.bucketSum[id] += agg.buckets[id] || 0;
+            const b = host.bitisValueForSort(entry);
+            const tahmin = entry.row?.tahmin;
+            const agg = aggregateFactorBuckets(tahmin, metricShareIds);
+            for (const id of BUCKET_ORDER) bucket.bucketSum[id] += agg.buckets[id] || 0;
 
-                const dom = dominantBucket(agg.buckets);
+            const dom = dominantBucket(agg.buckets);
+            if (b != null && b >= 1) {
+                bucket.bitisCount++;
                 if (dom) {
                     bucket.dominantFactor[dom]++;
                     bucket.dominantExact.total[dom]++;
-                    const rank = he.row?.tahmin?.rank;
+                    const rank = tahmin?.rank;
                     if (rank != null && Number(rank) === Number(b)) {
                         bucket.dominantExact[dom]++;
                     }
                 }
-
-                if (b === 1) {
-                    if (dom) bucket.winnerDominant[dom]++;
-                    for (const [k, v] of Object.entries(agg.termDetail)) {
-                        bucket.termWinners[k] = (bucket.termWinners[k] || 0) + v.points;
-                    }
-                }
-
-                for (const [mid, pts] of Object.entries(agg.metricDetail)) {
-                    bucket.metricPoints[mid] = (bucket.metricPoints[mid] || 0) + pts;
-                }
-                for (const [k, v] of Object.entries(agg.termDetail)) {
-                    if (!bucket.termPoints[k]) bucket.termPoints[k] = { label: v.label, points: 0, count: 0, bucket: v.bucket };
-                    bucket.termPoints[k].points += v.points;
-                    bucket.termPoints[k].count += v.count;
-                }
-
-                const rank = he.row?.tahmin?.rank;
-                if (rank != null && Number(rank) === Number(b)) raceExact++;
+                if (b === 1 && dom) bucket.winnerDominant[dom]++;
             }
 
-            if (leaderEntry) {
-                const la = aggregateFactorBuckets(leaderEntry.row?.tahmin, metricShareIds);
-                const ldom = dominantBucket(la.buckets);
-                if (ldom) bucket.leaderDominant[ldom]++;
-                for (const [k, v] of Object.entries(la.termDetail)) {
+            if (tahmin?.rank === 1 && dom) bucket.leaderDominant[dom]++;
+
+            for (const [mid, pts] of Object.entries(agg.metricDetail)) {
+                bucket.metricPoints[mid] = (bucket.metricPoints[mid] || 0) + pts;
+            }
+            for (const [k, v] of Object.entries(agg.termDetail)) {
+                if (!bucket.termPoints[k]) bucket.termPoints[k] = { label: v.label, points: 0, count: 0, bucket: v.bucket };
+                bucket.termPoints[k].points += v.points;
+                bucket.termPoints[k].count += v.count;
+            }
+            if (b === 1) {
+                for (const [k, v] of Object.entries(agg.termDetail)) {
+                    bucket.termWinners[k] = (bucket.termWinners[k] || 0) + v.points;
+                }
+            }
+            if (tahmin?.rank === 1) {
+                for (const [k, v] of Object.entries(agg.termDetail)) {
                     bucket.termLeaders[k] = (bucket.termLeaders[k] || 0) + v.points;
                 }
             }
+        }
 
-            const sample = horses[0];
-            bucket.races.push({
-                raceKey: rk,
-                tarih: sample.tarih,
-                hipodrom: sample.hipodrom,
-                raceNo: sample.raceNo,
-                horseCount: fs,
-                bitisCount: raceBitis,
-                exactCount: raceExact
-            });
+        const groups = buildRaceGroups(flatEntries);
+        for (const fs of fieldSizeSet) {
+            const bucket = byFieldSize[fs];
+            for (const rk of bucket.raceKeys) {
+                const horses = groups.get(rk) || [];
+                let raceExact = 0;
+                let raceBitis = 0;
+                for (const he of horses) {
+                    const bv = host.bitisValueForSort(he);
+                    if (bv == null || bv < 1) continue;
+                    raceBitis++;
+                    if (he.row?.tahmin?.rank != null && Number(he.row.tahmin.rank) === Number(bv)) raceExact++;
+                }
+                if (!horses.length) continue;
+                const sample = horses[0];
+                bucket.races.push({
+                    raceKey: rk,
+                    tarih: sample.tarih,
+                    hipodrom: sample.hipodrom,
+                    raceNo: sample.raceNo,
+                    horseCount: fs,
+                    bitisCount: raceBitis,
+                    exactCount: raceExact
+                });
+            }
         }
 
         const fieldSizes = Array.from(fieldSizeSet).sort((a, b) => a - b);
         const results = [];
+        const entriesByField = {};
+        for (const fs of fieldSizes) entriesByField[fs] = [];
+
+        for (const entry of flatEntries) {
+            const fs = fieldByRace.get(raceKey(entry));
+            if (fs && entriesByField[fs]) entriesByField[fs].push(entry);
+        }
 
         for (const fs of fieldSizes) {
             const b = byFieldSize[fs];
-            const success = GostergeScoringEngine.evaluateTahminSuccess(b.entries, host.bitisValueForSort);
+            const subset = entriesByField[fs] || [];
+            const success = GostergeScoringEngine.evaluateTahminSuccess(subset, host.bitisValueForSort);
             const ptTotal = b.bucketSum.t9v + b.bucketSum.colors + b.bucketSum.metrics + b.bucketSum.rest || 1;
             const avgBucketShare = {
                 t9v: b.bucketSum.t9v / ptTotal,
@@ -225,17 +242,6 @@ const PtestFieldFactorEngine = (function () {
                 };
             }
 
-            const topMetrics = topFromMap(b.metricPoints, 12, id => shareInfo[id]?.label || id);
-            const topTerms = topFromMap(b.termPoints, 15, null);
-            const topTermsWinners = Object.entries(b.termWinners)
-                .map(([label, points]) => ({ label, points }))
-                .sort((a, b) => b.points - a.points)
-                .slice(0, 12);
-            const topTermsLeaders = Object.entries(b.termLeaders)
-                .map(([label, points]) => ({ label, points }))
-                .sort((a, b) => b.points - a.points)
-                .slice(0, 12);
-
             results.push({
                 fieldSize: fs,
                 raceCount: b.raceCount,
@@ -247,20 +253,27 @@ const PtestFieldFactorEngine = (function () {
                 dominantSuccess,
                 topDominant,
                 topDominantLabel: BUCKET_LABELS[topDominant],
-                topMetrics,
-                topTerms,
-                topTermsWinners,
-                topTermsLeaders,
+                topMetrics: topFromMap(b.metricPoints, 12, id => shareInfo[id]?.label || id),
+                topTerms: topFromMap(b.termPoints, 15, null),
+                topTermsWinners: Object.entries(b.termWinners)
+                    .map(([label, points]) => ({ label, points }))
+                    .sort((a, b) => b.points - a.points)
+                    .slice(0, 12),
+                topTermsLeaders: Object.entries(b.termLeaders)
+                    .map(([label, points]) => ({ label, points }))
+                    .sort((a, b) => b.points - a.points)
+                    .slice(0, 12),
                 winnerDominant: { ...b.winnerDominant },
                 leaderDominant: { ...b.leaderDominant },
                 races: b.races,
-                entries: b.entries
+                fieldSize: fs
             });
         }
 
         return {
             fieldSizes,
             results,
+            entriesByField,
             bucketLabels: BUCKET_LABELS
         };
     }
@@ -335,7 +348,7 @@ const PtestFieldFactorEngine = (function () {
         h += renderTopList('TAHMİN liderinde baskın göstergeler', row.topTermsLeaders, 'label', 'points');
         h += '</div>';
 
-        h += renderRaceSamples(row, opts.host, opts.formatTahminCell, opts.raceLimit != null ? opts.raceLimit : 8);
+        h += renderRaceSamples(row, opts.host, opts.formatTahminCell, opts.raceLimit != null ? opts.raceLimit : 8, opts.entries);
         h += '</div>';
         return h;
     }
@@ -378,11 +391,11 @@ const PtestFieldFactorEngine = (function () {
         return h;
     }
 
-    function renderRaceSamples(row, host, formatTahminCell, limit) {
+    function renderRaceSamples(row, host, formatTahminCell, limit, entries) {
         limit = limit != null ? limit : 8;
         const races = (row.races || []).slice().sort((a, b) => b.exactCount - a.exactCount || b.bitisCount - a.bitisCount);
         let h = '<details class="ptest-field-factor-block"><summary>Örnek koşular (tam isabet / ' + row.fieldSize + ' at)</summary>';
-        const groups = buildRaceGroups(row.entries);
+        const groups = buildRaceGroups(entries || row.entries);
         let shown = 0;
         for (const race of races) {
             if (shown >= limit) break;
