@@ -1686,6 +1686,8 @@ const GostergeScoringEngine = (function () {
         renderCalibrationHtml,
         diagnoseColorScoring,
         isScoringReady,
+        getCalibration,
+        isCalibrated,
         aggregateBucketTotals,
         loadAndCalibrateFromApi,
         buildFlatEntriesFromApi,
