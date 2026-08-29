@@ -196,16 +196,24 @@ const GostergeScoringEngine = (function () {
         return { current, baseline, tested, delta };
     }
 
-    function generateShareSplitSweepConfigs() {
+    function generateShareSplitSweepConfigs(opts) {
+        opts = opts || {};
+        const step = opts.step != null ? opts.step : 5;
+        const full = opts.full !== false;
         const configs = [];
-        const t9vVals = [25, 30, 35, 40, 45];
-        const colorVals = [35, 40, 45, 50, 55];
-        const metricVals = [10, 16, 20, 25];
-        for (const t9v of t9vVals) {
-            for (const colors of colorVals) {
-                for (const metrics of metricVals) {
-                    const rest = Math.round((100 - t9v - colors - metrics) * 10) / 10;
-                    if (rest < 0 || rest > 25) continue;
+        const t9vMin = opts.t9vMin != null ? opts.t9vMin : (full ? 15 : 25);
+        const t9vMax = opts.t9vMax != null ? opts.t9vMax : (full ? 55 : 45);
+        const colorMin = opts.colorMin != null ? opts.colorMin : (full ? 25 : 35);
+        const colorMax = opts.colorMax != null ? opts.colorMax : (full ? 65 : 55);
+        const metricMin = opts.metricMin != null ? opts.metricMin : (full ? 5 : 10);
+        const metricMax = opts.metricMax != null ? opts.metricMax : (full ? 40 : 25);
+        const restMax = opts.restMax != null ? opts.restMax : 40;
+
+        for (let t9v = t9vMin; t9v <= t9vMax; t9v += step) {
+            for (let colors = colorMin; colors <= colorMax; colors += step) {
+                for (let metrics = metricMin; metrics <= metricMax; metrics += step) {
+                    const rest = 100 - t9v - colors - metrics;
+                    if (rest < 0 || rest > restMax) continue;
                     configs.push({
                         id: 't' + t9v + '_c' + colors + '_m' + metrics + '_r' + rest,
                         label: 'T9V %' + t9v + ' · Renkler %' + colors + ' · Metrikler %' + metrics + ' · rest %' + rest,
@@ -217,22 +225,29 @@ const GostergeScoringEngine = (function () {
         return configs;
     }
 
-    async function runShareSplitSweep(flatEntries, host, onProgress) {
+    async function runShareSplitSweep(flatEntries, host, onProgress, opts) {
         if (!calibration) return { results: [], configCount: 0 };
-        const configs = generateShareSplitSweepConfigs();
+        const configs = generateShareSplitSweepConfigs(opts);
         const results = [];
         for (let i = 0; i < configs.length; i++) {
             const cfg = configs[i];
-            onProgress?.('Pay taraması ' + (i + 1) + '/' + configs.length + ': ' + cfg.label);
+            onProgress?.({
+                phase: 'run',
+                index: i + 1,
+                total: configs.length,
+                label: cfg.label,
+                pct: Math.round(((i + 1) / configs.length) * 100)
+            });
             const row = evaluateShareSplit(flatEntries, host, cfg);
             if (row) results.push({ config: cfg, ...row });
-            if (i % 5 === 4) await yieldToMain();
+            if (i % 8 === 7) await yieldToMain();
         }
         results.sort((a, b) => {
             if (b.leaderBlended !== a.leaderBlended) return b.leaderBlended - a.leaderBlended;
-            return b.exactRate - a.exactRate;
+            if (b.exactRate !== a.exactRate) return b.exactRate - a.exactRate;
+            return b.leaderB1Rate - a.leaderB1Rate;
         });
-        return { results, configCount: configs.length };
+        return { results, configCount: configs.length, best: results[0] || null };
     }
 
     function setMetricSweepFocus(metricId, shareWithinOther) {
