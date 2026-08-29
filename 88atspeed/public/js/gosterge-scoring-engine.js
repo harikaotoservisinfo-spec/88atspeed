@@ -25,7 +25,7 @@ const GostergeScoringEngine = (function () {
     };
     let METRIC_SWEEP_FOCUS_ID = null;
     let METRIC_SWEEP_FOCUS_SHARE = 0;
-    /** %65 dilimi payları (ham puanlar; normalize → toplam 1.0) */
+    /** OTHER dilimi payları (ham puanlar; normalize → toplam 1.0) */
     const OTHER_METRIC_SHARE_PCT = {
         son8001: 3,
         oran1: 6,
