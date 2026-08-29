@@ -17,6 +17,8 @@
     "test:tip-a-diagnose": "node scripts/test-tip-a-db-diagnose.js --field-size 10",
     "repair:kosular": "node scripts/repair-missing-kosular.js --db atlar.db --scan",
     "repair:kosular-apply": "node scripts/repair-missing-kosular.js --db atlar.db --apply",
+    "repair:k6-depth-scan": "node scripts/repair-missing-kosular.js --db atlar.db --kayit 133 --race 6 --horse 5,6,8 --scan-depth",
+    "repair:k6-depth-apply": "node scripts/repair-missing-kosular.js --db atlar.db --kayit 133 --race 6 --horse 5,6,8 --refresh --apply",
     "purge:kosmaz": "node scripts/purge-kosmaz-horses.js --db atlar.db --scan",
     "purge:kosmaz-apply": "node scripts/purge-kosmaz-horses.js --db atlar.db --apply",
     "test:near-miss": "node scripts/test-near-miss-report.js --db atlar.db --field-size 10",

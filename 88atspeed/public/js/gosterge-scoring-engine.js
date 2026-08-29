@@ -1386,14 +1386,14 @@ const GostergeScoringEngine = (function () {
                 : null;
         }
         scored.sort((a, b) => {
+            const rowA = a.row ?? a.entry?.row;
+            const rowB = b.row ?? b.entry?.row;
+            if (typeof AtSpeedUtils !== 'undefined' && AtSpeedUtils.compareTahminRank) {
+                return AtSpeedUtils.compareTahminRank(rowA, rowB, a.tahmin.score, b.tahmin.score);
+            }
             const sa = a.tahmin.score;
             const sb = b.tahmin.score;
             if (sb !== sa) return sb - sa;
-            const rowA = a.row ?? a.entry?.row;
-            const rowB = b.row ?? b.entry?.row;
-            if (typeof AtSpeedUtils !== 'undefined' && AtSpeedUtils.compareTahminTieBreak) {
-                return AtSpeedUtils.compareTahminTieBreak(rowA, rowB);
-            }
             return (rowA?.no ?? 0) - (rowB?.no ?? 0);
         });
         for (let i = 0; i < scored.length; i++) {

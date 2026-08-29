@@ -4,12 +4,18 @@
  *
  *   node scripts/repair-missing-kosular.js --db atlar.db --scan
  *   node scripts/repair-missing-kosular.js --db atlar.db --at-id 114236,104060,115482 --apply
- *     (--apply kaynak yoksa otomatik TJK fetch dener; --no-fetch ile kapat)
- *   node scripts/repair-missing-kosular.js --db atlar.db --fetch --apply
+ *   node scripts/repair-missing-kosular.js --db atlar.db --kayit 133 --race 6 --horse 5,6,8 --scan-depth
+ *   node scripts/repair-missing-kosular.js --db atlar.db --kayit 133 --race 6 --horse 5,6,8 --refresh --apply
  */
 const http = require('http');
 const path = require('path');
-const { openDb, dbAll, dbGet } = require('./ptest-terminal-lib');
+const {
+    openDb,
+    dbAll,
+    dbGet,
+    loadGostergeEngines,
+    buildFlatEntriesFromDb
+} = require('./ptest-terminal-lib');
 
 const args = process.argv.slice(2);
 function argVal(flag) {
@@ -21,7 +27,11 @@ const cli = {
     dbPath: argVal('--db') || path.join(__dirname, '..', 'atlar.db'),
     atIds: (argVal('--at-id') || '').split(',').map(s => s.trim()).filter(Boolean),
     kayitId: argVal('--kayit') ? Number(argVal('--kayit')) : null,
-    scan: args.includes('--scan') || (!args.includes('--apply') && !argVal('--at-id')),
+    raceNo: argVal('--race') ? Number(argVal('--race')) : null,
+    horseNos: (argVal('--horse') || '').split(',').map(s => s.trim()).filter(Boolean).map(Number),
+    scan: args.includes('--scan'),
+    scanDepth: args.includes('--scan-depth'),
+    refresh: args.includes('--refresh'),
     apply: args.includes('--apply'),
     fetch: args.includes('--fetch'),
     noFetch: args.includes('--no-fetch'),
@@ -68,8 +78,9 @@ function collectHorsesFromKayitlar(kayitlar) {
     for (const kayit of kayitlar) {
         const races = parseKayitVeri(kayit.veri);
         if (!races) continue;
-        for (const race of races) {
-            const raceNo = race.raceNo || race.race_no;
+        for (let i = 0; i < races.length; i++) {
+            const race = races[i];
+            const raceNo = race.raceNo || race.race_no || (i + 1);
             for (const horse of race.horses || []) {
                 const atId = horse.atId != null ? String(horse.atId) : '';
                 const kosular = horse.kosular || [];
@@ -102,6 +113,15 @@ function collectHorsesFromKayitlar(kayitlar) {
     return { horses, indexByAtId };
 }
 
+function filterByContext(horses) {
+    return horses.filter(h => {
+        if (cli.kayitId && Number(h.kayitId) !== cli.kayitId) return false;
+        if (cli.raceNo && Number(h.raceNo) !== cli.raceNo) return false;
+        if (cli.horseNos.length && !cli.horseNos.includes(Number(h.horseNo))) return false;
+        return true;
+    });
+}
+
 function findMissing(horses, atIdFilter) {
     return horses.filter(h => {
         if (!h.atId) return false;
@@ -109,6 +129,14 @@ function findMissing(horses, atIdFilter) {
         if (atIdFilter.length && !atIdFilter.includes(h.atId)) return false;
         return true;
     });
+}
+
+function findRepairTargets(horses, atIdFilter) {
+    const scoped = filterByContext(horses);
+    if (cli.refresh) {
+        return scoped.filter(h => h.atId && (!atIdFilter.length || atIdFilter.includes(h.atId)));
+    }
+    return findMissing(scoped, atIdFilter);
 }
 
 function fetchAtKosular(apiBase, atId, atAdi) {
@@ -120,8 +148,7 @@ function fetchAtKosular(apiBase, atId, atAdi) {
             res.on('data', c => { body += c; });
             res.on('end', () => {
                 try {
-                    const data = JSON.parse(body);
-                    resolve(data);
+                    resolve(JSON.parse(body));
                 } catch (e) {
                     reject(e);
                 }
@@ -145,7 +172,7 @@ async function runFetchPlan(plan, apiBase, delayMs) {
     let ok = 0;
     let fail = 0;
     for (const p of plan) {
-        if (p.donor) continue;
+        if (p.donor && !cli.refresh) continue;
         try {
             const data = await fetchAtKosular(apiBase, p.atId, p.horseName);
             if (data.success && data.kosular?.length) {
@@ -186,6 +213,44 @@ async function patchKayit(db, kayitId, table, patchFn) {
     return { patched: count, dryRun: false };
 }
 
+async function scanDepthGaps(db, horses) {
+    loadGostergeEngines();
+    const { flatEntries } = await buildFlatEntriesFromDb(db, {
+        filterKayit: cli.kayitId,
+        filterRace: cli.raceNo
+    });
+    const kosByKey = new Map();
+    for (const h of horses) {
+        kosByKey.set(String(h.kayitId) + '|' + h.raceNo + '|' + h.horseNo, h);
+    }
+
+    hr('Derinlik taraması');
+    if (!flatEntries.length) {
+        console.log('  Hesaplama paketi boş — kayit/race filtresini kontrol edin.');
+        return;
+    }
+    let gapCount = 0;
+    for (const e of flatEntries) {
+        if (cli.horseNos.length && !cli.horseNos.includes(Number(e.row.no))) continue;
+        const key = String(e.kayitId) + '|' + e.raceNo + '|' + e.row.no;
+        const raw = kosByKey.get(key);
+        const miss = e.row.depthsMissing || {};
+        const s = e.row.son8001Depths?.[0]?.pct;
+        const t = e.row.test1Depths?.[0]?.pct;
+        const d = e.row.t1drDepths?.[0]?.pct;
+        const hasGap = miss.anyPrimary || miss.anyCore || !global.AtSpeedUtils.hasDepthTieBreakData(e.row);
+        if (hasGap) gapCount++;
+        console.log('  #' + e.row.no + ' ' + (e.row.name || '') + ' atId=' + (raw?.atId || '—')
+            + ' · kosular=' + (raw?.kosularLen ?? '?')
+            + ' · S800=' + (s ?? '—') + ' T1=' + (t ?? '—') + ' T1DR=' + (d ?? '—')
+            + (miss.anyCore ? ' · ⚠ çekirdek eksik' : (miss.anyPrimary ? ' · ⚠ birincil eksik' : '')));
+    }
+    console.log('\n  Derinlik boşluğu: ' + gapCount + '/' + flatEntries.length);
+    if (gapCount) {
+        console.log('  → TJK yenile: --refresh --apply (veya --fetch --apply)');
+    }
+}
+
 async function main() {
     const db = openDb(cli.dbPath);
     try {
@@ -193,26 +258,37 @@ async function main() {
         console.log('║  Eksik kosular[] tamiri                                     ║');
         console.log('╚══════════════════════════════════════════════════════════════╝');
         console.log('DB: ' + cli.dbPath);
-        console.log('Mod: ' + (cli.apply ? 'APPLY (yaz)' : 'DRY-RUN (sadece rapor)'));
+        console.log('Mod: ' + (cli.apply ? 'APPLY (yaz)' : 'DRY-RUN (sadece rapor)')
+            + (cli.refresh ? ' · refresh' : ''));
 
         const kayitlar = await loadAllKayitSources(db);
         const { horses, indexByAtId } = collectHorsesFromKayitlar(kayitlar);
-        const missing = findMissing(horses, cli.atIds);
+
+        if (cli.scanDepth) {
+            await scanDepthGaps(db, horses);
+            if (!cli.apply && !cli.refresh && !cli.fetch) {
+                console.log('\nOK');
+                return;
+            }
+        }
+
+        const targets = findRepairTargets(horses, cli.atIds);
 
         hr('Tarama');
         console.log('  Kaynak kayıt: ' + kayitlar.length);
         console.log('  Toplam at satırı: ' + horses.length);
         console.log('  atId indeks (en uzun kosular): ' + indexByAtId.size);
-        console.log('  Eksik kosular[]: ' + missing.length);
+        console.log('  Hedef at: ' + targets.length + (cli.refresh ? ' (refresh)' : ' (eksik kosular)'));
 
-        if (!missing.length) {
-            console.log('\n✅ Eksik kosular bulunamadı.');
+        if (!targets.length) {
+            console.log('\n✅ Hedef at yok.'
+                + (cli.refresh ? '' : ' Eksik kosular bulunamadı — --scan-depth ile derinlik bakın.'));
             return;
         }
 
         const plan = [];
-        for (const m of missing) {
-            const donor = indexByAtId.get(m.atId);
+        for (const m of targets) {
+            const donor = cli.refresh ? null : indexByAtId.get(m.atId);
             plan.push({
                 ...m,
                 donor: donor && donor.kosularLen > 0 ? donor : null,
@@ -220,8 +296,8 @@ async function main() {
             });
         }
 
-        const needsFetch = plan.some(p => !p.donor);
-        const doFetch = cli.fetch || (cli.apply && needsFetch && !cli.noFetch);
+        const needsFetch = cli.refresh || plan.some(p => !p.donor);
+        const doFetch = cli.fetch || cli.refresh || (cli.apply && needsFetch && !cli.noFetch);
         if (doFetch && needsFetch) {
             await runFetchPlan(plan, cli.apiBase, cli.fetchDelayMs);
             for (const p of plan) {
@@ -244,7 +320,8 @@ async function main() {
             const source = p.fetched ? 'TJK fetch' : (p.donor ? 'indeks:' + p.donor.source : '—');
             console.log('  ' + p.hipodrom + ' ' + p.tarih + ' K' + p.raceNo + ' #' + p.horseNo
                 + ' atId=' + p.atId + ' · kaynak: ' + source
-                + (kosular ? ' · ' + kosular.length + ' koşu' : ' · KAYNAK YOK'));
+                + (kosular ? ' · ' + kosular.length + ' koşu' : ' · KAYNAK YOK')
+                + (cli.refresh && p.fetched ? ' · üzerine yaz' : ''));
             if (!kosular?.length) continue;
             const key = p.table + '|' + p.kayitId;
             if (!byKayit.has(key)) {
@@ -264,12 +341,12 @@ async function main() {
             const result = await patchKayit(db, job.kayitId, job.table, races => {
                 let n = 0;
                 for (const patch of job.patches) {
-                    const race = races.find(r => String(r.raceNo) === String(patch.raceNo));
+                    const race = races.find(r => String(r.raceNo || '') === String(patch.raceNo));
                     if (!race) continue;
                     const horse = (race.horses || []).find(h => String(h.atId) === String(patch.atId)
                         || String(h.no) === String(patch.horseNo));
                     if (!horse) continue;
-                    if (horse.kosular?.length) continue;
+                    if (horse.kosular?.length && !cli.refresh) continue;
                     horse.kosular = patch.kosular;
                     n++;
                 }
@@ -283,14 +360,14 @@ async function main() {
         }
 
         hr('Özet');
-        console.log('  Planlanan eksik: ' + missing.length);
+        console.log('  Hedef: ' + targets.length);
         console.log('  Yama uygulanabilir: ' + [...byKayit.values()].reduce((s, j) => s + j.patches.length, 0));
         console.log('  Güncellenen at: ' + totalPatched + (cli.apply ? '' : ' (dry-run — --apply ile yaz)'));
         if (!cli.apply && totalPatched) {
             console.log('\n  → Yazmak için: ... --apply');
         }
         if (needsFetch && !doFetch) {
-            console.log('  → TJK fetch: ... --apply (otomatik) veya --fetch --apply');
+            console.log('  → TJK fetch: ... --refresh --apply veya --fetch --apply');
         }
         console.log('\nOK');
     } finally {

@@ -323,6 +323,31 @@ const AtSpeedUtils = {
         const sb = AtSpeedUtils.depthTieBreakScore(rowB);
         if (sb !== sa) return sb - sa;
         return (rowA?.no ?? 0) - (rowB?.no ?? 0);
+    },
+
+    hasDepthTieBreakData(row) {
+        if (!row) return false;
+        return row.son8001Depths?.[0]?.pct != null
+            || row.test1Depths?.[0]?.pct != null
+            || row.t1drDepths?.[0]?.pct != null;
+    },
+
+    /**
+     * TAHMİN sıralama: skor>0 üstte; skor=0 kümesinde derinlik birincil (SON800→TEST1→T1×DR).
+     * Returns negative when a should rank above b.
+     */
+    compareTahminRank(rowA, rowB, scoreA, scoreB) {
+        const sa = scoreA ?? 0;
+        const sb = scoreB ?? 0;
+        const aPos = sa > 0;
+        const bPos = sb > 0;
+        if (aPos && bPos) {
+            if (sb !== sa) return sb - sa;
+            return AtSpeedUtils.compareTahminTieBreak(rowA, rowB);
+        }
+        if (aPos) return -1;
+        if (bPos) return 1;
+        return AtSpeedUtils.compareTahminTieBreak(rowA, rowB);
     }
 };
 
