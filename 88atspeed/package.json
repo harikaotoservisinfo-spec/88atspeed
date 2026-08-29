@@ -4,7 +4,9 @@
   "description": "TJK At Yarışı Analiz Programı",
   "main": "app.js",
   "scripts": {
-    "start": "node app.js"
+    "start": "node app.js",
+    "test:basari-tahmin": "node scripts/test-basari-pct-tahmin.js",
+    "test:basari-race": "node scripts/test-basari-pct-tahmin.js --verbose"
   },
   "dependencies": {
     "cheerio": "^1.2.0",

@@ -5,38 +5,49 @@
  */
 const BasariPctScoringEngine = (function () {
     const STORAGE_KEY = 'basariPctWeightsBySize';
-    const PROFILE_VERSION = 1;
+    const PROFILE_VERSION = 2;
     const MIN_RACES = 5;
     const SUCCESS_BLEND = { b1: 0.80, b12: 0.12, b123: 0.08 };
 
-    /** Tüm aday başarı yüzdesi alanları */
-    const STAT_CATALOG = [
-        { key: 'smIlk1.gun15', label: '15G Ş/M İLK1' },
-        { key: 'smIlk1.ay1', label: '1AY Ş/M İLK1' },
-        { key: 'smIlk1.ay3', label: '3AY Ş/M İLK1' },
-        { key: 'smIlk2.gun15', label: '15G Ş/M İLK2' },
-        { key: 'smIlk2.ay1', label: '1AY Ş/M İLK2' },
-        { key: 'smIlk3.gun15', label: '15G Ş/M İLK3' },
-        { key: 'mesafeIlk1.gun15', label: '15G MES İLK1' },
-        { key: 'mesafeIlk1.ay1', label: '1AY MES İLK1' },
-        { key: 'mesafeIlk1.ay3', label: '3AY MES İLK1' },
-        { key: 'mesafeIlk2.gun15', label: '15G MES İLK2' },
-        { key: 'genelIlk1.gun15', label: '15G GEN İLK1' },
-        { key: 'genelIlk1.ay1', label: '1AY GEN İLK1' },
-        { key: 'genelIlk1.ay3', label: '3AY GEN İLK1' },
-        { key: 'genelIlk2.gun15', label: '15G GEN İLK2' },
-        { key: 'genelIlk3.gun15', label: '15G GEN İLK3' },
-        { key: 'sehir', label: 'Şehir deneyimi' }
+    const PERIODS = ['gun15', 'ay1', 'ay3'];
+    const ILK_BUNDLES = [
+        { prefix: 'smIlk', label: 'Ş/M İLK' },
+        { prefix: 'mesafeIlk', label: 'MES İLK' },
+        { prefix: 'genelIlk', label: 'GEN İLK' }
     ];
 
+    function buildStatCatalog() {
+        const out = [];
+        for (const b of ILK_BUNDLES) {
+            for (let ilk = 1; ilk <= 3; ilk++) {
+                for (const p of PERIODS) {
+                    const key = b.prefix + ilk + '.' + p;
+                    const pl = p === 'gun15' ? '15G' : (p === 'ay1' ? '1AY' : '3AY');
+                    out.push({ key, label: pl + ' ' + b.label + ilk });
+                }
+            }
+        }
+        out.push({ key: 'sehir', label: 'Şehir deneyimi' });
+        return out;
+    }
+
+    const STAT_CATALOG = buildStatCatalog();
+
     const DEFAULT_WEIGHTS = {
-        'smIlk1.gun15': 28,
-        'smIlk1.ay1': 22,
-        'smIlk2.gun15': 14,
-        'mesafeIlk1.gun15': 12,
-        'genelIlk1.gun15': 10,
-        'smIlk1.ay3': 8,
-        'sehir': 6
+        'smIlk1.gun15': 22,
+        'smIlk1.ay1': 18,
+        'smIlk1.ay3': 12,
+        'smIlk2.gun15': 10,
+        'smIlk2.ay1': 8,
+        'smIlk3.gun15': 6,
+        'mesafeIlk1.gun15': 10,
+        'mesafeIlk1.ay1': 8,
+        'mesafeIlk2.gun15': 5,
+        'genelIlk1.gun15': 8,
+        'genelIlk1.ay1': 6,
+        'genelIlk2.gun15': 4,
+        'genelIlk3.gun15': 3,
+        'sehir': 4
     };
 
     let weightsBySize = null;
@@ -78,12 +89,21 @@ const BasariPctScoringEngine = (function () {
         return out;
     }
 
+    function mergeProfileWeights(profileWeights) {
+        const base = { ...DEFAULT_WEIGHTS };
+        const prof = normalizeWeights(profileWeights);
+        for (const [k, v] of Object.entries(prof)) {
+            base[k] = (base[k] || 0) + v * 1.5;
+        }
+        return normalizeWeights(base);
+    }
+
     function lookupWeights(fieldSize) {
         const fs = Number(fieldSize);
         if (!Number.isFinite(fs) || fs <= 0) return normalizeWeights(DEFAULT_WEIGHTS);
         const map = weightsBySize || {};
         const direct = map[fs] || map[String(fs)];
-        if (direct) return normalizeWeights(direct);
+        if (direct) return mergeProfileWeights(direct);
         const sizes = Object.keys(map)
             .map(k => Number(k))
             .filter(n => Number.isFinite(n) && n > 0)
@@ -98,28 +118,51 @@ const BasariPctScoringEngine = (function () {
                 nearest = n;
             }
         }
-        return normalizeWeights(map[nearest] || map[String(nearest)] || DEFAULT_WEIGHTS);
+        return mergeProfileWeights(map[nearest] || map[String(nearest)] || DEFAULT_WEIGHTS);
     }
 
     function computeRowScore(row, weights) {
-        const w = normalizeWeights(weights);
+        const w = mergeProfileWeights(weights);
         const terms = [];
-        let score = 0;
+        let weightedSum = 0;
+        let totalWeight = 0;
+
         for (const [key, weight] of Object.entries(w)) {
             const pct = resolveBasariPct(row, key);
             if (pct == null) continue;
-            const points = Math.round((pct * weight) / 100);
-            if (points <= 0) continue;
-            score += points;
+            totalWeight += weight;
+            weightedSum += pct * weight;
             terms.push({
                 label: statLabel(key),
                 ruleLabel: statLabel(key) + ' %' + pct,
-                points,
+                points: Math.round((pct * weight) / 100),
                 pct,
-                metricId: key
+                metricId: key,
+                weight
             });
         }
+
+        if (!totalWeight) {
+            for (const { key } of STAT_CATALOG) {
+                const pct = resolveBasariPct(row, key);
+                if (pct == null) continue;
+                const weight = 10;
+                totalWeight += weight;
+                weightedSum += pct * weight;
+                terms.push({
+                    label: statLabel(key),
+                    ruleLabel: statLabel(key) + ' %' + pct,
+                    points: Math.round((pct * weight) / 100),
+                    pct,
+                    metricId: key,
+                    weight
+                });
+            }
+        }
+
         terms.sort((a, b) => b.points - a.points);
+        const score = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 0;
+
         return {
             score,
             pct: null,
@@ -128,7 +171,8 @@ const BasariPctScoringEngine = (function () {
             topTerms: terms.slice(0, 6),
             metricCount: terms.length,
             source: 'basari-pct',
-            weightKeys: Object.keys(w)
+            weightKeys: Object.keys(w),
+            dataCoverage: terms.length
         };
     }
 
@@ -136,8 +180,8 @@ const BasariPctScoringEngine = (function () {
         const maxScore = Math.max(...scored.map(s => s.tahmin.score), 1);
         for (const s of scored) {
             s.tahmin.pct = s.tahmin.score > 0
-                ? Math.round((s.tahmin.score / maxScore) * 100)
-                : null;
+                ? Math.max(1, Math.round((s.tahmin.score / maxScore) * 100))
+                : 0;
         }
         scored.sort((a, b) => {
             const sa = a.tahmin.score;
@@ -200,6 +244,63 @@ const BasariPctScoringEngine = (function () {
         return byRace;
     }
 
+    function evaluateTahminSuccess(flatEntries, bitisValueForSort, successBlend) {
+        successBlend = successBlend || SUCCESS_BLEND;
+        const byRace = groupByRace(flatEntries);
+        let leaderTotal = 0;
+        let leaderB1 = 0;
+        let leaderB12 = 0;
+        let leaderB123 = 0;
+        let exact = 0;
+        let exactTotal = 0;
+        let noScoreRaces = 0;
+
+        for (const entries of byRace.values()) {
+            const pkg = { rows: entries.map(e => e.row) };
+            attachRaceTahmin(pkg);
+            const leader = entries.find(e => e.row.tahmin?.rank === 1);
+            if (!leader || !leader.row.tahmin?.metricCount) {
+                noScoreRaces++;
+                continue;
+            }
+            const bitis = bitisValueForSort?.(leader);
+            if (bitis == null || bitis < 1) continue;
+            leaderTotal++;
+            if (bitis === 1) leaderB1++;
+            if (bitis <= 2) leaderB12++;
+            if (bitis <= 3) leaderB123++;
+        }
+
+        for (const entry of flatEntries) {
+            const b = bitisValueForSort?.(entry);
+            if (b == null || b < 1) continue;
+            exactTotal++;
+            const rank = entry.row?.tahmin?.rank;
+            if (rank != null && Number(rank) === Number(b)) exact++;
+        }
+
+        const leaderBlended = leaderTotal
+            ? successBlend.b1 * (leaderB1 / leaderTotal)
+                + successBlend.b12 * (leaderB12 / leaderTotal)
+                + successBlend.b123 * (leaderB123 / leaderTotal)
+            : 0;
+
+        return {
+            leaderTotal,
+            leaderB1,
+            leaderB12,
+            leaderB123,
+            leaderB1Rate: leaderTotal ? leaderB1 / leaderTotal : 0,
+            leaderB12Rate: leaderTotal ? leaderB12 / leaderTotal : 0,
+            leaderB123Rate: leaderTotal ? leaderB123 / leaderTotal : 0,
+            leaderBlended,
+            exact,
+            exactTotal,
+            exactRate: exactTotal ? exact / exactTotal : 0,
+            noScoreRaces
+        };
+    }
+
     function evaluateStatLeaderBlended(raceGroups, statKey, bitisValueForSort) {
         let leaderTotal = 0;
         let leaderB1 = 0;
@@ -241,6 +342,42 @@ const BasariPctScoringEngine = (function () {
         return { leaderBlended, leaderTotal, statKey };
     }
 
+    function evaluateCombinedLeaderBlended(raceGroups, weights, bitisValueForSort) {
+        let leaderTotal = 0;
+        let leaderB1 = 0;
+        let leaderB12 = 0;
+        let leaderB123 = 0;
+
+        for (const entries of raceGroups) {
+            if (!entries.length) continue;
+            const scored = entries.map(entry => ({
+                entry,
+                tahmin: computeRowScore(entry.row, weights)
+            }));
+            if (!scored.some(s => s.tahmin.metricCount > 0)) continue;
+            scored.sort((a, b) => {
+                const sa = a.tahmin.score;
+                const sb = b.tahmin.score;
+                if (sb !== sa) return sb - sa;
+                return (a.entry.row?.no ?? 0) - (b.entry.row?.no ?? 0);
+            });
+            const leaderEntry = scored[0]?.entry;
+            const bitis = bitisValueForSort?.(leaderEntry);
+            if (bitis == null || bitis < 1) continue;
+            leaderTotal++;
+            if (bitis === 1) leaderB1++;
+            if (bitis <= 2) leaderB12++;
+            if (bitis <= 3) leaderB123++;
+        }
+
+        const blend = SUCCESS_BLEND;
+        return leaderTotal
+            ? blend.b1 * (leaderB1 / leaderTotal)
+                + blend.b12 * (leaderB12 / leaderTotal)
+                + blend.b123 * (leaderB123 / leaderTotal)
+            : 0;
+    }
+
     function calibrateFromFlatEntries(flatEntries, bitisValueForSort) {
         if (!flatEntries?.length || !bitisValueForSort) return null;
 
@@ -267,7 +404,7 @@ const BasariPctScoringEngine = (function () {
             }
             statResults.sort((a, b) => b.leaderBlended - a.leaderBlended);
 
-            const top = statResults.slice(0, 6).filter(s => s.leaderBlended > 0);
+            const top = statResults.slice(0, 8).filter(s => s.leaderBlended > 0);
             if (!top.length) continue;
 
             const weights = {};
@@ -281,11 +418,14 @@ const BasariPctScoringEngine = (function () {
                 weights[k] = Math.round((weights[k] / sum) * 1000) / 10;
             }
 
-            out[fs] = normalizeWeights(weights);
+            const normalized = normalizeWeights(weights);
+            const combinedBlended = evaluateCombinedLeaderBlended(raceGroups, normalized, bitisValueForSort);
+
+            out[fs] = normalized;
             list.push({
                 fieldSize: fs,
                 raceCount: raceGroups.length,
-                leaderBlended: top[0].leaderBlended,
+                leaderBlended: combinedBlended || top[0].leaderBlended,
                 topStat: statLabel(top[0].statKey),
                 weights: out[fs],
                 preview: top.slice(0, 3).map(t => statLabel(t.statKey))
@@ -317,9 +457,26 @@ const BasariPctScoringEngine = (function () {
         return calibrateFromFlatEntries(flatEntries, host.bitisValueForSort);
     }
 
+    function setWeightsBySize(map) {
+        weightsBySize = map || null;
+        if (map) {
+            calibrationSummary = {
+                bySize: map,
+                list: Object.keys(map).map(fs => ({
+                    fieldSize: Number(fs),
+                    weights: map[fs],
+                    preview: Object.keys(map[fs] || {}).slice(0, 3).map(statLabel)
+                })),
+                builtAt: Date.now(),
+                version: PROFILE_VERSION
+            };
+        }
+    }
+
     function saveWeights() {
         if (!weightsBySize) return false;
         try {
+            if (typeof localStorage === 'undefined') return true;
             localStorage.setItem(STORAGE_KEY, JSON.stringify({
                 version: PROFILE_VERSION,
                 bySize: weightsBySize,
@@ -334,6 +491,7 @@ const BasariPctScoringEngine = (function () {
 
     function loadWeights() {
         try {
+            if (typeof localStorage === 'undefined') return null;
             const raw = localStorage.getItem(STORAGE_KEY);
             if (!raw) return null;
             const parsed = JSON.parse(raw);
@@ -371,18 +529,21 @@ const BasariPctScoringEngine = (function () {
             .sort((a, b) => (a.fieldSize || 0) - (b.fieldSize || 0))
             .map(p => p.fieldSize + ' at → ' + (p.preview || []).join(' · '));
         return '<strong>Başarı % profili aktif</strong> · ' + parts.join(' · ')
-            + '<br><span style="color:#789;font-size:10px">Gösterge / renk / T9V / metrik faktörleri TAHMİN\'e girmez</span>';
+            + '<br><span style="color:#789;font-size:10px">Gösterge / renk / T9V / metrik faktörleri TAHMİN\'e girmez · eksik profil alanında yedek yüzdeler kullanılır</span>';
     }
 
-    loadWeights();
+    if (typeof localStorage !== 'undefined') loadWeights();
 
     return {
         attachRaceTahmin,
         computeRowScore,
         resolveBasariPct,
         lookupWeights,
+        mergeProfileWeights,
         calibrateFromFlatEntries,
         loadAndCalibrateFromApi,
+        evaluateTahminSuccess,
+        setWeightsBySize,
         loadWeights,
         saveWeights,
         getCalibrationSummary,
@@ -392,6 +553,7 @@ const BasariPctScoringEngine = (function () {
         STAT_CATALOG,
         DEFAULT_WEIGHTS,
         STORAGE_KEY,
-        PROFILE_VERSION
+        PROFILE_VERSION,
+        SUCCESS_BLEND
     };
 })();

@@ -1036,20 +1036,20 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260831w"></script>
-<script src="js/formula-engine.js?v=20260831w"></script>
-<script src="js/istatistik-engine.js?v=20260831w"></script>
-<script src="js/istatistik-grids-extra.js?v=20260831w"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260831w"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260831w"></script>
-<script src="js/ptest-gosterge-engine.js?v=20260831w"></script>
-<script src="js/ptest-gosterge-depth-engine.js?v=20260831w"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260831w"></script>
-<script src="js/basari-pct-scoring-engine.js?v=20260831w"></script>
-<script src="js/ptest-field-factor-engine.js?v=20260831w"></script>
-<script src="js/ptest-field-adaptive-engine.js?v=20260831w"></script>
+<script src="js/utils.js?v=20260831x"></script>
+<script src="js/formula-engine.js?v=20260831x"></script>
+<script src="js/istatistik-engine.js?v=20260831x"></script>
+<script src="js/istatistik-grids-extra.js?v=20260831x"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260831x"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260831x"></script>
+<script src="js/ptest-gosterge-engine.js?v=20260831x"></script>
+<script src="js/ptest-gosterge-depth-engine.js?v=20260831x"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260831x"></script>
+<script src="js/basari-pct-scoring-engine.js?v=20260831x"></script>
+<script src="js/ptest-field-factor-engine.js?v=20260831x"></script>
+<script src="js/ptest-field-adaptive-engine.js?v=20260831x"></script>
 <script>
-const ISTAT_BUILD = '20260831w';
+const ISTAT_BUILD = '20260831x';
 const TAHMIN_METRIC_ALL = '__hepsi__';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
@@ -1167,11 +1167,12 @@ function tahminRankClass(rank, total) {
 }
 
 function formatTahminPredHalf(tahmin, horseCount) {
-    if (!tahmin || tahmin.rank == null || tahmin.pct == null) {
+    if (!tahmin || tahmin.rank == null) {
         return '<span class="istat-pct istat-pct-none">—</span>';
     }
+    const pctVal = tahmin.pct != null ? tahmin.pct : 0;
     return '<span class="istat-tahmin-rank">' + tahmin.rank + '.</span>'
-        + '<span class="istat-tahmin-pct">%' + tahmin.pct + '</span>';
+        + '<span class="istat-tahmin-pct">%' + pctVal + '</span>';
 }
 
 function formatBitisHalf(bitisVal) {
