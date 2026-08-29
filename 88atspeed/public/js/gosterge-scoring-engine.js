@@ -736,7 +736,8 @@ const GostergeScoringEngine = (function () {
     }
 
     /** Min-blend: hangi kova nihai skoru sınırlıyor (TAHMİN puanlaması) */
-    function computeScoreBinding(bucketWeighted) {
+    function computeScoreBinding(bucketWeighted, opts) {
+        opts = opts || {};
         const blendBuckets = buildBlendBuckets(bucketWeighted);
         const active = blendBuckets.filter(b => b.weighted > 0 && b.share > 0);
         if (!active.length) {
@@ -747,11 +748,18 @@ const GostergeScoringEngine = (function () {
                 attributed: { t9v: 0, colors: 0, metrics: 0, rest: 0 }
             };
         }
+        const tiePriority = { colors: 0, t9v: 1, metrics: 2, rest: 3 };
         let minRatio = Infinity;
         let binder = active[0];
         for (const b of active) {
             const ratio = b.weighted / b.share;
-            if (ratio < minRatio) {
+            const group = blendBucketGroup(b.id);
+            const pri = tiePriority[group] ?? 9;
+            const binderGroup = blendBucketGroup(binder.id);
+            const binderPri = tiePriority[binderGroup] ?? 9;
+            const nearTie = minRatio < Infinity && Math.abs(ratio - minRatio) <= Math.max(0.5, minRatio * 0.002);
+            const colorPrefer = (opts.colorHitCount || 0) > 0 && group === 'colors' && nearTie;
+            if (ratio < minRatio - 1e-9 || (nearTie && (colorPrefer || pri < binderPri))) {
                 minRatio = ratio;
                 binder = b;
             }
@@ -976,7 +984,7 @@ const GostergeScoringEngine = (function () {
 
         terms.sort((a, b) => b.points - a.points);
         const totalScore = blendGostergeScoreTotals(bucketWeighted);
-        const binding = computeScoreBinding(bucketWeighted);
+        const binding = computeScoreBinding(bucketWeighted, { colorHitCount });
         const buckets = scaleTermPoints(terms, bucketWeighted, totalScore);
 
         return {

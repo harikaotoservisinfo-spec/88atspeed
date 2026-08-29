@@ -144,7 +144,7 @@ const PtestFieldFactorEngine = (function () {
         return Object.entries(mapObj || {})
             .map(([id, val]) => ({
                 id,
-                label: labelFn ? labelFn(id) : id,
+                label: labelFn ? labelFn(id) : (typeof val === 'object' && val.label ? val.label : id),
                 points: typeof val === 'number' ? val : val.points,
                 count: typeof val === 'object' ? val.count : 0,
                 bucket: typeof val === 'object' ? val.bucket : null
@@ -397,7 +397,7 @@ const PtestFieldFactorEngine = (function () {
 
         h += '<div class="ptest-field-factor-grid">';
         h += renderBucketBlock('Ortalama faktör payı', row.avgBucketShare, fmtPct);
-        h += renderDominantBlock('Belirleyici faktör (en yüksek puan)', row.dominantFactor, row.bitisCount);
+        h += renderDominantBlock('Belirleyici faktör (skoru sınırlayan)', row.dominantFactor, row.bitisCount);
         h += renderDominantBlock('Kazanan at (bitiş 1.) belirleyici', row.winnerDominant, countObj(row.winnerDominant));
         h += renderDominantBlock('TAHMİN lideri belirleyici', row.leaderDominant, countObj(row.leaderDominant));
         h += '</div>';
