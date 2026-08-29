@@ -969,6 +969,70 @@
             margin: 0 0 6px; padding: 4px 8px; background: #e8f5e9; border-radius: 6px;
             font-size: 11px; font-weight: 800; color: #1b5e20;
         }
+        /* At sayısı · faktör analizi */
+        .ptest-field-factor-intro {
+            margin: 0 0 10px; padding: 10px 12px; background: #fff3e0; border: 1px solid #ffcc80;
+            border-radius: 8px; font-size: 12px; color: #546e7a; line-height: 1.45;
+        }
+        .ptest-field-factor-layout {
+            display: grid; grid-template-columns: minmax(280px, 38%) 1fr; gap: 14px; align-items: start;
+        }
+        @media (max-width: 960px) {
+            .ptest-field-factor-layout { grid-template-columns: 1fr; }
+        }
+        .ptest-field-factor-summary-wrap {
+            max-height: calc(100vh - 220px); overflow: auto; border: 1px solid #cfd8dc; border-radius: 8px; background: #fff;
+        }
+        .ptest-field-factor-summary { width: 100%; border-collapse: collapse; font-size: 10px; }
+        .ptest-field-factor-summary th, .ptest-field-factor-summary td {
+            border: 1px solid #eee; padding: 5px 6px; text-align: center; white-space: nowrap;
+        }
+        .ptest-field-factor-summary th { background: #fff3e0; position: sticky; top: 0; z-index: 1; }
+        .ptest-field-factor-summary tbody tr { cursor: pointer; }
+        .ptest-field-factor-summary tbody tr:hover { background: #fff8e1; }
+        .ptest-field-factor-summary tbody tr.active { background: #ffe0b2; font-weight: 800; }
+        .ptest-field-factor-detail-wrap {
+            max-height: calc(100vh - 220px); overflow: auto; border: 1px solid #cfd8dc; border-radius: 8px;
+            background: #fff; padding: 12px 14px;
+        }
+        .ptest-field-factor-detail-title { margin: 0 0 6px; font-size: 14px; font-weight: 800; color: #e65100; }
+        .ptest-field-factor-detail-meta { margin: 0 0 12px; font-size: 11px; color: #546e7a; }
+        .ptest-field-factor-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 12px;
+        }
+        .ptest-field-factor-card {
+            padding: 8px 10px; background: #fafafa; border: 1px solid #eceff1; border-radius: 8px; font-size: 10px;
+        }
+        .ptest-field-factor-card h5 { margin: 0 0 6px; font-size: 10px; color: #e65100; }
+        .ptest-field-factor-card ul { margin: 0; padding: 0; list-style: none; }
+        .ptest-field-factor-card li {
+            display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; border-bottom: 1px solid #f0f0f0;
+        }
+        .ptest-field-factor-block {
+            margin-bottom: 10px; border: 1px solid #eceff1; border-radius: 8px; background: #fafafa;
+        }
+        .ptest-field-factor-block summary {
+            cursor: pointer; font-weight: 800; font-size: 11px; color: #e65100; padding: 8px 10px;
+        }
+        .ptest-field-factor-mini-table { width: 100%; border-collapse: collapse; font-size: 10px; margin: 0 0 8px; }
+        .ptest-field-factor-mini-table th, .ptest-field-factor-mini-table td {
+            border: 1px solid #eee; padding: 4px 6px; text-align: center;
+        }
+        .ptest-field-factor-mini-table th { background: #fff3e0; }
+        .ptest-field-factor-two-col {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;
+        }
+        @media (max-width: 800px) { .ptest-field-factor-two-col { grid-template-columns: 1fr; } }
+        .ptest-field-factor-race { margin-bottom: 12px; }
+        .ptest-field-factor-race-title {
+            margin: 0 0 6px; padding: 4px 8px; background: #fff3e0; border-radius: 6px;
+            font-size: 11px; font-weight: 800; color: #e65100;
+        }
+        .ptest-field-factor-race-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+        .ptest-field-factor-race-table th, .ptest-field-factor-race-table td {
+            border: 1px solid #eee; padding: 4px 5px; text-align: center;
+        }
+        .ptest-field-factor-race-table tr.match { background: #f1f8e9; }
         .ptest-tahmin-split { display: flex; min-width: 120px; min-height: 44px; border-radius: 6px; overflow: hidden; border: 1px solid #cfd8dc; }
         .ptest-tahmin-half {
             flex: 1 1 50%; display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -1006,6 +1070,7 @@
         <button type="button" class="ptest-view-tab-btn active" data-ptest-view="tablo" id="ptestViewTabloBtn">📋 Tablo</button>
         <button type="button" class="ptest-view-tab-btn" data-ptest-view="gosterge" id="ptestViewGostergeBtn">📈 Gösterge</button>
         <button type="button" class="ptest-view-tab-btn" data-ptest-view="gosterge1" id="ptestViewGosterge1Btn">📊 Gösterge 1</button>
+        <button type="button" class="ptest-view-tab-btn" data-ptest-view="fieldfactor" id="ptestViewFieldFactorBtn">🏇 At sayısı · Faktör</button>
         <button type="button" class="ptest-view-tab-btn ptest-temp-tab" data-ptest-view="t9vsweep" id="ptestViewT9vSweepBtn">🔬 T9V Tarama (geçici)</button>
         <button type="button" class="ptest-view-tab-btn ptest-temp-tab" data-ptest-view="metricsweep" id="ptestViewMetricSweepBtn">🔬 Metrik Tarama (geçici)</button>
         <button type="button" class="ptest-view-tab-btn ptest-temp-tab" data-ptest-view="extrasweep" id="ptestViewExtraSweepBtn">🔬 Ek Grup Tarama (geçici)</button>
@@ -1113,6 +1178,26 @@
         <div class="ptest-gosterge1-subcol-tabs" id="gosterge1SubColTabs"></div>
         <p class="ptest-gosterge1-subcol-hint" id="gosterge1SubColHint"></p>
         <div id="gosterge1StripPanels"></div>
+    </div>
+    </div>
+    <div id="ptestTabFieldFactor" class="ptest-tab-panel hidden">
+    <div class="ptest-gosterge-empty" id="fieldFactorEmptyMsg" style="padding:24px;color:#789;text-align:center">
+        Veri yükleyin — at sayısı analizi &quot;Tüm kayıtları yükle&quot; sonrası görünür
+    </div>
+    <div id="fieldFactorContentWrap" class="hidden">
+        <p class="ptest-field-factor-intro" id="fieldFactorIntro">
+            Her koşudaki <strong>at sayısına</strong> göre TAHMİN puanlamasının başarısı ve
+            <strong>hangi faktörün belirleyici</strong> olduğu (T9V · Renkler · Metrikler · rest) analiz edilir.
+            Soldan bir satıra tıklayınca o büyüklükteki koşularda baskın göstergeler ve örnek koşular görünür.
+        </p>
+        <div class="ptest-field-factor-layout">
+            <div class="ptest-field-factor-summary-wrap" id="fieldFactorSummaryWrap">
+                <div id="fieldFactorSummaryHost"></div>
+            </div>
+            <div class="ptest-field-factor-detail-wrap" id="fieldFactorDetailWrap">
+                <div id="fieldFactorDetailHost"><p style="color:#789">Soldan bir at sayısı satırına tıklayın</p></div>
+            </div>
+        </div>
     </div>
     </div>
     <div id="ptestTabT9vSweep" class="ptest-tab-panel hidden">
@@ -1223,8 +1308,9 @@
 <script src="js/ptest-gosterge-engine.js?v=20260830z"></script>
 <script src="js/ptest-gosterge-depth-engine.js?v=20260830z"></script>
 <script src="js/ptest-color-gosterge-export.js?v=20260830z"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260831e"></script>
-<script src="js/ptest-final-share-report.js?v=20260831e"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260831f"></script>
+<script src="js/ptest-final-share-report.js?v=20260831f"></script>
+<script src="js/ptest-field-factor-engine.js?v=20260831f"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -2038,6 +2124,78 @@ function updateT9vSweepTabVisibility() {
     if (content) content.classList.toggle('hidden', !hasData);
 }
 
+let ptestFieldFactorResults = null;
+let ptestFieldFactorSelectedSize = null;
+
+function updateFieldFactorTabVisibility() {
+    const empty = document.getElementById('fieldFactorEmptyMsg');
+    const content = document.getElementById('fieldFactorContentWrap');
+    const hasData = flatEntries.length > 0 && GostergeScoringEngine.isCalibrated?.();
+    if (empty) empty.classList.toggle('hidden', hasData);
+    if (content) content.classList.toggle('hidden', !hasData);
+}
+
+function renderFieldFactorSummary() {
+    const host = document.getElementById('fieldFactorSummaryHost');
+    if (!host || !ptestFieldFactorResults?.results?.length) {
+        if (host) host.innerHTML = '<p style="padding:12px;color:#789">Sonuç yok</p>';
+        return;
+    }
+    host.innerHTML = PtestFieldFactorEngine.renderSummaryTable(
+        ptestFieldFactorResults.results,
+        ptestFieldFactorSelectedSize,
+        pctBenchFmt
+    );
+    host.querySelectorAll('.ptest-field-factor-row').forEach(tr => {
+        tr.onclick = () => {
+            ptestFieldFactorSelectedSize = Number(tr.dataset.fieldSize);
+            renderFieldFactorSummary();
+            renderFieldFactorDetail();
+        };
+    });
+}
+
+function renderFieldFactorDetail() {
+    const host = document.getElementById('fieldFactorDetailHost');
+    if (!host) return;
+    const row = ptestFieldFactorResults?.results?.find(r => r.fieldSize === ptestFieldFactorSelectedSize)
+        || ptestFieldFactorResults?.results?.[0];
+    if (row && ptestFieldFactorSelectedSize == null) ptestFieldFactorSelectedSize = row.fieldSize;
+    host.innerHTML = PtestFieldFactorEngine.renderDetailPanel(row, {
+        fmtPct: pctBenchFmt,
+        host: getPtestScoringHost(),
+        formatTahminCell: ptestFormatTahminBitisCell,
+        raceLimit: 10
+    });
+}
+
+async function renderFieldFactorReport() {
+    updateFieldFactorTabVisibility();
+    if (!flatEntries.length) return;
+    if (!GostergeScoringEngine.isCalibrated?.()) {
+        await applyGostergeTahminScoring();
+    }
+    updateFieldFactorTabVisibility();
+    if (!GostergeScoringEngine.isCalibrated?.()) return;
+    const intro = document.getElementById('fieldFactorIntro');
+    if (intro) {
+        intro.innerHTML = 'Her koşudaki <strong>at sayısına</strong> göre TAHMİN başarısı ve '
+            + '<strong>belirleyici faktör</strong> (T9V · Renkler · Metrikler · rest) · '
+            + flatEntries.length + ' satır · build ' + PTEST_BUILD
+            + ' · Soldan satıra tıklayın';
+    }
+    ptestFieldFactorResults = PtestFieldFactorEngine.analyzeFieldFactors(flatEntries, getPtestScoringHost());
+    if (ptestFieldFactorSelectedSize == null && ptestFieldFactorResults.results?.length) {
+        let best = ptestFieldFactorResults.results[0];
+        for (const r of ptestFieldFactorResults.results) {
+            if ((r.raceCount || 0) > (best.raceCount || 0)) best = r;
+        }
+        ptestFieldFactorSelectedSize = best.fieldSize;
+    }
+    renderFieldFactorSummary();
+    renderFieldFactorDetail();
+}
+
 async function renderT9vSweepReport() {
     updateT9vSweepTabVisibility();
     if (!flatEntries.length) return;
@@ -2569,7 +2727,8 @@ function switchPtestViewTab(tabId) {
         : (tabId === 't9vsweep' ? 't9vsweep'
         : (tabId === 'metricsweep' ? 'metricsweep'
         : (tabId === 'extrasweep' ? 'extrasweep'
-        : (tabId === 'colorscoringbench' ? 'colorscoringbench' : 'tablo')))));
+        : (tabId === 'colorscoringbench' ? 'colorscoringbench'
+        : (tabId === 'fieldfactor' ? 'fieldfactor' : 'tablo'))))));
     document.querySelectorAll('.ptest-view-tab-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.ptestView === ptestViewTab);
     });
@@ -2580,6 +2739,7 @@ function switchPtestViewTab(tabId) {
     const metricsweep = document.getElementById('ptestTabMetricSweep');
     const extrasweep = document.getElementById('ptestTabExtraSweep');
     const colorscoringbench = document.getElementById('ptestTabColorScoringBench');
+    const fieldfactor = document.getElementById('ptestTabFieldFactor');
     if (tablo) tablo.classList.toggle('hidden', ptestViewTab !== 'tablo');
     if (gosterge) gosterge.classList.toggle('hidden', ptestViewTab !== 'gosterge');
     if (gosterge1) gosterge1.classList.toggle('hidden', ptestViewTab !== 'gosterge1');
@@ -2587,6 +2747,7 @@ function switchPtestViewTab(tabId) {
     if (metricsweep) metricsweep.classList.toggle('hidden', ptestViewTab !== 'metricsweep');
     if (extrasweep) extrasweep.classList.toggle('hidden', ptestViewTab !== 'extrasweep');
     if (colorscoringbench) colorscoringbench.classList.toggle('hidden', ptestViewTab !== 'colorscoringbench');
+    if (fieldfactor) fieldfactor.classList.toggle('hidden', ptestViewTab !== 'fieldfactor');
     if (ptestViewTab === 'gosterge' && flatEntries.length) {
         renderTuruncuReport();
     }
@@ -2605,6 +2766,9 @@ function switchPtestViewTab(tabId) {
     if (ptestViewTab === 'colorscoringbench') {
         updateColorScoringBenchVisibility();
         if (ptestColorScoringBenchResults?.length) renderColorScoringBenchTable();
+    }
+    if (ptestViewTab === 'fieldfactor' && flatEntries.length) {
+        void renderFieldFactorReport();
     }
 }
 
@@ -2627,6 +2791,7 @@ function updateGostergeTabVisibility() {
     updateFinalSharePanelState();
     updateColorScoringBenchVisibility();
     updateGosterge1TabVisibility();
+    updateFieldFactorTabVisibility();
 }
 
 async function downloadColorGostergeExport() {
@@ -2902,7 +3067,7 @@ function renderGosterge1Report() {
     initGosterge1StripTabs();
 }
 
-const PTEST_BUILD = '20260831e';
+const PTEST_BUILD = '20260831f';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
@@ -2955,6 +3120,8 @@ function scheduleGostergeRefresh() {
 
 function resetGostergePanels() {
     invalidateGostergeCache();
+    ptestFieldFactorResults = null;
+    ptestFieldFactorSelectedSize = null;
     const depthPanels = document.getElementById('gostergeDepthMetricPanels');
     const metricPanels = document.getElementById('gostergeMetricPanels');
     if (depthPanels) {
@@ -5281,6 +5448,9 @@ async function renderTableAsync(doneExtra) {
         }
         if (ptestViewTab === 'gosterge1' && flatEntries.length) {
             renderGosterge1Report();
+        }
+        if (ptestViewTab === 'fieldfactor' && flatEntries.length) {
+            void renderFieldFactorReport();
         }
     }
 }
