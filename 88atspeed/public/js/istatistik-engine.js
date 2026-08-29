@@ -269,7 +269,27 @@ const IstatistikEngine = {
         return v;
     },
 
-    /** Atın koşularını yeniden eskiye SON800 zinciri (program günü hariç) */
+    /**
+     * Zincir boş kaldığında yalnızca program günü koşusu varsa onu tek derinlik olarak kullan.
+     * Tip A edge case (MİRAÇ): geçmiş yok, sadece o günün koşusu var.
+     */
+    _appendProgramDayOnlyChain(chain, kosular, programTarih, toChainItem) {
+        if (chain.length || !programTarih || typeof toChainItem !== 'function') return chain;
+        const programNorm = this._normalizeTarih(programTarih);
+        if (!programNorm) return chain;
+        for (const k of kosular || []) {
+            if (!k?.tarih) continue;
+            if (this._normalizeTarih(k.tarih) !== programNorm) continue;
+            const item = toChainItem(k);
+            if (item) {
+                chain.push(item);
+                break;
+            }
+        }
+        return chain;
+    },
+
+    /** Atın koşularını yeniden eskiye SON800 zinciri (program günü hariç; yalnız koşu varsa fallback) */
     _kosularSon800Zinciri(kosular, programTarih, alan = 'bir') {
         const programNorm = programTarih ? this._normalizeTarih(programTarih) : null;
         const sorted = [...(kosular || [])]
@@ -294,6 +314,13 @@ const IstatistikEngine = {
             if (salise === null) continue;
             chain.push({ salise, derece, tarih: k.tarih });
         }
+        this._appendProgramDayOnlyChain(chain, kosular, programTarih, k => {
+            const derece = this._sonKosuSon800Derece(k, alan);
+            if (!derece) return null;
+            const salise = AtSpeedUtils.dereceToSalise(derece);
+            if (salise === null) return null;
+            return { salise, derece, tarih: k.tarih, programDayOnly: true };
+        });
         return chain;
     },
 
@@ -777,6 +804,10 @@ const IstatistikEngine = {
             if (!metrik) continue;
             chain.push(metrik);
         }
+        this._appendProgramDayOnlyChain(chain, kosular, programTarih, k => {
+            const metrik = this._sonKosuSon800DrKorelasyonMetrikleri(k, useAtDerece);
+            return metrik ? Object.assign({ programDayOnly: true }, metrik) : null;
+        });
         return chain;
     },
 
@@ -843,6 +874,10 @@ const IstatistikEngine = {
             if (!metrik) continue;
             chain.push(metrik);
         }
+        this._appendProgramDayOnlyChain(chain, kosular, programTarih, k => {
+            const metrik = this._kosuTest1Metrikleri(k, hedefMesafe);
+            return metrik ? Object.assign({ programDayOnly: true }, metrik) : null;
+        });
         return chain;
     },
 
@@ -2039,7 +2074,51 @@ const IstatistikEngine = {
         ];
         this._applyHorseSelfPctSpecs(pkg, selfSpecs);
         this._applyPctGapSpecs(pkg, selfSpecs);
+        this.attachDepthCoverageFlags(pkg);
         return bounds;
+    },
+
+    /** depths[0] doluluk — TAHMİN depthsMissing yönlendirmesi için */
+    attachDepthCoverageFlags(pkg) {
+        if (!pkg?.rows?.length) return pkg;
+        const n = pkg.rows.length;
+        let son8001 = 0;
+        let test1 = 0;
+        let t1dr = 0;
+        let anyCore = 0;
+        let programDayOnly = 0;
+
+        for (const row of pkg.rows) {
+            const miss = {
+                son8001: row.son8001Depths?.[0]?.pct == null,
+                test1: row.test1Depths?.[0]?.pct == null,
+                t1dr: row.t1drDepths?.[0]?.pct == null
+            };
+            miss.anyPrimary = miss.son8001 || miss.test1;
+            miss.anyCore = miss.son8001 && miss.test1 && miss.t1dr;
+            row.depthsMissing = miss;
+
+            const pd = !!(row.son8001Depths?.[0]?.programDayOnly
+                || row.test1Depths?.[0]?.programDayOnly
+                || row.t1drDepths?.[0]?.programDayOnly);
+            if (pd) row.programDayOnlyDepth = true;
+
+            if (!miss.son8001) son8001++;
+            if (!miss.test1) test1++;
+            if (!miss.t1dr) t1dr++;
+            if (miss.anyCore) anyCore++;
+            if (pd) programDayOnly++;
+        }
+
+        pkg.depthCoverage = {
+            fieldSize: n,
+            son8001: n ? son8001 / n : 0,
+            test1: n ? test1 / n : 0,
+            t1dr: n ? t1dr / n : 0,
+            coreMissingRate: n ? anyCore / n : 0,
+            programDayOnlyRate: n ? programDayOnly / n : 0
+        };
+        return pkg;
     },
 
     /** @deprecated applyRacePctScales kullanın — her paket koşu içi ölçeklenir */

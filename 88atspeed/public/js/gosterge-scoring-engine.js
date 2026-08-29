@@ -679,6 +679,21 @@ const GostergeScoringEngine = (function () {
         return metricEntry.spec?.id || metricEntry.id.replace(/__dp\d+$/, '');
     }
 
+    /** depthsMissing — çekirdek derinlik yoksa ilgili metrikleri atla */
+    const DEPTH_METRIC_SKIP = {
+        son8001: 'son8001',
+        test1: 'test1',
+        t1dr: 't1dr'
+    };
+
+    function shouldSkipMetricForRow(entry, metricEntry) {
+        const miss = entry?.row?.depthsMissing;
+        if (!miss) return false;
+        const baseId = metricBaseId(metricEntry);
+        const flag = DEPTH_METRIC_SKIP[baseId];
+        return flag ? !!miss[flag] : false;
+    }
+
     function isT9vScoreMetric(metricEntry) {
         return metricBaseId(metricEntry) === 't9v';
     }
@@ -1075,6 +1090,7 @@ const GostergeScoringEngine = (function () {
         const fieldProfile = opts.fieldProfile || null;
 
         for (const m of calibration.metrics) {
+            if (shouldSkipMetricForRow(entry, m)) continue;
             const ladder = calibration.ladders[m.id];
             if (!ladder?.length) continue;
             const { score, bestRule, hits } = scoreEntryForMetric(entry, m, ladder);

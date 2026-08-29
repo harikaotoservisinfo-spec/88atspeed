@@ -264,10 +264,21 @@ const HybridTahminScoringEngine = (function () {
         return blended;
     }
 
-    function resolveBasariWeight(fieldSize, raceCoverage) {
+    function resolveBasariWeight(fieldSize, raceCoverage, depthCoverage) {
         let bw = lookupBasariWeight(fieldSize);
         if (raceCoverage >= 0.65) bw = Math.min(BLEND_CLAMP.max, bw + 0.12);
         else if (raceCoverage <= 0.35) bw = Math.max(BLEND_CLAMP.min, bw - 0.12);
+
+        const coreMiss = depthCoverage?.coreMissingRate ?? 0;
+        if (coreMiss >= 0.5) bw = Math.min(BLEND_CLAMP.max, bw + 0.22);
+        else if (coreMiss >= 0.25) bw = Math.min(BLEND_CLAMP.max, bw + 0.12);
+        else if (coreMiss >= 0.1) bw = Math.min(BLEND_CLAMP.max, bw + 0.06);
+
+        const sonOk = (depthCoverage?.son8001 ?? 1) >= 0.75;
+        const testOk = (depthCoverage?.test1 ?? 1) >= 0.75;
+        if (sonOk && testOk && coreMiss < 0.05) {
+            bw = Math.max(BLEND_CLAMP.min, bw - 0.05);
+        }
         return bw;
     }
 
@@ -337,7 +348,8 @@ const HybridTahminScoringEngine = (function () {
         }
 
         const raceCoverage = computeRaceBasariCoverage(pkg.rows, basariWeights);
-        const basariWeight = resolveBasariWeight(fieldSize, raceCoverage);
+        const depthCoverage = pkg.depthCoverage || null;
+        const basariWeight = resolveBasariWeight(fieldSize, raceCoverage, depthCoverage);
 
         const basariScored = pkg.rows.map(row => ({
             row,
@@ -367,6 +379,7 @@ const HybridTahminScoringEngine = (function () {
             basariWeight: leader?.tahmin?.basariWeight ?? basariWeight,
             gostergeWeight: leader?.tahmin?.gostergeWeight ?? (1 - basariWeight),
             raceCoverage,
+            depthCoverage,
             fieldProfile: profile ? {
                 fieldSize,
                 bestFactor: profile.bestFactor,
