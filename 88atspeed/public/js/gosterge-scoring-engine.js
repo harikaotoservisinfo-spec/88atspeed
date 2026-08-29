@@ -186,6 +186,16 @@ const GostergeScoringEngine = (function () {
         return { split: { ...split }, normalized, ...stats };
     }
 
+    function compareShareSplit(flatEntries, host, split) {
+        if (!calibration || !flatEntries?.length) return null;
+        const current = getScoreShareSplit();
+        const baseline = evaluateShareSplit(flatEntries, host, current);
+        const tested = evaluateShareSplit(flatEntries, host, split);
+        if (!baseline || !tested) return null;
+        const delta = tested.leaderBlended - baseline.leaderBlended;
+        return { current, baseline, tested, delta };
+    }
+
     function generateShareSplitSweepConfigs() {
         const configs = [];
         const t9vVals = [25, 30, 35, 40, 45];
@@ -646,6 +656,13 @@ const GostergeScoringEngine = (function () {
         return { score, bestRule: best, hits };
     }
 
+    /** Renk gösterge ham puanını metrik ölçeğine indirger (sum modda 10+ eşleşme) */
+    const COLOR_GOSTERGE_BUCKET_SCALE = 1000;
+
+    function colorScoreForBucket(rawColorScore) {
+        return Math.round((rawColorScore || 0) / COLOR_GOSTERGE_BUCKET_SCALE);
+    }
+
     function scoreColorGostergeHits(entry, ladder, matchMode) {
         if (!ladder?.length) return { score: 0, hits: [] };
         const hits = [];
@@ -706,8 +723,9 @@ const GostergeScoringEngine = (function () {
 
         if (colorMode === 'gosterge' && colorLadder?.length) {
             const { score: colorScore, hits: colorHits } = scoreColorGostergeHits(entry, colorLadder, colorMatchMode);
-            if (colorScore > 0) {
-                bucketWeighted.colors += colorScore;
+            const colorWeighted = colorScoreForBucket(colorScore);
+            if (colorWeighted > 0) {
+                bucketWeighted.colors += colorWeighted;
                 const top = colorHits.reduce((a, b) => (b.points > (a?.points || 0) ? b : a), colorHits[0]);
                 terms.push({
                     metricId: '_colorGosterge',
@@ -717,7 +735,7 @@ const GostergeScoringEngine = (function () {
                     ruleRank: top?.rank || 0,
                     ruleSuccess: top?.successRate || 0,
                     hitCount: colorHits.length,
-                    points: colorScore,
+                    points: colorWeighted,
                     label: colorHits.length > 1
                         ? 'Renk · ' + colorHits.length + ' eşleşme (toplam)'
                         : 'Renk · ' + (top?.label || 'gösterge')
@@ -1213,6 +1231,7 @@ const GostergeScoringEngine = (function () {
         getScoreShareSplit,
         resetScoreShareSplit,
         evaluateShareSplit,
+        compareShareSplit,
         runShareSplitSweep,
         generateShareSplitSweepConfigs,
         DEFAULT_SCORE_SHARE_SPLIT,

@@ -1026,8 +1026,10 @@
             <h4>🎯 Final puanlama · pay dağılımı testi</h4>
             <p style="margin:0 0 8px;font-size:11px;color:#546e7a">
                 T9V · Renkler · Metrikler · rest toplamı <strong>%100</strong> olmalı.
-                Test = geçici dene · Uygula = tabloya yaz · Tarama = ~100 kombinasyon.
+                <strong>Test et</strong> = geçici karşılaştırma (üst başlık değişmez) ·
+                <strong>Final puanlama uygula</strong> = canlıya al + tablo güncelle.
             </p>
+            <div id="finalShareLivePay" class="ptest-final-share-live" style="font-size:11px;margin-bottom:8px;color:#4a148c"></div>
             <div class="ptest-final-share-grid">
                 <div class="ptest-final-share-field"><label for="finalShareT9v">T9V %</label>
                     <input type="number" id="finalShareT9v" min="0" max="100" step="1" value="35"></div>
@@ -1201,7 +1203,7 @@
 <script src="js/ptest-gosterge-engine.js?v=20260830z"></script>
 <script src="js/ptest-gosterge-depth-engine.js?v=20260830z"></script>
 <script src="js/ptest-color-gosterge-export.js?v=20260830z"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260831b"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260831c"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -2879,7 +2881,7 @@ function renderGosterge1Report() {
     initGosterge1StripTabs();
 }
 
-const PTEST_BUILD = '20260831b';
+const PTEST_BUILD = '20260831c';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
@@ -3019,9 +3021,26 @@ async function applyGostergeTahminScoring() {
     GostergeScoringEngine.applyToFlatEntries(flatEntries);
     const ladderEl = document.getElementById('gostergeScoringLadder');
     if (ladderEl) ladderEl.innerHTML = GostergeScoringEngine.renderCalibrationHtml();
-    syncFinalShareInputsFromEngine();
+    updateFinalShareLivePay();
     updateFinalSharePanelState();
     invalidateGostergeCache();
+}
+
+function updateFinalShareLivePay() {
+    const el = document.getElementById('finalShareLivePay');
+    if (!el || !GostergeScoringEngine.getScoreShareSplit) return;
+    if (!GostergeScoringEngine.isCalibrated?.()) {
+        el.textContent = 'Canlı paylar: kalibrasyon bekleniyor…';
+        return;
+    }
+    const s = GostergeScoringEngine.getScoreShareSplit();
+    el.innerHTML = '<strong>Canlı paylar (şu an tabloda):</strong> T9V %' + s.t9v
+        + ' · Renkler %' + s.colors + ' · Metrikler %' + s.metrics + ' · rest %' + s.rest;
+}
+
+function isFinalShareSumValid(split) {
+    const sum = split.t9v + split.colors + split.metrics + split.rest;
+    return Math.abs(Math.round(sum * 10) / 10 - 100) < 0.05;
 }
 
 function readFinalShareInputs() {
@@ -3059,15 +3078,16 @@ function updateFinalShareSumDisplay() {
 }
 
 function updateFinalSharePanelState() {
-    const enabled = flatEntries.length > 0 && GostergeScoringEngine.isCalibrated?.();
+    const enabled = flatEntries.length > 0;
     for (const id of ['finalShareTestBtn', 'finalShareApplyBtn', 'finalShareSweepBtn', 'finalShareResetBtn']) {
         const el = document.getElementById(id);
         if (el) el.disabled = !enabled;
     }
+    updateFinalShareLivePay();
 }
 
 function formatShareSplitResultLine(stats, prefix) {
-    if (!stats) return prefix + 'Sonuç yok';
+    if (!stats) return prefix + ' · Sonuç yok';
     return prefix + ' · Lider 1. ' + pctBenchFmt(stats.leaderB1Rate)
         + ' · 1–2 ' + pctBenchFmt(stats.leaderB12Rate)
         + ' · 1–3 ' + pctBenchFmt(stats.leaderB123Rate)
@@ -3076,57 +3096,90 @@ function formatShareSplitResultLine(stats, prefix) {
         + ' (' + pctBenchFmt(stats.exactRate) + ')';
 }
 
+function formatShareDelta(delta) {
+    if (delta == null || !Number.isFinite(delta)) return '';
+    const pct = (Math.round(delta * 1000) / 10).toFixed(1);
+    if (delta > 0.0001) return ' <span style="color:#2e7d32">(+' + pct + ' puan)</span>';
+    if (delta < -0.0001) return ' <span style="color:#c62828">(' + pct + ' puan)</span>';
+    return ' <span style="color:#789">(değişmedi)</span>';
+}
+
+async function ensureGostergeCalibratedForFinalShare() {
+    if (GostergeScoringEngine.isCalibrated?.()) return true;
+    await applyGostergeTahminScoring();
+    return !!GostergeScoringEngine.isCalibrated?.();
+}
+
 async function testFinalShareSplit() {
     const resultEl = document.getElementById('finalShareResult');
+    const testBtn = document.getElementById('finalShareTestBtn');
     const split = readFinalShareInputs();
-    const sum = split.t9v + split.colors + split.metrics + split.rest;
-    if (Math.round(sum * 10) / 10 !== 100) {
+    if (!isFinalShareSumValid(split)) {
+        const sum = split.t9v + split.colors + split.metrics + split.rest;
         if (resultEl) resultEl.innerHTML = '<span style="color:#c62828">Toplam %100 olmalı (şu an %' + sum + ')</span>';
         return;
     }
-    if (!GostergeScoringEngine.isCalibrated()) {
-        if (resultEl) resultEl.textContent = 'Kalibrasyon yapılıyor…';
-        await applyGostergeTahminScoring();
-    }
-    if (!GostergeScoringEngine.isCalibrated()) {
-        if (resultEl) resultEl.textContent = 'Yeterli bitiş verisi yok.';
+    if (typeof GostergeScoringEngine.compareShareSplit !== 'function') {
+        if (resultEl) resultEl.innerHTML = '<span style="color:#c62828">Eski JS önbelleği — Ctrl+F5 ile yenileyin (build 20260831c+)</span>';
         return;
     }
+    if (testBtn) testBtn.disabled = true;
     if (resultEl) resultEl.textContent = 'Test ediliyor…';
-    const host = getPtestScoringHost();
-    const stats = GostergeScoringEngine.evaluateShareSplit(flatEntries, host, split);
-    if (resultEl && stats) {
-        const n = stats.normalized || split;
-        resultEl.innerHTML = formatShareSplitResultLine(stats,
-            'Test · T9V %' + n.t9v + ' · Renkler %' + n.colors + ' · Metrikler %' + n.metrics + ' · rest %' + n.rest);
+    try {
+        if (!(await ensureGostergeCalibratedForFinalShare())) {
+            if (resultEl) resultEl.textContent = 'Yeterli bitiş verisi yok.';
+            return;
+        }
+        const host = getPtestScoringHost();
+        const cmp = GostergeScoringEngine.compareShareSplit(flatEntries, host, split);
+        if (!cmp) {
+            if (resultEl) resultEl.textContent = 'Test başarısız — kalibrasyon yok.';
+            return;
+        }
+        const n = cmp.tested.normalized || split;
+        let h = '<div><strong>Test (henüz uygulanmadı)</strong> · T9V %' + n.t9v + ' · Renkler %' + n.colors
+            + ' · Metrikler %' + n.metrics + ' · rest %' + n.rest + '</div>';
+        h += '<div style="margin-top:6px">Canlı: ' + formatShareSplitResultLine(cmp.baseline, 'Karışık') + '</div>';
+        h += '<div>Test: ' + formatShareSplitResultLine(cmp.tested, 'Karışık') + formatShareDelta(cmp.delta) + '</div>';
+        h += '<div style="margin-top:6px;color:#546e7a;font-size:10px">Üst başlık değişmez — <strong>Final puanlama uygula</strong> ile canlıya alın.</div>';
+        if (resultEl) resultEl.innerHTML = h;
+    } catch (err) {
+        if (resultEl) resultEl.innerHTML = '<span style="color:#c62828">Hata: ' + AtSpeedUtils.escapeHtml(err.message) + '</span>';
+    } finally {
+        if (testBtn) testBtn.disabled = !flatEntries.length;
     }
 }
 
 async function applyFinalShareSplit() {
     const resultEl = document.getElementById('finalShareResult');
+    const applyBtn = document.getElementById('finalShareApplyBtn');
     const split = readFinalShareInputs();
-    const sum = split.t9v + split.colors + split.metrics + split.rest;
-    if (Math.round(sum * 10) / 10 !== 100) {
+    if (!isFinalShareSumValid(split)) {
         if (resultEl) resultEl.innerHTML = '<span style="color:#c62828">Toplam %100 olmalı</span>';
         return;
     }
-    if (!GostergeScoringEngine.isCalibrated()) {
-        await applyGostergeTahminScoring();
-    }
-    if (!GostergeScoringEngine.isCalibrated()) return;
-    GostergeScoringEngine.setScoreShareSplit(split.t9v, split.colors, split.metrics, split.rest);
-    GostergeScoringEngine.applyToFlatEntries(flatEntries);
-    const ladderEl = document.getElementById('gostergeScoringLadder');
-    if (ladderEl) ladderEl.innerHTML = GostergeScoringEngine.renderCalibrationHtml();
-    syncFinalShareInputsFromEngine();
-    invalidateGostergeCache();
-    if (ptestViewTab === 'tablo') await renderTableAsync('final puanlama');
-    const host = getPtestScoringHost();
-    const stats = GostergeScoringEngine.evaluateTahminSuccess(flatEntries, host.bitisValueForSort);
-    if (resultEl) {
+    if (applyBtn) applyBtn.disabled = true;
+    try {
+        if (!(await ensureGostergeCalibratedForFinalShare())) return;
+        GostergeScoringEngine.setScoreShareSplit(split.t9v, split.colors, split.metrics, split.rest);
+        GostergeScoringEngine.applyToFlatEntries(flatEntries);
+        const ladderEl = document.getElementById('gostergeScoringLadder');
+        if (ladderEl) ladderEl.innerHTML = GostergeScoringEngine.renderCalibrationHtml();
+        updateFinalShareLivePay();
+        invalidateGostergeCache();
+        await renderTableAsync('final puanlama');
+        const host = getPtestScoringHost();
+        const stats = GostergeScoringEngine.evaluateTahminSuccess(flatEntries, host.bitisValueForSort);
         const n = GostergeScoringEngine.getScoreShareSplit();
-        resultEl.innerHTML = formatShareSplitResultLine(stats,
-            '✅ Uygulandı · T9V %' + n.t9v + ' · Renkler %' + n.colors + ' · Metrikler %' + n.metrics + ' · rest %' + n.rest);
+        if (resultEl) {
+            resultEl.innerHTML = formatShareSplitResultLine(stats,
+                '✅ Uygulandı · T9V %' + n.t9v + ' · Renkler %' + n.colors + ' · Metrikler %' + n.metrics + ' · rest %' + n.rest)
+                + '<div style="margin-top:6px;color:#2e7d32">Üst başlık ve Tablo TAHMİN sütunu güncellendi.</div>';
+        }
+    } catch (err) {
+        if (resultEl) resultEl.innerHTML = '<span style="color:#c62828">Hata: ' + AtSpeedUtils.escapeHtml(err.message) + '</span>';
+    } finally {
+        if (applyBtn) applyBtn.disabled = !flatEntries.length;
     }
 }
 
@@ -3134,54 +3187,68 @@ async function runFinalShareSweep() {
     const resultEl = document.getElementById('finalShareResult');
     const wrap = document.getElementById('finalShareSweepWrap');
     const body = document.getElementById('finalShareSweepBody');
-    if (!GostergeScoringEngine.isCalibrated()) {
-        await applyGostergeTahminScoring();
+    const sweepBtn = document.getElementById('finalShareSweepBtn');
+    if (typeof GostergeScoringEngine.runShareSplitSweep !== 'function') {
+        if (resultEl) resultEl.innerHTML = '<span style="color:#c62828">Eski JS önbelleği — Ctrl+F5 (build 20260831c+)</span>';
+        return;
     }
-    if (!GostergeScoringEngine.isCalibrated()) return;
-    if (resultEl) resultEl.textContent = 'Pay taraması başlıyor…';
-    const host = getPtestScoringHost();
-    const out = await GostergeScoringEngine.runShareSplitSweep(flatEntries, host, (msg) => {
-        if (resultEl) resultEl.textContent = msg;
-    });
-    ptestFinalShareSweepResults = out.results || [];
-    if (wrap) wrap.classList.remove('hidden');
-    if (body) {
-        let h = '';
-        for (let i = 0; i < ptestFinalShareSweepResults.length; i++) {
-            const r = ptestFinalShareSweepResults[i];
-            const c = r.config || {};
-            h += '<tr class="' + (i === 0 ? 'best' : '') + '" data-idx="' + i + '">';
-            h += '<td>' + (i + 1) + '</td>';
-            h += '<td style="text-align:left;font-size:9px">T9V %' + c.t9v + ' · R %' + c.colors
-                + ' · M %' + c.metrics + ' · rest %' + c.rest + '</td>';
-            h += '<td>' + pctBenchFmt(r.leaderB1Rate) + '</td>';
-            h += '<td>' + pctBenchFmt(r.leaderB12Rate) + '</td>';
-            h += '<td>' + pctBenchFmt(r.leaderB123Rate) + '</td>';
-            h += '<td><strong>' + pctBenchFmt(r.leaderBlended) + '</strong></td>';
-            h += '<td>' + r.exact + '/' + r.exactTotal + '</td></tr>';
-        }
-        body.innerHTML = h || '<tr><td colspan="7">Sonuç yok</td></tr>';
-        body.querySelectorAll('tr[data-idx]').forEach(tr => {
-            tr.onclick = () => {
-                const r = ptestFinalShareSweepResults[Number(tr.dataset.idx)];
-                if (!r?.config) return;
-                const c = r.config;
-                document.getElementById('finalShareT9v').value = c.t9v;
-                document.getElementById('finalShareColors').value = c.colors;
-                document.getElementById('finalShareMetrics').value = c.metrics;
-                document.getElementById('finalShareRest').value = c.rest;
-                updateFinalShareSumDisplay();
-                if (resultEl) {
-                    resultEl.innerHTML = formatShareSplitResultLine(r, 'Seçildi · satıra tıklandı');
-                }
-            };
+    if (sweepBtn) sweepBtn.disabled = true;
+    try {
+        if (!(await ensureGostergeCalibratedForFinalShare())) return;
+        if (resultEl) resultEl.textContent = 'Pay taraması başlıyor…';
+        const host = getPtestScoringHost();
+        const out = await GostergeScoringEngine.runShareSplitSweep(flatEntries, host, (msg) => {
+            if (resultEl) resultEl.textContent = msg;
         });
-    }
-    if (resultEl && out.results?.[0]) {
-        const b = out.results[0];
-        resultEl.innerHTML = 'Tarama tamam (' + out.configCount + ' kombinasyon) · En iyi: T9V %'
-            + b.config.t9v + ' · Renkler %' + b.config.colors + ' · Karışık <strong>'
-            + pctBenchFmt(b.leaderBlended) + '</strong> · satıra tıklayıp uygulayın';
+        ptestFinalShareSweepResults = out.results || [];
+        if (wrap) wrap.classList.remove('hidden');
+        if (body) {
+            let h = '';
+            for (let i = 0; i < ptestFinalShareSweepResults.length; i++) {
+                const r = ptestFinalShareSweepResults[i];
+                const c = r.config || {};
+                h += '<tr class="' + (i === 0 ? 'best' : '') + '" data-idx="' + i + '">';
+                h += '<td>' + (i + 1) + '</td>';
+                h += '<td style="text-align:left;font-size:9px">T9V %' + c.t9v + ' · R %' + c.colors
+                    + ' · M %' + c.metrics + ' · rest %' + c.rest + '</td>';
+                h += '<td>' + pctBenchFmt(r.leaderB1Rate) + '</td>';
+                h += '<td>' + pctBenchFmt(r.leaderB12Rate) + '</td>';
+                h += '<td>' + pctBenchFmt(r.leaderB123Rate) + '</td>';
+                h += '<td><strong>' + pctBenchFmt(r.leaderBlended) + '</strong></td>';
+                h += '<td>' + r.exact + '/' + r.exactTotal + '</td></tr>';
+            }
+            body.innerHTML = h || '<tr><td colspan="7">Sonuç yok — kalibrasyon kontrol edin</td></tr>';
+            body.querySelectorAll('tr[data-idx]').forEach(tr => {
+                tr.onclick = () => {
+                    const r = ptestFinalShareSweepResults[Number(tr.dataset.idx)];
+                    if (!r?.config) return;
+                    const c = r.config;
+                    document.getElementById('finalShareT9v').value = c.t9v;
+                    document.getElementById('finalShareColors').value = c.colors;
+                    document.getElementById('finalShareMetrics').value = c.metrics;
+                    document.getElementById('finalShareRest').value = c.rest;
+                    updateFinalShareSumDisplay();
+                    if (resultEl) {
+                        resultEl.innerHTML = formatShareSplitResultLine(r, 'Seçildi · satıra tıklandı')
+                            + ' → <strong>Final puanlama uygula</strong>';
+                    }
+                };
+            });
+        }
+        if (resultEl) {
+            if (out.results?.[0]) {
+                const b = out.results[0];
+                resultEl.innerHTML = 'Tarama tamam (' + out.configCount + ' kombinasyon) · En iyi: T9V %'
+                    + b.config.t9v + ' · Renkler %' + b.config.colors + ' · Karışık <strong>'
+                    + pctBenchFmt(b.leaderBlended) + '</strong> · satıra tıklayıp uygulayın';
+            } else {
+                resultEl.textContent = 'Tarama bitti ama sonuç yok (' + out.configCount + ' kombinasyon denendi).';
+            }
+        }
+    } catch (err) {
+        if (resultEl) resultEl.innerHTML = '<span style="color:#c62828">Tarama hatası: ' + AtSpeedUtils.escapeHtml(err.message) + '</span>';
+    } finally {
+        if (sweepBtn) sweepBtn.disabled = !flatEntries.length;
     }
 }
 
@@ -3190,10 +3257,16 @@ let ptestFinalShareSweepResults = null;
 function resetFinalShareSplit() {
     if (GostergeScoringEngine.resetScoreShareSplit) {
         GostergeScoringEngine.resetScoreShareSplit();
+        if (flatEntries.length && GostergeScoringEngine.isCalibrated?.()) {
+            GostergeScoringEngine.applyToFlatEntries(flatEntries);
+            const ladderEl = document.getElementById('gostergeScoringLadder');
+            if (ladderEl) ladderEl.innerHTML = GostergeScoringEngine.renderCalibrationHtml();
+        }
     }
     syncFinalShareInputsFromEngine();
+    updateFinalShareLivePay();
     const resultEl = document.getElementById('finalShareResult');
-    if (resultEl) resultEl.textContent = 'Varsayılan paylar: T9V %35 · Renkler %45 · Metrikler %16 · rest %4';
+    if (resultEl) resultEl.textContent = 'Varsayılan paylar uygulandı: T9V %35 · Renkler %45 · Metrikler %16 · rest %4';
 }
 
 function getPtestGostergeHost() {
