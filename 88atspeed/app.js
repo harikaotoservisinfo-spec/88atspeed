@@ -1,12 +1,8 @@
 const express = require('express');
-const puppeteer = require('puppeteer-extra');
-const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+const puppeteer = require('puppeteer');
 const sqlite3 = require('sqlite3').verbose();
 const app = express();
 const PORT = 3023;
-
-// Stealth plugin ile bot tespitini engelle
-puppeteer.use(StealthPlugin());
 
 let browser = null;
 
@@ -72,7 +68,21 @@ db.run(`CREATE TABLE IF NOT EXISTS yonetim_calismalari_v2 (
     kayit_tarihi DATETIME DEFAULT CURRENT_TIMESTAMP
 )`);
 
-app.use(express.static('public'));
+db.run(`CREATE TABLE IF NOT EXISTS puanlama_bitis_sonuclari (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    veri TEXT NOT NULL DEFAULT '{}',
+    guncelleme DATETIME DEFAULT CURRENT_TIMESTAMP
+)`);
+
+app.use(express.static('public', {
+    setHeaders(res, filePath) {
+        if (filePath.endsWith('.html') || filePath.endsWith('.css') || filePath.endsWith('.js')) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+        }
+    }
+}));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -96,11 +106,28 @@ const getBrowserHeaders = () => ({
 
 async function getBrowserInstance() {
     if (browser) return browser;
-    browser = await puppeteer.launch({
+    const launchOptions = {
         headless: true,
-        executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--lang=tr-TR']
+    };
+    const chromePaths = [
+        process.env.CHROME_PATH,
+        '/usr/bin/google-chrome',
+        '/usr/bin/google-chrome-stable',
+        '/usr/bin/chromium-browser',
+        '/usr/bin/chromium',
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+    ].filter(Boolean);
+    for (const chromePath of chromePaths) {
+        try {
+            const fs = require('fs');
+            if (fs.existsSync(chromePath)) {
+                launchOptions.executablePath = chromePath;
+                break;
+            }
+        } catch (_) {}
+    }
+    browser = await puppeteer.launch(launchOptions);
     return browser;
 }
 
@@ -109,6 +136,243 @@ async function gotoWithHeaders(page, url) {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await new Promise(r => setTimeout(r, 2000));
 }
+
+// final_mesafeler.js / kesin_mesafeler.js ile aynı: hipodrom sekmesi + bekleme
+async function gotoKosuSonucSayfasi(page, url, sehirAdi) {
+    await page.setExtraHTTPHeaders(getBrowserHeaders());
+    const hashId = url.includes('#') ? url.split('#').pop() : '';
+    const baseUrl = hashId ? url.split('#')[0] : url;
+    await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+    try {
+        await page.waitForSelector('.gunluk-tabs', { timeout: 15000 });
+    } catch (_) {}
+
+    const sehirKey = (sehirAdi || '').split(/[\s(]/)[0].trim();
+    if (sehirKey) {
+        await page.evaluate((sehir) => {
+            const tabs = document.querySelectorAll('.gunluk-tabs a');
+            for (const tab of tabs) {
+                if (tab.textContent.includes(sehir)) {
+                    tab.click();
+                    break;
+                }
+            }
+        }, sehirKey);
+        await new Promise(r => setTimeout(r, 5000));
+    }
+
+    if (hashId) {
+        await page.evaluate((id) => {
+            location.hash = id;
+            const el = document.getElementById(id) || document.querySelector('[id="' + id + '"]');
+            if (el) el.scrollIntoView({ block: 'start' });
+        }, hashId);
+        await new Promise(r => setTimeout(r, 2000));
+    }
+
+    try {
+        await page.waitForFunction(
+            () => document.querySelectorAll('table tbody tr').length > 0 && document.body.innerText.length > 3000,
+            { timeout: 30000, polling: 500 }
+        );
+    } catch (_) {}
+
+    await new Promise(r => setTimeout(r, 2000));
+    return page.evaluate(() => document.querySelectorAll('table tbody tr').length > 0);
+}
+
+function getPageDebugInfo() {
+    const bt = document.body.innerText || '';
+    const tables = document.querySelectorAll('table');
+    const samples = [];
+    for (let t = 0; t < Math.min(3, tables.length); t++) {
+        const rows = tables[t].querySelectorAll('tbody tr');
+        for (let r = 0; r < Math.min(4, rows.length); r++) {
+            const cells = [...rows[r].querySelectorAll('td')].map(c => c.innerText.trim().slice(0, 35));
+            if (cells.length) samples.push({ tablo: t, satir: r, hucreler: cells });
+        }
+    }
+    const idx = bt.indexOf('Son 800 :');
+    return {
+        url: location.href,
+        hash: location.hash,
+        tabloSayisi: tables.length,
+        tablesorterSayisi: document.querySelectorAll('table.tablesorter').length,
+        metinUzunluk: bt.length,
+        son800Var: idx !== -1,
+        son800Ornek: idx !== -1 ? bt.substring(idx, idx + 90) : null,
+        ornekSatirlar: samples
+    };
+}
+
+async function parseKosuDetayFromPage(page, atIsmi) {
+    return page.evaluate((atIsmi) => {
+        function normName(value) {
+            return (value || '').split('(')[0].replace(/\s+/g, ' ').trim().toLocaleUpperCase('tr-TR').replace(/İ/g, 'I');
+        }
+        function namesMatch(cellText, target) {
+            const a = normName(cellText);
+            const b = normName(target);
+            return a && b && (a.includes(b) || b.includes(a));
+        }
+        function findTableByHash() {
+            const hashId = (location.hash || '').replace(/^#/, '');
+            if (!hashId) return -1;
+            const anchor = document.getElementById(hashId);
+            if (!anchor) return -1;
+            let node = anchor;
+            for (let i = 0; i < 8 && node; i++) {
+                const table = node.querySelector ? node.querySelector('table') : null;
+                if (table) {
+                    const tables = document.querySelectorAll('table');
+                    const idx = Array.prototype.indexOf.call(tables, table);
+                    if (idx !== -1) return idx;
+                }
+                node = node.nextElementSibling || node.parentElement;
+            }
+            return -1;
+        }
+        function getBirinciFromTable(table) {
+            if (!table) return null;
+            for (const row of table.querySelectorAll('tbody tr')) {
+                const siraCell = row.querySelector('td:nth-child(2)');
+                const dereceCell = row.querySelector('td:nth-child(10)');
+                if (siraCell && siraCell.innerText.trim() === '1' && dereceCell) {
+                    const d = dereceCell.innerText.trim();
+                    if (d && d !== '-') return d;
+                }
+            }
+            return null;
+        }
+        function getSon800FromNode(node) {
+            if (!node) return null;
+            let el = node;
+            for (let i = 0; i < 6 && el; i++) {
+                const txt = el.innerText || '';
+                const idx = txt.indexOf('Son 800 :');
+                if (idx !== -1) {
+                    const chunk = txt.substring(idx, idx + 100);
+                    let match = chunk.match(/Son\s*800\s*:\s*(\d+[\.\:]\d+[\.\:]\d+)\s*[\-\–]\s*(\d+[\.\:]\d+[\.\:]\d+)/);
+                    if (match) return match[1] + '|' + match[2];
+                    match = chunk.match(/Son\s*800\s*:\s*(\d+[\.\:]\d+[\.\:]\d+)/);
+                    if (match) return match[1] + '|';
+                }
+                el = el.parentElement;
+            }
+            return null;
+        }
+
+        const tables = document.querySelectorAll('table');
+        let atTabloIndex = findTableByHash();
+
+        if (atTabloIndex === -1) {
+            for (let t = 0; t < tables.length; t++) {
+                for (const row of tables[t].querySelectorAll('tbody tr')) {
+                    const atIsimCell = row.querySelector('td:nth-child(3)');
+                    if (atIsimCell && namesMatch(atIsimCell.innerText, atIsmi)) {
+                        atTabloIndex = t;
+                        break;
+                    }
+                }
+                if (atTabloIndex !== -1) break;
+            }
+        }
+
+        let birinciDerece = null;
+        let atDereceDetay = null;
+        let son800 = null;
+
+        if (atTabloIndex !== -1) {
+            const tablo = tables[atTabloIndex];
+            birinciDerece = getBirinciFromTable(tablo);
+            son800 = getSon800FromNode(tablo);
+
+            for (const row of tablo.querySelectorAll('tbody tr')) {
+                const dereceCell = row.querySelector('td:nth-child(10)');
+                const atIsimCell = row.querySelector('td:nth-child(3)');
+                if (atIsimCell && namesMatch(atIsimCell.innerText, atIsmi) && dereceCell) {
+                    atDereceDetay = dereceCell.innerText.trim();
+                }
+            }
+        }
+
+        if (!son800) {
+            const bodyText = document.body.innerText;
+            const son800Index = bodyText.indexOf('Son 800 :');
+            if (son800Index !== -1) {
+                const chunk = bodyText.substring(son800Index, son800Index + 100);
+                let match = chunk.match(/Son\s*800\s*:\s*(\d+[\.\:]\d+[\.\:]\d+)\s*[\-\–]\s*(\d+[\.\:]\d+[\.\:]\d+)/);
+                if (match) son800 = match[1] + '|' + match[2];
+                else {
+                    match = chunk.match(/Son\s*800\s*:\s*(\d+[\.\:]\d+[\.\:]\d+)/);
+                    if (match) son800 = match[1] + '|';
+                }
+            }
+        }
+
+        return { birinciDerece, atDereceDetay, son800 };
+    }, atIsmi);
+}
+
+app.get('/api/scrape-test', async (req, res) => {
+    const atId = req.query.id || '99891';
+    const adi = (req.query.adi || 'SANCAKALAN').trim();
+    const start = Date.now();
+    try {
+        const browserInstance = await getBrowserInstance();
+        const page = await browserInstance.newPage();
+        await page.setViewport({ width: 1920, height: 1080 });
+        await gotoWithHeaders(page, 'https://www.tjk.org/');
+        const atUrl = `https://www.tjk.org/TR/YarisSever/Query/ConnectedPage/AtKosuBilgileri?QueryParameter_AtId=${atId}`;
+        await gotoWithHeaders(page, atUrl);
+        const kosular = await page.evaluate(() => {
+            const tables = document.querySelectorAll('table.tablesorter');
+            const kosuTablosu = tables.length >= 2 ? tables[1] : tables[0];
+            if (!kosuTablosu) return [];
+            const rows = kosuTablosu.querySelectorAll('tbody tr');
+            const data = [];
+            for (const row of rows) {
+                const tarihCell = row.querySelector('td:first-child');
+                const tarihLink = tarihCell?.querySelector('a');
+                if (!tarihLink?.href) continue;
+                const sehirCell = row.querySelector('td:nth-child(2)');
+                data.push({
+                    tarih: tarihCell.innerText.trim(),
+                    tarihLink: tarihLink.href,
+                    sehir: sehirCell ? sehirCell.innerText.trim() : ''
+                });
+            }
+            return data.slice(0, 1);
+        });
+        if (!kosular.length) {
+            await page.close();
+            return res.json({ success: false, error: 'Koşu listesi bulunamadı', ms: Date.now() - start });
+        }
+        const kosu = kosular[0];
+        const tablesLoaded = await gotoKosuSonucSayfasi(page, kosu.tarihLink, kosu.sehir);
+        const detay = await parseKosuDetayFromPage(page, adi);
+        const debug = req.query.debug === '1'
+            ? await page.evaluate(getPageDebugInfo)
+            : undefined;
+        await page.close();
+        const son800Parts = detay.son800 ? detay.son800.split('|') : [];
+        res.json({
+            success: true,
+            ms: Date.now() - start,
+            kosu: kosu.tarih,
+            kosuLink: kosu.tarihLink,
+            tablolarYuklendi: tablesLoaded,
+            birinci_derece: detay.birinciDerece || '-',
+            son800_bir: son800Parts[0] || '-',
+            son800_iki: son800Parts[1] || '-',
+            tamam: !!(detay.birinciDerece && detay.son800),
+            ...(debug ? { debug } : {})
+        });
+    } catch (e) {
+        res.json({ success: false, error: e.message, ms: Date.now() - start });
+    }
+});
 
 // API 1: Hipodromları getir
 app.get('/api/hipodromlar', async (req, res) => {
@@ -225,6 +489,11 @@ app.get('/api/yaris-programi', async (req, res) => {
                     }
                     
                     if (horseName && horseName !== 'At İsmi') {
+                        const isKosmaz = /\(\s*koşmaz\s*\)/i.test(horseName)
+                            || /\(\s*kosmaz\s*\)/i.test(horseName)
+                            || /\(\s*koşm\s*\)/i.test(horseName)
+                            || /\(\s*çekildi\s*\)/i.test(horseName);
+                        if (isKosmaz) continue;
                         horses.push({
                             no: horseNo,
                             name: horseName,
@@ -270,6 +539,7 @@ app.get('/api/yaris-programi', async (req, res) => {
 // API 3: Atın TÜM VERİLERİNİ getir (DÜZELTİLMİŞ)
 app.get('/api/at-tum-veriler', async (req, res) => {
     const atId = req.query.id;
+    const adiParam = (req.query.adi || '').trim();
     
     console.log('📡 At tüm veriler isteği - ID:', atId);
     
@@ -280,26 +550,31 @@ app.get('/api/at-tum-veriler', async (req, res) => {
     try {
         const browserInstance = await getBrowserInstance();
         const page = await browserInstance.newPage();
-        
-        // Önce ana sayfaya git (session oluşması için)
+        await page.setViewport({ width: 1920, height: 1080 });
         await gotoWithHeaders(page, 'https://www.tjk.org/');
         
         // Sonra at sayfasına git
         const atUrl = `https://www.tjk.org/TR/YarisSever/Query/ConnectedPage/AtKosuBilgileri?QueryParameter_AtId=${atId}`;
         await gotoWithHeaders(page, atUrl);
         
-        // Sayfa içeriğini kontrol et (SADECE gerçek hata mesajlarını kontrol et)
-        const pageContent = await page.evaluate(() => document.body.innerText);
-        if (pageContent.includes("bulunamadı") || pageContent.includes("hata")) {
+        // Sayfa yüklendi mi kontrol et
+        const pageOk = await page.evaluate(() => {
+            const title = document.querySelector('h2.tableTitle');
+            if (!title) return false;
+            const text = title.innerText.trim().toLowerCase();
+            return text && !text.includes('bulunamadı');
+        });
+        if (!pageOk) {
             console.log(`⚠️ At ID ${atId} için sayfaya erişilemedi`);
             await page.close();
-            return res.json({ success: true, atAdi: "Erişim Engellendi", atId: atId, kosular: [] });
+            return res.json({ success: true, atAdi: 'Erişim Engellendi', atId: atId, kosular: [] });
         }
         
         let atIsmi = await page.evaluate(() => {
-            const isimElement = document.querySelector("h2.tableTitle");
-            return isimElement ? isimElement.innerText.trim() : "Bilinmeyen At";
+            const isimElement = document.querySelector('h2.tableTitle');
+            return isimElement ? isimElement.innerText.trim() : 'Bilinmeyen At';
         });
+        if (adiParam) atIsmi = adiParam;
         
         // DÜZELTİLMİŞ: Koşu detaylarının olduğu ikinci tabloyu al (index 1)
         const kosular = await page.evaluate(() => {
@@ -354,84 +629,25 @@ app.get('/api/at-tum-veriler', async (req, res) => {
             let atDerece = kosu.at_derece_ana_tablo;
             let son800Bir = "-";
             let son800Iki = "-";
-            
+
             try {
-                await gotoWithHeaders(page, kosu.tarihLink);
-                
-                const detay = await page.evaluate((atIsmi) => {
-                    const tables = document.querySelectorAll("table");
-                    let atTabloIndex = -1;
-                    
-                    for (let t = 0; t < tables.length; t++) {
-                        const rows = tables[t].querySelectorAll("tbody tr");
-                        for (let row of rows) {
-                            const atIsimCell = row.querySelector("td:nth-child(3)");
-                            if (atIsimCell && atIsimCell.innerText.trim().toUpperCase().includes(atIsmi.toUpperCase())) {
-                                atTabloIndex = t;
-                                break;
-                            }
-                        }
-                        if (atTabloIndex !== -1) break;
-                    }
-                    
-                    let birinciDerece = null;
-                    let atDereceDetay = null;
-                    let son800 = null;
-                    
-                    if (atTabloIndex !== -1) {
-                        const tablo = tables[atTabloIndex];
-                        const rows = tablo.querySelectorAll("tbody tr");
-                        
-                        for (let row of rows) {
-                            const siraCell = row.querySelector("td:nth-child(2)");
-                            const dereceCell = row.querySelector("td:nth-child(10)");
-                            
-                            if (siraCell && siraCell.innerText.trim() === "1") {
-                                if (dereceCell) {
-                                    birinciDerece = dereceCell.innerText.trim();
-                                }
-                            }
-                            
-                            const atIsimCell = row.querySelector("td:nth-child(3)");
-                            if (atIsimCell && atIsimCell.innerText.trim().toUpperCase().includes(atIsmi.toUpperCase())) {
-                                if (dereceCell) {
-                                    atDereceDetay = dereceCell.innerText.trim();
-                                }
-                            }
-                        }
-                    }
-                    
-                    const bodyText = document.body.innerText;
-                    const son800Index = bodyText.indexOf("Son 800");
-                    if (son800Index !== -1) {
-                        const son800Text = bodyText.substring(son800Index, son800Index + 100);
-                        let match = son800Text.match(/(\d+[\.\:]\d+[\.\:]\d+)\s*[\-\–]\s*(\d+[\.\:]\d+[\.\:]\d+)/);
-                        if (match) {
-                            son800 = match[1] + "|" + match[2];
-                        } else {
-                            const matchTek = son800Text.match(/(\d+[\.\:]\d+[\.\:]\d+)/);
-                            if (matchTek) {
-                                son800 = matchTek[1] + "|";
-                            }
-                        }
-                    }
-                    
-                    return { birinciDerece, atDereceDetay, son800 };
-                }, atIsmi);
-                
+                await gotoKosuSonucSayfasi(page, kosu.tarihLink, kosu.sehir);
+                const detay = await parseKosuDetayFromPage(page, atIsmi);
+
                 birinciDerece = detay.birinciDerece || "-";
+                if (birinciDerece === "-" && kosu.sira === "1" && atDerece && atDerece !== "-") {
+                    birinciDerece = atDerece;
+                }
                 if (detay.atDereceDetay && detay.atDereceDetay !== "-") {
                     atDerece = detay.atDereceDetay;
                 }
-                
                 if (detay.son800 && detay.son800 !== "-") {
                     const parts = detay.son800.split("|");
                     son800Bir = parts[0] || "-";
                     son800Iki = parts[1] || "-";
                 }
-                
             } catch (err) {
-                console.error(err.message);
+                console.error('Koşu detay hatası:', kosu.tarih, err.message);
             }
             
             sonuclar.push({
@@ -621,6 +837,90 @@ app.get('/api/hesaplama-kayit/:id', (req, res) => {
     });
 });
 
+function parsePuanlamaStore(raw) {
+    if (!raw || typeof raw !== 'object') return { bitis: {}, cikan: {} };
+    const isLegacy = !raw.bitis && !raw.cikan
+        && Object.values(raw).some(v => typeof v === 'number');
+    if (isLegacy) return { bitis: raw, cikan: {} };
+    return { bitis: raw.bitis || {}, cikan: raw.cikan || {} };
+}
+
+function purgePuanlamaKayitId(kayitId, callback) {
+    const prefix = String(kayitId) + '|';
+    db.get(`SELECT veri FROM puanlama_bitis_sonuclari WHERE id = 1`, [], (err, row) => {
+        if (err) return callback(err);
+        if (!row?.veri) return callback(null);
+        let store;
+        try {
+            store = parsePuanlamaStore(JSON.parse(row.veri));
+        } catch (_) {
+            return callback(null);
+        }
+        const bitis = {};
+        for (const [k, v] of Object.entries(store.bitis)) {
+            if (!k.startsWith(prefix)) bitis[k] = v;
+        }
+        const cikan = {};
+        for (const [k, v] of Object.entries(store.cikan)) {
+            if (!k.startsWith(prefix)) cikan[k] = v;
+        }
+        const veri = JSON.stringify({ bitis, cikan });
+        const sql = `INSERT INTO puanlama_bitis_sonuclari (id, veri, guncelleme) VALUES (1, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(id) DO UPDATE SET veri = excluded.veri, guncelleme = CURRENT_TIMESTAMP`;
+        db.run(sql, [veri], callback);
+    });
+}
+
+app.delete('/api/hesaplama-kayit/:id', (req, res) => {
+    const id = req.params.id;
+    db.run(`DELETE FROM hesaplama_kayitlari WHERE id = ?`, [id], function(err) {
+        if (err) {
+            res.json({ success: false, error: err.message });
+            return;
+        }
+        if (this.changes === 0) {
+            res.json({ success: false, error: 'Kayıt bulunamadı' });
+            return;
+        }
+        purgePuanlamaKayitId(id, (errP) => {
+            if (errP) {
+                res.json({ success: false, error: errP.message });
+                return;
+            }
+            console.log('🗑 Hesaplama kaydı silindi ID:', id);
+            res.json({ success: true, deletedId: parseInt(id, 10) });
+        });
+    });
+});
+
+app.post('/api/hesaplama-kayitlar-temizle', (req, res) => {
+    if (req.body?.onay !== 'SIL') {
+        res.json({ success: false, error: 'Onay için body.onay = "SIL" gerekli' });
+        return;
+    }
+    db.serialize(() => {
+        db.run(`DELETE FROM hesaplama_kayitlari`, [], function(errH) {
+            if (errH) {
+                res.json({ success: false, error: errH.message });
+                return;
+            }
+            const deletedHesaplama = this.changes;
+            db.run(`DELETE FROM puanlama_bitis_sonuclari`, [], function(errP) {
+                if (errP) {
+                    res.json({ success: false, error: errP.message });
+                    return;
+                }
+                console.log('🗑 Tüm hesaplama kayıtları silindi:', deletedHesaplama);
+                res.json({
+                    success: true,
+                    deletedHesaplama,
+                    deletedPuanlama: this.changes
+                });
+            });
+        });
+    });
+});
+
 // ==================== KARŞILAŞTIRMA KAYITLARI API'leri ====================
 
 app.post('/api/karsilastirma-kaydet', (req, res) => {
@@ -752,6 +1052,53 @@ app.get('/api/yonetim-calisma-v2/:id', (req, res) => {
             res.json({ success: true, calisma: row });
         } else {
             res.json({ success: false, error: 'Çalışma bulunamadı' });
+        }
+    });
+});
+
+// ==================== PUANLAMA BİTİŞ SONUÇLARI API ====================
+
+app.get('/api/puanlama-bitis-sonuclari', (req, res) => {
+    db.get(`SELECT veri, guncelleme FROM puanlama_bitis_sonuclari WHERE id = 1`, [], (err, row) => {
+        if (err) {
+            res.json({ success: false, error: err.message });
+            return;
+        }
+        let parsed = {};
+        if (row?.veri) {
+            try { parsed = JSON.parse(row.veri); } catch (_) { parsed = {}; }
+        }
+        const isLegacy = parsed && !parsed.bitis && !parsed.cikan
+            && Object.values(parsed).some(v => typeof v === 'number');
+        const sonuclar = isLegacy ? parsed : (parsed.bitis || {});
+        const cikanAtlar = isLegacy ? {} : (parsed.cikan || {});
+        res.json({ success: true, sonuclar, cikanAtlar, guncelleme: row?.guncelleme || null });
+    });
+});
+
+app.post('/api/puanlama-bitis-sonuclari', (req, res) => {
+    const sonuclar = req.body?.sonuclar;
+    const cikanAtlar = req.body?.cikanAtlar;
+    if (!sonuclar || typeof sonuclar !== 'object') {
+        res.json({ success: false, error: 'Geçersiz veri' });
+        return;
+    }
+    const wrapped = {
+        bitis: sonuclar,
+        cikan: cikanAtlar && typeof cikanAtlar === 'object' ? cikanAtlar : {}
+    };
+    const veri = JSON.stringify(wrapped);
+    const sql = `INSERT INTO puanlama_bitis_sonuclari (id, veri, guncelleme) VALUES (1, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(id) DO UPDATE SET veri = excluded.veri, guncelleme = CURRENT_TIMESTAMP`;
+    db.run(sql, [veri], function(err) {
+        if (err) {
+            res.json({ success: false, error: err.message });
+        } else {
+            res.json({
+                success: true,
+                count: Object.keys(sonuclar).length,
+                cikanRaceCount: Object.keys(wrapped.cikan).length
+            });
         }
     });
 });
