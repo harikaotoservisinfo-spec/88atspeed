@@ -683,14 +683,47 @@ const GostergeScoringEngine = (function () {
         return metricBaseId(metricEntry) === 't9v';
     }
 
-    function metricWeight(metricEntry) {
+    function metricWeightFromProfile(metricEntry, profile) {
         const baseId = metricBaseId(metricEntry);
+        const bf = profile.bestFactor;
+        const topIds = profile.priorityMetricIds || [];
         let w = 1000;
-        if (typeof IstatistikTahminEngine !== 'undefined' && IstatistikTahminEngine.getMetricGroupWeight) {
-            w = IstatistikTahminEngine.getMetricGroupWeight(baseId);
+
+        if (bf === 'colors') {
+            w = baseId === 't9v' ? 100 : 20;
+        } else if (bf === 't9v') {
+            if (baseId === 't9v') w = 1000;
+            else {
+                const idx = topIds.indexOf(baseId);
+                w = idx >= 0 ? Math.max(350, 950 - idx * 75) : 50;
+            }
+        } else if (bf === 'metrics') {
+            const idx = topIds.indexOf(baseId);
+            if (idx >= 0) w = Math.max(550, 1000 - idx * 55);
+            else if (baseId === 't9v') w = 150;
+            else w = 35;
+        } else {
+            const idx = topIds.indexOf(baseId);
+            w = idx >= 0 ? Math.max(400, 900 - idx * 60) : 80;
         }
-        if (baseId === 't9v') {
-            w = 1000;
+
+        if (metricEntry.mode === 'depthPair') {
+            w = Math.round(w * DEPTH_PAIR_WEIGHT_FACTOR);
+        }
+        return w;
+    }
+
+    function metricWeight(metricEntry, fieldProfile) {
+        const baseId = metricBaseId(metricEntry);
+        if (fieldProfile && fieldAdaptiveScoringEnabled) {
+            return metricWeightFromProfile(metricEntry, fieldProfile);
+        }
+        let w = 1000;
+        if (calibration) {
+            if (baseId === 't9v') w = 1000;
+        } else if (typeof IstatistikTahminEngine !== 'undefined' && IstatistikTahminEngine.getMetricGroupWeight) {
+            w = IstatistikTahminEngine.getMetricGroupWeight(baseId);
+            if (baseId === 't9v') w = 1000;
         }
         if (metricEntry.mode === 'depthPair') {
             w = Math.round(w * DEPTH_PAIR_WEIGHT_FACTOR);
@@ -1004,13 +1037,15 @@ const GostergeScoringEngine = (function () {
             }
         } else bucketWeighted.rest = Math.round((bucketWeighted.rest || 0) * mult);
 
-        const colorBoostLabels = profile.boostColorGosterges || [];
+        const colorBoostLabels = (profile.boostTermLabels || []).concat(profile.boostColorGosterges || []);
         for (const term of terms) {
             const kind = termBucketId(term);
             let termMult = 1;
             if (kind === bf) termMult = mult;
-            else if (colorBoostLabels.some(lbl => lbl && (term.ruleLabel || term.label || '').includes(lbl))) {
-                termMult = mult * 1.2;
+            else if (colorBoostLabels.some(lbl => lbl && (
+                (term.ruleLabel || '').includes(lbl) || (term.label || '').includes(lbl)
+            ))) {
+                termMult = mult * 1.25;
             } else if ((profile.boostTerms || []).some(p => p && (term.label || '').includes(p))) {
                 termMult = mult * 1.12;
             } else if ((profile.topMetrics || []).some(mid => {
@@ -1037,12 +1072,14 @@ const GostergeScoringEngine = (function () {
         const bucketWeighted = { t9v: 0, colors: 0, focus: 0, rest: 0 };
         for (const id of Object.keys(OTHER_METRIC_SHARES)) bucketWeighted[id] = 0;
 
+        const fieldProfile = opts.fieldProfile || null;
+
         for (const m of calibration.metrics) {
             const ladder = calibration.ladders[m.id];
             if (!ladder?.length) continue;
             const { score, bestRule, hits } = scoreEntryForMetric(entry, m, ladder);
             if (!bestRule) continue;
-            const w = metricWeight(m);
+            const w = metricWeight(m, fieldProfile);
             const weighted = Math.round((score * w) / 1000);
             const baseId = metricBaseId(m);
             if (isT9vScoreMetric(m)) bucketWeighted.t9v += weighted;
@@ -1067,7 +1104,6 @@ const GostergeScoringEngine = (function () {
 
         let colorHitCount = 0;
         if (colorMode === 'gosterge' && colorLadder?.length) {
-            const fieldProfile = opts.fieldProfile || null;
             const { score: colorScore, hits: colorHits } = scoreColorGostergeHits(
                 entry, colorLadder, colorMatchMode, fieldProfile
             );
@@ -1125,7 +1161,9 @@ const GostergeScoringEngine = (function () {
             colorDecisive: binding.colorDecisive,
             fieldProfile: opts.fieldProfile ? {
                 fieldSize: opts.fieldProfile.fieldSize,
-                bestFactor: opts.fieldProfile.bestFactor
+                bestFactor: opts.fieldProfile.bestFactor,
+                bestFactorLabel: opts.fieldProfile.bestFactorLabel,
+                priorityPreview: opts.fieldProfile.priorityPreview
             } : null
         };
     }
@@ -1415,7 +1453,8 @@ const GostergeScoringEngine = (function () {
             fieldProfile: profile ? {
                 fieldSize: pkg.rows.length,
                 bestFactor: profile.bestFactor,
-                bestFactorLabel: profile.bestFactorLabel
+                bestFactorLabel: profile.bestFactorLabel,
+                priorityPreview: profile.priorityPreview || []
             } : null
         };
         return pkg;

@@ -816,6 +816,19 @@
             font-weight: 700;
             color: #4a148c;
         }
+        .istat-gosterim-controls.istat-panel-disabled {
+            opacity: 0.58;
+            background: #eceff1;
+            border-color: #cfd8dc;
+        }
+        .istat-gosterim-controls.istat-panel-disabled summary {
+            color: #546e7a;
+        }
+        .istat-gosterim-controls.istat-panel-disabled .istat-gos-weight-grid,
+        .istat-gosterim-controls.istat-panel-disabled .istat-gos-mode-row,
+        .istat-gosterim-controls.istat-panel-disabled .istat-gos-metric-picker {
+            pointer-events: none;
+        }
         .istat-gos-depth-note {
             margin: 8px 0 0;
             font-size: 12px;
@@ -959,7 +972,7 @@
         <button type="button" id="tahminAgirlikSifirlaBtn" class="istatistik-btn" title="Tüm genel ve %100 ek etkilerini varsayılana sıfırla">↺ Etki sıfırla</button>
         <span id="istatistikBuild" class="istatistik-build" title="Yüklü sürüm"></span>
     </div>
-    <details class="istat-gosterim-controls" id="gostergeScoringPanel">
+    <details class="istat-gosterim-controls" id="gostergeScoringPanel" open>
         <summary>🏆 TAHMİN · Gösterge başarı puanlama (PUANLAMA TEST bitiş verisi)</summary>
         <p class="istat-gos-depth-note">PUANLAMA TEST’te girilen bitiş sıralarından öğrenilen gösterge merdiveni kullanılır.
             Her metrik grubu için SON·Δ + derinlik çifti (SON↔1ÖNCE…) göstergeleri ayrı sıralanır.
@@ -972,8 +985,8 @@
         <div id="gostergeFieldAdaptiveStatus" class="istat-gos-metric-hint" style="font-size:11px"></div>
         <div id="gostergeScoringLadderIstat"></div>
     </details>
-    <details class="istat-gosterim-controls" id="gosterimWeightPanel" open>
-        <summary>TAHMİN görsel profil etkileri (kenar + renk + trend) — yedek mod</summary>
+    <details class="istat-gosterim-controls" id="gosterimWeightPanel">
+        <summary id="gosterimWeightPanelSummary">TAHMİN görsel profil etkileri (kenar + renk + trend) — yedek mod</summary>
         <p class="istat-gos-depth-note">Gösterge puanlama aktif değilse (yeterli bitiş yok) bu slider’lar devreye girer.
             Görsel profiller <strong>derinlik ağırlıklıdır</strong> — SON koşuda tam etki,
             eski derinliklerde azalır.</p>
@@ -1599,6 +1612,46 @@ async function ensureIstatFieldAdaptiveProfiles(force) {
     return profiles;
 }
 
+function updateTahminScoringModeUi() {
+    const gostergeActive = !!GostergeScoringEngine.isCalibrated?.();
+    const adaptiveOn = !!GostergeScoringEngine.isFieldAdaptiveScoringEnabled?.();
+    const visualPanel = document.getElementById('gosterimWeightPanel');
+    const visualSummary = document.getElementById('gosterimWeightPanelSummary');
+    const gostergePanel = document.getElementById('gostergeScoringPanel');
+    const calcHint = document.getElementById('tahminCalcHint');
+    const metricHint = document.getElementById('tahminMetricHint');
+
+    if (gostergeActive) {
+        if (visualPanel) {
+            visualPanel.open = false;
+            visualPanel.classList.add('istat-panel-disabled');
+        }
+        if (visualSummary) {
+            visualSummary.textContent = 'TAHMİN görsel profil — devre dışı (gösterge puanlama aktif)';
+        }
+        if (gostergePanel) gostergePanel.open = true;
+        if (calcHint) {
+            if (adaptiveOn && istatFieldAdaptiveProfiles?.list?.length) {
+                calcHint.textContent = 'Hesap: gösterge uyarlamalı · at sayısına göre profil · görsel profil (41 alan) etkisiz';
+            } else {
+                calcHint.textContent = 'Hesap: gösterge kalibrasyonu · görsel profil etkisiz';
+            }
+        }
+        if (metricHint) {
+            metricHint.textContent = 'Gösterge modu — alttaki slider’lar TAHMİN’e girmez';
+        }
+    } else {
+        if (visualPanel) {
+            visualPanel.classList.remove('istat-panel-disabled');
+            visualPanel.open = true;
+        }
+        if (visualSummary) {
+            visualSummary.textContent = 'TAHMİN görsel profil etkileri (kenar + renk + trend) — yedek mod';
+        }
+        updateTahminModeUi();
+    }
+}
+
 function attachRaceTahminForPkg(pkg, teWeights) {
     if (typeof GostergeScoringEngine !== 'undefined' && GostergeScoringEngine.isCalibrated?.()) {
         return GostergeScoringEngine.attachRaceTahmin(pkg);
@@ -1627,10 +1680,12 @@ async function ensureGostergeCalibration(force) {
                 ladderEl.innerHTML = GostergeScoringEngine.renderCalibrationHtml();
             }
             if (cal && cal.bitisRows >= GostergeScoringEngine.MIN_RULE_SAMPLE) {
-                await ensureIstatFieldAdaptiveProfiles(false);
+                await ensureIstatFieldAdaptiveProfiles(true);
+                updateTahminScoringModeUi();
                 if (istatRaceCache.length) scheduleRefreshAllTahmin();
             } else {
                 renderIstatFieldAdaptiveStatus(null);
+                updateTahminScoringModeUi();
             }
             return cal;
         } catch (err) {
@@ -1655,6 +1710,13 @@ function patchTahminCellEl(cell, tahmin, horseCount, raceNo, kayitId) {
     if (tahmin && tahmin.rank != null) {
         let title = 'TAHMİN · ' + tahmin.rank + '. sıra | Skor ' + (tahmin.score ?? '?');
         if (tahmin.source === 'gosterge') title += ' · gösterge başarı';
+        if (tahmin.fieldProfile?.bestFactorLabel) {
+            title += ' · profil: ' + tahmin.fieldProfile.fieldSize + ' at · '
+                + tahmin.fieldProfile.bestFactorLabel;
+            if (tahmin.fieldProfile.priorityPreview?.length) {
+                title += ' · öncelik: ' + tahmin.fieldProfile.priorityPreview.join(' · ');
+            }
+        }
         title += ' (göreli %' + tahmin.pct + ', ' + (tahmin.metricCount ?? tahmin.topTerms?.length ?? 0) + ' sinyal)';
         if (tahmin.topTerms?.length) {
             title += ' | ';
@@ -1728,6 +1790,9 @@ function refreshAllTahmin() {
                 const fp = entry.pkg.tahminOzeti.fieldProfile;
                 if (fp?.bestFactorLabel && GostergeScoringEngine.isFieldAdaptiveScoringEnabled?.()) {
                     badgeText += ' · ' + fp.fieldSize + ' at · ' + fp.bestFactorLabel;
+                    if (fp.priorityPreview?.length) {
+                        badgeText += ' · ' + fp.priorityPreview.slice(0, 2).join(' · ');
+                    }
                 }
                 badge.textContent = badgeText;
                 badge.style.display = '';
@@ -3176,6 +3241,9 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
             const fp = pkg.tahminOzeti.fieldProfile;
             if (fp?.bestFactorLabel && GostergeScoringEngine.isFieldAdaptiveScoringEnabled?.()) {
                 tahminBadge += ' · ' + fp.fieldSize + ' at · ' + fp.bestFactorLabel;
+                if (fp.priorityPreview?.length) {
+                    tahminBadge += ' · ' + fp.priorityPreview.slice(0, 2).join(' · ');
+                }
             }
             html += '<span class="istatistik-race-badge" data-tahmin-badge>' + tahminBadge + '</span>';
         }
@@ -3379,6 +3447,7 @@ window.addEventListener('load', () => {
             PtestFieldAdaptiveEngine?.setAdaptiveEnabled?.(adaptiveCb.checked);
             GostergeScoringEngine.setFieldAdaptiveScoringEnabled?.(adaptiveCb.checked);
             renderIstatFieldAdaptiveStatus(istatFieldAdaptiveProfiles);
+            updateTahminScoringModeUi();
             if (istatRaceCache.length) scheduleRefreshAllTahmin();
         });
     }

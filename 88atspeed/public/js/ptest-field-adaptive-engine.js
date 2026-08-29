@@ -5,7 +5,7 @@
 const PtestFieldAdaptiveEngine = (function () {
     const STORAGE_KEY = 'ptestFieldAdaptiveProfiles';
     const ENABLED_KEY = 'fieldAdaptiveScoringEnabled';
-    const PROFILE_VERSION = 2;
+    const PROFILE_VERSION = 3;
     const BUCKET_ORDER = ['t9v', 'colors', 'metrics', 'rest'];
     const BUCKET_LABELS = {
         t9v: 'T9V',
@@ -133,9 +133,16 @@ const PtestFieldAdaptiveEngine = (function () {
             boostTerms.push(...termPrefixes(row.topTerms, 6));
         }
         const topMetrics = (row.topMetrics || []).slice(0, 8).map(m => m.id || m.label);
+        const priorityMetricIds = (row.topMetrics || []).slice(0, 10).map(m => m.id || m).filter(Boolean);
+        const boostTermLabels = (row.topTermsWinners || []).slice(0, 12).map(t => t.label).filter(Boolean);
         const boostColorGosterges = sel.best === 'colors'
             ? colorGostergeBoostList(opts.colorLadder, opts.colorBoostLimit || 15)
             : [];
+        const priorityPreview = sel.best === 'colors'
+            ? boostColorGosterges.slice(0, 4)
+            : boostTermLabels.slice(0, 4).length
+                ? boostTermLabels.slice(0, 4)
+                : priorityMetricIds.slice(0, 4);
         const ds = row.dominantSuccess?.[sel.best] || {};
         const blended = row.success?.leaderBlended;
         const bucketBoost = sel.best === 'colors'
@@ -156,7 +163,10 @@ const PtestFieldAdaptiveEngine = (function () {
                 ? (opts.colorScoreMult != null ? opts.colorScoreMult : 1.5)
                 : 1,
             boostTerms,
+            boostTermLabels,
             boostColorGosterges,
+            priorityMetricIds,
+            priorityPreview,
             topMetrics,
             topTermsWinners: row.topTermsWinners || [],
             reason: BUCKET_LABELS[sel.best] + ' · belirleyici tam isabet '
