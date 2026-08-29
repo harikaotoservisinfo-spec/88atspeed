@@ -330,6 +330,7 @@ function buildRaceProfile(raceKey, entries, host, IE) {
         archetypeShort,
         bitisCount: withBitis.length,
         hasWinner: !!winnerEntry,
+        winnerEntry: winnerEntry || null,
         winnerSig,
         leaderSonSig,
         leaderSonWon,
