@@ -966,18 +966,28 @@ const GostergeScoringEngine = (function () {
         return Math.max(1, perHit);
     }
 
-    function scoreColorGostergeHits(entry, ladder, matchMode) {
+    function scoreColorGostergeHits(entry, ladder, matchMode, fieldProfile) {
         if (!ladder?.length) return { score: 0, hits: [] };
         const hits = [];
-        for (const rule of ladder) {
-            if (rule.match && rule.match(entry)) hits.push(rule);
+        const colorBoost = fieldProfile?.bestFactor === 'colors';
+        for (let i = 0; i < ladder.length; i++) {
+            const rule = ladder[i];
+            if (!rule.match || !rule.match(entry)) continue;
+            let pts = rule.points || 0;
+            if (colorBoost) {
+                const rank = rule.rank || (i + 1);
+                if (rank <= 5) pts = Math.round(pts * 1.65);
+                else if (rank <= 15) pts = Math.round(pts * 1.35);
+                else pts = Math.round(pts * 1.12);
+            }
+            hits.push({ ...rule, boostedPoints: pts });
         }
         if (!hits.length) return { score: 0, hits: [] };
         let score = 0;
         if (matchMode === 'sum') {
-            for (const h of hits) score += h.points || 0;
+            for (const h of hits) score += h.boostedPoints != null ? h.boostedPoints : (h.points || 0);
         } else {
-            score = Math.max(...hits.map(h => h.points || 0));
+            score = Math.max(...hits.map(h => h.boostedPoints != null ? h.boostedPoints : (h.points || 0)));
         }
         return { score, hits };
     }
@@ -994,11 +1004,14 @@ const GostergeScoringEngine = (function () {
             }
         } else bucketWeighted.rest = Math.round((bucketWeighted.rest || 0) * mult);
 
+        const colorBoostLabels = profile.boostColorGosterges || [];
         for (const term of terms) {
             const kind = termBucketId(term);
             let termMult = 1;
             if (kind === bf) termMult = mult;
-            else if ((profile.boostTerms || []).some(p => p && (term.label || '').includes(p))) {
+            else if (colorBoostLabels.some(lbl => lbl && (term.ruleLabel || term.label || '').includes(lbl))) {
+                termMult = mult * 1.2;
+            } else if ((profile.boostTerms || []).some(p => p && (term.label || '').includes(p))) {
                 termMult = mult * 1.12;
             } else if ((profile.topMetrics || []).some(mid => {
                 const base = String(term.metricId || '').replace(/__dp\d+$/, '');
@@ -1054,12 +1067,22 @@ const GostergeScoringEngine = (function () {
 
         let colorHitCount = 0;
         if (colorMode === 'gosterge' && colorLadder?.length) {
-            const { score: colorScore, hits: colorHits } = scoreColorGostergeHits(entry, colorLadder, colorMatchMode);
+            const fieldProfile = opts.fieldProfile || null;
+            const { score: colorScore, hits: colorHits } = scoreColorGostergeHits(
+                entry, colorLadder, colorMatchMode, fieldProfile
+            );
             colorHitCount = colorHits.length;
-            const colorWeighted = colorScoreForBucket(colorScore, colorHitCount);
+            let colorWeighted = colorScoreForBucket(colorScore, colorHitCount);
+            if (fieldProfile?.bestFactor === 'colors' && fieldProfile.colorScoreMult > 1) {
+                colorWeighted = Math.round(colorWeighted * fieldProfile.colorScoreMult);
+            }
             if (colorWeighted > 0) {
                 bucketWeighted.colors += colorWeighted;
-                const top = colorHits.reduce((a, b) => (b.points > (a?.points || 0) ? b : a), colorHits[0]);
+                const top = colorHits.reduce((a, b) => {
+                    const ap = a.boostedPoints != null ? a.boostedPoints : (a.points || 0);
+                    const bp = b.boostedPoints != null ? b.boostedPoints : (b.points || 0);
+                    return bp > ap ? b : a;
+                }, colorHits[0]);
                 terms.push({
                     metricId: '_colorGosterge',
                     metricLabel: 'Renk gösterge',
@@ -1070,7 +1093,7 @@ const GostergeScoringEngine = (function () {
                     hitCount: colorHits.length,
                     points: colorWeighted,
                     label: colorHits.length > 1
-                        ? 'Renk · ' + colorHits.length + ' eşleşme (toplam)'
+                        ? 'Renk · ' + colorHits.length + ' eşleşme · ' + (top?.label || 'gösterge')
                         : 'Renk · ' + (top?.label || 'gösterge')
                 });
             }
@@ -1410,7 +1433,10 @@ const GostergeScoringEngine = (function () {
         }
         applyToFlatEntries(flatEntries);
         const factorResults = PtestFieldFactorEngine.analyzeFieldFactors(flatEntries, host);
-        const profiles = PtestFieldAdaptiveEngine.buildProfiles(factorResults, opts);
+        const profiles = PtestFieldAdaptiveEngine.buildProfiles(factorResults, {
+            ...opts,
+            colorLadder: calibration?.colorLadder || []
+        });
         if (profiles?.bySize && Object.keys(profiles.bySize).length) {
             setFieldAdaptiveProfiles(profiles);
             if (PtestFieldAdaptiveEngine.saveProfiles) PtestFieldAdaptiveEngine.saveProfiles(profiles);
@@ -1569,7 +1595,12 @@ const GostergeScoringEngine = (function () {
         let h = '<div class="ptest-scoring-meta">📊 Gösterge puanlama · '
             + calibration.bitisRows + ' bitişli / ' + calibration.totalRows + ' satır · '
             + 'başarı: %' + Math.round(blend.b1 * 100) + ' 1. · %' + Math.round(blend.b12 * 100) + ' 1–2 · %'
-            + Math.round(blend.b123 * 100) + ' 1–3 · ' + shareParts.join(' · ') + '</div>';
+            + Math.round(blend.b123 * 100) + ' 1–3 · ' + shareParts.join(' · ');
+        if (fieldAdaptiveScoringEnabled && fieldAdaptiveProfileBySize
+            && Object.keys(fieldAdaptiveProfileBySize).length) {
+            h += '<br><em style="color:#6a1b9a">Uyarlamalı mod: varsayılan pay aşağıda · her koşu at sayısına göre profil payı uygulanır</em>';
+        }
+        h += '</div>';
         h += '<details class="ptest-scoring-share-table"><summary>Pay dağılımı · T9V %' + shareSplit.t9v
             + ' · Renkler %' + shareSplit.colors + ' · Metrikler %' + shareSplit.metrics
             + ' · rest %' + shareSplit.rest + '</summary>';

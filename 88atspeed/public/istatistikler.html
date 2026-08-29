@@ -1028,19 +1028,19 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260831s"></script>
-<script src="js/formula-engine.js?v=20260831s"></script>
-<script src="js/istatistik-engine.js?v=20260831s"></script>
-<script src="js/istatistik-grids-extra.js?v=20260831s"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260831s"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260831s"></script>
-<script src="js/ptest-gosterge-engine.js?v=20260831s"></script>
-<script src="js/ptest-gosterge-depth-engine.js?v=20260831s"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260831s"></script>
-<script src="js/ptest-field-factor-engine.js?v=20260831s"></script>
-<script src="js/ptest-field-adaptive-engine.js?v=20260831s"></script>
+<script src="js/utils.js?v=20260831t"></script>
+<script src="js/formula-engine.js?v=20260831t"></script>
+<script src="js/istatistik-engine.js?v=20260831t"></script>
+<script src="js/istatistik-grids-extra.js?v=20260831t"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260831t"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260831t"></script>
+<script src="js/ptest-gosterge-engine.js?v=20260831t"></script>
+<script src="js/ptest-gosterge-depth-engine.js?v=20260831t"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260831t"></script>
+<script src="js/ptest-field-factor-engine.js?v=20260831t"></script>
+<script src="js/ptest-field-adaptive-engine.js?v=20260831t"></script>
 <script>
-const ISTAT_BUILD = '20260831s';
+const ISTAT_BUILD = '20260831t';
 const TAHMIN_METRIC_ALL = '__hepsi__';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
@@ -1552,7 +1552,7 @@ function renderIstatFieldAdaptiveStatus(profiles) {
     const host = document.getElementById('gostergeFieldAdaptiveStatus');
     if (!host) return;
     if (!GostergeScoringEngine.isFieldAdaptiveScoringEnabled?.()) {
-        host.innerHTML = '<span style="color:#789">Uyarlamalı puanlama kapalı — standart 40/40/15/5 pay kullanılır</span>';
+        host.innerHTML = '<span style="color:#789">Uyarlamalı puanlama kapalı — standart 40/40/15/5 pay + kalibrasyon renk merdiveni</span>';
         return;
     }
     if (!profiles?.bySize || !Object.keys(profiles.bySize).length) {
@@ -1561,8 +1561,23 @@ function renderIstatFieldAdaptiveStatus(profiles) {
     }
     const parts = (profiles.list || Object.values(profiles.bySize))
         .sort((a, b) => (a.fieldSize || 0) - (b.fieldSize || 0))
-        .map(p => p.fieldSize + ' at → ' + (p.bestFactorLabel || p.bestFactor));
-    host.innerHTML = '<strong>Uyarlamalı profil aktif</strong> · ' + parts.join(' · ');
+        .map(p => {
+            let s = p.fieldSize + ' at → ' + (p.bestFactorLabel || p.bestFactor);
+            if (p.bestFactor === 'colors' && p.shareSplit) {
+                s += ' (Renk %' + p.shareSplit.colors + ')';
+            } else if (p.shareSplit) {
+                s += ' (T9V %' + p.shareSplit.t9v + ' · Renk %' + p.shareSplit.colors + ')';
+            }
+            return s;
+        });
+    const colorProfile = (profiles.list || []).find(p => p.bestFactor === 'colors' && p.boostColorGosterges?.length);
+    let html = '<strong>Uyarlamalı profil aktif</strong> · ' + parts.join(' · ');
+    if (colorProfile) {
+        html += '<br><span style="color:#6a1b9a">Renk profili gösterge önceliği: '
+            + colorProfile.boostColorGosterges.slice(0, 3).join(' · ') + ' …</span>';
+    }
+    html += '<br><span style="color:#789;font-size:10px">Alttaki %40/%40 tablo varsayılan kalibrasyon · koşu başına profil payı uygulanır</span>';
+    host.innerHTML = html;
 }
 
 async function ensureIstatFieldAdaptiveProfiles(force) {
