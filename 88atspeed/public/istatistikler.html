@@ -1041,19 +1041,19 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260831u"></script>
-<script src="js/formula-engine.js?v=20260831u"></script>
-<script src="js/istatistik-engine.js?v=20260831u"></script>
-<script src="js/istatistik-grids-extra.js?v=20260831u"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260831u"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260831u"></script>
-<script src="js/ptest-gosterge-engine.js?v=20260831u"></script>
-<script src="js/ptest-gosterge-depth-engine.js?v=20260831u"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260831u"></script>
-<script src="js/ptest-field-factor-engine.js?v=20260831u"></script>
-<script src="js/ptest-field-adaptive-engine.js?v=20260831u"></script>
+<script src="js/utils.js?v=20260831v"></script>
+<script src="js/formula-engine.js?v=20260831v"></script>
+<script src="js/istatistik-engine.js?v=20260831v"></script>
+<script src="js/istatistik-grids-extra.js?v=20260831v"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260831v"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260831v"></script>
+<script src="js/ptest-gosterge-engine.js?v=20260831v"></script>
+<script src="js/ptest-gosterge-depth-engine.js?v=20260831v"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260831v"></script>
+<script src="js/ptest-field-factor-engine.js?v=20260831v"></script>
+<script src="js/ptest-field-adaptive-engine.js?v=20260831v"></script>
 <script>
-const ISTAT_BUILD = '20260831u';
+const ISTAT_BUILD = '20260831v';
 const TAHMIN_METRIC_ALL = '__hepsi__';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
@@ -1215,7 +1215,15 @@ function renderTahminCell(tahmin, horseCount, horseNo, raceNo, kayitId, horseNam
             + (title ? ' title="' + title.replace(/"/g, '&quot;') + '"' : '') + '>' + inner + '</td>';
     }
     let title = 'TAHMİN · ' + tahmin.rank + '. sıra | Skor ' + (tahmin.score ?? '?');
-    title += ' (göreli %' + tahmin.pct + ', ' + tahmin.metricCount + ' sinyal)';
+    if (tahmin.source === 'gosterge') title += ' · gösterge başarı';
+    if (tahmin.fieldProfile?.bestFactorLabel) {
+        title += ' · profil: ' + tahmin.fieldProfile.fieldSize + ' at · '
+            + tahmin.fieldProfile.bestFactorLabel;
+        if (tahmin.fieldProfile.priorityPreview?.length) {
+            title += ' · öncelik: ' + tahmin.fieldProfile.priorityPreview.join(' · ');
+        }
+    }
+    title += ' (göreli %' + tahmin.pct + ', ' + (tahmin.metricCount ?? tahmin.topTerms?.length ?? 0) + ' sinyal)';
     if (tahmin.topTerms?.length) {
         title += ' | ';
         title += tahmin.topTerms.slice(0, 6).map(t => t.label + ' +' + t.points).join(' · ');
@@ -1660,7 +1668,16 @@ function attachRaceTahminForPkg(pkg, teWeights) {
 }
 
 async function ensureGostergeCalibration(force) {
-    if (!force && GostergeScoringEngine.isCalibrated?.()) return GostergeScoringEngine.getCalibration?.();
+    if (!force && GostergeScoringEngine.isCalibrated?.()) {
+        syncIstatFieldAdaptiveEnabled();
+        const cal = GostergeScoringEngine.getCalibration?.();
+        if (cal && cal.bitisRows >= GostergeScoringEngine.MIN_RULE_SAMPLE) {
+            await ensureIstatFieldAdaptiveProfiles(false);
+            updateTahminScoringModeUi();
+            if (istatRaceCache.length) rerenderIstatistikFromCache();
+        }
+        return cal;
+    }
     if (!force && gostergeCalibrationPromise) return gostergeCalibrationPromise;
     gostergeCalibrationPromise = (async () => {
         const statusEl = document.getElementById('gostergeScoringStatus');
@@ -1682,7 +1699,7 @@ async function ensureGostergeCalibration(force) {
             if (cal && cal.bitisRows >= GostergeScoringEngine.MIN_RULE_SAMPLE) {
                 await ensureIstatFieldAdaptiveProfiles(true);
                 updateTahminScoringModeUi();
-                if (istatRaceCache.length) scheduleRefreshAllTahmin();
+                if (istatRaceCache.length) rerenderIstatistikFromCache();
             } else {
                 renderIstatFieldAdaptiveStatus(null);
                 updateTahminScoringModeUi();
@@ -1991,6 +2008,29 @@ function getActiveTahminMetricId() {
     if (selectedTahminMetric === TAHMIN_METRIC_ALL) return TAHMIN_METRIC_ALL;
     const TE = IstatistikTahminEngine;
     return selectedTahminMetric || TE.getSelectedMetric();
+}
+
+/** Gösterge uyarlamalı modda sabit Ş+M-12 sütunu gizlenir — TAHMİN at sayısı profiline göre hesaplanır */
+function getEffectiveTahminMetricId() {
+    if (typeof GostergeScoringEngine !== 'undefined'
+        && GostergeScoringEngine.isCalibrated?.()
+        && GostergeScoringEngine.isFieldAdaptiveScoringEnabled?.()) {
+        return TAHMIN_METRIC_ALL;
+    }
+    return getActiveTahminMetricId();
+}
+
+async function ensureTahminScoringReady() {
+    syncIstatFieldAdaptiveEnabled();
+    const cal = await ensureGostergeCalibration();
+    if (cal && cal.bitisRows >= GostergeScoringEngine.MIN_RULE_SAMPLE) {
+        await ensureIstatFieldAdaptiveProfiles(false);
+    }
+    if (GostergeScoringEngine.isCalibrated?.() && istatFieldAdaptiveProfiles?.bySize) {
+        GostergeScoringEngine.setFieldAdaptiveProfiles?.(istatFieldAdaptiveProfiles);
+    }
+    updateTahminScoringModeUi();
+    return cal;
 }
 
 function resolveTahminMetricSection(metricId, pkg) {
@@ -2844,7 +2884,7 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
     const t3 = maxDepthTest3 || 0;
     const ts = maxDepthTest123Sirali || 0;
     const td = maxDepthT1dr || 0;
-    const metricDesc = pkg ? resolveTahminMetricSection(getActiveTahminMetricId(), pkg) : null;
+    const metricDesc = pkg ? resolveTahminMetricSection(getEffectiveTahminMetricId(), pkg) : null;
     const activeMetricHead = buildTahminActiveMetricHeadParts(metricDesc);
     let h = '<thead>';
     h += '<tr>';
@@ -3137,6 +3177,11 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
         return;
     }
 
+    syncIstatFieldAdaptiveEnabled();
+    if (GostergeScoringEngine.isCalibrated?.() && istatFieldAdaptiveProfiles?.bySize) {
+        GostergeScoringEngine.setFieldAdaptiveProfiles?.(istatFieldAdaptiveProfiles);
+    }
+
     istatRaceCache = [];
     const raceEntries = [];
     for (let i = 0; i < data.length; i++) {
@@ -3173,7 +3218,7 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
         const maxDepthFf = pkg.maxDepthFf;
         const maxDepthT8 = pkg.maxDepthT8;
         const extraSections = pkg.extraSections || [];
-        const metricDesc = resolveTahminMetricSection(getActiveTahminMetricId(), pkg);
+        const metricDesc = resolveTahminMetricSection(getEffectiveTahminMetricId(), pkg);
 
         html += '<div class="istatistik-race-card" data-race-index="' + i + '">';
         html += '<div class="istatistik-race-header">';
@@ -3331,6 +3376,7 @@ function onKayitLoaded(kayit) {
             currentRaceData = veri;
             updateMeta();
             await loadIstatBitisMap(true);
+            await ensureTahminScoringReady();
             buildIstatistikGrid(currentRaceData, currentKayitMeta.hipodrom, currentKayitMeta.tarih);
             const bitisN = countBitisForLoadedGrid();
             let msg = '✅ Kayıt yüklendi';
@@ -3422,7 +3468,7 @@ window.addEventListener('message', (e) => {
 function scheduleBackgroundCalibration() {
     const run = () => {
         ensureGostergeCalibration().then(() => {
-            if (istatRaceCache.length) scheduleRefreshAllTahmin();
+            if (istatRaceCache.length) rerenderIstatistikFromCache();
         });
     };
     if (typeof requestIdleCallback === 'function') {

@@ -1408,11 +1408,34 @@ const GostergeScoringEngine = (function () {
         return fieldAdaptiveScoringEnabled;
     }
 
+    function lookupFieldProfileBySize(profiles, fieldSize) {
+        if (!profiles || !fieldSize) return null;
+        const fs = Number(fieldSize);
+        if (!Number.isFinite(fs) || fs <= 0) return null;
+        const direct = profiles[fs] || profiles[String(fs)];
+        if (direct) return direct;
+        const sizes = Object.keys(profiles)
+            .map(k => Number(k))
+            .filter(n => Number.isFinite(n) && n > 0)
+            .sort((a, b) => a - b);
+        if (!sizes.length) return null;
+        let nearest = sizes[0];
+        let minDiff = Math.abs(fs - nearest);
+        for (const n of sizes) {
+            const diff = Math.abs(fs - n);
+            if (diff < minDiff || (diff === minDiff && n > nearest)) {
+                minDiff = diff;
+                nearest = n;
+            }
+        }
+        return profiles[nearest] || profiles[String(nearest)] || null;
+    }
+
     function resolveRaceFieldProfile(pkg, profileBySizeOverride) {
         if (!fieldAdaptiveScoringEnabled) return null;
         const profiles = profileBySizeOverride || fieldAdaptiveProfileBySize;
         if (!profiles || !pkg?.rows?.length) return null;
-        return profiles[pkg.rows.length] || null;
+        return lookupFieldProfileBySize(profiles, pkg.rows.length);
     }
 
     function attachRaceTahmin(pkg, profileBySizeOverride) {
@@ -1508,7 +1531,7 @@ const GostergeScoringEngine = (function () {
         }
         for (const group of byRace.values()) {
             const fs = group.length;
-            const profile = profileBySize?.[fs] || null;
+            const profile = lookupFieldProfileBySize(profileBySize, fs);
             if (profile?.shareSplit) {
                 setScoreShareSplit(
                     profile.shareSplit.t9v,
