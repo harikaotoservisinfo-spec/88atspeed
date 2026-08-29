@@ -4,8 +4,8 @@
  */
 const HybridTahminScoringEngine = (function () {
     const STORAGE_KEY = 'hybridTahminCalibration';
-    const PROFILE_VERSION = 1;
-    const MIN_RACES_FOR_BLEND = 3;
+    const PROFILE_VERSION = 2;
+    const MIN_RACES_FOR_MODE = 10;
     const MIN_RACES_FOR_CURATED_ONLY = 15;
     const SUCCESS_BLEND = { b1: 0.80, b12: 0.12, b123: 0.08 };
     const BLEND_CLAMP = { min: 0.15, max: 0.85 };
@@ -504,17 +504,20 @@ const HybridTahminScoringEngine = (function () {
         for (const [fsStr, raceGroups] of Object.entries(byFieldSize)) {
             const fs = Number(fsStr);
             const subset = raceGroups.flat();
-            if (raceGroups.length < MIN_RACES_FOR_BLEND) {
+            const raceCount = raceGroups.length;
+
+            if (raceCount < MIN_RACES_FOR_MODE) {
                 blendBySize[fs] = globalBasariWeight;
                 modeBySize[fs] = globalMode;
                 blendList.push({
                     fieldSize: fs,
-                    raceCount: raceGroups.length,
+                    raceCount,
                     engineMode: globalMode,
                     basariWeight: globalBasariWeight,
+                    gostergeWeight: 1 - globalBasariWeight,
                     basariBlended: null,
                     gostergeBlended: null,
-                    source: 'global-fallback'
+                    source: 'global-min-races'
                 });
                 continue;
             }
@@ -709,8 +712,8 @@ const HybridTahminScoringEngine = (function () {
             });
         return '<strong>Hibrit TAHMİN aktif</strong> · Karışık ' + pct(calibration.hybridBlended)
             + '<br>' + parts.join(' · ')
-            + '<br><span style="color:#789;font-size:10px">Veri doluluk ≥%65 → başarı % ağırlığı artar · '
-            + '&lt;' + MIN_RACES_FOR_CURATED_ONLY + ' koşu: terminal profili (10 at)</span>';
+            + '<br><span style="color:#789;font-size:10px">Mod seçimi: koşu &lt; '
+            + MIN_RACES_FOR_MODE + ' → global · veri doluluk ayarı · 10-at terminal profili</span>';
     }
 
     if (typeof localStorage !== 'undefined') loadCalibration();
@@ -733,6 +736,7 @@ const HybridTahminScoringEngine = (function () {
         CURATED_GOSTERGE_PROFILES,
         SUCCESS_BLEND,
         PROFILE_VERSION,
+        MIN_RACES_FOR_MODE,
         STORAGE_KEY
     };
 })();

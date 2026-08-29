@@ -110,6 +110,7 @@ function printBlendTable(cal) {
             line += ' · ölçüm B:' + pct(row.basariBlended) + ' G:' + pct(row.gostergeBlended);
         }
         if (row.fieldSize === 10) line += ' · 10-at terminal profili';
+        if (row.source === 'global-min-races') line += ' · global (&lt;' + (global.HybridTahminScoringEngine?.MIN_RACES_FOR_MODE || 10) + ' koşu)';
         console.log(line);
     }
 }
