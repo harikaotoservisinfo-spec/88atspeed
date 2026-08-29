@@ -4,7 +4,8 @@
  *
  *   node scripts/repair-missing-kosular.js --db atlar.db --scan
  *   node scripts/repair-missing-kosular.js --db atlar.db --at-id 114236,104060,115482 --apply
- *   node scripts/repair-missing-kosular.js --db atlar.db --fetch --apply   # PM2 + Puppeteer gerekir
+ *     (--apply kaynak yoksa otomatik TJK fetch dener; --no-fetch ile kapat)
+ *   node scripts/repair-missing-kosular.js --db atlar.db --fetch --apply
  */
 const http = require('http');
 const path = require('path');
@@ -23,11 +24,17 @@ const cli = {
     scan: args.includes('--scan') || (!args.includes('--apply') && !argVal('--at-id')),
     apply: args.includes('--apply'),
     fetch: args.includes('--fetch'),
+    noFetch: args.includes('--no-fetch'),
+    fetchDelayMs: Number(argVal('--fetch-delay')) || 800,
     apiBase: argVal('--api') || 'http://127.0.0.1:3023',
     verbose: args.includes('--verbose') || args.includes('-v')
 };
 
 function hr(t) { console.log('\n══ ' + t + ' ══'); }
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 async function loadAllKayitSources(db) {
     const out = [];
@@ -123,6 +130,34 @@ function fetchAtKosular(apiBase, atId, atAdi) {
     });
 }
 
+async function runFetchPlan(plan, apiBase, delayMs) {
+    hr('TJK fetch (' + apiBase + ')');
+    let ok = 0;
+    let fail = 0;
+    for (const p of plan) {
+        if (p.donor) continue;
+        try {
+            const data = await fetchAtKosular(apiBase, p.atId, p.horseName);
+            if (data.success && data.kosular?.length) {
+                p.fetched = data.kosular;
+                ok++;
+                console.log('  ✓ fetch ' + p.atId + ' #' + p.horseNo + ' ' + (p.horseName || '')
+                    + ' → ' + data.kosular.length + ' koşu');
+            } else {
+                fail++;
+                console.log('  ✗ fetch ' + p.atId + ' #' + p.horseNo + ' → boş'
+                    + (data.error ? ' (' + data.error + ')' : '') + ' · ' + (data.atAdi || '—'));
+            }
+        } catch (e) {
+            fail++;
+            console.log('  ✗ fetch ' + p.atId + ' hata: ' + e.message);
+        }
+        if (delayMs > 0) await sleep(delayMs);
+    }
+    console.log('  Fetch özeti: ' + ok + ' başarılı · ' + fail + ' başarısız');
+    return { ok, fail };
+}
+
 async function patchKayit(db, kayitId, table, patchFn) {
     const row = await dbGet(db, `SELECT veri FROM ${table} WHERE id = ?`, [kayitId]);
     if (!row?.veri) return { patched: 0 };
@@ -174,27 +209,21 @@ async function main() {
             });
         }
 
-        if (cli.fetch) {
-            hr('TJK fetch (' + cli.apiBase + ')');
+        const needsFetch = plan.some(p => !p.donor);
+        const doFetch = cli.fetch || (cli.apply && needsFetch && !cli.noFetch);
+        if (doFetch && needsFetch) {
+            await runFetchPlan(plan, cli.apiBase, cli.fetchDelayMs);
             for (const p of plan) {
-                if (p.donor) continue;
-                try {
-                    const data = await fetchAtKosular(cli.apiBase, p.atId, p.horseName);
-                    if (data.success && data.kosular?.length) {
-                        p.fetched = data.kosular;
-                        indexByAtId.set(p.atId, {
-                            kosular: data.kosular,
-                            kosularLen: data.kosular.length,
-                            source: 'fetch:' + p.atId
-                        });
-                        console.log('  ✓ fetch ' + p.atId + ' #' + p.horseNo + ' → ' + data.kosular.length + ' koşu');
-                    } else {
-                        console.log('  ✗ fetch ' + p.atId + ' #' + p.horseNo + ' → boş (' + (data.atAdi || '—') + ')');
-                    }
-                } catch (e) {
-                    console.log('  ✗ fetch ' + p.atId + ' hata: ' + e.message);
+                if (p.fetched?.length) {
+                    indexByAtId.set(p.atId, {
+                        kosular: p.fetched,
+                        kosularLen: p.fetched.length,
+                        source: 'fetch:' + p.atId
+                    });
                 }
             }
+        } else if (needsFetch && !cli.apply) {
+            console.log('\n  → Kaynak yok: --apply ile yaz (otomatik fetch) veya --fetch');
         }
 
         hr('Tamir planı');
@@ -249,8 +278,8 @@ async function main() {
         if (!cli.apply && totalPatched) {
             console.log('\n  → Yazmak için: ... --apply');
         }
-        if (!cli.fetch && plan.some(p => !p.donor)) {
-            console.log('  → TJK fetch için: ... --fetch --apply (sunucu ayakta olmalı)');
+        if (needsFetch && !doFetch) {
+            console.log('  → TJK fetch: ... --apply (otomatik) veya --fetch --apply');
         }
         console.log('\nOK');
     } finally {
