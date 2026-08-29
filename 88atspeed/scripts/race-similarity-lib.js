@@ -54,6 +54,22 @@ const PCT_TIER_LABELS = [
     { id: 'p100', label: '%67+', test: v => v >= 67 }
 ];
 
+/** attachGosterimFlagsToPackage aynı bayrak nesnesini tüm hücrelere kopyalar — F|metrik| bayrağı gürültü */
+const ROW_PROPAGATED_FLAGS = new Set([
+    'kirmiziKenar', 'maviKenar', 'maviKenarSira', 'maviKenarSon800',
+    'yesilSatir', 'gucluUyari', 'maviFosfor', 'pembeSatir', 'kirmiziTest',
+    'sariTest12', 'test1EnIyi', 'test2EnIyi', 'test3EnIyi', 'sehirEslesme',
+    'mesafeEslesme', 'test23Yanip', 't1drKirmizi', 't1drEnIyi2'
+]);
+
+const METRIC_TOKEN_PREFIXES = new Set(['V', 'G', 'B', 'P', 'T', 'R', 'Δ']);
+
+const DEEP_TEN_METRICS = [
+    { id: 'son8001', label: 'SON800-1' },
+    { id: 'test1', label: 'TEST1' },
+    { id: 't1dr', label: 'T1×DR' }
+];
+
 function loadSimilarityEngines() {
     loadGostergeEngines();
     eval(fs.readFileSync(path.join(ROOT, 'public/js/istatistik-gosterim-flags.js'), 'utf8'));
@@ -141,6 +157,7 @@ function extractHorseSignature(entry, IE) {
             tokenSet.add('T|' + metricId + '|' + tb.tone + '_' + tb.border);
         }
         for (const f of sig.flags) {
+            if (ROW_PROPAGATED_FLAGS.has(f)) continue;
             flagSet.add(metricId + ':' + f);
             tokenSet.add('F|' + metricId + '|' + f);
         }
@@ -176,6 +193,8 @@ function extractHorseSignature(entry, IE) {
         flagSet,
         visualSet,
         tokenSet,
+        rowFlagSet: new Set([...tokenSet].filter(t => t.startsWith('ROW|'))),
+        metricTokenSet: new Set([...tokenSet].filter(t => isMetricSpecificToken(t))),
         scalars: {
             sehir: row.sehir?.pct,
             genIlk1_3ay: row.genelIlk1?.ay3?.pct,
@@ -201,8 +220,23 @@ function topCounts(counts, limit) {
         .map(([k, n]) => ({ key: k, count: n }));
 }
 
+function isMetricSpecificToken(tok) {
+    if (!tok || tok.startsWith('ROW|')) return false;
+    const kind = tok.split('|')[0];
+    return METRIC_TOKEN_PREFIXES.has(kind);
+}
+
+function isRowFlagToken(tok) {
+    return tok.startsWith('ROW|');
+}
+
+function isCorrelationToken(tok) {
+    return isMetricSpecificToken(tok) || isRowFlagToken(tok);
+}
+
 function isKeyToken(tok) {
-    if (tok.startsWith('ROW|') || tok.startsWith('Δ|')) return true;
+    if (isRowFlagToken(tok)) return true;
+    if (!isMetricSpecificToken(tok)) return false;
     const parts = tok.split('|');
     if (parts.length < 2) return false;
     return KEY_METRICS.some(m => m.id === parts[1]);
@@ -212,6 +246,14 @@ function filterKeyTokens(counts) {
     const out = {};
     for (const [k, v] of Object.entries(counts || {})) {
         if (isKeyToken(k)) out[k] = v;
+    }
+    return out;
+}
+
+function filterMetricOnlyTokens(counts) {
+    const out = {};
+    for (const [k, v] of Object.entries(counts || {})) {
+        if (isMetricSpecificToken(k) && isKeyToken(k)) out[k] = v;
     }
     return out;
 }
@@ -230,6 +272,8 @@ function buildRaceProfile(raceKey, entries, host, IE) {
     const flagCounts = countTokens(horses, h => h.flagSet);
     const allTokenCounts = countTokens(horses, h => h.tokenSet);
     const tokenCounts = filterKeyTokens(allTokenCounts);
+    const metricTokenCounts = filterMetricOnlyTokens(allTokenCounts);
+    const rowFlagCounts = countTokens(horses, h => h.rowFlagSet || new Set());
 
     const withBitis = entries.filter(e => {
         const b = host.bitisValueForSort(e);
@@ -252,7 +296,8 @@ function buildRaceProfile(raceKey, entries, host, IE) {
         && leaderBySon8001.row.no === winnerEntry.row.no;
 
     const topVisuals = topCounts(visualCounts, 6);
-    const topTokens = topCounts(tokenCounts, 12);
+    const topTokens = topCounts(metricTokenCounts, 12);
+    const topRowFlags = topCounts(rowFlagCounts, 6);
     const topFlags = topCounts(flagCounts, 8);
 
     const archetypeParts = [
@@ -275,8 +320,11 @@ function buildRaceProfile(raceKey, entries, host, IE) {
         visualCounts,
         flagCounts,
         tokenCounts,
+        metricTokenCounts,
+        rowFlagCounts,
         topVisuals,
         topTokens,
+        topRowFlags,
         topFlags,
         archetypeId,
         archetypeShort,
@@ -285,7 +333,7 @@ function buildRaceProfile(raceKey, entries, host, IE) {
         winnerSig,
         leaderSonSig,
         leaderSonWon,
-        featureSet: new Set(Object.keys(allTokenCounts))
+        featureSet: new Set(Object.keys(tokenCounts).filter(isCorrelationToken))
     };
 }
 
@@ -471,7 +519,9 @@ function computeSimilarityValidation(profiles, sampleSize) {
     };
 }
 
-function featureOutcomeCorrelation(profiles, minSample) {
+function featureOutcomeCorrelation(profiles, minSample, opts) {
+    opts = opts || {};
+    const metricOnly = opts.metricOnly !== false;
     minSample = minSample || 5;
     const tokenTotals = {};
     const tokenWins = {};
@@ -479,13 +529,16 @@ function featureOutcomeCorrelation(profiles, minSample) {
     for (const p of profiles) {
         if (!p.hasWinner) continue;
         const winnerTokens = p.winnerSig?.tokenSet || new Set();
-        for (const [tok, cnt] of Object.entries(p.tokenCounts)) {
-            if (!isKeyToken(tok)) continue;
+        const counts = metricOnly ? p.metricTokenCounts : p.tokenCounts;
+        for (const [tok, cnt] of Object.entries(counts)) {
+            if (!isCorrelationToken(tok)) continue;
+            if (metricOnly && !isMetricSpecificToken(tok)) continue;
             if (!tokenTotals[tok]) tokenTotals[tok] = 0;
             tokenTotals[tok] += cnt;
         }
         for (const tok of winnerTokens) {
-            if (!isKeyToken(tok)) continue;
+            if (!isCorrelationToken(tok)) continue;
+            if (metricOnly && !isMetricSpecificToken(tok)) continue;
             if (!tokenWins[tok]) tokenWins[tok] = 0;
             tokenWins[tok]++;
         }
@@ -494,8 +547,10 @@ function featureOutcomeCorrelation(profiles, minSample) {
     const racesWithToken = {};
     for (const p of profiles) {
         if (!p.hasWinner) continue;
-        for (const tok of Object.keys(p.tokenCounts)) {
-            if (!isKeyToken(tok)) continue;
+        const counts = metricOnly ? p.metricTokenCounts : p.tokenCounts;
+        for (const tok of Object.keys(counts)) {
+            if (!isCorrelationToken(tok)) continue;
+            if (metricOnly && !isMetricSpecificToken(tok)) continue;
             if (!racesWithToken[tok]) racesWithToken[tok] = { races: 0, wins: 0 };
             racesWithToken[tok].races++;
             if (p.winnerSig?.tokenSet.has(tok)) racesWithToken[tok].wins++;
@@ -517,11 +572,302 @@ function featureOutcomeCorrelation(profiles, minSample) {
     return rows;
 }
 
+function rowFlagOutcomeCorrelation(profiles, minSample) {
+    return featureOutcomeCorrelation(profiles, minSample, { metricOnly: false })
+        .filter(r => isRowFlagToken(r.token));
+}
+
+function metricCellSlice(sig, metricId) {
+    const cell = sig?.cells?.[metricId];
+    if (!cell) return null;
+    return {
+        visual: cell.visual || '—',
+        gap: cell.gapBucket?.label || '—',
+        bs: cell.bsBucket?.label || '—',
+        pct: cell.pctTier?.label || '—',
+        tone: cell.toneBorder?.tone !== 'yok' ? cell.toneBorder.tone : '—',
+        border: cell.toneBorder?.border !== 'yok' ? cell.toneBorder.border : '—'
+    };
+}
+
+function deltaTagsForMetric(tokenSet, metricId) {
+    const tags = [];
+    if (tokenSet.has('Δ|' + metricId + '|turuncuTwin0')) tags.push('turuncuTwin0');
+    if (tokenSet.has('Δ|' + metricId + '|neonYesil')) tags.push('neonYesil');
+    return tags.length ? tags.join('+') : '—';
+}
+
+function buildDeepTenComboKey(winnerSig) {
+    const parts = [];
+    for (const m of DEEP_TEN_METRICS) {
+        const slice = metricCellSlice(winnerSig, m.id);
+        parts.push(m.label + ':' + (slice ? slice.visual + '/' + slice.gap + '/' + slice.bs : '—/—/—'));
+        parts.push('Δ' + m.label + ':' + deltaTagsForMetric(winnerSig.tokenSet, m.id));
+    }
+    return parts.join(' · ');
+}
+
+function buildDeepTenFieldDominant(profile) {
+    const dom = {};
+    for (const m of DEEP_TEN_METRICS) {
+        const visualCounts = {};
+        for (const h of profile.horses) {
+            const v = h.cells[m.id]?.visual;
+            if (v) visualCounts[v] = (visualCounts[v] || 0) + 1;
+        }
+        const top = topCounts(visualCounts, 1)[0];
+        dom[m.id] = top ? top.key + '×' + top.count : '—';
+    }
+    return dom;
+}
+
+function winnerVsFieldAnalysis(profiles, minSample) {
+    minSample = minSample || 5;
+    const stats = {};
+
+    for (const p of profiles) {
+        if (!p.hasWinner || !p.winnerSig) continue;
+        const winnerTokens = p.winnerSig.tokenSet;
+        const fieldSize = p.fieldSize;
+
+        for (const [tok] of Object.entries(p.metricTokenCounts)) {
+            if (!isMetricSpecificToken(tok)) continue;
+            if (!stats[tok]) {
+                stats[tok] = {
+                    token: tok,
+                    racesInField: 0,
+                    winnerHas: 0,
+                    winnerLacks: 0,
+                    fieldHorseTotal: 0,
+                    winnerRankSum: 0,
+                    winnerRankCount: 0,
+                    leaderHas: 0,
+                    leaderLacks: 0
+                };
+            }
+            const st = stats[tok];
+            st.racesInField++;
+            st.fieldHorseTotal += p.metricTokenCounts[tok] || 0;
+
+            const horsesWith = p.horses.filter(h => h.tokenSet.has(tok)).length;
+            const winnerHas = winnerTokens.has(tok);
+            if (winnerHas) st.winnerHas++;
+            else st.winnerLacks++;
+
+            if (horsesWith > 0) {
+                const sorted = p.horses
+                    .map(h => ({ h, has: h.tokenSet.has(tok) }))
+                    .filter(x => x.has);
+                const winnerIdx = sorted.findIndex(x => x.h.horseNo === p.winnerSig.horseNo);
+                if (winnerIdx >= 0) {
+                    st.winnerRankSum += (winnerIdx + 1) / sorted.length;
+                    st.winnerRankCount++;
+                }
+            }
+
+            if (p.leaderSonSig) {
+                if (p.leaderSonSig.tokenSet.has(tok)) st.leaderHas++;
+                else st.leaderLacks++;
+            }
+        }
+
+        for (const [tok] of Object.entries(p.rowFlagCounts || {})) {
+            if (!isRowFlagToken(tok)) continue;
+            if (!stats[tok]) {
+                stats[tok] = {
+                    token: tok,
+                    racesInField: 0,
+                    winnerHas: 0,
+                    winnerLacks: 0,
+                    fieldHorseTotal: 0,
+                    winnerRankSum: 0,
+                    winnerRankCount: 0,
+                    leaderHas: 0,
+                    leaderLacks: 0
+                };
+            }
+            const st = stats[tok];
+            st.racesInField++;
+            st.fieldHorseTotal += p.rowFlagCounts[tok] || 0;
+
+            if (winnerTokens.has(tok)) st.winnerHas++;
+            else st.winnerLacks++;
+
+            const horsesWith = p.horses.filter(h => h.tokenSet.has(tok)).length;
+            if (horsesWith > 0 && winnerTokens.has(tok)) {
+                const sorted = p.horses.filter(h => h.tokenSet.has(tok));
+                const winnerIdx = sorted.findIndex(h => h.horseNo === p.winnerSig.horseNo);
+                if (winnerIdx >= 0) {
+                    st.winnerRankSum += (winnerIdx + 1) / sorted.length;
+                    st.winnerRankCount++;
+                }
+            }
+
+            if (p.leaderSonSig) {
+                if (p.leaderSonSig.tokenSet.has(tok)) st.leaderHas++;
+                else st.leaderLacks++;
+            }
+        }
+    }
+
+    const rows = [];
+    for (const st of Object.values(stats)) {
+        if (st.racesInField < minSample) continue;
+        const winnerHasRate = st.winnerHas / st.racesInField;
+        const winnerLacksRate = st.winnerLacks / st.racesInField;
+        const avgFieldCount = st.fieldHorseTotal / st.racesInField;
+        const avgWinnerRank = st.winnerRankCount ? st.winnerRankSum / st.winnerRankCount : null;
+        const leaderMatchRate = (st.leaderHas + st.leaderLacks)
+            ? st.leaderHas / (st.leaderHas + st.leaderLacks) : null;
+
+        rows.push({
+            token: st.token,
+            races: st.racesInField,
+            winnerHas: st.winnerHas,
+            winnerLacks: st.winnerLacks,
+            winnerHasRate,
+            winnerLacksRate,
+            avgFieldCount,
+            avgWinnerRank,
+            leaderMatchRate,
+            divergence: winnerLacksRate - winnerHasRate
+        });
+    }
+
+    return {
+        differentProfile: rows.slice().sort((a, b) => b.divergence - a.divergence || b.races - a.races),
+        winnerAligned: rows.slice().sort((a, b) => b.winnerHasRate - a.winnerHasRate || b.races - a.races),
+        leaderAligned: rows.slice().sort((a, b) => (b.leaderMatchRate || 0) - (a.leaderMatchRate || 0) || b.races - a.races)
+    };
+}
+
+function deepTenHorseReport(profiles, minSample) {
+    minSample = minSample || 2;
+    const tenAt = profiles.filter(p => p.fieldSize === 10 && p.hasWinner);
+    const comboStats = {};
+    const crossTabs = {
+        son8001_to_test1: {},
+        son8001_to_t1dr: {},
+        fieldSon_to_winnerTest: {}
+    };
+
+    for (const p of tenAt) {
+        const w = p.winnerSig;
+        const comboKey = buildDeepTenComboKey(w);
+        if (!comboStats[comboKey]) {
+            comboStats[comboKey] = { combo: comboKey, races: 0, wins: 0, examples: [] };
+        }
+        comboStats[comboKey].races++;
+        comboStats[comboKey].wins++;
+        if (comboStats[comboKey].examples.length < 3) {
+            comboStats[comboKey].examples.push(
+                p.hipodrom + ' ' + p.tarih + ' K' + p.raceNo + ' #' + w.horseNo
+            );
+        }
+
+        const wSon = metricCellSlice(w, 'son8001');
+        const wTest = metricCellSlice(w, 'test1');
+        const wDr = metricCellSlice(w, 't1dr');
+        const dom = buildDeepTenFieldDominant(p);
+
+        if (wSon && wTest) {
+            const k = wSon.visual + ' → ' + wTest.visual;
+            crossTabs.son8001_to_test1[k] = (crossTabs.son8001_to_test1[k] || 0) + 1;
+        }
+        if (wSon && wDr) {
+            const k = wSon.visual + ' → ' + wDr.visual;
+            crossTabs.son8001_to_t1dr[k] = (crossTabs.son8001_to_t1dr[k] || 0) + 1;
+        }
+        const fieldSon = dom.son8001?.split('×')[0] || '—';
+        const k2 = 'Saha:' + fieldSon + ' → Kazanan TEST1:' + (wTest?.visual || '—');
+        crossTabs.fieldSon_to_winnerTest[k2] = (crossTabs.fieldSon_to_winnerTest[k2] || 0) + 1;
+    }
+
+    const metricBreakdown = {};
+    for (const m of DEEP_TEN_METRICS) {
+        const visualWins = {};
+        const gapWins = {};
+        const bsWins = {};
+        const deltaWins = {};
+        for (const p of tenAt) {
+            const slice = metricCellSlice(p.winnerSig, m.id);
+            if (slice) {
+                visualWins[slice.visual] = (visualWins[slice.visual] || 0) + 1;
+                gapWins[slice.gap] = (gapWins[slice.gap] || 0) + 1;
+                bsWins[slice.bs] = (bsWins[slice.bs] || 0) + 1;
+            }
+            const dTag = deltaTagsForMetric(p.winnerSig.tokenSet, m.id);
+            deltaWins[dTag] = (deltaWins[dTag] || 0) + 1;
+        }
+        metricBreakdown[m.id] = {
+            label: m.label,
+            n: tenAt.length,
+            visuals: topCounts(visualWins, 8),
+            gaps: topCounts(gapWins, 8),
+            bs: topCounts(bsWins, 8),
+            deltas: topCounts(deltaWins, 6)
+        };
+    }
+
+    const comboRows = Object.values(comboStats)
+        .filter(c => c.races >= minSample)
+        .sort((a, b) => b.races - a.races || b.wins - a.wins);
+
+    const leaderSonWins = tenAt.filter(p => p.leaderSonWon).length;
+
+    return {
+        raceCount: tenAt.length,
+        leaderSonWinRate: tenAt.length ? leaderSonWins / tenAt.length : null,
+        comboRows,
+        metricBreakdown,
+        crossTabs: {
+            son8001_to_test1: topCounts(crossTabs.son8001_to_test1, 10),
+            son8001_to_t1dr: topCounts(crossTabs.son8001_to_t1dr, 10),
+            fieldSon_to_winnerTest: topCounts(crossTabs.fieldSon_to_winnerTest, 10)
+        },
+        allCombos: Object.values(comboStats).sort((a, b) => b.races - a.races)
+    };
+}
+
+function noiseFilterReport(profiles) {
+    let wouldBeDuplicates = 0;
+    const removedExamples = {};
+
+    for (const p of profiles) {
+        for (const h of p.horses) {
+            const keyMetricCells = KEY_METRICS.filter(m => h.cells[m.id]).length;
+            for (const t of h.rowFlagSet || []) {
+                const flag = t.split('|')[1];
+                wouldBeDuplicates += keyMetricCells;
+                removedExamples[flag] = (removedExamples[flag] || 0) + keyMetricCells;
+            }
+        }
+    }
+
+    return {
+        rowPropagatedFlags: [...ROW_PROPAGATED_FLAGS],
+        suppressedDuplicateTokens: wouldBeDuplicates,
+        removedFlagExamples: topCounts(removedExamples, 8),
+        note: 'Korelasyon artık yalnızca V|G|B|P|T|R|Δ metrik tokenları + ROW| satır bayrakları kullanır; F|metrik|satırBayrağı gürültüsü çıkarıldı'
+    };
+}
+
 function formatToken(tok) {
     const parts = tok.split('|');
     if (parts.length < 2) return tok;
     const kind = parts[0];
-    const map = { V: 'Renk', G: 'Δ', B: 'BS', P: '%', F: 'Bayrak', T: 'Ton', R: 'Trend', 'Δ': 'SON·Δ', ROW: 'Satır' };
+    const map = {
+        V: 'Renk', G: 'Δ', B: 'BS', P: '%', F: 'Bayrak', T: 'Ton',
+        R: 'Trend', 'Δ': 'SON·Δ', ROW: 'Satır'
+    };
+    const flagLabels = {
+        t1drKirmizi: 'T1×DR kırmızı', sehirEslesme: 'şehir eşleşme',
+        test1EnIyi: 'TEST1 en iyi', maviKenar: 'mavi kenar',
+        kirmiziKenar: 'kırmızı kenar', yesilSatir: 'yeşil satır'
+    };
+    if (kind === 'ROW' && flagLabels[parts[1]]) {
+        return 'Satır·' + flagLabels[parts[1]];
+    }
     return (map[kind] || kind) + '·' + parts.slice(1).join('·');
 }
 
@@ -534,9 +880,18 @@ module.exports = {
     outcomeStats,
     computeSimilarityValidation,
     featureOutcomeCorrelation,
+    rowFlagOutcomeCorrelation,
+    winnerVsFieldAnalysis,
+    deepTenHorseReport,
+    noiseFilterReport,
+    isMetricSpecificToken,
+    isRowFlagToken,
+    isCorrelationToken,
     jaccard,
     formatToken,
     KEY_METRICS,
+    DEEP_TEN_METRICS,
+    ROW_PROPAGATED_FLAGS,
     pct,
     pad
 };

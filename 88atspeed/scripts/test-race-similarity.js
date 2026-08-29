@@ -10,6 +10,7 @@
  *   node scripts/test-race-similarity.js --db /var/www/88atspeed/atlar.db
  *   node scripts/test-race-similarity.js --field-size 10 --min-sample 3
  *   node scripts/test-race-similarity.js --phase archetypes,outcomes,similarity
+ *   node scripts/test-race-similarity.js --phase deep10,winner-field,noise
  *   node scripts/test-race-similarity.js --quick
  */
 const {
@@ -21,7 +22,12 @@ const {
     outcomeStats,
     computeSimilarityValidation,
     featureOutcomeCorrelation,
+    rowFlagOutcomeCorrelation,
+    winnerVsFieldAnalysis,
+    deepTenHorseReport,
+    noiseFilterReport,
     formatToken,
+    DEEP_TEN_METRICS,
     pct,
     pad
 } = require('./race-similarity-lib');
@@ -33,6 +39,11 @@ function argVal(flag) {
     return i >= 0 ? args[i + 1] : null;
 }
 
+const ALL_PHASES = [
+    'overview', 'noise', 'archetypes', 'clusters', 'outcomes',
+    'features', 'rowflags', 'winner-field', 'deep10', 'similarity', 'examples'
+];
+
 const cli = {
     dbPath: argVal('--db') || require('path').join(__dirname, '..', 'atlar.db'),
     fieldSize: argVal('--field-size') ? Number(argVal('--field-size')) : null,
@@ -42,7 +53,7 @@ const cli = {
     quick: args.includes('--quick'),
     verbose: args.includes('--verbose') || args.includes('-v'),
     phases: (argVal('--phase') || 'all') === 'all'
-        ? ['overview', 'archetypes', 'clusters', 'outcomes', 'features', 'similarity', 'examples']
+        ? ALL_PHASES
         : (argVal('--phase') || 'all').split(',').map(s => s.trim()).filter(Boolean)
 };
 
@@ -63,15 +74,25 @@ function printOverview(profiles, flatEntries) {
     console.log('  Bitiş etiketli: ' + withBitis.length + ' koşu · ' + withWinner.length + ' kazanan biliniyor');
     console.log('  At sayıları:    ' + Object.keys(byFs).sort((a, b) => a - b)
         .map(fs => fs + 'at×' + byFs[fs]).join(' · '));
-
-    let tokenTypes = new Set();
-    let visualTypes = new Set();
-    for (const p of profiles) {
-        for (const k of Object.keys(p.tokenCounts)) tokenTypes.add(k.split('|')[0]);
-        for (const k of Object.keys(p.visualCounts)) visualTypes.add(k);
-    }
-    console.log('  Özellik türleri: Renk(V) · Δ gap · BS · % dilim · Bayrak · Ton · Trend · SON·Δ');
+    console.log('  Özellik türleri: Renk(V) · Δ gap · BS · % dilim · Ton · Trend · SON·Δ · Satır bayrağı(ROW)');
     console.log('  Benzersiz archetype: ' + new Set(profiles.map(p => p.archetypeId)).size);
+    const tenAt = profiles.filter(p => p.fieldSize === 10);
+    if (tenAt.length) {
+        console.log('  10 at koşu:     ' + tenAt.length + ' (derin rapor için --phase deep10)');
+    }
+}
+
+function printNoiseReport(profiles) {
+    hr('Gürültü filtresi (satır bayrağı / t1drKirmizi çoğaltması)');
+    const rep = noiseFilterReport(profiles);
+    console.log('  ' + rep.note);
+    console.log('  Bastırılan F|metrik|satırBayrağı token sayısı: ' + rep.suppressedDuplicateTokens);
+    if (rep.removedFlagExamples.length) {
+        console.log('  Eski gürültü kaynakları: ' + rep.removedFlagExamples
+            .map(e => e.key + '×' + e.count).join(' · '));
+    }
+    console.log('  Satır bayrakları (ROW|): ' + rep.rowPropagatedFlags.slice(0, 8).join(', ') + '…');
+    console.log('  Korelasyon: metrik-spesifik (V|G|B|P|T|R|Δ) ayrı · satır bayrakları (ROW|) ayrı bölümde');
 }
 
 function printArchetypes(profiles) {
@@ -93,7 +114,11 @@ function printArchetypes(profiles) {
                 .map(v => v.key + '×' + v.count).join(' · '));
         }
         if (sample.topTokens.length) {
-            console.log('       Öne çıkan: ' + sample.topTokens.slice(0, 5)
+            console.log('       Metrik sinyaller: ' + sample.topTokens.slice(0, 5)
+                .map(t => formatToken(t.key) + '×' + t.count).join(' · '));
+        }
+        if (sample.topRowFlags?.length) {
+            console.log('       Satır bayrakları: ' + sample.topRowFlags.slice(0, 4)
                 .map(t => formatToken(t.key) + '×' + t.count).join(' · '));
         }
         if (row.stats.winnerVisuals.length) {
@@ -158,10 +183,15 @@ function printOutcomeComparison(profiles) {
 }
 
 function printFeatureCorrelation(profiles) {
-    hr('Özellik → kazanan korelasyonu (koşuda özellik varsa kazanan aynı profilde mi?)');
+    hr('Metrik-spesifik korelasyon (V|G|B|P|T|R|Δ — satır bayrağı gürültüsü hariç)');
     console.log('  min örnek: ' + cli.minSample + ' koşu · sıralama: kazanan olma oranı');
-    const rows = featureOutcomeCorrelation(profiles, cli.minSample);
+    const rows = featureOutcomeCorrelation(profiles, cli.minSample, { metricOnly: true });
     const limit = cli.quick ? 15 : cli.top;
+
+    if (!rows.length) {
+        console.log('  (yeterli örnek yok — --min-sample düşürün)');
+        return;
+    }
 
     for (let i = 0; i < Math.min(limit, rows.length); i++) {
         const r = rows[i];
@@ -169,16 +199,135 @@ function printFeatureCorrelation(profiles) {
             + pad(formatToken(r.token), 42)
             + pad(r.races + ' koşu', 8)
             + ' kazanan ' + pad(String(r.wins), 3)
-            + ' · ' + pct(r.winRate));
+            + ' · ' + pct(r.winRate)
+            + ' · ort ' + (r.horses / r.races).toFixed(1) + ' at/koşu');
     }
 
-    hr('Düşük kazanan oranı (tuzak profiller, n≥' + cli.minSample + ')');
+    hr('Düşük kazanan oranı — tuzak metrik profilleri (n≥' + cli.minSample + ')');
     const low = rows.slice().sort((a, b) => a.winRate - b.winRate);
-    for (let i = 0; i < Math.min(8, low.length); i++) {
+    for (let i = 0; i < Math.min(10, low.length); i++) {
         const r = low[i];
         if (r.winRate > 0.35) break;
         console.log('  ' + pad(formatToken(r.token), 42)
             + pad(r.races + ' koşu', 8) + ' kazanan oranı ' + pct(r.winRate));
+    }
+}
+
+function printRowFlagCorrelation(profiles) {
+    hr('Satır bayrağı korelasyonu (ROW| — tek seferlik, metrik çoğaltması yok)');
+    console.log('  t1drKirmizi vb. artık F|×N metrik olarak sayılmaz');
+    const rows = rowFlagOutcomeCorrelation(profiles, cli.minSample);
+    const limit = cli.quick ? 12 : cli.top;
+
+    for (let i = 0; i < Math.min(limit, rows.length); i++) {
+        const r = rows[i];
+        console.log('  ' + pad(formatToken(r.token), 38)
+            + pad(r.races + ' koşu', 8)
+            + ' kazanan ' + pad(String(r.wins), 3)
+            + ' · ' + pct(r.winRate));
+    }
+}
+
+function printWinnerVsField(profiles) {
+    hr('Kazanan vs alan — “koşuda var ama kazanan farklı profilde”');
+    console.log('  Metrik: koşuda özellik görüldüğünde kazananın aynı profile sahip olma oranı');
+    console.log('  divergence = kazanan yok oranı − kazanan var oranı (yüksek = tuzak sinyal)');
+
+    const analysis = winnerVsFieldAnalysis(profiles, cli.minSample);
+    const limit = cli.quick ? 12 : cli.top;
+
+    hr('Farklı profil tuzakları (kazanan genelde bu sinyali taşımıyor)');
+    for (let i = 0; i < Math.min(limit, analysis.differentProfile.length); i++) {
+        const r = analysis.differentProfile[i];
+        if (r.divergence < 0.05) break;
+        console.log('  ' + pad(formatToken(r.token), 40)
+            + pad(r.races + ' koşu', 8)
+            + ' kazanan var ' + pad(pct(r.winnerHasRate), 7)
+            + ' · yok ' + pad(pct(r.winnerLacksRate), 7)
+            + ' · ort ' + r.avgFieldCount.toFixed(1) + ' at');
+    }
+
+    hr('Kazanan hizalı sinyaller (koşuda görüldüğünde kazanan sık taşıyor)');
+    for (let i = 0; i < Math.min(limit, analysis.winnerAligned.length); i++) {
+        const r = analysis.winnerAligned[i];
+        if (r.winnerHasRate < 0.4) break;
+        console.log('  ' + pad(formatToken(r.token), 40)
+            + pad(r.races + ' koşu', 8)
+            + ' kazanan var ' + pad(pct(r.winnerHasRate), 7)
+            + ' · lider eşleşme ' + pad(pct(r.leaderMatchRate), 7));
+    }
+
+    hr('SON800-1 lider ile hizalı sinyaller');
+    for (let i = 0; i < Math.min(8, analysis.leaderAligned.length); i++) {
+        const r = analysis.leaderAligned[i];
+        if (r.leaderMatchRate == null || r.leaderMatchRate < 0.5) break;
+        console.log('  ' + pad(formatToken(r.token), 40)
+            + pad(r.races + ' koşu', 8)
+            + ' lider taşıyor ' + pct(r.leaderMatchRate));
+    }
+}
+
+function printDeepTen(profiles) {
+    hr('10 at derin rapor — SON800-1 + TEST1 + T1×DR');
+    const deepMin = Math.max(2, cli.minSample <= 3 ? 2 : cli.minSample);
+    const rep = deepTenHorseReport(profiles, deepMin);
+
+    console.log('  Koşu sayısı: ' + rep.raceCount);
+    console.log('  SON800-1 lider kazandı: ' + pct(rep.leaderSonWinRate));
+    console.log('  Metrikler: ' + DEEP_TEN_METRICS.map(m => m.label).join(' · '));
+
+    for (const m of DEEP_TEN_METRICS) {
+        const bd = rep.metricBreakdown[m.id];
+        if (!bd || !bd.n) continue;
+        console.log('\n  ▶ ' + bd.label + ' (kazanan profili, n=' + bd.n + ')');
+        if (bd.visuals.length) {
+            console.log('    Renk:  ' + bd.visuals.map(v => v.key + ' ' + pct(v.count / bd.n)).join(' · '));
+        }
+        if (bd.gaps.length) {
+            console.log('    Δ:     ' + bd.gaps.map(v => v.key + ' ' + pct(v.count / bd.n)).join(' · '));
+        }
+        if (bd.bs.length) {
+            console.log('    BS:    ' + bd.bs.map(v => v.key + ' ' + pct(v.count / bd.n)).join(' · '));
+        }
+        if (bd.deltas.length) {
+            console.log('    SON·Δ: ' + bd.deltas.map(v => v.key + ' ' + pct(v.count / bd.n)).join(' · '));
+        }
+    }
+
+    hr('Kazanan renk geçişleri (10 at)');
+    console.log('  SON800-1 → TEST1:');
+    for (const row of rep.crossTabs.son8001_to_test1.slice(0, cli.quick ? 6 : 10)) {
+        console.log('    ' + pad(row.key, 28) + row.count + '/' + rep.raceCount
+            + ' · ' + pct(row.count / rep.raceCount));
+    }
+    console.log('  SON800-1 → T1×DR:');
+    for (const row of rep.crossTabs.son8001_to_t1dr.slice(0, cli.quick ? 6 : 10)) {
+        console.log('    ' + pad(row.key, 28) + row.count + '/' + rep.raceCount
+            + ' · ' + pct(row.count / rep.raceCount));
+    }
+    console.log('  Saha baskın SON800-1 → kazanan TEST1:');
+    for (const row of rep.crossTabs.fieldSon_to_winnerTest.slice(0, cli.quick ? 6 : 8)) {
+        console.log('    ' + row.key + ' ×' + row.count);
+    }
+
+    hr('Tam kombinasyon profilleri (SON800-1/TEST1/T1×DR renk+Δ+BS, n≥' + deepMin + ')');
+    const combos = rep.comboRows.length ? rep.comboRows : rep.allCombos;
+    const limit = cli.quick ? 8 : 15;
+    for (let i = 0; i < Math.min(limit, combos.length); i++) {
+        const c = combos[i];
+        console.log('\n  ' + pad(String(i + 1) + '.', 4) + c.races + ' koşu · kazanan %100');
+        console.log('    ' + c.combo);
+        if (c.examples?.length) {
+            console.log('    Örnek: ' + c.examples.join(' · '));
+        }
+    }
+
+    if (!rep.comboRows.length && rep.allCombos.length) {
+        console.log('\n  (n≥' + deepMin + ' eşiği için tüm tekil kombinasyonlar — --min-sample 2 deneyin)');
+        for (let i = 0; i < Math.min(6, rep.allCombos.length); i++) {
+            const c = rep.allCombos[i];
+            console.log('  ' + c.races + '× ' + c.combo.slice(0, 100) + (c.combo.length > 100 ? '…' : ''));
+        }
     }
 }
 
@@ -208,12 +357,14 @@ function printExamples(profiles) {
         if (p.winnerSig) {
             console.log('    Kazanan #' + p.winnerSig.horseNo + ' ' + (p.winnerSig.horseName || ''));
             const wVis = [...p.winnerSig.visualSet].slice(0, 4).join(' · ') || '—';
-            const wTok = [...p.winnerSig.tokenSet].slice(0, 6).map(formatToken).join(' · ');
+            const wTok = [...p.winnerSig.metricTokenSet].slice(0, 6).map(formatToken).join(' · ');
+            const wRow = [...p.winnerSig.rowFlagSet].slice(0, 4).map(formatToken).join(' · ');
             console.log('    Kazanan renk: ' + wVis);
-            console.log('    Kazanan özellik: ' + wTok);
+            console.log('    Kazanan metrik: ' + (wTok || '—'));
+            console.log('    Kazanan satır bayrağı: ' + (wRow || '—'));
         }
         console.log('    Koşu renk özeti: ' + p.topVisuals.map(v => v.key + '×' + v.count).join(' · '));
-        console.log('    Koşu Δ/BS özeti: ' + p.topTokens.slice(0, 6)
+        console.log('    Koşu metrik özeti: ' + p.topTokens.slice(0, 6)
             .map(t => formatToken(t.key) + '×' + t.count).join(' · '));
     }
 }
@@ -221,7 +372,7 @@ function printExamples(profiles) {
 async function main() {
     loadSimilarityEngines();
     const db = openDb(cli.dbPath);
-    console.log('══ Koşu benzerlik analizi ══');
+    console.log('══ Koşu benzerlik analizi (v2 — gürültü filtresi + kazanan/alan + 10at derin) ══');
     console.log('DB: ' + cli.dbPath);
 
     try {
@@ -237,17 +388,21 @@ async function main() {
         }
 
         if (cli.phases.includes('overview')) printOverview(profiles, flatEntries);
+        if (cli.phases.includes('noise')) printNoiseReport(profiles);
         if (cli.phases.includes('archetypes')) printArchetypes(profiles);
         if (cli.phases.includes('clusters')) printFuzzyClusters(profiles);
         if (cli.phases.includes('outcomes')) printOutcomeComparison(profiles);
         if (cli.phases.includes('features')) printFeatureCorrelation(profiles);
+        if (cli.phases.includes('rowflags')) printRowFlagCorrelation(profiles);
+        if (cli.phases.includes('winner-field')) printWinnerVsField(profiles);
+        if (cli.phases.includes('deep10')) printDeepTen(profiles);
         if (cli.phases.includes('similarity')) printSimilarityValidation(profiles);
         if (cli.phases.includes('examples')) printExamples(profiles);
 
         console.log('\n── Kullanım ──');
         console.log('  npm run test:race-similarity');
-        console.log('  node scripts/test-race-similarity.js --field-size 10');
-        console.log('  node scripts/test-race-similarity.js --phase features,similarity --min-sample 5');
+        console.log('  node scripts/test-race-similarity.js --field-size 10 --phase deep10,winner-field');
+        console.log('  node scripts/test-race-similarity.js --phase features,rowflags,noise --min-sample 5');
         console.log('\nOK');
     } finally {
         db.close();
