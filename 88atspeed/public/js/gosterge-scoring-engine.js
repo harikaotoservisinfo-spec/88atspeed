@@ -7,10 +7,12 @@ const GostergeScoringEngine = (function () {
     const DEPTH_PAIR_WEIGHT_FACTOR = 0.65;
     let T9V_SCORE_SHARE = 0.35;
     let OTHER_SCORE_SHARE = 0.65;
-    /** %65 diliminde renk kuralı kovası (kalanın %40'ı) */
-    const COLOR_OTHER_SHARE = 0.40;
-    /** %65 diliminde metrik kovaları (kalanın %60'ı) */
-    const METRIC_OTHER_SHARE = 0.60;
+    /** %65 diliminde renk kovası — toplam ~%45 (45/65) */
+    const COLOR_OTHER_SHARE = 45 / 65;
+    /** %65 diliminde metrik kovaları — toplam ~%16 (16/65) */
+    const METRIC_OTHER_SHARE = 16 / 65;
+    /** %65 diliminde rest (SON800-2, SON800·DR…) — toplam ~%4 (4/65) */
+    const REST_OTHER_SHARE = 4 / 65;
     const COLOR_RULE_IDS = new Set([
         'yesilHucre', 'turuncuHucre', 'turuncuCevre', 'sariYazi',
         'kirmiziIc', 'acikYesilIc', 'koyuYesilIc'
@@ -189,9 +191,10 @@ const GostergeScoringEngine = (function () {
             };
         }
         out._rest = {
-            frac: restOtherMetricShare(),
-            pctOfTotal: Math.round(restOtherMetricShare() * METRIC_OTHER_SHARE * OTHER_SCORE_SHARE * 1000) / 10,
-            pctWithin65: Math.round(restOtherMetricShare() * pctTotal * METRIC_OTHER_SHARE * 10) / 10
+            frac: REST_OTHER_SHARE,
+            pctOfTotal: Math.round(REST_OTHER_SHARE * OTHER_SCORE_SHARE * 1000) / 10,
+            pctWithin65: Math.round(REST_OTHER_SHARE * 1000) / 10,
+            label: 'rest (SON800-2, SON800·DR…)'
         };
         return out;
     }
@@ -488,11 +491,10 @@ const GostergeScoringEngine = (function () {
                 share: OTHER_SCORE_SHARE * METRIC_OTHER_SHARE * frac
             });
         }
-        const restFrac = restOtherMetricShare();
-        if (restFrac > 0) {
+        if (REST_OTHER_SHARE > 0) {
             buckets.push({
                 weighted: bucketWeighted.rest || 0,
-                share: OTHER_SCORE_SHARE * METRIC_OTHER_SHARE * restFrac
+                share: OTHER_SCORE_SHARE * REST_OTHER_SHARE
             });
         }
         return blendScoreBuckets(buckets);
@@ -732,7 +734,8 @@ const GostergeScoringEngine = (function () {
         let shareParts = [
             'T9V %' + Math.round(T9V_SCORE_SHARE * 100),
             'Renkler %' + Math.round(COLOR_OTHER_SHARE * OTHER_SCORE_SHARE * 1000) / 10,
-            'Metrikler %' + Math.round(METRIC_OTHER_SHARE * OTHER_SCORE_SHARE * 1000) / 10
+            'Metrikler %' + Math.round(METRIC_OTHER_SHARE * OTHER_SCORE_SHARE * 1000) / 10,
+            'rest %' + Math.round(REST_OTHER_SHARE * OTHER_SCORE_SHARE * 1000) / 10
         ];
         const shareInfo = getOtherMetricShares();
         const sortedIds = Object.keys(OTHER_METRIC_SHARE_PCT).sort((a, b) =>
@@ -746,13 +749,13 @@ const GostergeScoringEngine = (function () {
             + calibration.bitisRows + ' bitişli / ' + calibration.totalRows + ' satır · '
             + 'başarı: %' + Math.round(blend.b1 * 100) + ' 1. · %' + Math.round(blend.b12 * 100) + ' 1–2 · %'
             + Math.round(blend.b123 * 100) + ' 1–3 · ' + shareParts.join(' · ') + '</div>';
-        h += '<details class="ptest-scoring-share-table"><summary>Pay dağılımı · T9V %35 · Renkler %65×40 · Metrikler %65×60</summary>';
+        h += '<details class="ptest-scoring-share-table"><summary>Pay dağılımı · T9V %35 · Renkler %45 · Metrikler %16 · rest %4</summary>';
         h += '<table class="ptest-scoring-table"><thead><tr>'
             + '<th>Kova</th><th>%65 içi</th><th>Toplam ~%</th></tr></thead><tbody>';
         h += '<tr><td><strong>T9V</strong></td><td>—</td><td>35</td></tr>';
         h += '<tr><td><strong>Renkler</strong> (yeşil/turuncu/sarı/kırmızı…)</td><td>'
             + shareInfo._colors.pctWithin65 + '</td><td>' + shareInfo._colors.pctOfTotal + '</td></tr>';
-        h += '<tr><td colspan="3"><em>Metrik dilimi (%65 × 60 = '
+        h += '<tr><td colspan="3"><em>Metrik dilimi (%65 × 16/65 ≈ '
             + shareInfo._metricSlice.pctOfTotal + ' toplam)</em></td></tr>';
         for (const id of Object.keys(OTHER_METRIC_SHARE_PCT)) {
             const info = shareInfo[id];
@@ -760,7 +763,7 @@ const GostergeScoringEngine = (function () {
                 + info.pctWithinMetricSlice + '</td><td>' + info.pctOfTotal + '</td></tr>';
         }
         if (shareInfo._rest?.frac > 0) {
-            h += '<tr><td>rest (SON800-2, SON800·DR…)</td><td>'
+            h += '<tr><td>' + AtSpeedUtils.escapeHtml(shareInfo._rest.label || 'rest') + '</td><td>'
                 + shareInfo._rest.pctWithin65 + '</td><td>' + shareInfo._rest.pctOfTotal + '</td></tr>';
         }
         h += '</tbody></table></details>';
@@ -834,6 +837,7 @@ const GostergeScoringEngine = (function () {
         OTHER_METRIC_SHARES,
         COLOR_OTHER_SHARE,
         METRIC_OTHER_SHARE,
+        REST_OTHER_SHARE,
         COLOR_RULE_IDS,
         isColorRule,
         collectSonDeltaMetrics,
