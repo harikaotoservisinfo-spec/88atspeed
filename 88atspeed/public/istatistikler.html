@@ -1036,20 +1036,21 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260831z"></script>
-<script src="js/formula-engine.js?v=20260831z"></script>
-<script src="js/istatistik-engine.js?v=20260831z"></script>
-<script src="js/istatistik-grids-extra.js?v=20260831z"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260831z"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260831z"></script>
-<script src="js/ptest-gosterge-engine.js?v=20260831z"></script>
-<script src="js/ptest-gosterge-depth-engine.js?v=20260831z"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260831z"></script>
-<script src="js/basari-pct-scoring-engine.js?v=20260831z"></script>
-<script src="js/ptest-field-factor-engine.js?v=20260831z"></script>
-<script src="js/ptest-field-adaptive-engine.js?v=20260831z"></script>
+<script src="js/utils.js?v=20260829a"></script>
+<script src="js/formula-engine.js?v=20260829a"></script>
+<script src="js/istatistik-engine.js?v=20260829a"></script>
+<script src="js/istatistik-grids-extra.js?v=20260829a"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260829a"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260829a"></script>
+<script src="js/ptest-gosterge-engine.js?v=20260829a"></script>
+<script src="js/ptest-gosterge-depth-engine.js?v=20260829a"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260829a"></script>
+<script src="js/basari-pct-scoring-engine.js?v=20260829a"></script>
+<script src="js/hybrid-tahmin-scoring-engine.js?v=20260829a"></script>
+<script src="js/ptest-field-factor-engine.js?v=20260829a"></script>
+<script src="js/ptest-field-adaptive-engine.js?v=20260829a"></script>
 <script>
-const ISTAT_BUILD = '20260831z';
+const ISTAT_BUILD = '20260829a';
 const TAHMIN_METRIC_ALL = '__hepsi__';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
@@ -1620,6 +1621,8 @@ async function ensureIstatFieldAdaptiveProfiles(force) {
 }
 
 function updateTahminScoringModeUi() {
+    const hybridActive = typeof HybridTahminScoringEngine !== 'undefined'
+        && HybridTahminScoringEngine.isCalibrated?.();
     const basariActive = typeof BasariPctScoringEngine !== 'undefined';
     const visualPanel = document.getElementById('gosterimWeightPanel');
     const visualSummary = document.getElementById('gosterimWeightPanelSummary');
@@ -1627,20 +1630,26 @@ function updateTahminScoringModeUi() {
     const calcHint = document.getElementById('tahminCalcHint');
     const metricHint = document.getElementById('tahminMetricHint');
 
-    if (basariActive) {
+    if (hybridActive || basariActive) {
         if (visualPanel) {
             visualPanel.open = false;
             visualPanel.classList.add('istat-panel-disabled');
         }
         if (visualSummary) {
-            visualSummary.textContent = 'TAHMİN görsel profil — devre dışı (başarı % modu aktif)';
+            visualSummary.textContent = hybridActive
+                ? 'TAHMİN hibrit mod — başarı % + gösterge profili (at sayısına göre)'
+                : 'TAHMİN görsel profil — devre dışı (başarı % modu aktif)';
         }
         if (gostergePanel) gostergePanel.open = true;
         if (calcHint) {
-            calcHint.textContent = 'Hesap: yalnızca geçmiş başarı yüzdeleri · at sayısına göre profil · gösterge/renk/T9V/metrik etkisiz';
+            calcHint.textContent = hybridActive
+                ? 'Hesap: başarı % + gösterge (renk/T9V/metrik) · at sayısına göre karışım · veri doluluk ayarı'
+                : 'Hesap: yalnızca geçmiş başarı yüzdeleri · at sayısına göre profil · gösterge/renk/T9V/metrik etkisiz';
         }
         if (metricHint) {
-            metricHint.textContent = 'Başarı % modu — slider’lar ve metrik grupları TAHMİN\'e girmez';
+            metricHint.textContent = hybridActive
+                ? 'Hibrit mod — tüm sütunlar skora girer · koşu başına profil payı'
+                : 'Başarı % modu — slider’lar ve metrik grupları TAHMİN\'e girmez';
         }
     } else {
         if (visualPanel) {
@@ -1655,6 +1664,9 @@ function updateTahminScoringModeUi() {
 }
 
 function attachRaceTahminForPkg(pkg, teWeights) {
+    if (typeof HybridTahminScoringEngine !== 'undefined' && HybridTahminScoringEngine.isCalibrated?.()) {
+        return HybridTahminScoringEngine.attachRaceTahmin(pkg);
+    }
     if (typeof BasariPctScoringEngine !== 'undefined') {
         return BasariPctScoringEngine.attachRaceTahmin(pkg);
     }
@@ -1664,36 +1676,46 @@ function attachRaceTahminForPkg(pkg, teWeights) {
     return IstatistikTahminEngine.attachRaceTahmin(pkg, teWeights);
 }
 
-function renderBasariPctStatus(summary) {
+function renderHybridTahminStatus() {
     const host = document.getElementById('gostergeFieldAdaptiveStatus');
     if (!host) return;
-    if (summary?.list?.length) {
-        host.innerHTML = BasariPctScoringEngine.renderStatusHtml();
-    } else {
+    if (typeof HybridTahminScoringEngine !== 'undefined' && HybridTahminScoringEngine.isCalibrated?.()) {
+        host.innerHTML = HybridTahminScoringEngine.renderStatusHtml();
+        return;
+    }
+    if (typeof BasariPctScoringEngine !== 'undefined' && BasariPctScoringEngine.isCalibrated?.()) {
         host.innerHTML = BasariPctScoringEngine.renderStatusHtml();
     }
 }
 
 async function ensureBasariPctCalibration(force) {
-    if (!force && BasariPctScoringEngine.isCalibrated?.()) {
-        renderBasariPctStatus(BasariPctScoringEngine.getCalibrationSummary?.());
-        return BasariPctScoringEngine.getCalibrationSummary?.();
+    return ensureHybridTahminCalibration(force);
+}
+
+async function ensureHybridTahminCalibration(force) {
+    if (!force && HybridTahminScoringEngine?.isCalibrated?.()) {
+        renderHybridTahminStatus();
+        updateTahminScoringModeUi();
+        return HybridTahminScoringEngine.getCalibration?.();
     }
     if (!force && basariCalibrationPromise) return basariCalibrationPromise;
     basariCalibrationPromise = (async () => {
         const statusEl = document.getElementById('gostergeScoringStatus');
         try {
-            if (statusEl) statusEl.textContent = '⏳ Başarı yüzdesi profili hesaplanıyor (PUANLAMA TEST bitiş)…';
-            const summary = await BasariPctScoringEngine.loadAndCalibrateFromApi?.(buildIstatBitisStatsFromEntries);
+            if (statusEl) statusEl.textContent = '⏳ Hibrit TAHMİN kalibre ediliyor (başarı % + gösterge)…';
+            const summary = await HybridTahminScoringEngine.loadAndCalibrateFromApi?.(buildIstatBitisStatsFromEntries);
             if (statusEl) {
-                if (summary?.list?.length) {
-                    statusEl.textContent = '✅ Başarı % TAHMİN aktif · '
-                        + summary.list.length + ' at sayısı profili · gösterge faktörleri kapalı';
+                if (summary?.blendList?.length) {
+                    statusEl.textContent = '✅ Hibrit TAHMİN aktif · Karışık '
+                        + (summary.hybridBlended != null
+                            ? (Math.round(summary.hybridBlended * 1000) / 10).toFixed(1) + '%'
+                            : '—')
+                        + ' · ' + summary.blendList.length + ' at sayısı profili';
                 } else {
-                    statusEl.textContent = '⚠️ Yeterli bitiş yok — varsayılan başarı % ağırlıkları kullanılır';
+                    statusEl.textContent = '⚠️ Yeterli bitiş yok — varsayılan ağırlıklar kullanılır';
                 }
             }
-            renderBasariPctStatus(summary);
+            renderHybridTahminStatus();
             updateTahminScoringModeUi();
             if (istatRaceCache.length) rerenderIstatistikFromCache();
             return summary;
@@ -1721,6 +1743,7 @@ function patchTahminCellEl(cell, tahmin, horseCount, raceNo, kayitId) {
     cell.innerHTML = formatTahminCell(tahmin, horseCount, bitisVal);
     if (tahmin && tahmin.rank != null) {
         let title = 'TAHMİN · ' + tahmin.rank + '. sıra | Skor ' + (tahmin.score ?? '?');
+        if (tahmin.source === 'hybrid') title += ' · hibrit';
         if (tahmin.source === 'basari-pct') title += ' · başarı %';
         if (tahmin.source === 'gosterge') title += ' · gösterge başarı';
         if (tahmin.fieldProfile?.bestFactorLabel) {
@@ -2008,6 +2031,9 @@ function getActiveTahminMetricId() {
 
 /** Başarı % modunda sabit metrik sütunu gizlenir */
 function getEffectiveTahminMetricId() {
+    if (typeof HybridTahminScoringEngine !== 'undefined' && HybridTahminScoringEngine.isCalibrated?.()) {
+        return TAHMIN_METRIC_ALL;
+    }
     if (typeof BasariPctScoringEngine !== 'undefined') {
         return TAHMIN_METRIC_ALL;
     }
@@ -2020,7 +2046,7 @@ function getEffectiveTahminMetricId() {
 }
 
 async function ensureTahminScoringReady() {
-    await ensureBasariPctCalibration(false);
+    await ensureHybridTahminCalibration(false);
     updateTahminScoringModeUi();
 }
 

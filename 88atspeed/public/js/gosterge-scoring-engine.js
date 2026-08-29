@@ -1833,6 +1833,7 @@ const GostergeScoringEngine = (function () {
         attachRaceTahmin,
         setFieldAdaptiveProfiles,
         getFieldAdaptiveProfiles,
+        lookupFieldProfileBySize,
         setFieldAdaptiveScoringEnabled,
         isFieldAdaptiveScoringEnabled,
         buildFieldAdaptiveProfiles,
