@@ -3051,7 +3051,15 @@ function updateFinalShareLivePay() {
     const el = document.getElementById('finalShareLivePay');
     if (!el || !GostergeScoringEngine.getScoreShareSplit) return;
     if (!GostergeScoringEngine.isCalibrated?.()) {
-        el.textContent = 'Canlı paylar: kalibrasyon bekleniyor…';
+        const cal = GostergeScoringEngine.getCalibration?.();
+        if (flatEntries.length && cal?.bitisRows != null) {
+            el.innerHTML = '<span style="color:#c62828">Kalibrasyon yetersiz — bitiş örneği: '
+                + cal.bitisRows + ' (min gerekli). PUANLAMA TEST BİTİŞ sütunlarını doldurun.</span>';
+        } else if (flatEntries.length) {
+            el.textContent = 'Canlı paylar: kalibrasyon bekleniyor… (veri yüklendi, bitiş sırası girin)';
+        } else {
+            el.textContent = 'Canlı paylar: önce &quot;Tüm kayıtları yükle&quot;';
+        }
         return;
     }
     const s = GostergeScoringEngine.getScoreShareSplit();
