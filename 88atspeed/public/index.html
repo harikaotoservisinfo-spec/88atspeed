@@ -444,6 +444,7 @@
                     + eksikKosular.length + ' atın kosular[] hâlâ boş (' + msg + '). Kayıt yine de devam ediyor.</div>';
             }
 
+            let kosmazSkipped = 0;
             for (let i = 0; i < currentRaces.length; i++) {
                 let race = currentRaces[i];
                 let raceData = {
@@ -454,6 +455,12 @@
                 };
                 for (let j = 0; j < race.horses.length; j++) {
                     let horse = race.horses[j];
+                    if (/\(\s*koşmaz\s*\)/i.test(horse.name || '')
+                        || /\(\s*kosmaz\s*\)/i.test(horse.name || '')
+                        || /\(\s*koşm\s*\)/i.test(horse.name || '')) {
+                        kosmazSkipped++;
+                        continue;
+                    }
                     let kosular = veriCache[horse.atId] || [];
                     raceData.horses.push({
                         no: horse.no,
@@ -462,7 +469,11 @@
                         kosular: kosular
                     });
                 }
-                veri.data.push(raceData);
+                if (raceData.horses.length) veri.data.push(raceData);
+            }
+            if (kosmazSkipped) {
+                statusDiv.innerHTML = '<div class="status status-loading">⏳ '
+                    + kosmazSkipped + ' koşmaz at kayıttan çıkarıldı · kaydediliyor...</div>';
             }
             
             statusDiv.innerHTML = '<div class="status status-loading">⏳ Veri kaydediliyor...</div>';

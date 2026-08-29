@@ -1362,12 +1362,7 @@ function countCikanHorses() {
 }
 
 function raceWithoutCikan(race, kayitId, raceNo) {
-    const ex = getCikanSet(kayitId, raceNo);
-    if (!ex.size) return race;
-    return {
-        ...race,
-        horses: (race.horses || []).filter(h => !ex.has(String(h.no)))
-    };
+    return AtSpeedUtils.filterRaceForCalculation(race, kayitId, raceNo, savedCikanMap);
 }
 
 function pctClass(pct) {

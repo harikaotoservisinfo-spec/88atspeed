@@ -19,9 +19,10 @@ const SonucEngine = {
   isKosmaz(raw) {
     const s = this._normalizeTr(raw);
     if (!s) return false;
-    return /^(kosmaz|cekildi|scratched|yok|diskalifiye|dq|nm)$/.test(s)
+    return /^(kosmaz|koşmaz|kosm|koşm|cekildi|çekildi|scratched|yok|diskalifiye|dq|nm)$/.test(s)
       || s === 'k osmaz'
-      || /^kosmaz\b/.test(s);
+      || /^kosmaz\b/.test(s)
+      || /^koşmaz\b/.test(s);
   },
 
   /** Tüm sondaki (sayı) parantezlerini temizle */

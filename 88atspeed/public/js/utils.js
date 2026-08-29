@@ -82,6 +82,46 @@ const AtSpeedUtils = {
         return n >= 1 ? n : null;
     },
 
+    /** Koşmayan / çekilen at — isimde (Koşmaz) vb. */
+    isKosmazHorseName(name) {
+        if (!name) return false;
+        const s = String(name);
+        return /\(\s*koşmaz\s*\)/i.test(s)
+            || /\(\s*kosmaz\s*\)/i.test(s)
+            || /\(\s*koşm\s*\)/i.test(s)
+            || /\(\s*çekildi\s*\)/i.test(s)
+            || /\(\s*cekildi\s*\)/i.test(s);
+    },
+
+    isKosmazHorse(horse) {
+        if (!horse) return false;
+        if (horse.kosmaz === true) return true;
+        return this.isKosmazHorseName(horse.name);
+    },
+
+    cleanKosmazFromHorseName(name) {
+        return String(name || '')
+            .replace(/\(\s*(?:koşmaz|kosmaz|koşm|çekildi|cekildi)\s*\)/gi, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    },
+
+    raceKeyForCikan(kayitId, raceNo) {
+        return String(kayitId) + '|' + raceNo;
+    },
+
+    /** PUANLAMA çıkan-at listesi + isimde koşmaz — hesaplama paketine girecek atlar */
+    filterRaceForCalculation(race, kayitId, raceNo, cikanMap) {
+        const rk = this.raceKeyForCikan(kayitId, raceNo);
+        const cikanSet = new Set((cikanMap?.[rk] || []).map(String));
+        const horses = (race.horses || []).filter(h => {
+            if (cikanSet.has(String(h.no))) return false;
+            if (this.isKosmazHorse(h)) return false;
+            return true;
+        });
+        return Object.assign({}, race, { horses, horseCount: horses.length });
+    },
+
     /**
      * Doğrusal min–max yüzde: en düşük (en iyi) değer %100, en yüksek (en kötü) %0.
      * Ara değerler: (max − value) / (max − min) × 100

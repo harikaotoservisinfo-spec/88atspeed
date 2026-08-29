@@ -489,6 +489,11 @@ app.get('/api/yaris-programi', async (req, res) => {
                     }
                     
                     if (horseName && horseName !== 'At İsmi') {
+                        const isKosmaz = /\(\s*koşmaz\s*\)/i.test(horseName)
+                            || /\(\s*kosmaz\s*\)/i.test(horseName)
+                            || /\(\s*koşm\s*\)/i.test(horseName)
+                            || /\(\s*çekildi\s*\)/i.test(horseName);
+                        if (isKosmaz) continue;
                         horses.push({
                             no: horseNo,
                             name: horseName,

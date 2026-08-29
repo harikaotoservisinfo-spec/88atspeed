@@ -54,3 +54,5 @@ echo "  cd $APP_DIR && node scripts/test-race-segment-report.js --db $APP_DIR/at
 echo "  cd $APP_DIR && node scripts/test-tip-a-db-diagnose.js --db $APP_DIR/atlar.db --field-size 10 --verbose"
 echo "  cd $APP_DIR && node scripts/repair-missing-kosular.js --db $APP_DIR/atlar.db --scan"
 echo "  cd $APP_DIR && node scripts/repair-missing-kosular.js --db $APP_DIR/atlar.db --at-id 114236,104060,115482 --apply"
+echo "  cd $APP_DIR && node scripts/purge-kosmaz-horses.js --db $APP_DIR/atlar.db --scan"
+echo "  cd $APP_DIR && node scripts/purge-kosmaz-horses.js --db $APP_DIR/atlar.db --apply"

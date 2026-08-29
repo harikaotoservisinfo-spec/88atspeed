@@ -16,7 +16,9 @@
     "test:race-segment": "node scripts/test-race-segment-report.js --field-size 10",
     "test:tip-a-diagnose": "node scripts/test-tip-a-db-diagnose.js --field-size 10",
     "repair:kosular": "node scripts/repair-missing-kosular.js --db atlar.db --scan",
-    "repair:kosular-apply": "node scripts/repair-missing-kosular.js --db atlar.db --apply"
+    "repair:kosular-apply": "node scripts/repair-missing-kosular.js --db atlar.db --apply",
+    "purge:kosmaz": "node scripts/purge-kosmaz-horses.js --db atlar.db --scan",
+    "purge:kosmaz-apply": "node scripts/purge-kosmaz-horses.js --db atlar.db --apply"
   },
   "dependencies": {
     "cheerio": "^1.2.0",

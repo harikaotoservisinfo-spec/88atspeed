@@ -341,11 +341,15 @@ function buildRaceProfile(raceKey, entries, host, IE) {
 async function buildFlatEntriesWithFlagsFromDb(db, filters) {
     filters = filters || {};
     const IE = global.IstatistikEngine;
+    const U = global.AtSpeedUtils;
     let bitisMap = {};
+    let cikanMap = {};
     try {
         const bitisRow = await dbGet(db, 'SELECT veri FROM puanlama_bitis_sonuclari WHERE id = 1');
         if (bitisRow?.veri) {
-            bitisMap = parsePuanlamaStore(JSON.parse(bitisRow.veri)).bitis;
+            const store = parsePuanlamaStore(JSON.parse(bitisRow.veri));
+            bitisMap = store.bitis;
+            cikanMap = store.cikan;
         }
     } catch (_) { /* ignore */ }
 
@@ -364,9 +368,10 @@ async function buildFlatEntriesWithFlagsFromDb(db, filters) {
 
         const raceEntries = races.map((race, i) => {
             const raceNo = race.raceNo || (i + 1);
-            const pkg = IE.buildRaceIstatistikPackage(race, kayit.hipodrom, kayit.tarih);
-            IE.attachGosterimFlagsToPackage(pkg, race, kayit.hipodrom, kayit.tarih);
-            return { race, raceNo, pkg };
+            const filtered = U.filterRaceForCalculation(race, kayit.id, raceNo, cikanMap);
+            const pkg = IE.buildRaceIstatistikPackage(filtered, kayit.hipodrom, kayit.tarih);
+            IE.attachGosterimFlagsToPackage(pkg, filtered, kayit.hipodrom, kayit.tarih);
+            return { race, raceNo, pkg, filtered };
         });
         if (raceEntries.length) IE.applyProgramGlobalPctScales(raceEntries.map(e => e.pkg));
 

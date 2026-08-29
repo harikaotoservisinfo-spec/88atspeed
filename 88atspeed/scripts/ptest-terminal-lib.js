@@ -125,18 +125,21 @@ function buildBitisStatsFromEntries(entries, bitisValueForSort) {
     return { matchedRows: (entries || []).length, withBitis, b1, b12, b123 };
 }
 
+async function loadPuanlamaStore(db) {
+    try {
+        const bitisRow = await dbGet(db, 'SELECT veri FROM puanlama_bitis_sonuclari WHERE id = 1');
+        if (bitisRow?.veri) return parsePuanlamaStore(JSON.parse(bitisRow.veri));
+    } catch (_) { /* tablo yok */ }
+    return { bitis: {}, cikan: {} };
+}
+
 async function buildFlatEntriesFromDb(db, filters) {
     filters = filters || {};
     const IE = global.IstatistikEngine;
-    let bitisMap = {};
-    try {
-        const bitisRow = await dbGet(db, 'SELECT veri FROM puanlama_bitis_sonuclari WHERE id = 1');
-        if (bitisRow?.veri) {
-            bitisMap = parsePuanlamaStore(JSON.parse(bitisRow.veri)).bitis;
-        }
-    } catch (_) {
-        /* tablo yok */
-    }
+    const U = global.AtSpeedUtils;
+    const store = await loadPuanlamaStore(db);
+    const bitisMap = store.bitis;
+    const cikanMap = store.cikan;
 
     let kayitlar = await dbAll(db, 'SELECT id, hipodrom, tarih, veri FROM hesaplama_kayitlari ORDER BY id');
     if (filters.filterKayit) {
@@ -155,8 +158,9 @@ async function buildFlatEntriesFromDb(db, filters) {
 
         const raceEntries = races.map((race, i) => {
             const raceNo = race.raceNo || (i + 1);
-            const pkg = IE.buildRaceIstatistikPackage(race, kayit.hipodrom, kayit.tarih);
-            return { race, raceNo, pkg };
+            const filtered = U.filterRaceForCalculation(race, kayit.id, raceNo, cikanMap);
+            const pkg = IE.buildRaceIstatistikPackage(filtered, kayit.hipodrom, kayit.tarih);
+            return { race, raceNo, pkg, filtered };
         });
         if (raceEntries.length) IE.applyProgramGlobalPctScales(raceEntries.map(e => e.pkg));
 
@@ -179,7 +183,7 @@ async function buildFlatEntriesFromDb(db, filters) {
             }
         }
     }
-    return { flatEntries: flat, bitisMap };
+    return { flatEntries: flat, bitisMap, cikanMap };
 }
 
 function makeGostergeHost(flatEntries, bitisMap) {
@@ -296,6 +300,7 @@ module.exports = {
     ALL_METRIC_SWEEP_LIST,
     parseCliArgs,
     loadGostergeEngines,
+    loadPuanlamaStore,
     buildFlatEntriesFromDb,
     makeGostergeHost,
     buildEntriesByFieldSize,
