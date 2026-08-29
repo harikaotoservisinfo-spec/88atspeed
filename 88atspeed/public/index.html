@@ -3,182 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>88ATSPEED | 7 Sekmeli Analiz Platformu</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>88ATSPEED | 8 Sekmeli Analiz Platformu</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="css/theme.css?v=20260822a" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #0f0c29 0%, #1a1a3e 50%, #24243e 100%);
-            min-height: 100vh;
-            color: #fff;
-        }
-        .container { max-width: 1600px; margin: 0 auto; padding: 20px; }
-        .header {
-            text-align: center;
-            background: linear-gradient(135deg, rgba(255,152,0,0.1), rgba(76,175,80,0.1));
-            backdrop-filter: blur(10px);
-            border-radius: 24px;
-            padding: 25px;
-            margin-bottom: 25px;
-            border: 1px solid rgba(255,152,0,0.3);
-        }
-        .logo {
-            display: flex;
-            justify-content: center;
-            gap: 5px;
-            font-size: 48px;
-            font-weight: 800;
-        }
-        .logo-88 { color: #ff9800; text-shadow: 0 0 20px rgba(255,152,0,0.5); }
-        .logo-at { color: #4CAF50; text-shadow: 0 0 20px rgba(76,175,80,0.5); }
-        .logo-speed { color: #2196F3; text-shadow: 0 0 20px rgba(33,150,243,0.5); }
-        .subtitle { color: rgba(255,255,255,0.6); margin-top: 8px; font-size: 13px; letter-spacing: 2px; }
-        
-        /* Kontrol Paneli */
-        .global-controls {
-            background: rgba(30, 30, 60, 0.7);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 20px 25px;
-            margin-bottom: 25px;
-            display: flex;
-            justify-content: center;
-            align-items: flex-end;
-            gap: 15px;
-            flex-wrap: wrap;
-            border: 1px solid rgba(255,152,0,0.3);
-        }
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .control-label {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            font-weight: 700;
-            color: #ff9800;
-            text-align: center;
-        }
-        .global-select, .global-date, .global-btn {
-            padding: 12px 20px;
-            font-size: 14px;
-            font-weight: 600;
-            border-radius: 12px;
-            border: 1px solid rgba(255,152,0,0.3);
-            cursor: pointer;
-            font-family: 'Inter', sans-serif;
-            height: 48px;
-            min-width: 160px;
-        }
-        .global-select, .global-date {
-            background: rgba(0,0,0,0.5);
-            color: white;
-        }
-        .global-select option { text-align: center; }
-        .global-btn {
-            background: linear-gradient(135deg, #ff9800, #f44336);
-            border: none;
-            color: white;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        .global-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(255,152,0,0.4); }
-        .save-btn { background: linear-gradient(135deg, #2196F3, #1976D2); }
-        
-        /* Sekmeler */
-        .tabs {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 25px;
-        }
-        .tab-btn {
-            padding: 12px 22px;
-            font-size: 13px;
-            font-weight: 600;
-            border-radius: 40px;
-            cursor: pointer;
-            transition: all 0.3s;
-            background: rgba(30, 30, 60, 0.5);
-            border: 1px solid rgba(255,255,255,0.1);
-            font-family: 'Inter', sans-serif;
-            text-align: center;
-            min-width: 110px;
-        }
-        .tab-btn:hover { background: rgba(255,152,0,0.2); transform: translateY(-2px); }
-        .tab-btn.active { background: linear-gradient(135deg, #ff9800, #f44336); border-color: transparent; box-shadow: 0 5px 20px rgba(255,152,0,0.4); }
-        
-        /* İçerik Alanları */
-        .tab-content {
-            display: none;
-            animation: fadeIn 0.4s ease;
-            background: rgba(30, 30, 60, 0.4);
-            border-radius: 20px;
-            padding: 20px;
-            min-height: 500px;
-        }
-        .tab-content.active { display: block; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .status {
-            padding: 12px;
-            border-radius: 12px;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-        .status-loading { background: rgba(255,152,0,0.2); color: #ff9800; }
-        .status-success { background: rgba(76,175,80,0.2); color: #4CAF50; }
-        .status-error { background: rgba(244,67,54,0.2); color: #f44336; }
-        .info-box { text-align: center; padding: 60px; color: rgba(255,255,255,0.5); }
-        
-        .race-card {
-            background: rgba(30, 30, 60, 0.6);
-            border-radius: 16px;
-            margin-bottom: 20px;
-            overflow-x: auto;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-        .race-header {
-            background: linear-gradient(135deg, rgba(255,152,0,0.2), rgba(76,175,80,0.1));
-            padding: 15px 20px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-        .race-header h3 { font-size: 17px; font-weight: 700; }
-        .race-badge {
-            background: #ff9800;
-            width: 28px;
-            height: 28px;
-            border-radius: 8px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 10px;
-            font-size: 14px;
-        }
-        .table-wrapper { padding: 15px; overflow-x: auto; }
-        table { border-collapse: collapse; font-size: 11px; width: 100%; min-width: 2800px; }
-        th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); border-right: 1px solid rgba(255,255,255,0.05); }
-        th { background: rgba(0,0,0,0.4); color: #ff9800; font-weight: 600; position: sticky; top: 0; }
-        .horse-no { font-weight: 800; color: #ff9800; text-align: center; background: rgba(0,0,0,0.3); }
-        .son800-badge {
-            background: linear-gradient(135deg, #ff9800, #f44336);
-            padding: 3px 8px;
-            border-radius: 15px;
-            font-size: 10px;
-            font-weight: 700;
-            display: inline-block;
-        }
-        .sticky-col { position: sticky; left: 0; background: #1a1a3e; z-index: 1; }
-        .sticky-col2 { position: sticky; left: 50px; background: #1a1a3e; z-index: 1; }
-        .sticky-col3 { position: sticky; left: 180px; background: #1a1a3e; z-index: 1; }
+        .table-wrapper { padding: 0; }
+        table { min-width: 2800px; }
     </style>
 </head>
 <body>
@@ -189,7 +22,7 @@
                 <span class="logo-at">AT</span>
                 <span class="logo-speed">SPEED</span>
             </div>
-            <div class="subtitle">7 SEKMELİ PROFESYONEL ANALİZ PLATFORMU</div>
+            <div class="subtitle">8 SEKMELİ PROFESYONEL ANALİZ PLATFORMU <span id="appVersion" style="font-size:11px;opacity:0.7;margin-left:8px"></span></div>
         </div>
         
         <div class="global-controls">
@@ -220,12 +53,18 @@
             <div class="tab-btn" data-tab="yonetim">⚙️ YÖNETİM</div>
             <div class="tab-btn" data-tab="karsilastirma">🆚 KARŞILAŞTIRMA</div>
             <div class="tab-btn" data-tab="gosterim">👁️ GÖSTERİM</div>
+            <div class="tab-btn" data-tab="tahminim">🎯 TAHMİNİM</div>
+            <div class="tab-btn" data-tab="istatistikler">📈 İSTATİSTİKLER</div>
+            <div class="tab-btn" data-tab="puanlama-test">🧪 PUANLAMA TEST</div>
         </div>
         
         <div id="tab-hesaplama" class="tab-content active"><div class="info-box">📊 HESAPLAMA - GETİR butonuna tıklayın</div></div>
-        <div id="tab-yonetim" class="tab-content"><iframe src="yonetim.html" style="width:100%; min-height:600px; border:none; background:transparent;"></iframe></div>
-        <div id="tab-karsilastirma" class="tab-content"><iframe src="karsilastirma.html" style="width:100%; min-height:600px; border:none; background:transparent;"></iframe></div>
-        <div id="tab-gosterim" class="tab-content"><iframe src="gosterim_full.html" style="width:100%; min-height:600px; border:none; background:transparent;"></iframe></div>
+        <div id="tab-yonetim" class="tab-content tab-content-iframe"><iframe id="yonetimFrame" src="yonetim.html?v=20260821c" title="Yönetim"></iframe></div>
+        <div id="tab-karsilastirma" class="tab-content tab-content-iframe"><iframe id="karsilastirmaFrame" src="karsilastirma.html?v=20260821c" title="Karşılaştırma"></iframe></div>
+        <div id="tab-gosterim" class="tab-content tab-content-gosterim"><iframe id="gosterimFrame" src="gosterim_full.html?v=20260824r" title="Gösterim"></iframe></div>
+        <div id="tab-tahminim" class="tab-content tab-content-tahminim"><iframe id="tahminimFrame" src="tahminim.html?v=20260824n" title="Tahminim"></iframe></div>
+        <div id="tab-istatistikler" class="tab-content tab-content-istatistikler"><iframe id="istatistiklerFrame" src="istatistikler.html?v=20260830d" title="İstatistikler"></iframe></div>
+        <div id="tab-puanlama-test" class="tab-content tab-content-istatistikler"><iframe id="puanlamaTestFrame" src="istatistik-puanlama-test.html?v=20260830y" title="Puanlama Test"></iframe></div>
     </div>
 
     <script>
@@ -248,11 +87,75 @@
         
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('tarihSelect').value = today;
+
+        fetch('/VERSION.txt?v=' + Date.now())
+            .then(r => r.ok ? r.text() : '')
+            .then(t => {
+                if (!t) return;
+                const el = document.getElementById('appVersion');
+                const branch = (t.match(/branch=(.+)/) || [])[1] || '';
+                const commit = (t.match(/commit=(.+)/) || [])[1] || '';
+                if (el && commit) {
+                    const shortBranch = branch.split('/').pop() || branch;
+                    el.textContent = 'v' + commit + (shortBranch ? ' · ' + shortBranch : '');
+                    el.title = t.trim();
+                }
+            })
+            .catch(() => {});
         
         document.getElementById('tarihSelect').addEventListener('change', function() { loadHipodromlar(); this.blur(); });
         document.getElementById('getirBtn').onclick = fetchProgram;
         document.getElementById('kaydetBtn').onclick = veriKaydet;
         
+        let lastGosterimKayit = null;
+
+        function broadcastKayitToTahminim(kayit) {
+            lastGosterimKayit = kayit;
+            const frame = document.getElementById('tahminimFrame');
+            if (frame?.contentWindow) {
+                frame.contentWindow.postMessage({ type: '88atspeed-kayit-loaded', kayit }, '*');
+            }
+            broadcastKayitToIstatistikler(kayit);
+        }
+
+        function broadcastKayitToIstatistikler(kayit) {
+            const frame = document.getElementById('istatistiklerFrame');
+            if (frame?.contentWindow) {
+                frame.contentWindow.postMessage({ type: '88atspeed-kayit-loaded', kayit }, '*');
+            }
+        }
+
+        window.addEventListener('message', (e) => {
+            if (e.data?.type === '88atspeed-iframe-resize' && e.data.frame === 'tahminim') {
+                const frame = document.getElementById('tahminimFrame');
+                if (frame && e.data.height) {
+                    frame.style.height = Math.max(800, e.data.height + 24) + 'px';
+                }
+            }
+            if (e.data?.type === '88atspeed-iframe-resize' && e.data.frame === 'istatistikler') {
+                const frame = document.getElementById('istatistiklerFrame');
+                if (frame && e.data.height) {
+                    frame.style.height = Math.max(600, e.data.height + 24) + 'px';
+                }
+            }
+            if (e.data?.type === '88atspeed-kayit-loaded' && e.data.kayit) {
+                lastGosterimKayit = e.data.kayit;
+                broadcastKayitToTahminim(e.data.kayit);
+            }
+            if (e.data?.type === '88atspeed-request-gosterim-kayit') {
+                if (lastGosterimKayit) {
+                    broadcastKayitToTahminim(lastGosterimKayit);
+                } else {
+                    const gosterimFrame = document.getElementById('gosterimFrame');
+                    gosterimFrame?.contentWindow?.postMessage({ type: '88atspeed-request-kayit-export' }, '*');
+                }
+            }
+            if (e.data?.type === '88atspeed-request-kayit-export') {
+                const tahminimFrame = document.getElementById('tahminimFrame');
+                tahminimFrame?.contentWindow?.postMessage(e.data, '*');
+            }
+        });
+
         // SEKME GEÇİŞLERİ
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', function() {
@@ -261,6 +164,41 @@
                 document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                 this.classList.add('active');
                 document.getElementById('tab-' + tabId).classList.add('active');
+
+                if (tabId === 'gosterim') {
+                    const frame = document.getElementById('gosterimFrame');
+                    if (frame) frame.src = 'gosterim_full.html?v=' + Date.now();
+                }
+                if (tabId === 'tahminim') {
+                    const frame = document.getElementById('tahminimFrame');
+                    if (frame) {
+                        frame.src = 'tahminim.html?v=' + Date.now();
+                        frame.onload = () => {
+                            if (lastGosterimKayit) broadcastKayitToTahminim(lastGosterimKayit);
+                        };
+                    }
+                }
+                if (tabId === 'istatistikler') {
+                    const frame = document.getElementById('istatistiklerFrame');
+                    if (frame) {
+                        frame.src = 'istatistikler.html?v=' + Date.now();
+                        frame.onload = () => {
+                            if (lastGosterimKayit) broadcastKayitToIstatistikler(lastGosterimKayit);
+                        };
+                    }
+                }
+                if (tabId === 'puanlama-test') {
+                    const frame = document.getElementById('puanlamaTestFrame');
+                    if (frame) frame.src = 'istatistik-puanlama-test.html?v=' + Date.now();
+                }
+                if (tabId === 'yonetim') {
+                    const frame = document.getElementById('yonetimFrame');
+                    if (frame) frame.src = 'yonetim.html?v=' + Date.now();
+                }
+                if (tabId === 'karsilastirma') {
+                    const frame = document.getElementById('karsilastirmaFrame');
+                    if (frame) frame.src = 'karsilastirma.html?v=' + Date.now();
+                }
             });
         });
         
@@ -359,17 +297,19 @@
                 
                 let uniqueIds = [];
                 let idsMap = {};
+                let idToName = {};
                 for (let i = 0; i < currentHorses.length; i++) {
                     let id = currentHorses[i].atId;
                     if (id && !idsMap[id]) {
                         idsMap[id] = true;
                         uniqueIds.push(id);
+                        idToName[id] = currentHorses[i].name || '';
                     }
                 }
                 
                 statusDiv.innerHTML = '<div class="status status-loading">⏳ ' + uniqueIds.length + ' at analiz ediliyor...</div>';
                 for (let i = 0; i < uniqueIds.length; i++) {
-                    await getAtTumVeriler(uniqueIds[i], '');
+                    await getAtTumVeriler(uniqueIds[i], idToName[uniqueIds[i]] || '');
                     statusDiv.innerHTML = '<div class="status status-loading">⏳ Analiz: ' + (i+1) + '/' + uniqueIds.length + ' at tamamlandı...</div>';
                 }
                 
@@ -398,7 +338,7 @@
                 thead += '<th class="sticky-col2">AT İSMİ</th>';
                 thead += '<th class="sticky-col3">AT ID</th>';
                 for (let k = 1; k <= 7; k++) {
-                    thead += '<th colspan="8" style="text-align:center;background:#ff9800;color:#000;">KOŞU ' + k + '</th>';
+                    thead += '<th colspan="8" style="text-align:center;background:#3949ab;color:#fff;">KOŞU ' + k + '</th>';
                 }
                 thead += '</tr>';
                 thead += '<tr>';
