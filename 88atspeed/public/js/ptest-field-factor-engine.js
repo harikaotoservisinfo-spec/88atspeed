@@ -56,7 +56,7 @@ const PtestFieldFactorEngine = (function () {
         const fromTerms = { t9v: 0, colors: 0, metrics: 0, rest: 0 };
 
         for (const t of tahmin?.terms || []) {
-            const pts = t.points || 0;
+            const pts = (t.rawPoints != null ? t.rawPoints : t.points) || 0;
             if (pts <= 0) continue;
             const base = String(t.metricId || '').replace(/__dp\d+$/, '');
             const kind = termBucketKind(base, metricShareIds);
@@ -74,14 +74,16 @@ const PtestFieldFactorEngine = (function () {
 
         let buckets;
         const termsTotal = bucketSum(fromTerms);
-        if (termsTotal > 0) {
-            buckets = { ...fromTerms };
-        } else if (tahmin?.buckets && bucketSum(tahmin.buckets) > 0) {
+        if (tahmin?.buckets && bucketSum(tahmin.buckets) > 0) {
             buckets = { ...tahmin.buckets };
             if ((buckets.colors || 0) <= 0 && fromTerms.colors > 0) buckets.colors = fromTerms.colors;
             if ((buckets.t9v || 0) <= 0 && fromTerms.t9v > 0) buckets.t9v = fromTerms.t9v;
             if ((buckets.metrics || 0) <= 0 && fromTerms.metrics > 0) buckets.metrics = fromTerms.metrics;
             if ((buckets.rest || 0) <= 0 && fromTerms.rest > 0) buckets.rest = fromTerms.rest;
+        } else if (tahmin?.rawBuckets && bucketSum(tahmin.rawBuckets) > 0) {
+            buckets = { ...tahmin.rawBuckets };
+        } else if (termsTotal > 0) {
+            buckets = { ...fromTerms };
         } else if (tahmin?.attributedBuckets && bucketSum(tahmin.attributedBuckets) > 0) {
             buckets = { ...tahmin.attributedBuckets };
         } else if (tahmin?.buckets) {
@@ -470,15 +472,23 @@ const PtestFieldFactorEngine = (function () {
         return h;
     }
 
-    function renderTopList(title, rows, labelKey, valKey) {
-        let h = '<details class="ptest-field-factor-block"><summary>' + title + '</summary>';
-        h += '<table class="ptest-field-factor-mini-table"><thead><tr><th>#</th><th>Gösterge</th><th>Puan</th></tr></thead><tbody>';
-        for (let i = 0; i < (rows || []).length; i++) {
-            const r = rows[i];
-            h += '<tr><td>' + (i + 1) + '</td><td style="text-align:left;font-size:9px">'
-                + AtSpeedUtils.escapeHtml(r[labelKey] || '—') + '</td><td>' + Math.round(r[valKey] || 0) + '</td></tr>';
+    function escHtml(s) {
+        if (typeof AtSpeedUtils !== 'undefined' && AtSpeedUtils.escapeHtml) {
+            return AtSpeedUtils.escapeHtml(s);
         }
-        if (!rows?.length) h += '<tr><td colspan="3">Veri yok</td></tr>';
+        return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function renderTopList(title, rows, labelKey, valKey) {
+        let h = '<details open class="ptest-field-factor-block"><summary>' + title + '</summary>';
+        h += '<table class="ptest-field-factor-mini-table"><thead><tr><th>#</th><th>Gösterge</th><th>Puan</th></tr></thead><tbody>';
+        const list = (rows || []).filter(r => (r[valKey] || 0) > 0);
+        for (let i = 0; i < list.length; i++) {
+            const r = list[i];
+            h += '<tr><td>' + (i + 1) + '</td><td style="text-align:left;font-size:9px">'
+                + escHtml(r[labelKey] || r.id || '—') + '</td><td>' + Math.round(r[valKey] || 0) + '</td></tr>';
+        }
+        if (!list.length) h += '<tr><td colspan="3">Veri yok</td></tr>';
         h += '</tbody></table></details>';
         return h;
     }

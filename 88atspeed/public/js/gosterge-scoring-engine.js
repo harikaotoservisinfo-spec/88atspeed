@@ -769,11 +769,6 @@ const GostergeScoringEngine = (function () {
     function computeScoreBinding(bucketWeighted, opts) {
         opts = opts || {};
         const blendBuckets = buildBindingBlendBuckets(bucketWeighted);
-        const compareWeighted = (b) => {
-            if (b.id !== 'colors') return b.weighted;
-            // Renk ham puanı metrik /1000 ölçeğine indir — skor aynı, belirleyici adil
-            return Math.max(1, Math.round(b.weighted / 1000));
-        };
         const active = blendBuckets.filter(b => b.weighted > 0 && b.share > 0);
         if (!active.length) {
             return {
@@ -789,7 +784,7 @@ const GostergeScoringEngine = (function () {
         let minRatio = Infinity;
         let binder = active[0];
         for (const b of active) {
-            const ratio = compareWeighted(b) / b.share;
+            const ratio = b.weighted / b.share;
             const group = blendBucketGroup(b.id);
             const pri = tiePriority[group] ?? 9;
             const binderGroup = blendBucketGroup(binder.id);
@@ -812,10 +807,10 @@ const GostergeScoringEngine = (function () {
         let colorLimitsOther = false;
         let otherMinRatio = Infinity;
         if (activeOthers.length) {
-            otherMinRatio = Math.min(...activeOthers.map(b => compareWeighted(b) / b.share));
+            otherMinRatio = Math.min(...activeOthers.map(b => b.weighted / b.share));
             let otherBinder = activeOthers[0];
             for (const b of activeOthers) {
-                const r = compareWeighted(b) / b.share;
+                const r = b.weighted / b.share;
                 const near = Math.abs(r - otherMinRatio) <= Math.max(1, otherMinRatio * 0.01);
                 const pri = tiePriority[blendBucketGroup(b.id)] ?? 9;
                 const obPri = tiePriority[blendBucketGroup(otherBinder.id)] ?? 9;
@@ -825,7 +820,7 @@ const GostergeScoringEngine = (function () {
         }
         const t9vB = blendBuckets.find(b => b.id === 't9v');
         const t9vRatio = t9vB && t9vB.weighted > 0 && t9vB.share > 0
-            ? compareWeighted(t9vB) / t9vB.share
+            ? t9vB.weighted / t9vB.share
             : Infinity;
         const colorDecisive = !!(opts.colorHitCount > 0 && colorLimitsOther
             && otherMinRatio <= t9vRatio + Math.max(1, t9vRatio * 0.01));
@@ -1052,9 +1047,11 @@ const GostergeScoringEngine = (function () {
         }
 
         terms.sort((a, b) => b.points - a.points);
+        for (const term of terms) term.rawPoints = term.points;
         const totalScore = blendGostergeScoreTotals(bucketWeighted);
         const binding = computeScoreBinding(bucketWeighted, { colorHitCount });
         const buckets = scaleTermPoints(terms, bucketWeighted, totalScore);
+        const rawBuckets = aggregateBucketTotals(bucketWeighted);
 
         return {
             score: totalScore,
@@ -1065,6 +1062,7 @@ const GostergeScoringEngine = (function () {
             metricCount: terms.length,
             source: 'gosterge',
             buckets,
+            rawBuckets,
             attributedBuckets: binding.attributed,
             bindingBucket: binding.group,
             bindingId: binding.binderId,
@@ -1548,17 +1546,16 @@ const GostergeScoringEngine = (function () {
             const t = entry.row?.tahmin;
             if (t?.bindingBucket === 'colors') colorBindingStrict++;
             if (t?.colorLimitsOther) colorLimitsOther++;
-            let dom = t?.bindingBucket || null;
-            if (!dom && t?.buckets) {
+            if (t?.bindingBucket === 'colors') colorBinding++;
+            else if (!t?.bindingBucket && t?.buckets) {
                 let best = null;
                 let bestVal = -1;
                 for (const id of ['t9v', 'colors', 'metrics', 'rest']) {
                     const v = t.buckets[id] || 0;
                     if (v > bestVal) { bestVal = v; best = id; }
                 }
-                if (bestVal > 0) dom = best;
+                if (best === 'colors') colorBinding++;
             }
-            if (dom === 'colors') colorBinding++;
             if (t?.buckets || t?.colorHitCount != null) {
                 usedTahmin++;
                 const hits = t.colorHitCount || 0;

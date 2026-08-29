@@ -1308,9 +1308,9 @@
 <script src="js/ptest-gosterge-engine.js?v=20260830z"></script>
 <script src="js/ptest-gosterge-depth-engine.js?v=20260830z"></script>
 <script src="js/ptest-color-gosterge-export.js?v=20260830z"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260831p"></script>
-<script src="js/ptest-final-share-report.js?v=20260831p"></script>
-<script src="js/ptest-field-factor-engine.js?v=20260831p"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260831q"></script>
+<script src="js/ptest-final-share-report.js?v=20260831q"></script>
+<script src="js/ptest-field-factor-engine.js?v=20260831q"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -2245,9 +2245,9 @@ async function renderFieldFactorReport() {
     ptestFieldFactorResults = PtestFieldFactorEngine.analyzeFieldFactors(flatEntries, host);
     const diag = GostergeScoringEngine.diagnoseColorScoring?.(flatEntries);
     const globalDom = ptestFieldFactorResults?.globalDominantAll;
-    if (globalDom && diag) {
-        diag.colorBinding = globalDom.colors || diag.colorBinding;
-        diag.colorBindingRate = diag.horses ? diag.colorBinding / diag.horses : 0;
+    if (diag && globalDom) {
+        diag.colorBindingPanel = globalDom.colors || 0;
+        diag.colorBindingPanelRate = diag.horses ? diag.colorBindingPanel / diag.horses : 0;
     }
     if (intro) {
         let h = 'Her koşudaki <strong>at sayısına</strong> göre TAHMİN başarısı ve '
@@ -2274,6 +2274,9 @@ async function renderFieldFactorReport() {
                     + ' (' + pctBenchFmt(diag.colorBindingRate) + ')';
                 if (diag.colorBindingStrict != null && diag.colorBindingStrict !== diag.colorBinding) {
                     h += ' · min-blend ' + diag.colorBindingStrict + '/' + diag.horses;
+                }
+                if (diag.colorBindingPanel != null && diag.colorBindingPanel !== diag.colorBinding) {
+                    h += ' · panel ' + diag.colorBindingPanel + '/' + diag.horses;
                 }
                 if (diag.colorLimitsOther != null && diag.colorLimitsOther > (diag.colorBindingStrict || 0)) {
                     h += ' · renk OTHER sınırı ' + diag.colorLimitsOther + '/' + diag.horses;
@@ -3177,7 +3180,7 @@ function renderGosterge1Report() {
     initGosterge1StripTabs();
 }
 
-const PTEST_BUILD = '20260831p';
+const PTEST_BUILD = '20260831q';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
