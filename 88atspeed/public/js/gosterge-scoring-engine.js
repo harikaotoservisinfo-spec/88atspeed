@@ -1163,7 +1163,7 @@ const GostergeScoringEngine = (function () {
                 fieldSize: opts.fieldProfile.fieldSize,
                 bestFactor: opts.fieldProfile.bestFactor,
                 bestFactorLabel: opts.fieldProfile.bestFactorLabel,
-                priorityPreview: opts.fieldProfile.priorityPreview
+                priorityPreview: opts.fieldProfile.priorityPreview || []
             } : null
         };
     }
