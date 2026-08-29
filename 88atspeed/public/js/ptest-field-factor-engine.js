@@ -36,7 +36,21 @@ const PtestFieldFactorEngine = (function () {
         return 'rest';
     }
 
-    function aggregateFactorBuckets(tahmin, metricShareIds) {
+    function bucketSum(b) {
+        return (b?.t9v || 0) + (b?.colors || 0) + (b?.metrics || 0) + (b?.rest || 0);
+    }
+
+    function resolveTahmin(entry, tahmin) {
+        let t = tahmin || entry?.row?.tahmin;
+        if (!t && entry && GostergeScoringEngine.computeRowTahmin) {
+            t = GostergeScoringEngine.computeRowTahmin(entry);
+            if (entry.row) entry.row.tahmin = t;
+        }
+        return t;
+    }
+
+    function aggregateFactorBuckets(tahmin, metricShareIds, entry) {
+        tahmin = resolveTahmin(entry, tahmin);
         const metricDetail = {};
         const termDetail = {};
         const fromTerms = { t9v: 0, colors: 0, metrics: 0, rest: 0 };
@@ -58,12 +72,33 @@ const PtestFieldFactorEngine = (function () {
             termDetail[key].count++;
         }
 
-        const buckets = tahmin?.buckets
-            ? { ...tahmin.buckets }
-            : { ...fromTerms };
-        const total = (buckets.t9v || 0) + (buckets.colors || 0) + (buckets.metrics || 0) + (buckets.rest || 0)
-            || (fromTerms.t9v + fromTerms.colors + fromTerms.metrics + fromTerms.rest);
-        return { buckets, metricDetail, termDetail, total: total || 1 };
+        let buckets;
+        const termsTotal = bucketSum(fromTerms);
+        const engineTotal = tahmin?.buckets ? bucketSum(tahmin.buckets) : 0;
+        if (engineTotal > 0) {
+            buckets = { ...tahmin.buckets };
+        } else if (termsTotal > 0) {
+            buckets = { ...fromTerms };
+        } else if (tahmin?.buckets) {
+            buckets = { ...tahmin.buckets };
+        } else {
+            buckets = { ...fromTerms };
+        }
+        const total = bucketSum(buckets) || termsTotal || 1;
+        return { buckets, metricDetail, termDetail, total };
+    }
+
+    function ensureFlatEntriesScored(flatEntries) {
+        if (!flatEntries?.length || !GostergeScoringEngine.applyToFlatEntries) return;
+        let empty = 0;
+        for (const entry of flatEntries) {
+            const t = entry.row?.tahmin;
+            const bt = bucketSum(t?.buckets);
+            if ((t?.terms?.length || 0) === 0 && bt <= 0) empty++;
+        }
+        if (empty > flatEntries.length * 0.25) {
+            GostergeScoringEngine.applyToFlatEntries(flatEntries);
+        }
     }
 
     function horsesForRace(entries, race) {
@@ -121,6 +156,7 @@ const PtestFieldFactorEngine = (function () {
         if (!flatEntries?.length || !host?.bitisValueForSort) {
             return { fieldSizes: [], results: [] };
         }
+        ensureFlatEntriesScored(flatEntries);
         const metricShareIds = GostergeScoringEngine.OTHER_METRIC_SHARES || {};
         const shareInfo = GostergeScoringEngine.getOtherMetricShares?.() || {};
         const fieldByRace = buildFieldSizeLookup(flatEntries);
@@ -160,7 +196,7 @@ const PtestFieldFactorEngine = (function () {
 
             const b = host.bitisValueForSort(entry);
             const tahmin = entry.row?.tahmin;
-            const agg = aggregateFactorBuckets(tahmin, metricShareIds);
+            const agg = aggregateFactorBuckets(tahmin, metricShareIds, entry);
             for (const id of BUCKET_ORDER) bucket.bucketSum[id] += agg.buckets[id] || 0;
 
             const dom = dominantBucket(agg.buckets);
@@ -248,7 +284,7 @@ const PtestFieldFactorEngine = (function () {
                 rest: b.bucketSum.rest / ptTotal
             };
 
-            let topDominant = 't9v';
+            let topDominant = null;
             let topDomCount = -1;
             for (const id of BUCKET_ORDER) {
                 if (b.dominantFactor[id] > topDomCount) {
@@ -256,6 +292,7 @@ const PtestFieldFactorEngine = (function () {
                     topDominant = id;
                 }
             }
+            if (topDomCount <= 0) topDominant = null;
 
             const dominantSuccess = {};
             for (const id of BUCKET_ORDER) {
@@ -277,7 +314,7 @@ const PtestFieldFactorEngine = (function () {
                 dominantFactor: { ...b.dominantFactor },
                 dominantSuccess,
                 topDominant,
-                topDominantLabel: BUCKET_LABELS[topDominant],
+                topDominantLabel: topDominant ? BUCKET_LABELS[topDominant] : '—',
                 topMetrics: topFromMap(b.metricPoints, 12, id => shareInfo[id]?.label || id),
                 topTerms: topFromMap(b.termPoints, 15, null),
                 topTermsWinners: Object.entries(b.termWinners)
@@ -435,7 +472,7 @@ const PtestFieldFactorEngine = (function () {
             const metricShareIds = GostergeScoringEngine.OTHER_METRIC_SHARES || {};
             for (const he of horses) {
                 const b = host?.bitisValueForSort?.(he);
-                const agg = aggregateFactorBuckets(he.row?.tahmin, metricShareIds);
+                const agg = aggregateFactorBuckets(he.row?.tahmin, metricShareIds, he);
                 const dom = dominantBucket(agg.buckets);
                 const domLabel = dom ? BUCKET_LABELS[dom] : '—';
                 const matched = b != null && b >= 1 && he.row?.tahmin?.rank != null

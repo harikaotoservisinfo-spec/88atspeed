@@ -1308,9 +1308,9 @@
 <script src="js/ptest-gosterge-engine.js?v=20260830z"></script>
 <script src="js/ptest-gosterge-depth-engine.js?v=20260830z"></script>
 <script src="js/ptest-color-gosterge-export.js?v=20260830z"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260831k"></script>
-<script src="js/ptest-final-share-report.js?v=20260831k"></script>
-<script src="js/ptest-field-factor-engine.js?v=20260831k"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260831l"></script>
+<script src="js/ptest-final-share-report.js?v=20260831l"></script>
+<script src="js/ptest-field-factor-engine.js?v=20260831l"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -2174,7 +2174,8 @@ function countEntriesWithGostergeTahmin() {
     let n = 0;
     for (const entry of flatEntries) {
         const t = entry.row?.tahmin;
-        if (t?.source === 'gosterge' && ((t.terms?.length || 0) > 0 || (t.score || 0) > 0)) n++;
+        const bt = (t?.buckets?.t9v || 0) + (t?.buckets?.colors || 0) + (t?.buckets?.metrics || 0) + (t?.buckets?.rest || 0);
+        if (t?.source === 'gosterge' && ((t.terms?.length || 0) > 0 || bt > 0 || (t.score || 0) > 0)) n++;
     }
     return n;
 }
@@ -2209,6 +2210,12 @@ async function renderFieldFactorReport() {
     let calibrateError = null;
     try {
         await applyGostergeTahminScoring();
+        if (countEntriesWithGostergeTahmin() < flatEntries.length * 0.25) {
+            if (summaryHost) {
+                summaryHost.innerHTML = '<p style="padding:12px;color:#6a1b9a">⏳ Skorlar yeniden hesaplanıyor…</p>';
+            }
+            await applyGostergeTahminScoring();
+        }
     } catch (err) {
         calibrateError = err?.message || String(err);
     }
@@ -3154,7 +3161,7 @@ function renderGosterge1Report() {
     initGosterge1StripTabs();
 }
 
-const PTEST_BUILD = '20260831k';
+const PTEST_BUILD = '20260831l';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;

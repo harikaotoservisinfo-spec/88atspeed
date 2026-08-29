@@ -506,6 +506,28 @@ const GostergeScoringEngine = (function () {
         return new Promise(resolve => setTimeout(resolve, 0));
     }
 
+    function buildLiveMatchersFromLadders(metrics, ladders) {
+        const out = {};
+        for (const m of metrics || []) {
+            const map = new Map();
+            for (const rule of ladders[m.id] || []) {
+                if (rule?.id && typeof rule.match === 'function') {
+                    map.set(rule.id, rule.match);
+                }
+            }
+            if (map.size) out[m.id] = map;
+        }
+        return out;
+    }
+
+    function mergeLiveMatchers(primary, fallback) {
+        const out = { ...primary };
+        for (const m of Object.keys(fallback || {})) {
+            if (!out[m]?.size && fallback[m]?.size) out[m] = fallback[m];
+        }
+        return out;
+    }
+
     function buildLiveMatchers(metrics, host, depthScales) {
         const liveHost = {
             flatEntries: host.flatEntries,
@@ -601,6 +623,7 @@ const GostergeScoringEngine = (function () {
             } catch (err) {
                 console.warn('buildLiveMatchers failed', err);
             }
+            liveMatchers = mergeLiveMatchers(liveMatchers, buildLiveMatchersFromLadders(metrics, ladders));
 
             let allColorRows = [];
             let colorLadder = [];
@@ -758,7 +781,8 @@ const GostergeScoringEngine = (function () {
     function scaleTermPoints(terms, bucketWeighted, finalTotal) {
         const agg = aggregateBucketTotals(bucketWeighted);
         const rawTotal = agg.t9v + agg.colors + agg.metrics + agg.rest;
-        if (!terms.length || rawTotal <= 0) return agg;
+        if (rawTotal <= 0) return agg;
+        if (!terms.length) return agg;
         if (finalTotal === rawTotal) return agg;
 
         const targets = {
@@ -782,13 +806,17 @@ const GostergeScoringEngine = (function () {
         if (!ladder?.length) return { score: 0, bestRule: null, hits: [] };
 
         const matchById = calibration?.liveMatchers?.[m.id];
-        if (!matchById) return { score: 0, bestRule: null, hits: [] };
-
         let best = null;
         const hits = [];
         for (const rule of ladder) {
-            const matchFn = matchById.get(rule.id);
-            if (!matchFn || !matchFn(entry)) continue;
+            let matched = false;
+            if (matchById?.has(rule.id)) {
+                const fn = matchById.get(rule.id);
+                matched = !!(fn && fn(entry));
+            } else if (typeof rule.match === 'function') {
+                matched = !!rule.match(entry);
+            }
+            if (!matched) continue;
             hits.push(rule);
             if (!best || rule.points > best.points) best = rule;
         }
@@ -804,7 +832,7 @@ const GostergeScoringEngine = (function () {
     function colorScoreForBucket(rawColorScore, hitCount) {
         const raw = rawColorScore || 0;
         const scaled = Math.round(raw / COLOR_GOSTERGE_BUCKET_SCALE);
-        if (hitCount > 0 && raw > 0) return Math.max(1, scaled);
+        if (hitCount > 0) return Math.max(1, scaled);
         return scaled;
     }
 
