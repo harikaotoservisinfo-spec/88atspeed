@@ -85,8 +85,36 @@ function attachRaceTahminForEngine(entries) {
     global.GostergeScoringEngine.attachRaceTahmin(pkg);
 }
 
+function fmtScore(n) {
+    if (n == null || !Number.isFinite(n)) return '—';
+    if (Math.abs(n) >= 100000) return Math.round(n / 1000) + 'k';
+    return String(Math.round(n));
+}
+
+function filterEntriesForAnalysis(allEntries) {
+    let out = allEntries;
+    if (cli.kayitId) out = out.filter(e => Number(e.kayitId) === cli.kayitId);
+    if (cli.raceNo) out = out.filter(e => Number(e.raceNo) === cli.raceNo);
+    if (cli.fieldSize) {
+        const byRace = new Map();
+        for (const e of out) {
+            const rk = raceKey(e);
+            if (!byRace.has(rk)) byRace.set(rk, []);
+            byRace.get(rk).push(e);
+        }
+        out = [];
+        for (const [, entries] of byRace) {
+            if (entries.length === cli.fieldSize) out.push(...entries);
+        }
+    }
+    return out;
+}
+
 function analyzeRace(entries, host, label) {
-    attachRaceTahminForEngine(entries);
+    // Gösterge: global applyToFlatEntries sıralamasını kullan (PUANLAMA TEST ile aynı)
+    const needsRescore = cli.engine === 'hybrid'
+        || !entries.every(e => e.row?.tahmin?.rank != null);
+    if (needsRescore) attachRaceTahminForEngine(entries);
 
     const rows = entries.map(e => {
         const bitis = host.bitisValueForSort(e);
@@ -210,7 +238,7 @@ function printRaceReport(rep) {
         let line = '  ' + mark + ' ' + pad(r.pred != null ? r.pred + '.' : '—', 5)
             + pad(r.bitis != null ? r.bitis + '.' : '—', 5)
             + pad(r.delta != null ? (r.delta > 0 ? '+' + r.delta : String(r.delta)) : '—', 4)
-            + pad(r.score, 5)
+            + pad(fmtScore(r.score), 6)
             + pad(r.pct ?? '—', 4);
         if (showBlendCols) {
             line += pad(r.basariPct ?? '—', 4) + pad(r.gostergePct ?? '—', 4);
@@ -284,30 +312,27 @@ async function main() {
         console.log('DB: ' + cli.dbPath);
         console.log('Motor: ' + cli.engine + (cli.engine === 'gosterge' ? ' (PUANLAMA TEST ile aynı)' : ''));
 
-        let { flatEntries, bitisMap } = await buildFlatEntriesFromDb(db, {
-            filterKayit: cli.kayitId,
-            filterRace: cli.raceNo
-        });
-        const host = makeGostergeHost(flatEntries, bitisMap);
+        const { flatEntries: allEntries, bitisMap } = await buildFlatEntriesFromDb(db, {});
+        if (!allEntries.length) {
+            console.error('Veri yok.');
+            process.exit(1);
+        }
 
-        console.log('⏳ Kalibrasyon…');
-        const cal = await calibrateScoring(flatEntries, host);
+        const calHost = makeGostergeHost(allEntries, bitisMap);
+        const bitisCount = allEntries.filter(e => calHost.bitisValueForSort(e) >= 1).length;
+        const raceCount = new Set(allEntries.map(e => raceKey(e))).size;
+        console.log('⏳ Kalibrasyon… (' + allEntries.length + ' satır · ' + bitisCount + ' bitişli · ' + raceCount + ' koşu)');
+        const cal = await calibrateScoring(allEntries, calHost);
         if (!cal) {
             console.error('Kalibrasyon başarısız — bitiş verisi yetersiz olabilir.');
             process.exit(1);
         }
 
-        if (cli.fieldSize) {
-            const byRace = new Map();
-            for (const e of flatEntries) {
-                const rk = raceKey(e);
-                if (!byRace.has(rk)) byRace.set(rk, []);
-                byRace.get(rk).push(e);
-            }
-            flatEntries = [];
-            for (const [, entries] of byRace) {
-                if (entries.length === cli.fieldSize) flatEntries.push(...entries);
-            }
+        const flatEntries = filterEntriesForAnalysis(allEntries);
+        const host = makeGostergeHost(flatEntries, bitisMap);
+        if (!flatEntries.length) {
+            console.error('Filtreye uyan koşu/at yok.');
+            process.exit(1);
         }
 
         const byRace = new Map();
