@@ -703,6 +703,78 @@ const GostergeScoringEngine = (function () {
         return Math.round(Math.min(...active.map(b => b.weighted / b.share)));
     }
 
+    function buildBlendBuckets(bucketWeighted) {
+        const buckets = [{ id: 't9v', weighted: bucketWeighted.t9v || 0, share: T9V_SCORE_SHARE }];
+        buckets.push({
+            id: 'colors',
+            weighted: bucketWeighted.colors || 0,
+            share: OTHER_SCORE_SHARE * COLOR_OTHER_SHARE
+        });
+        for (const [id, frac] of Object.entries(OTHER_METRIC_SHARES)) {
+            buckets.push({
+                id,
+                weighted: bucketWeighted[id] || 0,
+                share: OTHER_SCORE_SHARE * METRIC_OTHER_SHARE * frac
+            });
+        }
+        if (REST_OTHER_SHARE > 0) {
+            buckets.push({
+                id: 'rest',
+                weighted: bucketWeighted.rest || 0,
+                share: OTHER_SCORE_SHARE * REST_OTHER_SHARE
+            });
+        }
+        return buckets;
+    }
+
+    function blendBucketGroup(id) {
+        if (id === 't9v') return 't9v';
+        if (id === 'colors') return 'colors';
+        if (id === 'rest') return 'rest';
+        if (OTHER_METRIC_SHARES[id]) return 'metrics';
+        return 'rest';
+    }
+
+    /** Min-blend: hangi kova nihai skoru sınırlıyor (TAHMİN puanlaması) */
+    function computeScoreBinding(bucketWeighted) {
+        const blendBuckets = buildBlendBuckets(bucketWeighted);
+        const active = blendBuckets.filter(b => b.weighted > 0 && b.share > 0);
+        if (!active.length) {
+            return {
+                group: null,
+                binderId: null,
+                finalTotal: 0,
+                attributed: { t9v: 0, colors: 0, metrics: 0, rest: 0 }
+            };
+        }
+        let minRatio = Infinity;
+        let binder = active[0];
+        for (const b of active) {
+            const ratio = b.weighted / b.share;
+            if (ratio < minRatio) {
+                minRatio = ratio;
+                binder = b;
+            }
+        }
+        const finalTotal = Math.round(minRatio);
+        const group = blendBucketGroup(binder.id);
+        const attributed = { t9v: 0, colors: 0, metrics: 0, rest: 0 };
+        if (group) attributed[group] = finalTotal;
+        return { group, binderId: binder.id, finalTotal, attributed };
+    }
+
+    function scaledBucketTotals(bucketWeighted, finalTotal) {
+        const agg = aggregateBucketTotals(bucketWeighted);
+        const rawTotal = agg.t9v + agg.colors + agg.metrics + agg.rest;
+        if (rawTotal <= 0 || finalTotal <= 0) return agg;
+        return {
+            t9v: Math.round(finalTotal * (agg.t9v / rawTotal)),
+            colors: Math.round(finalTotal * (agg.colors / rawTotal)),
+            metrics: Math.round(finalTotal * (agg.metrics / rawTotal)),
+            rest: Math.round(finalTotal * (agg.rest / rawTotal))
+        };
+    }
+
     function blendGostergeScoreTotals(bucketWeighted) {
         if (METRIC_SWEEP_FOCUS_ID && METRIC_SWEEP_FOCUS_SHARE > 0) {
             const focusShare = OTHER_SCORE_SHARE * METRIC_SWEEP_FOCUS_SHARE;
@@ -713,25 +785,10 @@ const GostergeScoringEngine = (function () {
                 { weighted: bucketWeighted.rest || 0, share: restShare }
             ]);
         }
-
-        const buckets = [{ weighted: bucketWeighted.t9v || 0, share: T9V_SCORE_SHARE }];
-        buckets.push({
-            weighted: bucketWeighted.colors || 0,
-            share: OTHER_SCORE_SHARE * COLOR_OTHER_SHARE
-        });
-        for (const [id, frac] of Object.entries(OTHER_METRIC_SHARES)) {
-            buckets.push({
-                weighted: bucketWeighted[id] || 0,
-                share: OTHER_SCORE_SHARE * METRIC_OTHER_SHARE * frac
-            });
-        }
-        if (REST_OTHER_SHARE > 0) {
-            buckets.push({
-                weighted: bucketWeighted.rest || 0,
-                share: OTHER_SCORE_SHARE * REST_OTHER_SHARE
-            });
-        }
-        return blendScoreBuckets(buckets);
+        return blendScoreBuckets(buildBlendBuckets(bucketWeighted).map(b => ({
+            weighted: b.weighted,
+            share: b.share
+        })));
     }
 
     function aggregateBucketTotals(bucketWeighted) {
@@ -781,15 +838,16 @@ const GostergeScoringEngine = (function () {
     function scaleTermPoints(terms, bucketWeighted, finalTotal) {
         const agg = aggregateBucketTotals(bucketWeighted);
         const rawTotal = agg.t9v + agg.colors + agg.metrics + agg.rest;
-        if (rawTotal <= 0) return agg;
-        if (!terms.length) return agg;
-        if (finalTotal === rawTotal) return agg;
+        const scaled = scaledBucketTotals(bucketWeighted, finalTotal);
+        if (rawTotal <= 0) return scaled;
+        if (!terms.length) return scaled;
+        if (finalTotal === rawTotal) return scaled;
 
         const targets = {
-            t9v: finalTotal * (agg.t9v / rawTotal),
-            colors: finalTotal * (agg.colors / rawTotal),
-            metrics: finalTotal * (agg.metrics / rawTotal),
-            rest: finalTotal * (agg.rest / rawTotal)
+            t9v: scaled.t9v,
+            colors: scaled.colors,
+            metrics: scaled.metrics,
+            rest: scaled.rest
         };
         const groups = { t9v: [], colors: [], metrics: [], rest: [] };
         for (const term of terms) {
@@ -799,7 +857,7 @@ const GostergeScoringEngine = (function () {
             distributeBucketPoints(groups[key], targets[key]);
         }
         terms.sort((a, b) => b.points - a.points);
-        return agg;
+        return scaled;
     }
 
     function scoreEntryForMetric(entry, m, ladder) {
@@ -826,14 +884,12 @@ const GostergeScoringEngine = (function () {
         return { score, bestRule: best, hits };
     }
 
-    /** Renk gösterge ham puanını metrik ölçeğine indirger (sum modda çoklu eşleşme) */
-    const COLOR_GOSTERGE_BUCKET_SCALE = 1000;
-
+    /** Renk gösterge — hit başına ortalama puan (metrik ölçeğiyle uyumlu) */
     function colorScoreForBucket(rawColorScore, hitCount) {
-        const raw = rawColorScore || 0;
-        const scaled = Math.round(raw / COLOR_GOSTERGE_BUCKET_SCALE);
-        if (hitCount > 0) return Math.max(1, scaled);
-        return scaled;
+        const hits = Math.max(0, hitCount || 0);
+        if (!hits) return 0;
+        const perHit = Math.round((rawColorScore || 0) / hits);
+        return Math.max(1, perHit);
     }
 
     function scoreColorGostergeHits(entry, ladder, matchMode) {
@@ -920,6 +976,7 @@ const GostergeScoringEngine = (function () {
 
         terms.sort((a, b) => b.points - a.points);
         const totalScore = blendGostergeScoreTotals(bucketWeighted);
+        const binding = computeScoreBinding(bucketWeighted);
         const buckets = scaleTermPoints(terms, bucketWeighted, totalScore);
 
         return {
@@ -931,6 +988,9 @@ const GostergeScoringEngine = (function () {
             metricCount: terms.length,
             source: 'gosterge',
             buckets,
+            attributedBuckets: binding.attributed,
+            bindingBucket: binding.group,
+            bindingId: binding.binderId,
             colorHitCount
         };
     }
@@ -1402,12 +1462,14 @@ const GostergeScoringEngine = (function () {
         let totalHits = 0;
         let bucketSum = 0;
         let usedTahmin = 0;
+        let colorBinding = 0;
         for (const entry of flatEntries) {
             const t = entry.row?.tahmin;
+            if (t?.bindingBucket === 'colors') colorBinding++;
             if (t?.buckets || t?.colorHitCount != null) {
                 usedTahmin++;
                 const hits = t.colorHitCount || 0;
-                const w = t.buckets?.colors || 0;
+                const w = (t.attributedBuckets?.colors || t.buckets?.colors || 0);
                 if (hits > 0) {
                     withHits++;
                     totalHits += hits;
@@ -1442,6 +1504,8 @@ const GostergeScoringEngine = (function () {
             weightRate: n ? withWeight / n : 0,
             avgHitsWhenMatched: withHits ? totalHits / withHits : 0,
             avgColorBucketWeight: withWeight ? bucketSum / withWeight : 0,
+            colorBinding,
+            colorBindingRate: n ? colorBinding / n : 0,
             fromTahminCache: usedTahmin
         };
     }
