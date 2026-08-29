@@ -1308,9 +1308,9 @@
 <script src="js/ptest-gosterge-engine.js?v=20260830z"></script>
 <script src="js/ptest-gosterge-depth-engine.js?v=20260830z"></script>
 <script src="js/ptest-color-gosterge-export.js?v=20260830z"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260831j"></script>
-<script src="js/ptest-final-share-report.js?v=20260831j"></script>
-<script src="js/ptest-field-factor-engine.js?v=20260831j"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260831k"></script>
+<script src="js/ptest-final-share-report.js?v=20260831k"></script>
+<script src="js/ptest-field-factor-engine.js?v=20260831k"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -3154,7 +3154,7 @@ function renderGosterge1Report() {
     initGosterge1StripTabs();
 }
 
-const PTEST_BUILD = '20260831j';
+const PTEST_BUILD = '20260831k';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
@@ -3304,16 +3304,21 @@ function countBitisForScoring() {
 }
 
 async function applyGostergeTahminScoring() {
+    if (!flatEntries?.length) return;
     syncBitisBeforeScoring();
     const host = getPtestScoringHost();
-    await GostergeScoringEngine.calibrate(flatEntries, host);
-    if (!GostergeScoringEngine.isCalibrated?.() && flatEntries.length) {
-        const cal = GostergeScoringEngine.getCalibration?.();
-        if (!cal && host.buildBitisStatsFromEntries) {
-            throw new Error('Kalibrasyon nesnesi oluşmadı');
-        }
+    if (typeof host.buildBitisStatsFromEntries !== 'function') {
+        console.warn('applyGostergeTahminScoring: buildBitisStatsFromEntries eksik');
+        return;
     }
-    GostergeScoringEngine.applyToFlatEntries(flatEntries);
+    try {
+        await GostergeScoringEngine.calibrate(flatEntries, host);
+    } catch (err) {
+        console.error('applyGostergeTahminScoring calibrate failed', err);
+    }
+    if (GostergeScoringEngine.getCalibration?.()) {
+        GostergeScoringEngine.applyToFlatEntries(flatEntries);
+    }
     const ladderEl = document.getElementById('gostergeScoringLadder');
     if (ladderEl) ladderEl.innerHTML = GostergeScoringEngine.renderCalibrationHtml();
     updateFinalShareLivePay();

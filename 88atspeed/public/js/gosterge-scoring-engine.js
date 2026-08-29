@@ -529,56 +529,113 @@ const GostergeScoringEngine = (function () {
     }
 
     async function calibrate(flatEntries, host) {
-        if (!flatEntries?.length || !host?.buildBitisStatsFromEntries) {
+        if (!flatEntries?.length) {
+            calibration = null;
+            return null;
+        }
+        if (typeof host?.buildBitisStatsFromEntries !== 'function') {
+            console.warn('calibrate: host.buildBitisStatsFromEntries eksik');
             calibration = null;
             return null;
         }
 
-        const metrics = collectAllScoreMetrics(flatEntries);
-        const depthScales = buildDepthScales(flatEntries);
-        const ladders = {};
         let bitisRows = 0;
-
         for (const entry of flatEntries) {
             const b = host.bitisValueForSort?.(entry);
             if (b != null && b >= 1) bitisRows++;
         }
 
-        for (let i = 0; i < metrics.length; i++) {
-            const m = metrics[i];
-            ladders[m.id] = calibrateMetricEntry(m, flatEntries, host, depthScales);
-            if (i > 0 && i % 4 === 0) await yieldToMain();
-        }
-
-        let liveMatchers = {};
+        let metrics = [];
+        let depthScales = {};
+        const ladders = {};
         try {
-            liveMatchers = buildLiveMatchers(metrics, host, depthScales);
+            metrics = collectAllScoreMetrics(flatEntries);
+            depthScales = buildDepthScales(flatEntries);
         } catch (err) {
-            console.warn('buildLiveMatchers failed', err);
-        }
-
-        let allColorRows = [];
-        let colorLadder = [];
-        try {
-            allColorRows = collectAllColorGostergeRows(flatEntries, host);
-            colorLadder = buildColorGostergeLadder(allColorRows, COLOR_GOSTERGE_CONFIG);
-        } catch (err) {
-            console.warn('color ladder build failed', err);
+            console.error('calibrate: metric setup failed', err);
+            calibration = {
+                ladders: {},
+                metrics: [],
+                depthScales: {},
+                liveMatchers: {},
+                colorLadder: [],
+                colorGostergeConfig: { ...COLOR_GOSTERGE_CONFIG },
+                allColorRowsCount: 0,
+                bitisRows,
+                totalRows: flatEntries.length,
+                successBlend: { ...SUCCESS_BLEND },
+                calibratedAt: Date.now()
+            };
+            return calibration;
         }
 
         calibration = {
-            ladders,
+            ladders: {},
             metrics,
             depthScales,
-            liveMatchers,
-            colorLadder,
+            liveMatchers: {},
+            colorLadder: [],
             colorGostergeConfig: { ...COLOR_GOSTERGE_CONFIG },
-            allColorRowsCount: allColorRows.length,
+            allColorRowsCount: 0,
             bitisRows,
             totalRows: flatEntries.length,
             successBlend: { ...SUCCESS_BLEND },
             calibratedAt: Date.now()
         };
+
+        try {
+            for (let i = 0; i < metrics.length; i++) {
+                const m = metrics[i];
+                try {
+                    ladders[m.id] = calibrateMetricEntry(m, flatEntries, host, depthScales);
+                } catch (err) {
+                    console.warn('calibrate metric failed', m.id, err);
+                    ladders[m.id] = [];
+                }
+                if (i > 0 && i % 4 === 0) await yieldToMain();
+            }
+
+            let liveMatchers = {};
+            try {
+                liveMatchers = buildLiveMatchers(metrics, host, depthScales);
+            } catch (err) {
+                console.warn('buildLiveMatchers failed', err);
+            }
+
+            let allColorRows = [];
+            let colorLadder = [];
+            try {
+                allColorRows = collectAllColorGostergeRows(flatEntries, host);
+                colorLadder = buildColorGostergeLadder(allColorRows, COLOR_GOSTERGE_CONFIG);
+            } catch (err) {
+                console.warn('color ladder build failed', err);
+            }
+
+            calibration = {
+                ladders,
+                metrics,
+                depthScales,
+                liveMatchers,
+                colorLadder,
+                colorGostergeConfig: { ...COLOR_GOSTERGE_CONFIG },
+                allColorRowsCount: allColorRows.length,
+                bitisRows,
+                totalRows: flatEntries.length,
+                successBlend: { ...SUCCESS_BLEND },
+                calibratedAt: Date.now()
+            };
+        } catch (err) {
+            console.error('calibrate failed', err);
+            calibration = {
+                ...calibration,
+                ladders,
+                metrics,
+                depthScales,
+                bitisRows,
+                totalRows: flatEntries.length,
+                calibratedAt: Date.now()
+            };
+        }
         return calibration;
     }
 
