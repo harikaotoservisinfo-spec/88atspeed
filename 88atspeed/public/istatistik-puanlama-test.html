@@ -1308,9 +1308,9 @@
 <script src="js/ptest-gosterge-engine.js?v=20260830z"></script>
 <script src="js/ptest-gosterge-depth-engine.js?v=20260830z"></script>
 <script src="js/ptest-color-gosterge-export.js?v=20260830z"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260831h"></script>
-<script src="js/ptest-final-share-report.js?v=20260831h"></script>
-<script src="js/ptest-field-factor-engine.js?v=20260831h"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260831i"></script>
+<script src="js/ptest-final-share-report.js?v=20260831i"></script>
+<script src="js/ptest-field-factor-engine.js?v=20260831i"></script>
 <script>
 const IE = IstatistikEngine;
 const TE = IstatistikTahminEngine;
@@ -2178,32 +2178,48 @@ async function renderFieldFactorReport() {
     if (summaryHost) summaryHost.innerHTML = '<p style="padding:12px;color:#6a1b9a">⏳ Analiz hesaplanıyor…</p>';
     if (detailHost) detailHost.innerHTML = '<p style="color:#789">Hesaplanıyor…</p>';
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-    if (!GostergeScoringEngine.isCalibrated?.()) {
-        await applyGostergeTahminScoring();
-    }
-    await new Promise(r => setTimeout(r, 0));
-    const calibrated = !!GostergeScoringEngine.isCalibrated?.();
-    if (!calibrated) {
-        const cal = GostergeScoringEngine.getCalibration?.();
+    const bitisCount = countBitisForScoring();
+    if (bitisCount < 5) {
         const intro = document.getElementById('fieldFactorIntro');
         if (intro) {
-            intro.innerHTML = '<span style="color:#c62828">Kalibrasyon yetersiz — PUANLAMA TEST BİTİŞ sütunlarını doldurun'
-                + (cal?.bitisRows != null ? ' (bitiş örneği: ' + cal.bitisRows + ', min 5 gerekli)' : '')
-                + '.</span>';
+            intro.innerHTML = '<span style="color:#c62828">Yeterli bitiş verisi yok — '
+                + bitisCount + ' / 5 minimum. PUANLAMA TEST BİTİŞ sütunlarına bitiş sırası girin '
+                + '(veya at adındaki parantezden otomatik gelir), sonra <strong>Kaydet</strong>.</span>';
         }
         if (summaryHost) {
-            summaryHost.innerHTML = '<p style="padding:12px;color:#c62828">Bitiş sırası yeterli değil — analiz yapılamıyor.</p>';
+            summaryHost.innerHTML = '<p style="padding:12px;color:#c62828">'
+                + bitisCount + ' bitiş kaydı var — analiz için en az 5 gerekli.</p>';
         }
         if (detailHost) detailHost.innerHTML = '<p style="color:#789">—</p>';
         return;
     }
+    let calibrateError = null;
+    try {
+        await applyGostergeTahminScoring();
+    } catch (err) {
+        calibrateError = err?.message || String(err);
+    }
+    await new Promise(r => setTimeout(r, 0));
+    const calibrated = !!GostergeScoringEngine.isCalibrated?.();
     const intro = document.getElementById('fieldFactorIntro');
-    const diag = GostergeScoringEngine.diagnoseColorScoring?.(flatEntries);
+    const diag = calibrated ? GostergeScoringEngine.diagnoseColorScoring?.(flatEntries) : null;
     if (intro) {
         let h = 'Her koşudaki <strong>at sayısına</strong> göre TAHMİN başarısı ve '
             + '<strong>belirleyici faktör</strong> (T9V · Renkler · Metrikler · rest) · '
-            + flatEntries.length + ' satır · build ' + PTEST_BUILD
+            + flatEntries.length + ' satır · ' + bitisCount + ' bitiş · build ' + PTEST_BUILD
             + ' · Soldan satıra tıklayın';
+        if (!calibrated) {
+            h += '<div style="margin-top:8px;padding:8px 10px;border-radius:6px;background:#fff3e0;border:1px solid #ffb74d;font-size:11px">';
+            h += '<strong>⚠ Kalibrasyon uyarısı:</strong> ' + bitisCount + ' bitiş var';
+            const cal = GostergeScoringEngine.getCalibration?.();
+            if (cal?.bitisRows != null) h += ' (motor sayımı: ' + cal.bitisRows + ')';
+            if (calibrateError) {
+                h += ' · hata: ' + AtSpeedUtils.escapeHtml(calibrateError);
+            } else {
+                h += ' — skor merdiveni eksik olabilir, sonuçlar kısmen gösterilir';
+            }
+            h += '</div>';
+        }
         if (diag) {
             h += '<div style="margin-top:8px;padding:8px 10px;border-radius:6px;background:#fff;border:1px solid #ffcc80;font-size:11px">';
             h += '<strong>🎨 Renk teşhisi:</strong> ' + diag.colorMode + ' · Top-' + (GostergeScoringEngine.COLOR_GOSTERGE_CONFIG?.topN || '?')
@@ -3113,7 +3129,7 @@ function renderGosterge1Report() {
     initGosterge1StripTabs();
 }
 
-const PTEST_BUILD = '20260831h';
+const PTEST_BUILD = '20260831i';
 let gostergeRenderGen = 0;
 let gostergeDataRev = 0;
 let gostergeBitisDebounce = null;
@@ -3252,7 +3268,18 @@ function getPtestScoringHost() {
     };
 }
 
+function syncBitisBeforeScoring() {
+    syncBitisInputsToMap();
+    rebuildBitisLookup();
+}
+
+function countBitisForScoring() {
+    syncBitisBeforeScoring();
+    return countSortableBitis();
+}
+
 async function applyGostergeTahminScoring() {
+    syncBitisBeforeScoring();
     const host = getPtestScoringHost();
     await GostergeScoringEngine.calibrate(flatEntries, host);
     GostergeScoringEngine.applyToFlatEntries(flatEntries);
@@ -5458,9 +5485,9 @@ async function buildFlatFromCache() {
             }
         }
     }
-    rebuildBitisLookup();
     sortFlatEntries(flat);
     flatEntries = flat;
+    rebuildBitisLookup();
     rebuildOverviewStripAvgLookup();
     await applyGostergeTahminScoring();
     resetGostergePanels();
@@ -5780,6 +5807,9 @@ document.getElementById('toggleCikanBtn').onclick = () => {
     renderCikanPanel();
 };
 bindPtestViewTabs();
+void loadSavedData().then(() => {
+    if (flatEntries.length) rebuildBitisLookup();
+});
 updateGostergeTabVisibility();
 renderHead();
 </script>
