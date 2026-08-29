@@ -973,17 +973,13 @@
         <span id="istatistikBuild" class="istatistik-build" title="Yüklü sürüm"></span>
     </div>
     <details class="istat-gosterim-controls" id="gostergeScoringPanel" open>
-        <summary>🏆 TAHMİN · Gösterge başarı puanlama (PUANLAMA TEST bitiş verisi)</summary>
-        <p class="istat-gos-depth-note">PUANLAMA TEST’te girilen bitiş sıralarından öğrenilen gösterge merdiveni kullanılır.
-            Her metrik grubu için SON·Δ + derinlik çifti (SON↔1ÖNCE…) göstergeleri ayrı sıralanır.
-            Başarı ağırlığı: <strong>%80 birincilik</strong>, %12 ilk iki, %8 ilk üç.</p>
+        <summary>🏆 TAHMİN · Başarı yüzdesi puanlama (at sayısına göre)</summary>
+        <p class="istat-gos-depth-note">TAHMİN skoru <strong>yalnızca geçmiş başarı yüzdelerinden</strong> hesaplanır
+            (Genel / Şehir+Mesafe / Mesafe İLK1–3 · 3 ay / 1 ay / 15 gün + şehir deneyimi).
+            Gösterge merdiveni, renk, T9V, metrik derinlikleri ve görsel profil slider’ları <strong>etkisizdir</strong>.
+            PUANLAMA TEST bitiş verisinden her at sayısı için en iyi başarı yüzdesi kombinasyonu öğrenilir.</p>
         <div id="gostergeScoringStatus" class="istat-gos-metric-hint">Kalibrasyon yükleniyor…</div>
-        <label class="istat-gos-metric-hint" style="display:flex;align-items:center;gap:6px;margin:6px 0">
-            <input type="checkbox" id="istatFieldAdaptiveEnabled" checked>
-            At sayısına göre uyarlamalı puanlama (PUANLAMA TEST faktör analizi profili)
-        </label>
         <div id="gostergeFieldAdaptiveStatus" class="istat-gos-metric-hint" style="font-size:11px"></div>
-        <div id="gostergeScoringLadderIstat"></div>
     </details>
     <details class="istat-gosterim-controls" id="gosterimWeightPanel">
         <summary id="gosterimWeightPanelSummary">TAHMİN görsel profil etkileri (kenar + renk + trend) — yedek mod</summary>
@@ -1025,10 +1021,9 @@
         |TEST8| 0'a en yakın = %100; derinlik kıyası + AĞ. ORT.<br>
         <strong>Ek gruplar (800Δ·2/3, T9Δ, DR/1DR, TEST4–7, FARK, Ş+M…):</strong>
         GÖSTERİM ve Tahminim kurallarındaki eksik sütunlar — hepsi derinlik % + AĞ. ORT.1/2/3.<br>
-        <strong>TAHMİN:</strong> Öncelikle PUANLAMA TEST bitiş verisinden öğrenilen <strong>gösterge başarı puanı</strong>
-        (SON·Δ + derinlik gelişme çiftleri, metrik grubu bazlı). Yeterli bitiş yoksa üst paneldeki
-        görsel profil slider’ları (yedek mod) kullanılır.
-        Üst panelden <strong>metrik grubu</strong> seçin (SON800-1, T8Δ, …); yedek modda her grubun puan etkileri <strong>ayrı kaydedilir</strong>.<br>
+        <strong>TAHMİN:</strong> Yalnızca geçmiş <strong>başarı yüzdeleri</strong> (Genel / Ş/M / Mesafe İLK1–3, şehir deneyimi).
+        At sayısına göre PUANLAMA TEST bitiş verisinden en iyi yüzde kombinasyonu seçilir.
+        Gösterge merdiveni, renk, T9V, metrik derinlikleri ve görsel profil slider’ları <strong>etkisizdir</strong>.<br>
         <strong>T1×DR:</strong> TEST1 × DR/1DR — o gün koşan atlar arasında en düşük T1×DR = %100;
         derinlik kıyası + AĞ. ORT.<br>
         <strong>Son 3 ay / 1 ay / 15 gün:</strong> Program tarihine göre dönem içi koşu sayısının,
@@ -1041,19 +1036,20 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260831v"></script>
-<script src="js/formula-engine.js?v=20260831v"></script>
-<script src="js/istatistik-engine.js?v=20260831v"></script>
-<script src="js/istatistik-grids-extra.js?v=20260831v"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260831v"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260831v"></script>
-<script src="js/ptest-gosterge-engine.js?v=20260831v"></script>
-<script src="js/ptest-gosterge-depth-engine.js?v=20260831v"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260831v"></script>
-<script src="js/ptest-field-factor-engine.js?v=20260831v"></script>
-<script src="js/ptest-field-adaptive-engine.js?v=20260831v"></script>
+<script src="js/utils.js?v=20260831w"></script>
+<script src="js/formula-engine.js?v=20260831w"></script>
+<script src="js/istatistik-engine.js?v=20260831w"></script>
+<script src="js/istatistik-grids-extra.js?v=20260831w"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260831w"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260831w"></script>
+<script src="js/ptest-gosterge-engine.js?v=20260831w"></script>
+<script src="js/ptest-gosterge-depth-engine.js?v=20260831w"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260831w"></script>
+<script src="js/basari-pct-scoring-engine.js?v=20260831w"></script>
+<script src="js/ptest-field-factor-engine.js?v=20260831w"></script>
+<script src="js/ptest-field-adaptive-engine.js?v=20260831w"></script>
 <script>
-const ISTAT_BUILD = '20260831v';
+const ISTAT_BUILD = '20260831w';
 const TAHMIN_METRIC_ALL = '__hepsi__';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
@@ -1215,6 +1211,7 @@ function renderTahminCell(tahmin, horseCount, horseNo, raceNo, kayitId, horseNam
             + (title ? ' title="' + title.replace(/"/g, '&quot;') + '"' : '') + '>' + inner + '</td>';
     }
     let title = 'TAHMİN · ' + tahmin.rank + '. sıra | Skor ' + (tahmin.score ?? '?');
+    if (tahmin.source === 'basari-pct') title += ' · başarı %';
     if (tahmin.source === 'gosterge') title += ' · gösterge başarı';
     if (tahmin.fieldProfile?.bestFactorLabel) {
         title += ' · profil: ' + tahmin.fieldProfile.fieldSize + ' at · '
@@ -1558,6 +1555,7 @@ function buildIstatBitisStatsFromEntries(entries) {
 
 let gostergeCalibrationPromise = null;
 let istatFieldAdaptiveProfiles = null;
+let basariCalibrationPromise = null;
 
 function syncIstatFieldAdaptiveEnabled() {
     const cb = document.getElementById('istatFieldAdaptiveEnabled');
@@ -1621,32 +1619,27 @@ async function ensureIstatFieldAdaptiveProfiles(force) {
 }
 
 function updateTahminScoringModeUi() {
-    const gostergeActive = !!GostergeScoringEngine.isCalibrated?.();
-    const adaptiveOn = !!GostergeScoringEngine.isFieldAdaptiveScoringEnabled?.();
+    const basariActive = typeof BasariPctScoringEngine !== 'undefined';
     const visualPanel = document.getElementById('gosterimWeightPanel');
     const visualSummary = document.getElementById('gosterimWeightPanelSummary');
     const gostergePanel = document.getElementById('gostergeScoringPanel');
     const calcHint = document.getElementById('tahminCalcHint');
     const metricHint = document.getElementById('tahminMetricHint');
 
-    if (gostergeActive) {
+    if (basariActive) {
         if (visualPanel) {
             visualPanel.open = false;
             visualPanel.classList.add('istat-panel-disabled');
         }
         if (visualSummary) {
-            visualSummary.textContent = 'TAHMİN görsel profil — devre dışı (gösterge puanlama aktif)';
+            visualSummary.textContent = 'TAHMİN görsel profil — devre dışı (başarı % modu aktif)';
         }
         if (gostergePanel) gostergePanel.open = true;
         if (calcHint) {
-            if (adaptiveOn && istatFieldAdaptiveProfiles?.list?.length) {
-                calcHint.textContent = 'Hesap: gösterge uyarlamalı · at sayısına göre profil · görsel profil (41 alan) etkisiz';
-            } else {
-                calcHint.textContent = 'Hesap: gösterge kalibrasyonu · görsel profil etkisiz';
-            }
+            calcHint.textContent = 'Hesap: yalnızca geçmiş başarı yüzdeleri · at sayısına göre profil · gösterge/renk/T9V/metrik etkisiz';
         }
         if (metricHint) {
-            metricHint.textContent = 'Gösterge modu — alttaki slider’lar TAHMİN’e girmez';
+            metricHint.textContent = 'Başarı % modu — slider’lar ve metrik grupları TAHMİN\'e girmez';
         }
     } else {
         if (visualPanel) {
@@ -1661,59 +1654,60 @@ function updateTahminScoringModeUi() {
 }
 
 function attachRaceTahminForPkg(pkg, teWeights) {
+    if (typeof BasariPctScoringEngine !== 'undefined') {
+        return BasariPctScoringEngine.attachRaceTahmin(pkg);
+    }
     if (typeof GostergeScoringEngine !== 'undefined' && GostergeScoringEngine.isCalibrated?.()) {
         return GostergeScoringEngine.attachRaceTahmin(pkg);
     }
     return IstatistikTahminEngine.attachRaceTahmin(pkg, teWeights);
 }
 
-async function ensureGostergeCalibration(force) {
-    if (!force && GostergeScoringEngine.isCalibrated?.()) {
-        syncIstatFieldAdaptiveEnabled();
-        const cal = GostergeScoringEngine.getCalibration?.();
-        if (cal && cal.bitisRows >= GostergeScoringEngine.MIN_RULE_SAMPLE) {
-            await ensureIstatFieldAdaptiveProfiles(false);
-            updateTahminScoringModeUi();
-            if (istatRaceCache.length) rerenderIstatistikFromCache();
-        }
-        return cal;
+function renderBasariPctStatus(summary) {
+    const host = document.getElementById('gostergeFieldAdaptiveStatus');
+    if (!host) return;
+    if (summary?.list?.length) {
+        host.innerHTML = BasariPctScoringEngine.renderStatusHtml();
+    } else {
+        host.innerHTML = BasariPctScoringEngine.renderStatusHtml();
     }
-    if (!force && gostergeCalibrationPromise) return gostergeCalibrationPromise;
-    gostergeCalibrationPromise = (async () => {
+}
+
+async function ensureBasariPctCalibration(force) {
+    if (!force && BasariPctScoringEngine.isCalibrated?.()) {
+        renderBasariPctStatus(BasariPctScoringEngine.getCalibrationSummary?.());
+        return BasariPctScoringEngine.getCalibrationSummary?.();
+    }
+    if (!force && basariCalibrationPromise) return basariCalibrationPromise;
+    basariCalibrationPromise = (async () => {
         const statusEl = document.getElementById('gostergeScoringStatus');
-        const ladderEl = document.getElementById('gostergeScoringLadderIstat');
         try {
-            if (statusEl) statusEl.textContent = '⏳ PUANLAMA TEST bitiş verileri yükleniyor…';
-            const cal = await GostergeScoringEngine.loadAndCalibrateFromApi(buildIstatBitisStatsFromEntries);
+            if (statusEl) statusEl.textContent = '⏳ Başarı yüzdesi profili hesaplanıyor (PUANLAMA TEST bitiş)…';
+            const summary = await BasariPctScoringEngine.loadAndCalibrateFromApi?.(buildIstatBitisStatsFromEntries);
             if (statusEl) {
-                if (cal && cal.bitisRows >= GostergeScoringEngine.MIN_RULE_SAMPLE) {
-                    statusEl.textContent = '✅ Gösterge puanlama aktif · ' + cal.bitisRows
-                        + ' bitişli satır · %80 birincilik ağırlıklı';
+                if (summary?.list?.length) {
+                    statusEl.textContent = '✅ Başarı % TAHMİN aktif · '
+                        + summary.list.length + ' at sayısı profili · gösterge faktörleri kapalı';
                 } else {
-                    statusEl.textContent = '⚠️ Yeterli bitiş yok — görsel profil (yedek) modu kullanılır';
+                    statusEl.textContent = '⚠️ Yeterli bitiş yok — varsayılan başarı % ağırlıkları kullanılır';
                 }
             }
-            if (ladderEl && cal) {
-                ladderEl.innerHTML = GostergeScoringEngine.renderCalibrationHtml();
-            }
-            if (cal && cal.bitisRows >= GostergeScoringEngine.MIN_RULE_SAMPLE) {
-                await ensureIstatFieldAdaptiveProfiles(true);
-                updateTahminScoringModeUi();
-                if (istatRaceCache.length) rerenderIstatistikFromCache();
-            } else {
-                renderIstatFieldAdaptiveStatus(null);
-                updateTahminScoringModeUi();
-            }
-            return cal;
+            renderBasariPctStatus(summary);
+            updateTahminScoringModeUi();
+            if (istatRaceCache.length) rerenderIstatistikFromCache();
+            return summary;
         } catch (err) {
             if (statusEl) statusEl.textContent = '⚠️ Kalibrasyon yüklenemedi: ' + err.message;
-            if (ladderEl) ladderEl.innerHTML = '';
             return null;
         } finally {
-            gostergeCalibrationPromise = null;
+            basariCalibrationPromise = null;
         }
     })();
-    return gostergeCalibrationPromise;
+    return basariCalibrationPromise;
+}
+
+async function ensureGostergeCalibration(force) {
+    return ensureBasariPctCalibration(force);
 }
 
 function patchTahminCellEl(cell, tahmin, horseCount, raceNo, kayitId) {
@@ -1726,6 +1720,7 @@ function patchTahminCellEl(cell, tahmin, horseCount, raceNo, kayitId) {
     cell.innerHTML = formatTahminCell(tahmin, horseCount, bitisVal);
     if (tahmin && tahmin.rank != null) {
         let title = 'TAHMİN · ' + tahmin.rank + '. sıra | Skor ' + (tahmin.score ?? '?');
+        if (tahmin.source === 'basari-pct') title += ' · başarı %';
         if (tahmin.source === 'gosterge') title += ' · gösterge başarı';
         if (tahmin.fieldProfile?.bestFactorLabel) {
             title += ' · profil: ' + tahmin.fieldProfile.fieldSize + ' at · '
@@ -1805,7 +1800,7 @@ function refreshAllTahmin() {
                 let badgeText = 'Tahmin: ' + entry.pkg.tahminOzeti.leader
                     + ' %' + (entry.pkg.tahminOzeti.leaderPct ?? '?');
                 const fp = entry.pkg.tahminOzeti.fieldProfile;
-                if (fp?.bestFactorLabel && GostergeScoringEngine.isFieldAdaptiveScoringEnabled?.()) {
+                if (fp?.bestFactorLabel) {
                     badgeText += ' · ' + fp.fieldSize + ' at · ' + fp.bestFactorLabel;
                     if (fp.priorityPreview?.length) {
                         badgeText += ' · ' + fp.priorityPreview.slice(0, 2).join(' · ');
@@ -2010,8 +2005,11 @@ function getActiveTahminMetricId() {
     return selectedTahminMetric || TE.getSelectedMetric();
 }
 
-/** Gösterge uyarlamalı modda sabit Ş+M-12 sütunu gizlenir — TAHMİN at sayısı profiline göre hesaplanır */
+/** Başarı % modunda sabit metrik sütunu gizlenir */
 function getEffectiveTahminMetricId() {
+    if (typeof BasariPctScoringEngine !== 'undefined') {
+        return TAHMIN_METRIC_ALL;
+    }
     if (typeof GostergeScoringEngine !== 'undefined'
         && GostergeScoringEngine.isCalibrated?.()
         && GostergeScoringEngine.isFieldAdaptiveScoringEnabled?.()) {
@@ -2021,16 +2019,8 @@ function getEffectiveTahminMetricId() {
 }
 
 async function ensureTahminScoringReady() {
-    syncIstatFieldAdaptiveEnabled();
-    const cal = await ensureGostergeCalibration();
-    if (cal && cal.bitisRows >= GostergeScoringEngine.MIN_RULE_SAMPLE) {
-        await ensureIstatFieldAdaptiveProfiles(false);
-    }
-    if (GostergeScoringEngine.isCalibrated?.() && istatFieldAdaptiveProfiles?.bySize) {
-        GostergeScoringEngine.setFieldAdaptiveProfiles?.(istatFieldAdaptiveProfiles);
-    }
+    await ensureBasariPctCalibration(false);
     updateTahminScoringModeUi();
-    return cal;
 }
 
 function resolveTahminMetricSection(metricId, pkg) {
@@ -3177,11 +3167,6 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
         return;
     }
 
-    syncIstatFieldAdaptiveEnabled();
-    if (GostergeScoringEngine.isCalibrated?.() && istatFieldAdaptiveProfiles?.bySize) {
-        GostergeScoringEngine.setFieldAdaptiveProfiles?.(istatFieldAdaptiveProfiles);
-    }
-
     istatRaceCache = [];
     const raceEntries = [];
     for (let i = 0; i < data.length; i++) {
@@ -3284,7 +3269,7 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
                 + AtSpeedUtils.escapeHtml(pkg.tahminOzeti.leader)
                 + ' %' + (pkg.tahminOzeti.leaderPct ?? '?');
             const fp = pkg.tahminOzeti.fieldProfile;
-            if (fp?.bestFactorLabel && GostergeScoringEngine.isFieldAdaptiveScoringEnabled?.()) {
+            if (fp?.bestFactorLabel) {
                 tahminBadge += ' · ' + fp.fieldSize + ' at · ' + fp.bestFactorLabel;
                 if (fp.priorityPreview?.length) {
                     tahminBadge += ' · ' + fp.priorityPreview.slice(0, 2).join(' · ');
@@ -3482,21 +3467,7 @@ window.addEventListener('load', () => {
     bindDepthExpandControls();
     renderVisualScoreControls();
     loadIstatBitisMap();
-    const adaptiveCb = document.getElementById('istatFieldAdaptiveEnabled');
-    if (adaptiveCb && adaptiveCb.dataset.bound !== '1') {
-        adaptiveCb.dataset.bound = '1';
-        if (PtestFieldAdaptiveEngine?.isAdaptiveEnabled) {
-            adaptiveCb.checked = PtestFieldAdaptiveEngine.isAdaptiveEnabled();
-        }
-        GostergeScoringEngine.setFieldAdaptiveScoringEnabled?.(adaptiveCb.checked);
-        adaptiveCb.addEventListener('change', () => {
-            PtestFieldAdaptiveEngine?.setAdaptiveEnabled?.(adaptiveCb.checked);
-            GostergeScoringEngine.setFieldAdaptiveScoringEnabled?.(adaptiveCb.checked);
-            renderIstatFieldAdaptiveStatus(istatFieldAdaptiveProfiles);
-            updateTahminScoringModeUi();
-            if (istatRaceCache.length) scheduleRefreshAllTahmin();
-        });
-    }
+    updateTahminScoringModeUi();
     scheduleBackgroundCalibration();
     fetch('/VERSION.txt?v=' + Date.now())
         .then(r => r.ok ? r.text() : '')
