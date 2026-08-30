@@ -17,6 +17,8 @@
  *   node scripts/test-dimension-finish-correlation.js --db atlar.db
  *   node scripts/test-dimension-finish-correlation.js --phase combo,compare
  *   node scripts/test-dimension-finish-correlation.js --race 1 -v
+ *   node scripts/test-dimension-finish-correlation.js --all-races
+ *   node scripts/test-dimension-finish-correlation.js --phase per-race
  *   node scripts/test-dimension-finish-correlation.js --list-kayitlar
  *   node scripts/test-dimension-finish-correlation.js --phase leader,bucket,corr,winner,race
  */
@@ -51,11 +53,16 @@ const cli = {
     minRaces: argVal('--min-races') ? Number(argVal('--min-races')) : 3,
     top: argVal('--top') ? Number(argVal('--top')) : 25,
     verbose: args.includes('--verbose') || args.includes('-v'),
+    allRaces: args.includes('--all-races'),
     listKayitlar: args.includes('--list-kayitlar'),
     engine: (argVal('--engine') || 'hybrid').toLowerCase(),
-    phases: phasesRaw === 'all'
-        ? ['leader', 'bucket', 'corr', 'winner', 'agree', 'combo', 'compare', 'segment', 'race', 'plan']
-        : phasesRaw.split(',').map(s => s.trim()).filter(Boolean)
+    phases: (() => {
+        if (args.includes('--all-races')) return ['per-race'];
+        if (phasesRaw === 'all') {
+            return ['leader', 'bucket', 'corr', 'winner', 'agree', 'combo', 'compare', 'segment', 'race', 'plan'];
+        }
+        return phasesRaw.split(',').map(s => s.trim()).filter(Boolean);
+    })()
 };
 
 const SUCCESS_BLEND = { b1: 0.80, b12: 0.12, b123: 0.08 };
@@ -737,6 +744,163 @@ function formatMetricVal(v) {
     return v.toFixed(1);
 }
 
+function blendedSuccessFromBitis(bitis) {
+    if (bitis == null || bitis < 1) return 0;
+    if (bitis === 1) return SUCCESS_BLEND.b1;
+    if (bitis <= 2) return SUCCESS_BLEND.b12;
+    if (bitis <= 3) return SUCCESS_BLEND.b123;
+    return 0;
+}
+
+function bitisMark(bitis) {
+    if (bitis == null) return '?';
+    if (bitis === 1) return '★';
+    if (bitis <= 3) return '◆';
+    return '·';
+}
+
+function shortHorseName(entry) {
+    return (entry?.row?.name || '?').replace(/\(\d+\)/, '').trim();
+}
+
+function pickLeaderInRace(entries, getScore, host) {
+    const scored = entries.map(e => ({ entry: e, score: getScore(e) }))
+        .filter(s => s.score != null);
+    const leader = pickScoredLeader(scored);
+    if (!leader) {
+        return { tie: true, bitis: null, name: '—', no: null, blended: 0, score: null };
+    }
+    const bitis = host.bitisValueForSort(leader.entry);
+    return {
+        tie: false,
+        bitis,
+        name: shortHorseName(leader.entry),
+        no: leader.entry.row?.no,
+        blended: blendedSuccessFromBitis(bitis),
+        score: leader.score
+    };
+}
+
+function formatPickCell(pick) {
+    if (pick.tie) return pad('—', 9);
+    const p = Math.round(pick.blended * 100);
+    return pad(bitisMark(pick.bitis) + p + '%', 9);
+}
+
+function buildPerRaceSignals(comboCatalog, catalog) {
+    const signals = [{ id: 'TAH', label: 'TAHMİN', kind: 'tahmin' }];
+    for (const tg of TAB_GROUPS) {
+        const rf = comboCatalog.find(c => c.id === tg.short + '.combo.rank-fusion');
+        if (rf) signals.push({ id: tg.short + '-RF', label: tg.short + '-RF', combo: rf });
+    }
+    const mega = comboCatalog.find(c => c.id === 'MEGA.rank-fusion-all');
+    if (mega) signals.push({ id: 'MEGA', label: 'MEGA-RF', combo: mega });
+    for (const spec of [
+        { id: 'TK.matchPct', label: 'TK%' },
+        { id: 'HP.matchPct', label: 'HP%' },
+        { id: 'KC.matchPct', label: 'KC%' }
+    ]) {
+        const m = catalog.find(c => c.id === spec.id);
+        if (m) signals.push({ id: spec.id, label: spec.label, metric: m });
+    }
+    return signals;
+}
+
+function raceGroupSortKey(entries) {
+    const e = entries[0];
+    return [Number(e?.kayitId) || 0, Number(e?.raceNo) || 0];
+}
+
+function printPerRaceReport(raceGroups, host, comboCatalog, catalog) {
+    attachTahminLeader(raceGroups);
+    const signals = buildPerRaceSignals(comboCatalog, catalog);
+    const sorted = [...raceGroups].sort((a, b) => {
+        const [ka, ra] = raceGroupSortKey(a);
+        const [kb, rb] = raceGroupSortKey(b);
+        return ka - kb || ra - rb;
+    });
+
+    hr('9. KOŞU KOŞU BAŞARI — tüm koşular');
+    console.log('  Hücre: ★/◆/· + karışık puan (80/12/8) · — = beraberlik · TAH# = kazananın TAHMİN sırası');
+    console.log('  ' + pad('K#', 3) + pad('Kayıt', 6) + pad('At', 3) + pad('Kazanan (1.)', 18)
+        + signals.map(s => pad(s.label, 9)).join('') + pad('TAH#', 5) + '  Lider atlar (kısa)');
+    console.log('  ' + '-'.repeat(28 + signals.length * 9 + 5 + 24));
+
+    const totals = signals.map(() => ({ n: 0, b1: 0, b12: 0, b123: 0, sum: 0 }));
+
+    for (const entries of sorted) {
+        const e0 = entries[0];
+        const raw0 = e0?._dimRaw;
+        const race = raw0?.race || {};
+        const header = typeof AtMetaFields !== 'undefined'
+            ? AtMetaFields.formatRaceHeader(race)
+            : ((race.mesafe || '?') + ' ' + (race.pist || '')).trim();
+        const winner = entries.find(e => host.bitisValueForSort(e) === 1);
+        const winnerName = winner ? shortHorseName(winner).slice(0, 16) : '?';
+        const tahRank = winner?.row?.tahmin?.rank ?? '—';
+
+        const picks = signals.map(sig => {
+            if (sig.kind === 'tahmin') {
+                return pickLeaderInRace(entries, e => e.row?.tahmin?.score ?? null, host);
+            }
+            if (sig.combo) {
+                const getScore = sig.combo.buildScorer(entries);
+                return pickLeaderInRace(entries, getScore, host);
+            }
+            return pickLeaderInRace(entries, sig.metric.get, host);
+        });
+
+        picks.forEach((pick, i) => {
+            if (pick.tie) return;
+            totals[i].n++;
+            totals[i].sum += pick.blended;
+            if (pick.bitis === 1) totals[i].b1++;
+            if (pick.bitis <= 2) totals[i].b12++;
+            if (pick.bitis <= 3) totals[i].b123++;
+        });
+
+        const leaderSummary = picks.map((pick, i) => {
+            if (pick.tie) return signals[i].label + ':—';
+            return signals[i].label + ':' + pick.name.slice(0, 10) + '(B' + pick.bitis + ')';
+        }).join(' ');
+
+        let line = pad(String(e0.raceNo), 3) + pad('#' + e0.kayitId, 6)
+            + pad(String(entries.length), 3) + pad(winnerName, 18);
+        line += picks.map(formatPickCell).join('');
+        line += pad(String(tahRank), 5);
+        console.log('  ' + line);
+        if (cli.verbose) {
+            console.log('      ' + header);
+            console.log('      ' + leaderSummary);
+        }
+    }
+
+    sub('TOPLAM — yöntem başına karışık başarı');
+    const totalRaces = sorted.length;
+    signals.forEach((sig, i) => {
+        const t = totals[i];
+        const blended = t.n ? t.sum / t.n : 0;
+        const exact = t.n ? t.b1 / t.n : 0;
+        const tieSkip = totalRaces - t.n;
+        console.log('  ' + pad(sig.label, 10)
+            + ' karışık ' + pad(pct(blended), 7)
+            + ' · 1. ' + pad(pct(exact), 7)
+            + ' · n=' + t.n + '/' + totalRaces
+            + (tieSkip ? ' · berab=' + tieSkip : ''));
+    });
+
+    sub('KOŞU BAZLI SAYIM — kaç koşuda ★ (1.)');
+    const winCounts = signals.map((sig, i) => ({
+        label: sig.label,
+        wins: totals[i].b1,
+        n: totals[i].n
+    })).sort((a, b) => b.wins - a.wins);
+    winCounts.forEach(w => {
+        console.log('  ' + pad(w.label, 10) + ' ★ ' + w.wins + '/' + w.n + ' koşu'
+            + (w.n ? ' (' + pct(w.wins / w.n) + ')' : ''));
+    });
+}
+
 function printRaceForensics(raceGroups, host, catalog) {
     attachTahminLeader(raceGroups);
     const forensicsMetrics = catalog.filter(m =>
@@ -1033,6 +1197,15 @@ async function main() {
         }
 
         const comboCatalog = buildComboCatalog();
+
+        if (hasPhase('per-race')) {
+            printPerRaceReport(raceGroups, host, comboCatalog, catalog);
+            if (cli.phases.length === 1) {
+                console.log('\nOK · ' + raceGroups.length + ' koşu · ' + withBitis.length + ' BİTİŞ · faz=per-race');
+                return;
+            }
+        }
+
         let comboResults = [];
         let tabSummaries = [];
 
