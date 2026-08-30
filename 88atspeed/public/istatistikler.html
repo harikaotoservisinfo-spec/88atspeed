@@ -1036,26 +1036,26 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260829a"></script>
-<script src="js/formula-engine.js?v=20260829a"></script>
-<script src="js/istatistik-engine.js?v=20260829a"></script>
-<script src="js/istatistik-grids-extra.js?v=20260829a"></script>
-<script src="js/istatistik-gosterim-flags.js?v=20260829a"></script>
-<script src="js/istatistik-tahmin-engine.js?v=20260829a"></script>
-<script src="js/ptest-gosterge-engine.js?v=20260829a"></script>
-<script src="js/ptest-gosterge-depth-engine.js?v=20260829a"></script>
-<script src="js/gosterge-scoring-engine.js?v=20260829a"></script>
-<script src="js/basari-pct-scoring-engine.js?v=20260829a"></script>
-<script src="js/at-meta-fields.js?v=20260830b"></script>
-<script src="js/field-size-stats-engine.js?v=20260830b"></script>
-<script src="js/sehir-stats-engine.js?v=20260830b"></script>
-<script src="js/kosu-dimension-stats-engine.js?v=20260830b"></script>
-<script src="js/dimension-tahmin-boost-engine.js?v=20260830b"></script>
-<script src="js/hybrid-tahmin-scoring-engine.js?v=20260830b"></script>
-<script src="js/ptest-field-factor-engine.js?v=20260829a"></script>
-<script src="js/ptest-field-adaptive-engine.js?v=20260829a"></script>
+<script src="js/utils.js?v=20260830c"></script>
+<script src="js/formula-engine.js?v=20260830c"></script>
+<script src="js/istatistik-engine.js?v=20260830c"></script>
+<script src="js/istatistik-grids-extra.js?v=20260830c"></script>
+<script src="js/istatistik-gosterim-flags.js?v=20260830c"></script>
+<script src="js/istatistik-tahmin-engine.js?v=20260830c"></script>
+<script src="js/ptest-gosterge-engine.js?v=20260830c"></script>
+<script src="js/ptest-gosterge-depth-engine.js?v=20260830c"></script>
+<script src="js/gosterge-scoring-engine.js?v=20260830c"></script>
+<script src="js/basari-pct-scoring-engine.js?v=20260830c"></script>
+<script src="js/at-meta-fields.js?v=20260830c"></script>
+<script src="js/field-size-stats-engine.js?v=20260830c"></script>
+<script src="js/sehir-stats-engine.js?v=20260830c"></script>
+<script src="js/kosu-dimension-stats-engine.js?v=20260830c"></script>
+<script src="js/dimension-tahmin-boost-engine.js?v=20260830c"></script>
+<script src="js/hybrid-tahmin-scoring-engine.js?v=20260830c"></script>
+<script src="js/ptest-field-factor-engine.js?v=20260830c"></script>
+<script src="js/ptest-field-adaptive-engine.js?v=20260830c"></script>
 <script>
-const ISTAT_BUILD = '20260829b';
+const ISTAT_BUILD = '20260830c';
 const TAHMIN_METRIC_ALL = '__hepsi__';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
@@ -1177,7 +1177,14 @@ function formatTahminPredHalf(tahmin, horseCount) {
         return '<span class="istat-pct istat-pct-none">—</span>';
     }
     const pctVal = tahmin.pct != null ? tahmin.pct : 0;
-    return '<span class="istat-tahmin-rank">' + tahmin.rank + '.</span>'
+    let title = '';
+    if (tahmin.dimensionBoostApplied && tahmin.hybridBaseScore != null) {
+        title = ' title="Taban ' + tahmin.hybridBaseScore + ' → boyut blend '
+            + (tahmin.dimensionNorm != null ? Math.round(tahmin.dimensionNorm * 100) + '%' : '—')
+            + (tahmin.activeDimensionRoutes?.length
+                ? ' · ' + tahmin.activeDimensionRoutes.join('+') : '') + '"';
+    }
+    return '<span class="istat-tahmin-rank"' + title + '>' + tahmin.rank + '.</span>'
         + '<span class="istat-tahmin-pct">%' + pctVal + '</span>';
 }
 
@@ -1669,16 +1676,23 @@ function updateTahminScoringModeUi() {
 }
 
 function attachRaceTahminForPkg(pkg, teWeights) {
+    if (!pkg?.rows?.length) return pkg;
+    if (!pkg.hedefSehir && currentKayitMeta?.hipodrom) {
+        pkg.hedefSehir = currentKayitMeta.hipodrom;
+    }
     if (typeof HybridTahminScoringEngine !== 'undefined' && HybridTahminScoringEngine.isCalibrated?.()) {
-        return HybridTahminScoringEngine.attachRaceTahmin(pkg);
+        HybridTahminScoringEngine.attachRaceTahmin(pkg);
+    } else if (typeof BasariPctScoringEngine !== 'undefined') {
+        BasariPctScoringEngine.attachRaceTahmin(pkg);
+    } else if (typeof GostergeScoringEngine !== 'undefined' && GostergeScoringEngine.isCalibrated?.()) {
+        GostergeScoringEngine.attachRaceTahmin(pkg);
+    } else {
+        IstatistikTahminEngine.attachRaceTahmin(pkg, teWeights);
     }
-    if (typeof BasariPctScoringEngine !== 'undefined') {
-        return BasariPctScoringEngine.attachRaceTahmin(pkg);
+    if (typeof DimensionTahminBoostEngine !== 'undefined' && DimensionTahminBoostEngine.applyBoostToPkg) {
+        DimensionTahminBoostEngine.applyBoostToPkg(pkg);
     }
-    if (typeof GostergeScoringEngine !== 'undefined' && GostergeScoringEngine.isCalibrated?.()) {
-        return GostergeScoringEngine.attachRaceTahmin(pkg);
-    }
-    return IstatistikTahminEngine.attachRaceTahmin(pkg, teWeights);
+    return pkg;
 }
 
 function renderHybridTahminStatus() {

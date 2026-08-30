@@ -4,7 +4,11 @@
  * SH·TÜM cnt123, HP·S1 cnt123, KC·S1 cnt1 (düşük güven).
  */
 const DimensionTahminBoostEngine = (function () {
+    /** Eski çarpan — sıra değiştirmiyordu; blend ile değiştirildi */
     const MAX_TOTAL_BOOST = 0.18;
+    /** Hybrid taban skor + boyut norm (0–100) karışımı — terminal TK·S3 ~%60 vs hybrid ~%28 */
+    const HYBRID_WEIGHT = 0.58;
+    const DIM_WEIGHT = 0.42;
     let enabled = true;
 
     /** Kanıt tabanlı rota — ağırlıklar göreli güven */
@@ -144,8 +148,49 @@ const DimensionTahminBoostEngine = (function () {
         return active;
     }
 
+    function finalizeScoredRace(scored) {
+        if (!scored?.length) return scored;
+        for (const s of scored) {
+            if (s.row?.kosuHistory?.tahminEligible === false) {
+                s.tahmin.ineligible = true;
+                s.tahmin.score = 0;
+                s.tahmin.pct = 0;
+            }
+        }
+        const eligible = scored.filter(s => !s.tahmin?.ineligible);
+        const pool = eligible.length ? eligible : scored;
+        const maxScore = Math.max(...pool.map(s => s.tahmin?.score ?? 0), 1);
+        for (const s of pool) {
+            const sc = s.tahmin?.score ?? 0;
+            s.tahmin.pct = sc > 0 ? Math.max(1, Math.round((sc / maxScore) * 100)) : 0;
+        }
+        for (const s of scored) {
+            if (s.tahmin?.ineligible) s.tahmin.pct = 0;
+        }
+        scored.sort((a, b) => {
+            if (a.tahmin?.ineligible !== b.tahmin?.ineligible) {
+                return a.tahmin.ineligible ? 1 : -1;
+            }
+            if (typeof AtSpeedUtils !== 'undefined' && AtSpeedUtils.compareTahminRank) {
+                return AtSpeedUtils.compareTahminRank(
+                    a.row, b.row, a.tahmin?.score, b.tahmin?.score
+                );
+            }
+            const sa = a.tahmin?.score ?? 0;
+            const sb = b.tahmin?.score ?? 0;
+            if (sb !== sa) return sb - sa;
+            return (a.row?.no ?? 0) - (b.row?.no ?? 0);
+        });
+        for (let i = 0; i < scored.length; i++) {
+            scored[i].tahmin.rank = i + 1;
+            scored[i].row.tahmin = scored[i].tahmin;
+        }
+        return scored;
+    }
+
     function applyRaceBoost(scored, pkg) {
         if (!enabled || pkg?.skipDimensionBoost || !scored?.length) return scored;
+        if (scored.some(s => s.tahmin?.dimensionBoostApplied)) return scored;
 
         const bundles = new Map();
         for (const s of scored) {
@@ -160,6 +205,7 @@ const DimensionTahminBoostEngine = (function () {
         const weightSum = routes.reduce((a, r) => a + r.weight, 0);
         if (!weightSum) return scored;
 
+        let applied = false;
         for (const s of scored) {
             if (s.tahmin?.ineligible) continue;
             const baseScore = s.tahmin?.score ?? 0;
@@ -170,10 +216,10 @@ const DimensionTahminBoostEngine = (function () {
             for (const route of routes) {
                 const norm = route.norms.get(s) ?? 0;
                 boostSum += norm * route.weight;
-                if (norm >= 0.55) {
+                if (norm >= 0.45) {
                     dimTerms.push({
                         label: route.label,
-                        points: Math.round(norm * route.weight * 80),
+                        points: Math.round(norm * route.weight * 100),
                         source: 'dimension',
                         norm
                     });
@@ -181,15 +227,19 @@ const DimensionTahminBoostEngine = (function () {
             }
 
             const combined = boostSum / weightSum;
-            const boostMult = combined * MAX_TOTAL_BOOST;
-            const newScore = Math.max(1, Math.round(baseScore * (1 + boostMult)));
+            const dimScore = combined * 100;
+            const newScore = Math.max(1, Math.round(
+                baseScore * HYBRID_WEIGHT + dimScore * DIM_WEIGHT
+            ));
 
             s.tahmin.hybridBaseScore = baseScore;
-            s.tahmin.dimensionBoost = boostMult;
             s.tahmin.dimensionNorm = combined;
+            s.tahmin.dimensionBoost = (newScore - baseScore) / Math.max(baseScore, 1);
             s.tahmin.activeDimensionRoutes = routes.map(r => r.id);
+            s.tahmin.dimensionBoostApplied = true;
             s.tahmin.score = newScore;
             s.tahmin.pct = newScore;
+            applied = true;
 
             if (dimTerms.length) {
                 const terms = [...(s.tahmin.topTerms || []), ...dimTerms];
@@ -198,17 +248,37 @@ const DimensionTahminBoostEngine = (function () {
                 s.tahmin.terms = s.tahmin.topTerms;
             }
         }
-        return scored;
+        return applied ? scored : scored;
+    }
+
+    function applyBoostToPkg(pkg) {
+        if (!pkg?.rows?.length) return pkg;
+        if (!pkg.hedefSehir && pkg.rows[0]?.sehir?.hedef) {
+            pkg.hedefSehir = pkg.rows[0].sehir.hedef;
+        }
+        const scored = pkg.rows.map(row => ({
+            row,
+            tahmin: row.tahmin || { score: 0, pct: 0, topTerms: [] }
+        }));
+        applyRaceBoost(scored, pkg);
+        if (scored.some(s => s.tahmin?.dimensionBoostApplied)) {
+            finalizeScoredRace(scored);
+        }
+        return pkg;
     }
 
     return {
         ROUTES,
         MAX_TOTAL_BOOST,
+        HYBRID_WEIGHT,
+        DIM_WEIGHT,
         setEnabled,
         isEnabled,
         computeDimensionBundle,
         metricValue,
-        applyRaceBoost
+        applyRaceBoost,
+        finalizeScoredRace,
+        applyBoostToPkg
     };
 })();
 
