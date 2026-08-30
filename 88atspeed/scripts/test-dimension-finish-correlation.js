@@ -12,7 +12,10 @@
  *   D) Kazanan profili — 1. bitiren vs diğerleri ortalama metrik
  *   E) Koşu forensics — --race ile at-at tüm sütunlar + BİTİŞ
  *
+ *   F) Sekme birleşik skorları — tek metrik vs varyasyon vs bütün (combo fazı)
+ *
  *   node scripts/test-dimension-finish-correlation.js --db atlar.db
+ *   node scripts/test-dimension-finish-correlation.js --phase combo,compare
  *   node scripts/test-dimension-finish-correlation.js --race 1 -v
  *   node scripts/test-dimension-finish-correlation.js --list-kayitlar
  *   node scripts/test-dimension-finish-correlation.js --phase leader,bucket,corr,winner,race
@@ -51,7 +54,7 @@ const cli = {
     listKayitlar: args.includes('--list-kayitlar'),
     engine: (argVal('--engine') || 'hybrid').toLowerCase(),
     phases: phasesRaw === 'all'
-        ? ['leader', 'bucket', 'corr', 'winner', 'agree', 'segment', 'race', 'plan']
+        ? ['leader', 'bucket', 'corr', 'winner', 'agree', 'combo', 'compare', 'segment', 'race', 'plan']
         : phasesRaw.split(',').map(s => s.trim()).filter(Boolean)
 };
 
@@ -84,22 +87,307 @@ function hasPhase(p) { return cli.phases.includes(p); }
 
 function loadAllEngines() {
     loadGostergeEngines();
-    for (const f of [
-        'at-meta-fields.js', 'field-size-stats-engine.js', 'sehir-stats-engine.js',
-        'kosu-dimension-stats-engine.js', 'basari-pct-scoring-engine.js', 'hybrid-tahmin-scoring-engine.js'
-    ]) {
-        const name = f.replace('.js', '').split('-').map((w, i) =>
-            i === 0 ? w : w.charAt(0).toUpperCase() + w.slice(1)).join('');
-        const gname = name.split('-').map((w, i) =>
-            i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w.charAt(0).toUpperCase() + w.slice(1)).join('');
-        // simpler: map known globals
-    }
     eval(fs.readFileSync(path.join(ROOT, 'public/js/at-meta-fields.js'), 'utf8') + '\n; global.AtMetaFields = AtMetaFields;');
     eval(fs.readFileSync(path.join(ROOT, 'public/js/field-size-stats-engine.js'), 'utf8') + '\n; global.FieldSizeStatsEngine = FieldSizeStatsEngine;');
     eval(fs.readFileSync(path.join(ROOT, 'public/js/sehir-stats-engine.js'), 'utf8') + '\n; global.SehirStatsEngine = SehirStatsEngine;');
     eval(fs.readFileSync(path.join(ROOT, 'public/js/kosu-dimension-stats-engine.js'), 'utf8') + '\n; global.KosuDimensionStatsEngine = KosuDimensionStatsEngine;');
     eval(fs.readFileSync(path.join(ROOT, 'public/js/basari-pct-scoring-engine.js'), 'utf8') + '\n; global.BasariPctScoringEngine = BasariPctScoringEngine;');
     eval(fs.readFileSync(path.join(ROOT, 'public/js/hybrid-tahmin-scoring-engine.js'), 'utf8') + '\n; global.HybridTahminScoringEngine = HybridTahminScoringEngine;');
+}
+
+function gval(entry, group, key) {
+    if (key === 'matchHitPct') return getMatchHitPct(entry, group);
+    return getMetric(entry, group, key);
+}
+
+/** Koşu içi min-max normalize ağırlıklı birleşik skor */
+function buildWeightedScorer(entries, parts) {
+    const stats = parts.map(p => {
+        const vals = entries.map(e => p.get(e)).filter(v => v != null && Number.isFinite(v));
+        const min = vals.length ? Math.min(...vals) : 0;
+        const max = vals.length ? Math.max(...vals) : 0;
+        return Object.assign({}, p, { min, max });
+    });
+    return (entry) => {
+        let sum = 0;
+        let wSum = 0;
+        for (const p of stats) {
+            const v = p.get(entry);
+            if (v == null || !Number.isFinite(v)) continue;
+            const norm = p.max === p.min ? 0.5 : (v - p.min) / (p.max - p.min);
+            sum += norm * p.weight;
+            wSum += p.weight;
+        }
+        return wSum > 0 ? (sum / wSum) * 100 : null;
+    };
+}
+
+/** Borda rank fusion — birden fazla metriğin sıra ortalaması (düşük rank = iyi) */
+function buildRankFusionScorer(entries, getters) {
+    const rankMaps = getters.map(get => {
+        const scored = entries.map((e, i) => ({ e, v: get(e), i }))
+            .filter(x => x.v != null && Number.isFinite(x.v));
+        scored.sort((a, b) => b.v - a.v || (a.e.row?.no ?? 0) - (b.e.row?.no ?? 0));
+        const map = new Map();
+        scored.forEach((x, rank) => map.set(x.e, rank + 1));
+        return map;
+    });
+    return (entry) => {
+        let sum = 0;
+        let n = 0;
+        for (const map of rankMaps) {
+            const r = map.get(entry);
+            if (r != null) { sum += r; n++; }
+        }
+        if (!n) return null;
+        const avgRank = sum / n;
+        return 1000 / avgRank;
+    };
+}
+
+function part(group, key, weight) {
+    return { get: e => gval(e, group, key), weight };
+}
+
+function buildComboCatalog() {
+    const combos = [];
+    function addCombo(short, tab, id, label, buildFn, kind) {
+        combos.push({ short, tab, id, label, kind: kind || 'combo', buildScorer: buildFn });
+    }
+
+    const placementParts = (group, w) => PLACEMENT_KEYS.map(p => part(group, p.key, w));
+    const matchPartsDim = (group) => [
+        part(group, 'matchPct', 0.4),
+        part(group, 'matchCount', 0.35),
+        part(group, 'matchHitPct', 0.25)
+    ];
+    const matchPartsSehir = () => [
+        part('sehir', 'sehirPct', 0.45),
+        part('sehir', 'inCityCount', 0.35),
+        part('sehir', 'matchHitPct', 0.20)
+    ];
+
+    // ── KOŞU AT SAYISI ──
+    addCombo('AS', 'KOŞU AT SAYISI', 'AS.combo.placement', 'AS · PLACEMENT bütün (MAX+cnt eşit)',
+        entries => buildWeightedScorer(entries, [
+            ...placementParts('fieldSize', 1),
+            part('fieldSize', 'kosuSayisi', 0.5)
+        ]));
+    addCombo('AS', 'KOŞU AT SAYISI', 'AS.combo.max-ladder', 'AS · MAX merdiven (max123 ağırlıklı)',
+        entries => buildWeightedScorer(entries, [
+            part('fieldSize', 'max123', 0.30),
+            part('fieldSize', 'max12', 0.20),
+            part('fieldSize', 'max1', 0.15),
+            part('fieldSize', 'cnt123', 0.20),
+            part('fieldSize', 'cnt12', 0.10),
+            part('fieldSize', 'cnt1', 0.05)
+        ]));
+    addCombo('AS', 'KOŞU AT SAYISI', 'AS.combo.cnt123-focus', 'AS · cnt123+koşu deneyimi',
+        entries => buildWeightedScorer(entries, [
+            part('fieldSize', 'cnt123', 0.45),
+            part('fieldSize', 'cnt12', 0.20),
+            part('fieldSize', 'cnt1', 0.15),
+            part('fieldSize', 'kosuSayisi', 0.20)
+        ]));
+    addCombo('AS', 'KOŞU AT SAYISI', 'AS.combo.rank-fusion', 'AS · rank fusion (tüm sütunlar)',
+        entries => buildRankFusionScorer(entries, [
+            e => gval(e, 'fieldSize', 'max123'),
+            e => gval(e, 'fieldSize', 'cnt123'),
+            e => gval(e, 'fieldSize', 'max12'),
+            e => gval(e, 'fieldSize', 'kosuSayisi')
+        ]));
+
+    // ── ŞEHİR ──
+    addCombo('SH', 'ŞEHİR DURUMU', 'SH.combo.match', 'SH · MATCH bütün (ŞEH%+Ş-KOŞU+EŞLEŞME%)',
+        entries => buildWeightedScorer(entries, matchPartsSehir()));
+    addCombo('SH', 'ŞEHİR DURUMU', 'SH.combo.placement', 'SH · PLACEMENT (hedef şehir MAX+cnt)',
+        entries => buildWeightedScorer(entries, placementParts('sehir', 1)));
+    addCombo('SH', 'ŞEHİR DURUMU', 'SH.combo.full', 'SH · TAM SEKME (match 50% + placement 50%)',
+        entries => buildWeightedScorer(entries, [
+            ...matchPartsSehir().map(p => ({ get: p.get, weight: p.weight * 0.5 })),
+            ...placementParts('sehir', 0.5)
+        ]));
+    addCombo('SH', 'ŞEHİR DURUMU', 'SH.combo.match-heavy', 'SH · match ağırlıklı (70/30)',
+        entries => buildWeightedScorer(entries, [
+            ...matchPartsSehir().map(p => ({ get: p.get, weight: p.weight * 0.7 })),
+            ...placementParts('sehir', 0.3)
+        ]));
+    addCombo('SH', 'ŞEHİR DURUMU', 'SH.combo.rank-fusion', 'SH · rank fusion (tüm sütunlar)',
+        entries => buildRankFusionScorer(entries, [
+            e => gval(e, 'sehir', 'sehirPct'),
+            e => gval(e, 'sehir', 'inCityCount'),
+            e => gval(e, 'sehir', 'max123'),
+            e => gval(e, 'sehir', 'cnt123'),
+            e => getMatchHitPct(e, 'sehir')
+        ]));
+
+    // ── BOYUT SEKMELERİ (KC, TK, PS, HP, SK) ──
+    for (const tg of TAB_GROUPS.filter(t => !['fieldSize', 'sehir'].includes(t.group))) {
+        const g = tg.group;
+        const s = tg.short;
+        addCombo(s, tg.tab, s + '.combo.match', s + ' · MATCH bütün (%+adet+EŞLEŞME%)',
+            entries => buildWeightedScorer(entries, matchPartsDim(g)));
+        addCombo(s, tg.tab, s + '.combo.placement', s + ' · PLACEMENT bütün (MAX+cnt)',
+            entries => buildWeightedScorer(entries, placementParts(g, 1)));
+        addCombo(s, tg.tab, s + '.combo.ui-classic', s + ' · UI klasik (%+adet+max123+cnt123)',
+            entries => buildWeightedScorer(entries, [
+                part(g, 'matchPct', 0.22),
+                part(g, 'matchCount', 0.18),
+                part(g, 'max123', 0.22),
+                part(g, 'cnt123', 0.18),
+                part(g, 'max1', 0.10),
+                part(g, 'cnt1', 0.10)
+            ]));
+        addCombo(s, tg.tab, s + '.combo.max-x-pct', s + ' · max123×% + cnt123',
+            entries => buildWeightedScorer(entries, [
+                part(g, 'max123', 0.35),
+                part(g, 'matchPct', 0.25),
+                part(g, 'cnt123', 0.25),
+                part(g, 'matchCount', 0.15)
+            ]));
+        addCombo(s, tg.tab, s + '.combo.match-heavy', s + ' · match 70% + placement 30%',
+            entries => buildWeightedScorer(entries, [
+                ...matchPartsDim(g).map(p => ({ get: p.get, weight: p.weight * 0.7 })),
+                ...placementParts(g, 0.3)
+            ]));
+        addCombo(s, tg.tab, s + '.combo.placement-heavy', s + ' · placement 70% + match 30%',
+            entries => buildWeightedScorer(entries, [
+                ...placementParts(g, 0.7),
+                ...matchPartsDim(g).map(p => ({ get: p.get, weight: p.weight * 0.3 }))
+            ]));
+        addCombo(s, tg.tab, s + '.combo.full', s + ' · TAM SEKME (match+placement+koşu eşit)',
+            entries => buildWeightedScorer(entries, [
+                ...matchPartsDim(g),
+                ...placementParts(g, 1),
+                part(g, 'kosuSayisi', 1)
+            ]));
+        addCombo(s, tg.tab, s + '.combo.experience', s + ' · deneyim (koşu+match adet+cnt123)',
+            entries => buildWeightedScorer(entries, [
+                part(g, 'kosuSayisi', 0.25),
+                part(g, 'matchCount', 0.30),
+                part(g, 'cnt123', 0.30),
+                part(g, 'matchPct', 0.15)
+            ]));
+        addCombo(s, tg.tab, s + '.combo.rank-fusion', s + ' · rank fusion (tüm sütunlar)',
+            entries => buildRankFusionScorer(entries, [
+                e => gval(e, g, 'matchPct'),
+                e => gval(e, g, 'matchCount'),
+                e => gval(e, g, 'max123'),
+                e => gval(e, g, 'cnt123'),
+                e => gval(e, g, 'max1'),
+                e => getMatchHitPct(e, g)
+            ]));
+    }
+
+    // ── MEGA (çapraz sekme) ──
+    addCombo('MEGA', 'TÜM SEKMELER', 'MEGA.full-all', 'MEGA · 7 sekme TAM birleşik (eşit)',
+        entries => {
+            const tabScorers = combos.filter(c => c.id.endsWith('.combo.full') && c.short !== 'MEGA')
+                .map(c => c.buildScorer(entries));
+            return (entry) => {
+                const vals = tabScorers.map(fn => fn(entry)).filter(v => v != null);
+                return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+            };
+        }, 'mega');
+
+    addCombo('MEGA', 'TÜM SEKMELER', 'MEGA.match-all', 'MEGA · tüm MATCH paketleri',
+        entries => {
+            const fns = combos.filter(c => c.id.endsWith('.combo.match') && c.short !== 'MEGA')
+                .map(c => c.buildScorer(entries));
+            return (entry) => {
+                const vals = fns.map(fn => fn(entry)).filter(v => v != null);
+                return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+            };
+        }, 'mega');
+
+    addCombo('MEGA', 'TÜM SEKMELER', 'MEGA.placement-all', 'MEGA · tüm PLACEMENT paketleri',
+        entries => {
+            const fns = combos.filter(c => c.id.endsWith('.combo.placement') && c.short !== 'MEGA')
+                .map(c => c.buildScorer(entries));
+            return (entry) => {
+                const vals = fns.map(fn => fn(entry)).filter(v => v != null);
+                return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+            };
+        }, 'mega');
+
+    addCombo('MEGA', 'TÜM SEKMELER', 'MEGA.ui-classic-all', 'MEGA · tüm UI-klasik paketleri',
+        entries => {
+            const fns = combos.filter(c => c.id.endsWith('.combo.ui-classic'))
+                .map(c => c.buildScorer(entries));
+            return (entry) => {
+                const vals = fns.map(fn => fn(entry)).filter(v => v != null);
+                return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+            };
+        }, 'mega');
+
+    addCombo('MEGA', 'TÜM SEKMELER', 'MEGA.rank-fusion-all', 'MEGA · 7 sekme rank fusion ortalaması',
+        entries => buildRankFusionScorer(entries, [
+            e => gval(e, 'fieldSize', 'cnt123'),
+            e => gval(e, 'sehir', 'sehirPct'),
+            e => gval(e, 'kcins_kosu', 'matchPct'),
+            e => gval(e, 'taki', 'matchPct'),
+            e => gval(e, 'pist', 'matchPct'),
+            e => gval(e, 'hp', 'matchPct'),
+            e => gval(e, 'siklet', 'matchPct'),
+            e => gval(e, 'taki', 'max123'),
+            e => gval(e, 'pist', 'max123'),
+            e => gval(e, 'fieldSize', 'max123')
+        ]), 'mega');
+
+    return combos;
+}
+
+function evaluateComboRaceLeader(raceGroups, combo, host) {
+    let leaderTotal = 0, b1 = 0, b12 = 0, b123 = 0;
+    for (const entries of raceGroups) {
+        const getScore = combo.buildScorer(entries);
+        const scored = entries.map(e => ({ entry: e, score: getScore(e) }))
+            .filter(s => s.score != null);
+        if (scored.length < 2) continue;
+        scored.sort((a, b) => b.score - a.score || (a.entry.row?.no ?? 0) - (b.entry.row?.no ?? 0));
+        const bitis = host.bitisValueForSort(scored[0].entry);
+        if (bitis == null || bitis < 1) continue;
+        leaderTotal++;
+        if (bitis === 1) b1++;
+        if (bitis <= 2) b12++;
+        if (bitis <= 3) b123++;
+    }
+    return {
+        leaderTotal, b1, b12, b123,
+        leaderBlended: blendedFromCounts(leaderTotal, b1, b12, b123),
+        exactRate: leaderTotal ? b1 / leaderTotal : 0
+    };
+}
+
+function bestSingleForTab(catalog, tab, raceGroups, host) {
+    const singles = catalog.filter(m => m.tab === tab);
+    let best = null;
+    for (const m of singles) {
+        const r = evaluateRaceLeader(raceGroups, m.get, host);
+        if (r.leaderTotal < cli.minRaces) continue;
+        if (!best || r.leaderBlended > best.leaderBlended) {
+            best = { m, ...r };
+        }
+    }
+    return best;
+}
+
+function printComboCompareTable(tabSummaries, tahminBase) {
+    console.log('  ' + pad('SEKME', 18) + pad('EN İYİ TEK', 12) + pad('TEK METRİK', 14)
+        + pad('EN İYİ COMBO', 12) + pad('COMBO', 22) + pad('Δ', 8) + 'TAHMİN');
+    console.log('  ' + '-'.repeat(96));
+    for (const row of tabSummaries) {
+        const delta = row.combo && row.single
+            ? row.combo.leaderBlended - row.single.leaderBlended : 0;
+        const deltaStr = delta > 0.005 ? '+' + pct(delta) : (delta < -0.005 ? pct(delta) : '—');
+        console.log('  ' + pad(row.tab.slice(0, 18), 18)
+            + pad(row.single ? pct(row.single.leaderBlended) : '—', 12)
+            + pad(row.single ? row.single.m.col : '—', 14)
+            + pad(row.combo ? pct(row.combo.leaderBlended) : '—', 12)
+            + pad(row.combo ? row.combo.label.slice(0, 22) : '—', 22)
+            + pad(deltaStr, 8)
+            + (tahminBase ? pct(tahminBase.leaderBlended) : '—'));
+    }
 }
 
 function blendedFromCounts(total, b1, b12, b123) {
@@ -694,8 +982,115 @@ async function main() {
             printRaceForensics(raceGroups, host, catalog, tahminBase);
         }
 
+        const comboCatalog = buildComboCatalog();
+        let comboResults = [];
+        let tabSummaries = [];
+
+        if (hasPhase('combo') || hasPhase('compare')) {
+            hr('10. SEKME BİRLEŞİK SKORLAR — tek metrik vs varyasyon vs bütün');
+            console.log('  Her sekmede birden fazla sütun birleştirilir (normalize ağırlıklı / rank fusion)');
+            console.log('  Kombinasyon sayısı: ' + comboCatalog.length);
+
+            comboResults = comboCatalog.map(c => ({
+                combo: c,
+                ...evaluateComboRaceLeader(raceGroups, c, host)
+            })).filter(r => r.leaderTotal >= cli.minRaces)
+                .sort((a, b) => b.leaderBlended - a.leaderBlended);
+
+            for (const tg of TAB_GROUPS) {
+                sub(tg.tab + ' — tek vs birleşik');
+                const singleBest = bestSingleForTab(catalog, tg.tab, raceGroups, host);
+                const tabCombos = comboResults.filter(r => r.combo.tab === tg.tab);
+                const bestCombo = tabCombos[0] || null;
+
+                if (singleBest) {
+                    console.log('  EN İYİ TEK     : ' + pad(singleBest.m.col, 10)
+                        + ' karışık ' + pct(singleBest.leaderBlended)
+                        + ' · 1. ' + pct(singleBest.exactRate) + ' · n=' + singleBest.leaderTotal);
+                }
+                if (bestCombo) {
+                    const gain = singleBest
+                        ? bestCombo.leaderBlended - singleBest.leaderBlended : 0;
+                    console.log('  EN İYİ COMBO   : ' + pad(bestCombo.combo.label.slice(0, 40), 42)
+                        + ' karışık ' + pct(bestCombo.leaderBlended)
+                        + ' · 1. ' + pct(bestCombo.exactRate)
+                        + (gain > 0.005 ? ' · Δ+' + pct(gain) : ''));
+                }
+                console.log('  Tüm varyasyonlar:');
+                for (const r of tabCombos) {
+                    const gain = singleBest ? r.leaderBlended - singleBest.leaderBlended : 0;
+                    console.log('    ' + pad(r.combo.label.slice(0, 38), 40)
+                        + ' karışık ' + pad(pct(r.leaderBlended), 7)
+                        + ' · 1. ' + pad(pct(r.exactRate), 7)
+                        + (gain > 0.005 ? ' · Δ+' + pct(gain) : '')
+                        + ' · n=' + r.leaderTotal);
+                }
+                tabSummaries.push({
+                    tab: tg.tab,
+                    single: singleBest,
+                    combo: bestCombo ? { label: bestCombo.combo.label, ...bestCombo } : null
+                });
+            }
+
+            sub('MEGA — çapraz sekme birleşik');
+            const megaCombos = comboResults.filter(r => r.combo.kind === 'mega');
+            const bestSingleGlobal = catalog.map(m => ({
+                m, ...evaluateRaceLeader(raceGroups, m.get, host)
+            })).filter(r => r.leaderTotal >= cli.minRaces)
+                .sort((a, b) => b.leaderBlended - a.leaderBlended)[0];
+
+            for (const r of megaCombos) {
+                const vsSingle = bestSingleGlobal
+                    ? r.leaderBlended - bestSingleGlobal.leaderBlended : 0;
+                const vsTahmin = tahminBase ? r.leaderBlended - tahminBase.leaderBlended : 0;
+                console.log('  ' + pad(r.combo.label.slice(0, 38), 40)
+                    + ' karışık ' + pad(pct(r.leaderBlended), 7)
+                    + ' · 1. ' + pad(pct(r.exactRate), 7)
+                    + (vsSingle > 0.005 ? ' · vsTek+' + pct(vsSingle) : '')
+                    + (vsTahmin > 0.005 ? ' · vsTAH+' + pct(vsTahmin) : '')
+                    + ' · n=' + r.leaderTotal);
+            }
+            tabSummaries.push({
+                tab: 'MEGA (çapraz)',
+                single: bestSingleGlobal,
+                combo: megaCombos[0] ? { label: megaCombos[0].combo.label, ...megaCombos[0] } : null
+            });
+        }
+
+        if (hasPhase('compare') && tabSummaries.length) {
+            hr('11. KARŞILAŞTIRMA ÖZET — TEK vs COMBO vs TAHMİN');
+            printComboCompareTable(tabSummaries, tahminBase);
+
+            sub('En iyi birleşik skorlar (genel TOP ' + cli.top + ')');
+            comboResults.slice(0, cli.top).forEach((r, i) => {
+                console.log('  ' + pad(String(i + 1) + '.', 4) + pad(r.combo.label.slice(0, 42), 44)
+                    + ' karışık ' + pad(pct(r.leaderBlended), 7)
+                    + ' · 1. ' + pad(pct(r.exactRate), 7)
+                    + ' · n=' + r.leaderTotal);
+            });
+
+            if (tahminBase && comboResults.length) {
+                const bestCombo = comboResults[0];
+                const bestSingleAll = tabSummaries.find(t => t.tab === 'MEGA (çapraz)')?.single
+                    || catalog.map(m => ({
+                        m, ...evaluateRaceLeader(raceGroups, m.get, host)
+                    })).filter(r => r.leaderTotal >= cli.minRaces)
+                        .sort((a, b) => b.leaderBlended - a.leaderBlended)[0];
+                console.log('\n  Sonuç:');
+                console.log('    TAHMİN hybrid     : ' + pct(tahminBase.leaderBlended));
+                if (bestSingleAll) {
+                    console.log('    En iyi tek metrik : ' + pct(bestSingleAll.leaderBlended)
+                        + ' (' + (bestSingleAll.m?.label || '—') + ')');
+                }
+                console.log('    En iyi combo      : ' + pct(bestCombo.leaderBlended)
+                    + ' (' + bestCombo.combo.label + ')');
+                const comboVsTahmin = bestCombo.leaderBlended - tahminBase.leaderBlended;
+                console.log('    Combo vs TAHMİN   : ' + (comboVsTahmin >= 0 ? '+' : '') + pct(comboVsTahmin));
+            }
+        }
+
         if (hasPhase('plan') && tahminBase) {
-            hr('9. TAHMİN SKORU — entegrasyon önceliği');
+            hr('12. TAHMİN SKORU — entegrasyon önceliği');
             const leaderResults = catalog.map(m => ({
                 m, ...evaluateRaceLeader(raceGroups, m.get, host)
             })).filter(r => r.leaderTotal >= cli.minRaces)
@@ -729,9 +1124,19 @@ async function main() {
                 console.log('    ▲ ' + r.m.label + ' · Δ=' + formatMetricVal(r.delta)
                     + ' (1.ort=' + formatMetricVal(r.winAvg) + ')');
             });
+
+            console.log('\n  Öncelik 4 — sekme birleşik skorlar (combo):');
+            if (comboResults.length) {
+                comboResults.slice(0, 8).forEach(r => {
+                    console.log('    ◈ ' + r.combo.label + ' → ' + pct(r.leaderBlended)
+                        + ' (+' + pct(r.leaderBlended - tahminBase.leaderBlended) + ' vs TAHMİN)');
+                });
+            }
         }
 
-        console.log('\nOK · ' + catalog.length + ' metrik · ' + raceGroups.length + ' koşu · ' + withBitis.length + ' BİTİŞ');
+        const comboCount = comboCatalog ? comboCatalog.length : 0;
+        console.log('\nOK · ' + catalog.length + ' tek metrik · ' + comboCount + ' combo · '
+            + raceGroups.length + ' koşu · ' + withBitis.length + ' BİTİŞ');
     } finally {
         db.close();
     }
