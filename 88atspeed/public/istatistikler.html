@@ -1050,12 +1050,12 @@
 <script src="js/field-size-stats-engine.js?v=20260830c"></script>
 <script src="js/sehir-stats-engine.js?v=20260830c"></script>
 <script src="js/kosu-dimension-stats-engine.js?v=20260830c"></script>
-<script src="js/dimension-tahmin-boost-engine.js?v=20260830d"></script>
-<script src="js/hybrid-tahmin-scoring-engine.js?v=20260830d"></script>
+<script src="js/dimension-tahmin-boost-engine.js?v=20260830e"></script>
+<script src="js/hybrid-tahmin-scoring-engine.js?v=20260830e"></script>
 <script src="js/ptest-field-factor-engine.js?v=20260830c"></script>
 <script src="js/ptest-field-adaptive-engine.js?v=20260830c"></script>
 <script>
-const ISTAT_BUILD = '20260830d';
+const ISTAT_BUILD = '20260830e';
 const TAHMIN_METRIC_ALL = '__hepsi__';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
@@ -1738,10 +1738,17 @@ async function ensureHybridTahminCalibration(force) {
             const summary = await HybridTahminScoringEngine.loadAndCalibrateFromApi?.(buildIstatBitisStatsFromEntries);
             if (statusEl) {
                 if (summary?.blendList?.length) {
+                    const db = summary.dimensionBlend;
+                    let dimNote = '';
+                    if (db?.dimPct != null) {
+                        dimNote = ' · Boyut %' + db.dimPct + '/' + (db.hybridPct ?? (100 - db.dimPct));
+                        if (db.lowSample) dimNote += ' (n=' + (db.raceCount ?? '?') + ')';
+                    }
                     statusEl.textContent = '✅ Hibrit TAHMİN aktif · Karışık '
                         + (summary.hybridBlended != null
                             ? (Math.round(summary.hybridBlended * 1000) / 10).toFixed(1) + '%'
                             : '—')
+                        + dimNote
                         + ' · ' + summary.blendList.length + ' at sayısı profili';
                 } else {
                     statusEl.textContent = '⚠️ Yeterli bitiş yok — varsayılan ağırlıklar kullanılır';

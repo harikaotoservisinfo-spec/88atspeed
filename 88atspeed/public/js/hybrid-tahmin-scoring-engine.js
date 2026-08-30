@@ -680,6 +680,14 @@ const HybridTahminScoringEngine = (function () {
         const blend = calibrateBlendWeights(flatEntries, bitisValueForSort);
         const hybridStats = evaluateEngineOnFlat(flatEntries, bitisValueForSort, 'hybrid');
 
+        let dimensionBlend = null;
+        if (typeof DimensionTahminBoostEngine !== 'undefined'
+            && DimensionTahminBoostEngine.calibrateBlendFromFlatEntries) {
+            dimensionBlend = DimensionTahminBoostEngine.calibrateBlendFromFlatEntries(
+                flatEntries, bitisValueForSort
+            );
+        }
+
         calibration = {
             version: PROFILE_VERSION,
             builtAt: Date.now(),
@@ -688,6 +696,7 @@ const HybridTahminScoringEngine = (function () {
             hybridBlended: hybridStats.leaderBlended,
             hybridExactRate: hybridStats.exactRate,
             hybridLeaderTotal: hybridStats.leaderTotal,
+            dimensionBlend,
             basariSummary: BasariPctScoringEngine.getCalibrationSummary?.()
         };
         saveCalibration();
@@ -718,6 +727,7 @@ const HybridTahminScoringEngine = (function () {
                 globalMode: calibration.globalMode,
                 gostergeProfiles: calibration.gostergeProfiles,
                 hybridBlended: calibration.hybridBlended,
+                dimensionBlend: calibration.dimensionBlend,
                 builtAt: calibration.builtAt
             }));
             return true;
@@ -736,6 +746,13 @@ const HybridTahminScoringEngine = (function () {
             calibration = parsed;
             gostergeProfiles = parsed.gostergeProfiles || null;
             if (gostergeProfiles) GostergeScoringEngine.setFieldAdaptiveProfiles?.(gostergeProfiles);
+            if (parsed.dimensionBlend?.dimWeight != null
+                && typeof DimensionTahminBoostEngine !== 'undefined') {
+                DimensionTahminBoostEngine.setBlendWeights(
+                    parsed.dimensionBlend.hybridWeight ?? (1 - parsed.dimensionBlend.dimWeight),
+                    parsed.dimensionBlend.dimWeight
+                );
+            }
             return calibration;
         } catch (_) {
             return null;
@@ -771,10 +788,25 @@ const HybridTahminScoringEngine = (function () {
                 if (p.fieldSize === 10) s += ' · terminal profili';
                 return s;
             });
+        let dimLine = '';
+        const db = calibration.dimensionBlend;
+        if (db?.dimPct != null) {
+            dimLine = '<br><span style="color:#2e7d32;font-size:11px">Boyut blend: %'
+                + db.dimPct + ' boyut · %' + (db.hybridPct ?? (100 - db.dimPct)) + ' hybrid';
+            if (db.leaderBlended != null) {
+                dimLine += ' · karışık ' + pct(db.leaderBlended);
+                if (db.gainVsBaseline != null && db.gainVsBaseline > 0) {
+                    dimLine += ' (+' + pct(db.gainVsBaseline) + ' vs saf hybrid)';
+                }
+            }
+            if (db.lowSample) dimLine += ' · ⚠ az koşu (n=' + (db.raceCount ?? '?') + ')';
+            dimLine += '</span>';
+        }
         return '<strong>Hibrit TAHMİN aktif</strong> · Karışık ' + pct(calibration.hybridBlended)
+            + dimLine
             + '<br>' + parts.join(' · ')
             + '<br><span style="color:#789;font-size:10px">Mod seçimi: koşu &lt; '
-            + MIN_RACES_FOR_MODE + ' → global · veri doluluk ayarı · 10-at terminal profili</span>';
+            + MIN_RACES_FOR_MODE + ' → global · boyut payı BİTİŞ verisinden kalibre · 10-at profili</span>';
     }
 
     if (typeof localStorage !== 'undefined') loadCalibration();

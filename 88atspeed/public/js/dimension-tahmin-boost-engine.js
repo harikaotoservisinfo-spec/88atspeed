@@ -6,9 +6,11 @@
 const DimensionTahminBoostEngine = (function () {
     /** Eski çarpan — sıra değiştirmiyordu; blend ile değiştirildi */
     const MAX_TOTAL_BOOST = 0.18;
-    /** Hybrid taban skor + boyut norm (0–100) karışımı — terminal sweep: en iyi boyut %9 */
-    let hybridWeight = 0.91;
-    let dimWeight = 0.09;
+    /** Hybrid taban skor + boyut norm (0–100) karışımı — kalibrasyon ile güncellenir */
+    const DEFAULT_DIM_WEIGHT = 0.09;
+    const SUCCESS_BLEND = { b1: 0.80, b12: 0.12, b123: 0.08 };
+    let hybridWeight = 1 - DEFAULT_DIM_WEIGHT;
+    let dimWeight = DEFAULT_DIM_WEIGHT;
     let enabled = true;
 
     function getBlendWeights() {
@@ -325,9 +327,157 @@ const DimensionTahminBoostEngine = (function () {
         return pkg;
     }
 
+    function pickScoredLeader(scored) {
+        if (!scored || scored.length < 2) return null;
+        scored.sort((a, b) => b.score - a.score || (a.entry.row?.no ?? 0) - (b.entry.row?.no ?? 0));
+        if (scored[0].score === scored[1].score) return null;
+        return scored[0];
+    }
+
+    function evaluateLeaderSuccess(raceGroups, bitisValueForSort) {
+        let leaderTotal = 0, b1 = 0, b12 = 0, b123 = 0;
+        for (const entries of raceGroups) {
+            const scored = entries.map(e => ({
+                entry: e,
+                score: e.row?.tahmin?.score ?? null
+            })).filter(s => s.score != null);
+            const leader = pickScoredLeader(scored);
+            if (!leader) continue;
+            const bitis = bitisValueForSort(leader.entry);
+            if (bitis == null || bitis < 1) continue;
+            leaderTotal++;
+            if (bitis === 1) b1++;
+            if (bitis <= 2) b12++;
+            if (bitis <= 3) b123++;
+        }
+        const leaderBlended = leaderTotal
+            ? SUCCESS_BLEND.b1 * (b1 / leaderTotal)
+                + SUCCESS_BLEND.b12 * (b12 / leaderTotal)
+                + SUCCESS_BLEND.b123 * (b123 / leaderTotal)
+            : 0;
+        return {
+            leaderTotal, b1, b12, b123,
+            leaderBlended,
+            exactRate: leaderTotal ? b1 / leaderTotal : 0,
+            top3Rate: leaderTotal ? b123 / leaderTotal : 0
+        };
+    }
+
+    function buildSweepSteps(_raceCount) {
+        const steps = new Set();
+        for (let d = 0; d <= 50; d++) steps.add(d);
+        for (let d = 55; d <= 100; d += 5) steps.add(d);
+        return [...steps].sort((a, b) => a - b);
+    }
+
+    function clearRaceTahminState(raceGroups) {
+        for (const entries of raceGroups) {
+            for (const e of entries) {
+                delete e.row?.tahmin;
+                delete e.row?._dim;
+            }
+        }
+    }
+
+    function attachTahminForDimPct(raceGroups, dimPct) {
+        const dimW = dimPct / 100;
+        setBlendWeights(1 - dimW, dimW);
+        setEnabled(dimW > 0);
+        if (typeof HybridTahminScoringEngine === 'undefined') return;
+        for (const entries of raceGroups) {
+            const rows = entries.map(e => e.row);
+            const pkg = {
+                rows,
+                skipDimensionBoost: true,
+                hedefSehir: entries[0]?._pkg?.hedefSehir || entries[0]?.hipodrom || null,
+                depthCoverage: entries[0]?._pkg?.depthCoverage || null,
+                kosuHistorySummary: entries[0]?._pkg?.kosuHistorySummary || null
+            };
+            HybridTahminScoringEngine.attachRaceTahmin(pkg);
+            if (dimW > 0) {
+                pkg.forceDimensionBoost = true;
+                applyBoostToPkg(pkg);
+            }
+        }
+    }
+
+    /**
+     * BİTİŞ verisi üzerinde boyut payını tarar — hybrid kalibrasyonundan sonra çağrılır.
+     * Az koşuda (≤12) 0–50 arası 1'er puan, geniş veride 5'er puan.
+     */
+    function calibrateBlendFromFlatEntries(flatEntries, bitisValueForSort) {
+        if (!flatEntries?.length || !bitisValueForSort) return null;
+        if (typeof HybridTahminScoringEngine === 'undefined'
+            || !HybridTahminScoringEngine.isCalibrated?.()) {
+            return null;
+        }
+
+        const withBitis = flatEntries.filter(e => {
+            const b = bitisValueForSort(e);
+            return b != null && b >= 1;
+        });
+        const raceMap = new Map();
+        for (const e of withBitis) {
+            const rk = String(e.kayitId) + '|' + e.raceNo;
+            if (!raceMap.has(rk)) raceMap.set(rk, []);
+            raceMap.get(rk).push(e);
+        }
+        const raceGroups = [...raceMap.values()];
+        if (raceGroups.length < 3) {
+            setBlendWeights(1 - DEFAULT_DIM_WEIGHT, DEFAULT_DIM_WEIGHT);
+            return {
+                hybridWeight: 1 - DEFAULT_DIM_WEIGHT,
+                dimWeight: DEFAULT_DIM_WEIGHT,
+                dimPct: Math.round(DEFAULT_DIM_WEIGHT * 100),
+                hybridPct: Math.round((1 - DEFAULT_DIM_WEIGHT) * 100),
+                source: 'default-min-races',
+                raceCount: raceGroups.length
+            };
+        }
+
+        const steps = buildSweepSteps(raceGroups.length);
+        let best = null;
+        let baseline = null;
+
+        for (const dimPct of steps) {
+            clearRaceTahminState(raceGroups);
+            attachTahminForDimPct(raceGroups, dimPct);
+            const stats = evaluateLeaderSuccess(raceGroups, bitisValueForSort);
+            const row = Object.assign({ dimPct, hybridPct: 100 - dimPct }, stats);
+            if (dimPct === 0) baseline = row;
+            if (!best
+                || row.leaderBlended > best.leaderBlended
+                || (row.leaderBlended === best.leaderBlended && row.exactRate > best.exactRate)) {
+                best = row;
+            }
+        }
+
+        const dimW = best.dimPct / 100;
+        setBlendWeights(1 - dimW, dimW);
+        setEnabled(dimW > 0);
+
+        return {
+            hybridWeight: 1 - dimW,
+            dimWeight: dimW,
+            dimPct: best.dimPct,
+            hybridPct: best.hybridPct,
+            leaderBlended: best.leaderBlended,
+            exactRate: best.exactRate,
+            top3Rate: best.top3Rate,
+            leaderTotal: best.leaderTotal,
+            baselineBlended: baseline?.leaderBlended ?? null,
+            gainVsBaseline: baseline ? best.leaderBlended - baseline.leaderBlended : null,
+            raceCount: raceGroups.length,
+            bitisRows: withBitis.length,
+            lowSample: raceGroups.length < 15,
+            source: 'calibrated-sweep'
+        };
+    }
+
     return {
         ROUTES,
         MAX_TOTAL_BOOST,
+        DEFAULT_DIM_WEIGHT,
         get HYBRID_WEIGHT() { return hybridWeight; },
         get DIM_WEIGHT() { return dimWeight; },
         getBlendWeights,
@@ -341,7 +491,10 @@ const DimensionTahminBoostEngine = (function () {
         applyBoostToPkg,
         syncTahminOzeti,
         countBoostCoverage,
-        resetBoostState
+        resetBoostState,
+        calibrateBlendFromFlatEntries,
+        attachTahminForDimPct,
+        evaluateLeaderSuccess
     };
 })();
 
