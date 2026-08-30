@@ -145,8 +145,11 @@ function buildWindowRankFusionScorer(catalog, tg, windowSize, entries) {
     const keys = tg.group === 'fieldSize' ? WINDOW_CORE_KEYS.fieldSize
         : tg.group === 'sehir' ? WINDOW_CORE_KEYS.sehir
             : WINDOW_CORE_KEYS.default;
-    const matchKeys = keys.filter(k => k.includes('Pct') || k.includes('Count') || k === 'matchHitPct');
-    const getters = matchKeys.map(k => {
+    const rfKeys = keys.filter(k =>
+        k.includes('Pct') || k.includes('Count') || k === 'matchHitPct'
+        || k.startsWith('cnt') || k === 'kosuSayisi' || k.includes('rate')
+    ).slice(0, 5);
+    const getters = rfKeys.map(k => {
         const m = catalogMetric(catalog, tg.short, k, windowSize);
         return m ? e => m.get(e) : null;
     }).filter(Boolean);
@@ -158,7 +161,8 @@ function printWindowCorrelationPhase(catalog, raceGroups, withBitis, host, minRa
     hr('PENCERE KORELASYONU — TÜM vs S5→S1 · BİTİŞ başarısı');
     console.log('  Her sekme kendi metrikleriyle analiz edilir.');
     console.log('  Karışık = 80/12/8 (★/◆/·). Δ(S1-TÜM) pozitif → son 1 koşu sinyali daha başarılı.');
-    console.log('  Eğim > 0 → yakın pencereye indikçe lider isabeti artıyor.\n');
+    console.log('  Eğim > 0 → yakın pencereye indikçe lider isabeti artıyor.');
+    console.log('  minRaces=' + minRaces + ' · parantez = kullanılabilir koşu (beraberlik atlanır)\n');
 
     if (tahminBase) {
         console.log('  TAHMİN referans: karışık ' + pct(tahminBase.leaderBlended)
@@ -196,11 +200,8 @@ function printWindowCorrelationPhase(catalog, raceGroups, withBitis, host, minRa
                     continue;
                 }
                 const r = evaluateRaceLeader(raceGroups, m.get, host);
-                if (r.leaderTotal < minRaces) {
-                    cells.push(pad('n<' + minRaces, 8));
-                    continue;
-                }
-                cells.push(pad(pct(r.leaderBlended), 8));
+                cells.push(formatLeaderCell(r, minRaces));
+                if (r.leaderTotal < minRaces) continue;
                 const wKey = w == null ? 'all' : w;
                 scoresByWindow[wKey] = r.leaderBlended;
                 if (w == null) allScore = r.leaderBlended;
@@ -404,9 +405,16 @@ function hasPhase(p) { return cli.phases.includes(p); }
 
 function effectiveMinRaces(raceCount) {
     if (argVal('--min-races') != null) return cli.minRaces;
-    if (cli.raceNo) return 1;
+    if (cli.raceNo || cli.windows) return 1;
     if (raceCount < cli.minRaces) return Math.max(1, raceCount);
     return cli.minRaces;
+}
+
+function formatLeaderCell(r, minRaces) {
+    if (!r.leaderTotal) return pad('tie', 8);
+    if (r.leaderTotal < minRaces) return pad('n<' + minRaces, 8);
+    const s = pct(r.leaderBlended);
+    return pad(r.leaderTotal < 7 ? s + '(' + r.leaderTotal + ')' : s, 8);
 }
 
 /** Üst skor beraberlikte (özellikle hepsi 0) en düşük at no ile sahte lider seçme */

@@ -29,7 +29,7 @@
     "test:dimension-finish": "node scripts/test-dimension-finish-correlation.js --db atlar.db",
     "test:dimension-per-race": "node scripts/test-dimension-finish-correlation.js --db atlar.db --all-races",
     "test:dimension-context": "node scripts/test-dimension-finish-correlation.js --db atlar.db --context",
-    "test:dimension-windows": "node scripts/test-dimension-finish-correlation.js --db atlar.db --windows",
+    "test:dimension-windows": "node scripts/test-dimension-finish-correlation.js --db atlar.db --windows --min-races 1",
     "test:near-miss-race": "node scripts/test-near-miss-report.js --db atlar.db --kayit 133 --race 6 --verbose"
   },
   "dependencies": {
