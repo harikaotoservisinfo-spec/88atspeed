@@ -1,15 +1,21 @@
 #!/usr/bin/env node
 /**
- * Test sekmeleri (AT SAYISI, ŞEHİR, KCİNS, TAKİ, PİST, HP, SİKLET) ↔ BİTİŞ korelasyon raporu
+ * Test sekmeleri — EKSAUSTİF BİTİŞ korelasyon raporu
  *
- * Her boyut için:
- *  - Koşu lideri: alan içinde en yüksek göstergeye sahip atın gerçek bitişi (80/12/8 karışık)
- *  - Bucket: yüksek gösterge grubunun 1./1-2/1-3 oranları
- *  - Mevcut TAHMİN (hybrid) ile karşılaştırma
+ * UI'daki TÜM sütunları test eder (KOŞU, %, MAX-*, cnt*, eşleşme oranı):
+ *   KOŞU AT SAYISI · ŞEHİR · KCİNS · TAKİ · PİST · HP · SİKLET
+ *
+ * Analiz türleri:
+ *   A) Koşu lideri — alan içinde metrik liderinin BİTİŞ'i
+ *   B) Bucket taraması — eşik ≥X gruplarının BİTİŞ dağılımı
+ *   C) Sıralama korelasyonu — metrik sırası ↔ BİTİŞ sırası (Spearman)
+ *   D) Kazanan profili — 1. bitiren vs diğerleri ortalama metrik
+ *   E) Koşu forensics — --race ile at-at tüm sütunlar + BİTİŞ
  *
  *   node scripts/test-dimension-finish-correlation.js --db atlar.db
- *   node scripts/test-dimension-finish-correlation.js --field-size 10 --verbose
- *   node scripts/test-dimension-finish-correlation.js --kayit 133 --race 6 -v
+ *   node scripts/test-dimension-finish-correlation.js --race 1 -v
+ *   node scripts/test-dimension-finish-correlation.js --list-kayitlar
+ *   node scripts/test-dimension-finish-correlation.js --phase leader,bucket,corr,winner,race
  */
 const fs = require('fs');
 const path = require('path');
@@ -32,48 +38,146 @@ function argVal(flag) {
     return i >= 0 ? args[i + 1] : null;
 }
 
+const phasesRaw = argVal('--phase') || 'all';
 const cli = {
     dbPath: argVal('--db') || path.join(ROOT, 'atlar.db'),
     kayitId: argVal('--kayit') ? Number(argVal('--kayit')) : null,
     raceNo: argVal('--race') ? Number(argVal('--race')) : null,
     fieldSize: argVal('--field-size') ? Number(argVal('--field-size')) : null,
-    minSample: argVal('--min-sample') ? Number(argVal('--min-sample')) : 8,
-    minRaces: argVal('--min-races') ? Number(argVal('--min-races')) : 5,
+    minSample: argVal('--min-sample') ? Number(argVal('--min-sample')) : 5,
+    minRaces: argVal('--min-races') ? Number(argVal('--min-races')) : 3,
+    top: argVal('--top') ? Number(argVal('--top')) : 25,
     verbose: args.includes('--verbose') || args.includes('-v'),
-    engine: (argVal('--engine') || 'hybrid').toLowerCase()
+    listKayitlar: args.includes('--list-kayitlar'),
+    engine: (argVal('--engine') || 'hybrid').toLowerCase(),
+    phases: phasesRaw === 'all'
+        ? ['leader', 'bucket', 'corr', 'winner', 'agree', 'segment', 'race', 'plan']
+        : phasesRaw.split(',').map(s => s.trim()).filter(Boolean)
 };
 
 const SUCCESS_BLEND = { b1: 0.80, b12: 0.12, b123: 0.08 };
 
+const TAB_GROUPS = [
+    { group: 'fieldSize', tab: 'KOŞU AT SAYISI', short: 'AS' },
+    { group: 'sehir', tab: 'ŞEHİR DURUMU', short: 'SH' },
+    { group: 'kcins_kosu', tab: 'KOŞU CİNSİ', short: 'KC' },
+    { group: 'taki', tab: 'TAKİ', short: 'TK' },
+    { group: 'pist', tab: 'PİST', short: 'PS' },
+    { group: 'hp', tab: 'HP', short: 'HP' },
+    { group: 'siklet', tab: 'SİKLET', short: 'SK' }
+];
+
+const PLACEMENT_KEYS = [
+    { key: 'max1', col: 'MAX-1' },
+    { key: 'max12', col: 'MAX-12' },
+    { key: 'max123', col: 'MAX-123' },
+    { key: 'max1234', col: 'MAX-1234' },
+    { key: 'cnt1', col: '1.' },
+    { key: 'cnt12', col: '1-2' },
+    { key: 'cnt123', col: '1-2-3' },
+    { key: 'cnt1234', col: '1-2-3-4' }
+];
+
 function hr(t) { console.log('\n══ ' + t + ' ══'); }
 function sub(t) { console.log('\n── ' + t + ' ──'); }
+function hasPhase(p) { return cli.phases.includes(p); }
 
 function loadAllEngines() {
     loadGostergeEngines();
-    eval(fs.readFileSync(path.join(ROOT, 'public/js/at-meta-fields.js'), 'utf8')
-        + '\n; global.AtMetaFields = AtMetaFields;');
-    eval(fs.readFileSync(path.join(ROOT, 'public/js/field-size-stats-engine.js'), 'utf8')
-        + '\n; global.FieldSizeStatsEngine = FieldSizeStatsEngine;');
-    eval(fs.readFileSync(path.join(ROOT, 'public/js/sehir-stats-engine.js'), 'utf8')
-        + '\n; global.SehirStatsEngine = SehirStatsEngine;');
-    eval(fs.readFileSync(path.join(ROOT, 'public/js/kosu-dimension-stats-engine.js'), 'utf8')
-        + '\n; global.KosuDimensionStatsEngine = KosuDimensionStatsEngine;');
-    eval(fs.readFileSync(path.join(ROOT, 'public/js/basari-pct-scoring-engine.js'), 'utf8')
-        + '\n; global.BasariPctScoringEngine = BasariPctScoringEngine;');
-    eval(fs.readFileSync(path.join(ROOT, 'public/js/hybrid-tahmin-scoring-engine.js'), 'utf8')
-        + '\n; global.HybridTahminScoringEngine = HybridTahminScoringEngine;');
+    for (const f of [
+        'at-meta-fields.js', 'field-size-stats-engine.js', 'sehir-stats-engine.js',
+        'kosu-dimension-stats-engine.js', 'basari-pct-scoring-engine.js', 'hybrid-tahmin-scoring-engine.js'
+    ]) {
+        const name = f.replace('.js', '').split('-').map((w, i) =>
+            i === 0 ? w : w.charAt(0).toUpperCase() + w.slice(1)).join('');
+        const gname = name.split('-').map((w, i) =>
+            i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w.charAt(0).toUpperCase() + w.slice(1)).join('');
+        // simpler: map known globals
+    }
+    eval(fs.readFileSync(path.join(ROOT, 'public/js/at-meta-fields.js'), 'utf8') + '\n; global.AtMetaFields = AtMetaFields;');
+    eval(fs.readFileSync(path.join(ROOT, 'public/js/field-size-stats-engine.js'), 'utf8') + '\n; global.FieldSizeStatsEngine = FieldSizeStatsEngine;');
+    eval(fs.readFileSync(path.join(ROOT, 'public/js/sehir-stats-engine.js'), 'utf8') + '\n; global.SehirStatsEngine = SehirStatsEngine;');
+    eval(fs.readFileSync(path.join(ROOT, 'public/js/kosu-dimension-stats-engine.js'), 'utf8') + '\n; global.KosuDimensionStatsEngine = KosuDimensionStatsEngine;');
+    eval(fs.readFileSync(path.join(ROOT, 'public/js/basari-pct-scoring-engine.js'), 'utf8') + '\n; global.BasariPctScoringEngine = BasariPctScoringEngine;');
+    eval(fs.readFileSync(path.join(ROOT, 'public/js/hybrid-tahmin-scoring-engine.js'), 'utf8') + '\n; global.HybridTahminScoringEngine = HybridTahminScoringEngine;');
 }
 
 function blendedFromCounts(total, b1, b12, b123) {
     if (!total) return 0;
-    const blend = SUCCESS_BLEND;
-    return blend.b1 * (b1 / total) + blend.b12 * (b12 / total) + blend.b123 * (b123 / total);
+    return SUCCESS_BLEND.b1 * (b1 / total) + SUCCESS_BLEND.b12 * (b12 / total) + SUCCESS_BLEND.b123 * (b123 / total);
 }
 
 function blendedFromStats(stats) {
     const t = stats.withBitis || 0;
     if (!t) return 0;
     return blendedFromCounts(t, stats.b1, stats.b12, stats.b123);
+}
+
+function buildMetricCatalog() {
+    const catalog = [];
+    function add(group, key, col, tab, short) {
+        catalog.push({
+            group, key, col, tab, short,
+            id: short + '.' + key,
+            label: tab + ' · ' + col,
+            get: e => getMetric(e, group, key)
+        });
+    }
+    for (const tg of TAB_GROUPS) {
+        add(tg.group, 'kosuSayisi', 'KOŞU', tg.tab, tg.short);
+        if (tg.group === 'sehir') {
+            add('sehir', 'sehirPct', 'ŞEH%', tg.tab, tg.short);
+            add('sehir', 'inCityCount', 'Ş-KOŞU', tg.tab, tg.short);
+        } else if (tg.group !== 'fieldSize') {
+            const pctCol = tg.group === 'kcins_kosu' ? 'KC%'
+                : tg.group === 'taki' ? 'TK%'
+                    : tg.group === 'pist' ? 'PİST%'
+                        : tg.group === 'hp' ? 'HP%'
+                            : tg.group === 'siklet' ? 'SK%' : '%';
+            const cntCol = tg.group === 'kcins_kosu' ? 'KC-KOŞU'
+                : tg.group === 'taki' ? 'TK-KOŞU'
+                    : tg.group === 'pist' ? 'P-KOŞU'
+                        : tg.group === 'hp' ? 'HP-KOŞU'
+                            : tg.group === 'siklet' ? 'SK-KOŞU' : 'MATCH-KOŞU';
+            add(tg.group, 'matchPct', pctCol, tg.tab, tg.short);
+            add(tg.group, 'matchCount', cntCol, tg.tab, tg.short);
+        }
+        for (const p of PLACEMENT_KEYS) {
+            add(tg.group, p.key, p.col, tg.tab, tg.short);
+        }
+        if (tg.group !== 'fieldSize') {
+            catalog.push({
+                group: tg.group, key: 'matchHitPct', col: 'EŞLEŞME%', tab: tg.tab, short: tg.short,
+                id: tg.short + '.matchHitPct',
+                label: tg.tab + ' · EŞLEŞME%',
+                get: e => getMatchHitPct(e, tg.group)
+            });
+        }
+    }
+    // türev metrikler
+    catalog.push({
+        group: 'fieldSize', key: '_cnt123rate', col: 'cnt123/KOŞU', tab: 'KOŞU AT SAYISI', short: 'AS',
+        id: 'AS.cnt123rate', label: 'KOŞU AT SAYISI · cnt123/KOŞU',
+        get: e => {
+            const k = getMetric(e, 'fieldSize', 'kosuSayisi');
+            const c = getMetric(e, 'fieldSize', 'cnt123');
+            return k > 0 && c != null ? c / k : null;
+        }
+    });
+    for (const g of ['kcins_kosu', 'taki', 'pist', 'hp', 'siklet', 'sehir']) {
+        const tg = TAB_GROUPS.find(t => t.group === g);
+        catalog.push({
+            group: g, key: '_max123xpct', col: 'max123×%', tab: tg.tab, short: tg.short,
+            id: tg.short + '.max123xpct',
+            label: tg.tab + ' · max123×match%',
+            get: e => {
+                const m = getMetric(e, g, 'max123');
+                const p = g === 'sehir' ? getMetric(e, g, 'sehirPct') : getMetric(e, g, 'matchPct');
+                return m != null && p != null ? m * p / 100 : null;
+            }
+        });
+    }
+    return catalog;
 }
 
 async function loadRawHorseLookup(db) {
@@ -89,8 +193,9 @@ async function loadRawHorseLookup(db) {
             const raceNo = race.raceNo || (i + 1);
             if (cli.raceNo && Number(raceNo) !== cli.raceNo) continue;
             for (const horse of race.horses || []) {
-                const key = rowKeyParts(kayit.id, raceNo, horse.no);
-                lookup.set(key, { horse, race, hipodrom: kayit.hipodrom, tarih: kayit.tarih });
+                lookup.set(rowKeyParts(kayit.id, raceNo, horse.no), {
+                    horse, race, hipodrom: kayit.hipodrom, tarih: kayit.tarih, kayitId: kayit.id
+                });
             }
         }
     }
@@ -103,32 +208,44 @@ function computeDimensionBundle(raw) {
     const race = raw?.race || {};
     const hipodrom = raw?.hipodrom || '';
     const horseCtx = Object.assign({}, horse, { kosular });
-    const dims = KosuDimensionStatsEngine.DIMENSIONS;
     const out = {
         fieldSize: FieldSizeStatsEngine.computeStats(kosular),
         sehir: SehirStatsEngine.computeStats(kosular, hipodrom)
     };
-    for (const key of Object.keys(dims)) {
-        const dim = dims[key];
-        const hedef = dim.getTarget(horseCtx, race);
-        out[key] = KosuDimensionStatsEngine.computeStats(kosular, key, hedef);
-        out[key]._hedef = hedef;
+    for (const key of Object.keys(KosuDimensionStatsEngine.DIMENSIONS)) {
+        const dim = KosuDimensionStatsEngine.DIMENSIONS[key];
+        out[key] = KosuDimensionStatsEngine.computeStats(kosular, key, dim.getTarget(horseCtx, race));
     }
-    out._kosuCount = kosular.length;
     return out;
 }
 
 function attachDimensionStats(flatEntries, lookup) {
     let hit = 0;
     for (const entry of flatEntries) {
-        const key = rowKeyParts(entry.kayitId, entry.raceNo, entry.row?.no);
-        const raw = lookup.get(key);
+        const raw = lookup.get(rowKeyParts(entry.kayitId, entry.raceNo, entry.row?.no));
         if (!raw) continue;
         entry._dimRaw = raw;
         entry._dim = computeDimensionBundle(raw);
         hit++;
     }
     return hit;
+}
+
+function getMetric(entry, groupKey, metricKey) {
+    const g = entry._dim?.[groupKey];
+    if (!g) return null;
+    const v = g[metricKey];
+    if (v == null || v === '' || v === '—') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+}
+
+function getMatchHitPct(entry, groupKey) {
+    const str = entry._dim?.[groupKey]?.gecmisMatchStr;
+    if (!str || str === '—') return null;
+    const parts = str.split('→');
+    const hits = parts.filter(p => p.trim() === '✓').length;
+    return parts.length ? Math.round(1000 * hits / parts.length) / 10 : null;
 }
 
 function filterEntries(entries) {
@@ -160,76 +277,113 @@ function buildRaceGroups(entries) {
     return [...map.values()];
 }
 
-function getMetric(entry, groupKey, metricKey) {
-    const g = entry._dim?.[groupKey];
-    if (!g) return null;
-    const v = g[metricKey];
-    if (v == null || v === '' || v === '—') return null;
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
-}
-
-function evaluateRaceLeader(raceGroups, getScore, host, opts) {
-    opts = opts || {};
-    let leaderTotal = 0;
-    let b1 = 0, b12 = 0, b123 = 0;
-    let exactMatch = 0;
-    const raceDetails = [];
-
+function evaluateRaceLeader(raceGroups, getScore, host) {
+    let leaderTotal = 0, b1 = 0, b12 = 0, b123 = 0;
     for (const entries of raceGroups) {
-        const scored = entries.map(e => ({ entry: e, score: getScore(e) }))
-            .filter(s => s.score != null);
+        const scored = entries.map(e => ({ entry: e, score: getScore(e) })).filter(s => s.score != null);
         if (scored.length < 2) continue;
-
-        scored.sort((a, b) => {
-            if (b.score !== a.score) return b.score - a.score;
-            return (a.entry.row?.no ?? 0) - (b.entry.row?.no ?? 0);
-        });
-
-        const leader = scored[0].entry;
-        const bitis = host.bitisValueForSort(leader);
+        scored.sort((a, b) => b.score - a.score || (a.entry.row?.no ?? 0) - (b.entry.row?.no ?? 0));
+        const bitis = host.bitisValueForSort(scored[0].entry);
         if (bitis == null || bitis < 1) continue;
-
         leaderTotal++;
         if (bitis === 1) b1++;
         if (bitis <= 2) b12++;
         if (bitis <= 3) b123++;
-
-        if (opts.collectDetails) {
-            raceDetails.push({
-                kayitId: leader.kayitId,
-                raceNo: leader.raceNo,
-                leaderName: leader.row?.name,
-                leaderScore: scored[0].score,
-                bitis,
-                field: entries.length,
-                runnerUp: scored[1]?.entry?.row?.name,
-                runnerUpScore: scored[1]?.score
-            });
-        }
     }
-
     return {
-        leaderTotal,
-        b1, b12, b123,
+        leaderTotal, b1, b12, b123,
         leaderBlended: blendedFromCounts(leaderTotal, b1, b12, b123),
-        exactRate: leaderTotal ? b1 / leaderTotal : 0,
-        raceDetails
+        exactRate: leaderTotal ? b1 / leaderTotal : 0
     };
 }
 
-function evaluateBucket(entries, predicate, host) {
-    const matched = entries.filter(predicate);
-    const stats = host.buildBitisStatsFromEntries(matched);
-    if ((stats.withBitis || 0) < cli.minSample) return null;
+function rankArray(values) {
+    const indexed = values.map((v, i) => ({ v, i }));
+    indexed.sort((a, b) => a.v - b.v);
+    const ranks = new Array(values.length);
+    for (let r = 0; r < indexed.length; r++) {
+        ranks[indexed[r].i] = r + 1;
+    }
+    return ranks;
+}
+
+function spearmanFromPairs(pairs) {
+    if (pairs.length < 3) return null;
+    const xs = pairs.map(p => p.x);
+    const ys = pairs.map(p => p.y);
+    const rx = rankArray(xs);
+    const ry = rankArray(ys);
+    const n = pairs.length;
+    let sumD2 = 0;
+    for (let i = 0; i < n; i++) {
+        const d = rx[i] - ry[i];
+        sumD2 += d * d;
+    }
+    return 1 - (6 * sumD2) / (n * (n * n - 1));
+}
+
+function evaluateRankCorrelation(raceGroups, getScore, host) {
+    const corrs = [];
+    for (const entries of raceGroups) {
+        const pairs = [];
+        for (const e of entries) {
+            const m = getScore(e);
+            const b = host.bitisValueForSort(e);
+            if (m != null && b != null && b >= 1) pairs.push({ x: m, y: b });
+        }
+        const rho = spearmanFromPairs(pairs);
+        if (rho != null && !isNaN(rho)) corrs.push(rho);
+    }
+    if (!corrs.length) return { avg: null, n: 0, inverted: null };
+    const avg = corrs.reduce((a, b) => a + b, 0) / corrs.length;
+    return { avg, n: corrs.length, inverted: -avg };
+}
+
+function evaluateWinnerProfile(entries, getScore, host) {
+    let wSum = 0, wN = 0, rSum = 0, rN = 0;
+    for (const e of entries) {
+        const m = getScore(e);
+        const b = host.bitisValueForSort(e);
+        if (m == null || b == null || b < 1) continue;
+        if (b === 1) { wSum += m; wN++; }
+        else { rSum += m; rN++; }
+    }
+    const winAvg = wN ? wSum / wN : null;
+    const restAvg = rN ? rSum / rN : null;
     return {
-        matched: matched.length,
-        stats,
-        successRate: blendedFromStats(stats),
-        b1Rate: stats.b1 / stats.withBitis,
-        b12Rate: stats.b12 / stats.withBitis,
-        b123Rate: stats.b123 / stats.withBitis
+        winAvg, restAvg, winN: wN, restN: rN,
+        delta: winAvg != null && restAvg != null ? winAvg - restAvg : null
     };
+}
+
+function thresholdCandidates(metric) {
+    const k = metric.key;
+    if (k.includes('Pct') || k === 'sehirPct' || k === 'matchHitPct' || k.includes('rate')) {
+        return [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+    }
+    if (k.startsWith('max') || k.startsWith('cnt') || k === 'kosuSayisi' || k.includes('Count')) {
+        return [1, 2, 3, 4, 5, 6, 8, 10, 12, 14, 16];
+    }
+    if (k.includes('max123xpct')) return [50, 100, 200, 400, 800];
+    return [1, 2, 3, 5, 8];
+}
+
+function evaluateBestBucket(entries, metric, host) {
+    let best = null;
+    for (const th of thresholdCandidates(metric)) {
+        const pred = e => {
+            const v = metric.get(e);
+            return v != null && v >= th;
+        };
+        const matched = entries.filter(pred);
+        const stats = host.buildBitisStatsFromEntries(matched);
+        if ((stats.withBitis || 0) < cli.minSample) continue;
+        const sr = blendedFromStats(stats);
+        if (!best || sr > best.successRate) {
+            best = { threshold: th, successRate: sr, b1Rate: stats.b1 / stats.withBitis, n: stats.withBitis, matched: matched.length };
+        }
+    }
+    return best;
 }
 
 function attachTahminLeader(raceGroups) {
@@ -240,11 +394,8 @@ function attachTahminLeader(raceGroups) {
             depthCoverage: entries[0]?._pkg?.depthCoverage || null,
             kosuHistorySummary: entries[0]?._pkg?.kosuHistorySummary || null
         };
-        if (cli.engine === 'hybrid') {
-            HybridTahminScoringEngine.attachRaceTahmin(pkg);
-        } else {
-            GostergeScoringEngine.attachRaceTahmin(pkg);
-        }
+        if (cli.engine === 'hybrid') HybridTahminScoringEngine.attachRaceTahmin(pkg);
+        else GostergeScoringEngine.attachRaceTahmin(pkg);
     }
 }
 
@@ -253,251 +404,334 @@ function evaluateTahminLeader(raceGroups, host) {
     return evaluateRaceLeader(raceGroups, e => e.row?.tahmin?.score ?? null, host);
 }
 
-function evaluateDimLeaderAgreesTahmin(raceGroups, getDimScore, host) {
+function formatMetricVal(v) {
+    if (v == null) return '—';
+    if (Math.abs(v) >= 100) return String(Math.round(v));
+    if (Number.isInteger(v)) return String(v);
+    return v.toFixed(1);
+}
+
+function printRaceForensics(raceGroups, host, catalog, tahminBase) {
     attachTahminLeader(raceGroups);
-    let agreeTotal = 0;
-    let agreeB1 = 0, agreeB12 = 0, agreeB123 = 0;
+    const topMetrics = catalog
+        .map(m => {
+            const r = evaluateRaceLeader(raceGroups, m.get, host);
+            return { m, ...r };
+        })
+        .filter(r => r.leaderTotal > 0)
+        .sort((a, b) => b.leaderBlended - a.leaderBlended)
+        .slice(0, 12);
 
     for (const entries of raceGroups) {
-        const dimScored = entries.map(e => ({ e, s: getDimScore(e) }))
-            .filter(x => x.s != null);
-        if (dimScored.length < 2) continue;
-        dimScored.sort((a, b) => b.s - a.s || (a.e.row?.no ?? 0) - (b.e.row?.no ?? 0));
-        const dimLeader = dimScored[0].e;
+        const raw0 = entries[0]?._dimRaw;
+        const race = raw0?.race || {};
+        const header = typeof AtMetaFields !== 'undefined'
+            ? AtMetaFields.formatRaceHeader(race)
+            : ((race.mesafe || '?') + ' ' + (race.pist || '')).trim();
+        console.log('\n  🏁 K' + entries[0].raceNo + ' · kayit #' + entries[0].kayitId
+            + ' · ' + entries.length + ' at · ' + header);
 
-        const tahScored = entries.map(e => ({ e, s: e.row?.tahmin?.score }))
-            .filter(x => x.s != null);
-        if (!tahScored.length) continue;
-        tahScored.sort((a, b) => b.s - a.s || (a.e.row?.no ?? 0) - (b.e.row?.no ?? 0));
-        const tahLeader = tahScored[0].e;
+        const horses = [...entries].sort((a, b) => {
+            const ba = host.bitisValueForSort(a) ?? 99;
+            const bb = host.bitisValueForSort(b) ?? 99;
+            return ba - bb;
+        });
 
-        if (dimLeader.row?.no !== tahLeader.row?.no) continue;
+        console.log('  ' + pad('AT', 22) + pad('BİT', 4) + pad('TAH#', 5)
+            + topMetrics.map(t => pad(t.m.short + '.' + t.m.col.slice(0, 6), 9)).join(''));
+        console.log('  ' + '-'.repeat(22 + 4 + 5 + topMetrics.length * 9));
 
-        const bitis = host.bitisValueForSort(dimLeader);
-        if (bitis == null || bitis < 1) continue;
-        agreeTotal++;
-        if (bitis === 1) agreeB1++;
-        if (bitis <= 2) agreeB12++;
-        if (bitis <= 3) agreeB123++;
+        for (const e of horses) {
+            const bitis = host.bitisValueForSort(e);
+            const name = (e.row?.name || '?').replace(/\(\d+\)/, '').trim().slice(0, 20);
+            const tahRank = e.row?.tahmin?.rank ?? '—';
+            let line = '  ' + pad(name, 22) + pad(bitis ?? '—', 4) + pad(String(tahRank), 5);
+            for (const t of topMetrics) {
+                line += pad(formatMetricVal(t.m.get(e)), 9);
+            }
+            console.log(line);
+        }
+
+        console.log('\n  Metrik liderleri (bu koşu):');
+        for (const t of topMetrics.slice(0, 8)) {
+            const scored = entries.map(e => ({ e, s: t.m.get(e) })).filter(x => x.s != null);
+            if (!scored.length) continue;
+            scored.sort((a, b) => b.s - a.s);
+            const leader = scored[0];
+            const lb = host.bitisValueForSort(leader.e);
+            const mark = lb === 1 ? '★' : lb <= 3 ? '◆' : '·';
+            console.log('    ' + mark + ' ' + pad(t.m.label, 28)
+                + ' → ' + (leader.e.row?.name || '?').slice(0, 25)
+                + ' (' + formatMetricVal(leader.s) + ') BİTİŞ=' + (lb ?? '?'));
+        }
     }
-
-    return {
-        leaderTotal: agreeTotal,
-        leaderBlended: blendedFromCounts(agreeTotal, agreeB1, agreeB12, agreeB123),
-        b1: agreeB1, b12: agreeB12, b123: agreeB123
-    };
 }
 
-const METRIC_SPECS = [
-    { group: 'fieldSize', key: 'max123', label: 'AT-SAYISI max123', desc: 'En geniş alanda 1-2-3 bitiren max field' },
-    { group: 'fieldSize', key: 'max12', label: 'AT-SAYISI max12', desc: '1-2 bitiren max field' },
-    { group: 'fieldSize', key: 'max1', label: 'AT-SAYISI max1', desc: '1. bitiren max field' },
-    { group: 'fieldSize', key: 'cnt123', label: 'AT-SAYISI cnt123', desc: '1-2-3 bitirme sayısı' },
-    { group: 'fieldSize', key: 'kosuSayisi', label: 'AT-SAYISI koşu', desc: 'Geçmiş koşu sayısı' },
-    { group: 'sehir', key: 'sehirPct', label: 'ŞEHİR %', desc: 'Hedef hipodromda koşma oranı' },
-    { group: 'sehir', key: 'inCityCount', label: 'ŞEHİR adet', desc: 'Hedef şehirdeki koşu sayısı' },
-    { group: 'sehir', key: 'max123', label: 'ŞEHİR max123', desc: 'Hedef şehirde 1-2-3 max field' },
-    { group: 'kcins_kosu', key: 'matchPct', label: 'KCİNS %', desc: 'Aynı koşu cinsinde koşma oranı' },
-    { group: 'kcins_kosu', key: 'matchCount', label: 'KCİNS adet', desc: 'Aynı koşu cinsinde koşu sayısı' },
-    { group: 'kcins_kosu', key: 'max123', label: 'KCİNS max123', desc: 'Eşleşen koşularda 1-2-3 max field' },
-    { group: 'taki', key: 'matchPct', label: 'TAKİ %', desc: 'Aynı takı ile koşma oranı' },
-    { group: 'taki', key: 'max123', label: 'TAKİ max123', desc: 'Eşleşen koşularda 1-2-3 max field' },
-    { group: 'pist', key: 'matchPct', label: 'PİST %', desc: 'Aynı pistte koşma oranı' },
-    { group: 'pist', key: 'max123', label: 'PİST max123', desc: 'Eşleşen pistte 1-2-3 max field' },
-    { group: 'hp', key: 'matchPct', label: 'HP %', desc: 'Aynı HP ile koşma oranı' },
-    { group: 'hp', key: 'max123', label: 'HP max123', desc: 'Eşleşen HP max field 1-2-3' },
-    { group: 'siklet', key: 'matchPct', label: 'SİKLET %', desc: 'Aynı sıklet ile koşma oranı' },
-    { group: 'siklet', key: 'max123', label: 'SİKLET max123', desc: 'Eşleşen sıklette 1-2-3 max field' }
-];
-
-const BUCKET_SPECS = [
-    { group: 'fieldSize', key: 'max123', op: '>=', val: 8, label: 'max123≥8' },
-    { group: 'fieldSize', key: 'max123', op: '>=', val: 10, label: 'max123≥10' },
-    { group: 'sehir', key: 'sehirPct', op: '>=', val: 50, label: 'şehir%≥50' },
-    { group: 'sehir', key: 'inCityCount', op: '>=', val: 3, label: 'şehir≥3 koşu' },
-    { group: 'kcins_kosu', key: 'matchPct', op: '>=', val: 30, label: 'kcins%≥30' },
-    { group: 'kcins_kosu', key: 'matchCount', op: '>=', val: 2, label: 'kcins≥2' },
-    { group: 'taki', key: 'matchPct', op: '>=', val: 50, label: 'taki%≥50' },
-    { group: 'pist', key: 'matchPct', op: '>=', val: 40, label: 'pist%≥40' },
-    { group: 'hp', key: 'matchCount', op: '>=', val: 2, label: 'hp≥2 eşleşme' },
-    { group: 'siklet', key: 'matchCount', op: '>=', val: 2, label: 'siklet≥2' }
-];
-
-function bucketPredicate(spec) {
-    return (e) => {
-        const v = getMetric(e, spec.group, spec.key);
-        if (v == null) return false;
-        if (spec.op === '>=') return v >= spec.val;
-        if (spec.op === '>') return v > spec.val;
-        return false;
-    };
-}
-
-function printLeaderRow(rank, spec, result) {
-    if (!result || result.leaderTotal < cli.minRaces) return;
-    console.log('  ' + pad(String(rank) + '.', 4)
-        + pad(spec.label, 18)
-        + ' karışık ' + pad(pct(result.leaderBlended), 7)
-        + ' · 1. ' + pad(pct(result.exactRate), 7)
-        + ' · koşu ' + pad(String(result.leaderTotal), 4)
-        + ' · ' + spec.desc);
-}
-
-function printBucketRow(spec, ev) {
-    if (!ev) return;
-    console.log('  ' + pad(spec.label, 18)
-        + ' karışık ' + pad(pct(ev.successRate), 7)
-        + ' · 1. ' + pad(pct(ev.b1Rate), 7)
-        + ' · n=' + ev.stats.withBitis
-        + ' (toplam ' + ev.matched + ' at)');
+async function listKayitlar(db) {
+    const rows = await dbAll(db, 'SELECT id, hipodrom, tarih, race_count, total_horses FROM hesaplama_kayitlari ORDER BY id DESC LIMIT 30');
+    hr('HESAPLAMA KAYITLARI (son 30)');
+    for (const k of rows) {
+        console.log('  #' + pad(k.id, 4) + ' ' + pad(k.tarih || '', 12) + pad(k.hipodrom || '', 14)
+            + k.race_count + ' koşu · ' + k.total_horses + ' at');
+    }
 }
 
 async function main() {
     console.log('╔══════════════════════════════════════════════════════════════════╗');
-    console.log('║  Test sekmeleri ↔ BİTİŞ korelasyon raporu (TAHMİN planlama)     ║');
+    console.log('║  Test sekmeleri — EKSAUSTİF BİTİŞ korelasyon raporu             ║');
     console.log('╚══════════════════════════════════════════════════════════════════╝');
     console.log('DB: ' + cli.dbPath);
-    if (cli.fieldSize) console.log('Filtre: ' + cli.fieldSize + ' atlı koşular');
-    if (cli.kayitId) console.log('Kayıt #' + cli.kayitId + (cli.raceNo ? ' K' + cli.raceNo : ''));
+    console.log('Fazlar: ' + cli.phases.join(', '));
 
     loadAllEngines();
     const db = openDb(cli.dbPath);
 
     try {
+        if (cli.listKayitlar) {
+            await listKayitlar(db);
+            return;
+        }
+
+        const catalog = buildMetricCatalog();
+        console.log('Metrik sayısı (UI sütunları + türev): ' + catalog.length);
+
         const lookup = await loadRawHorseLookup(db);
         const { flatEntries, bitisMap } = await buildFlatEntriesFromDb(db, {
             filterKayit: cli.kayitId,
             filterRace: cli.raceNo
         });
         const host = makeGostergeHost(flatEntries, bitisMap);
-        const enriched = attachDimensionStats(flatEntries, lookup);
+        attachDimensionStats(flatEntries, lookup);
 
-        let entries = filterEntries(flatEntries);
+        const entries = filterEntries(flatEntries);
         const withBitis = entries.filter(e => host.bitisValueForSort(e) != null);
         const raceGroups = buildRaceGroups(withBitis);
-        const racesWithBitis = raceGroups.filter(g => g.some(e => host.bitisValueForSort(e) != null)).length;
 
         hr('1. VERİ ÖZETİ');
         console.log('  Flat at satırı      : ' + flatEntries.length);
-        console.log('  Boyut istat. dolu   : ' + enriched);
+        console.log('  Boyut istat. dolu   : ' + entries.length);
         console.log('  BİTİŞ bilgili at    : ' + withBitis.length);
-        console.log('  Analiz koşusu       : ' + racesWithBitis);
-        console.log('  BİTİŞ kaynağı       : puanlama_bitis_sonuclari + at adı (N) suffix');
-
+        console.log('  Analiz koşusu       : ' + raceGroups.length);
+        if (cli.kayitId && flatEntries.length === 0) {
+            console.log('\n  ⚠ Kayıt #' + cli.kayitId + ' bulunamadı. Mevcut kayıtlar:');
+            await listKayitlar(db);
+            return;
+        }
         if (withBitis.length < cli.minSample) {
-            console.log('\n⚠ Yeterli BİTİŞ verisi yok (min ' + cli.minSample + '). PUANLAMA TEST\'te bitiş girin.');
+            console.log('\n⚠ Yeterli BİTİŞ yok (min ' + cli.minSample + '). --list-kayitlar ile kayıtları görün.');
             return;
         }
 
-        hr('2. KOŞU LİDERİ — hangi gösterge kazananı seçiyor?');
-        console.log('  Her koşuda gösterge liderinin gerçek bitişi · karışık = 80%×1. + 12%×1-2 + 8%×1-3');
-        sub('Baseline: mevcut TAHMİN (' + cli.engine + ')');
-        const tahminBase = evaluateTahminLeader(raceGroups, host);
-        console.log('  ' + pad('TAHMİN', 18) + ' karışık ' + pad(pct(tahminBase.leaderBlended), 7)
-            + ' · 1. ' + pad(pct(tahminBase.exactRate), 7)
-            + ' · koşu ' + tahminBase.leaderTotal);
+        const tahminBase = hasPhase('leader') || hasPhase('plan') || hasPhase('agree')
+            ? evaluateTahminLeader(raceGroups, host) : null;
 
-        sub('Test sekmesi göstergeleri (yüksek = daha iyi tahmin)');
-        const leaderResults = [];
-        for (const spec of METRIC_SPECS) {
-            const getScore = e => getMetric(e, spec.group, spec.key);
-            const r = evaluateRaceLeader(raceGroups, getScore, host);
-            leaderResults.push({ spec, ...r });
-        }
-        leaderResults.sort((a, b) => b.leaderBlended - a.leaderBlended);
-        let rank = 1;
-        for (const item of leaderResults) {
-            printLeaderRow(rank++, item.spec, item);
-        }
-
-        hr('3. BUCKET — yüksek gösterge grubunun bitiş dağılımı');
-        console.log('  Tüm atlar içinde koşu bazlı değil; gösterge eşiğini geçen atların BİTİŞ oranları');
-        const allWithBitis = withBitis;
-        const baseBucket = host.buildBitisStatsFromEntries(allWithBitis);
-        console.log('  ' + pad('Tüm atlar (baz)', 18) + ' karışık ' + pad(pct(blendedFromStats(baseBucket)), 7)
-            + ' · n=' + baseBucket.withBitis);
-        for (const spec of BUCKET_SPECS) {
-            printBucketRow(spec, evaluateBucket(allWithBitis, bucketPredicate(spec), host));
-        }
-
-        hr('4. TAHMİN + BOYUT UYUMU — ikisi aynı lideri seçince');
-        console.log('  Boyut lideri = TAHMİN lideri olduğunda gerçek bitiş başarısı');
-        const agreeResults = [];
-        for (const spec of METRIC_SPECS.slice(0, 12)) {
-            const getScore = e => getMetric(e, spec.group, spec.key);
-            const r = evaluateDimLeaderAgreesTahmin(raceGroups, getScore, host);
-            if (r.leaderTotal >= cli.minRaces) {
-                agreeResults.push({ spec, ...r });
+        if (hasPhase('leader')) {
+            hr('2. KOŞU LİDERİ — TÜM UI SÜTUNLARI (' + catalog.length + ' metrik)');
+            console.log('  Her koşuda en yüksek değere sahip atın BİTİŞ\'i · karışık = 80/12/8');
+            if (tahminBase) {
+                console.log('  ' + pad('TAHMİN(hybrid)', 32) + ' karışık ' + pad(pct(tahminBase.leaderBlended), 7)
+                    + ' · 1. ' + pad(pct(tahminBase.exactRate), 7) + ' · n=' + tahminBase.leaderTotal);
             }
-        }
-        agreeResults.sort((a, b) => b.leaderBlended - a.leaderBlended);
-        for (const item of agreeResults.slice(0, 10)) {
-            console.log('  ' + pad(item.spec.label, 18)
-                + ' karışık ' + pad(pct(item.leaderBlended), 7)
-                + ' · uyum koşu ' + item.leaderTotal);
+            const leaderResults = catalog.map(m => ({
+                m, ...evaluateRaceLeader(raceGroups, m.get, host)
+            })).filter(r => r.leaderTotal >= cli.minRaces)
+                .sort((a, b) => b.leaderBlended - a.leaderBlended);
+
+            for (const tg of TAB_GROUPS) {
+                sub(tg.tab);
+                const tabRows = leaderResults.filter(r => r.m.tab === tg.tab);
+                let i = 1;
+                for (const r of tabRows) {
+                    console.log('  ' + pad(i++ + '.', 4) + pad(r.m.col, 10)
+                        + pad(r.m.key, 14) + ' karışık ' + pad(pct(r.leaderBlended), 7)
+                        + ' · 1. ' + pad(pct(r.exactRate), 7)
+                        + ' · n=' + r.leaderTotal);
+                }
+            }
+            sub('GENEL TOP ' + cli.top);
+            leaderResults.slice(0, cli.top).forEach((r, idx) => {
+                console.log('  ' + pad(String(idx + 1) + '.', 4) + pad(r.m.label, 32)
+                    + ' karışık ' + pad(pct(r.leaderBlended), 7)
+                    + ' · 1. ' + pad(pct(r.exactRate), 7)
+                    + ' · n=' + r.leaderTotal);
+            });
         }
 
-        if (cli.fieldSize == null) {
-            hr('5. AT SAYISINA GÖRE — en iyi 3 gösterge (koşu lideri)');
+        if (hasPhase('bucket')) {
+            hr('3. BUCKET TARAMASI — her metrik için en iyi eşik');
+            console.log('  At bazlı: eşik ≥X koşulunu sağlayan atların BİTİŞ dağılımı');
+            const baseStats = host.buildBitisStatsFromEntries(withBitis);
+            console.log('  Baz (tüm atlar): karışık ' + pct(blendedFromStats(baseStats)) + ' · n=' + baseStats.withBitis);
+
+            const bucketResults = catalog.map(m => {
+                const best = evaluateBestBucket(withBitis, m, host);
+                return best ? { m, ...best } : null;
+            }).filter(Boolean).sort((a, b) => b.successRate - a.successRate);
+
+            for (const tg of TAB_GROUPS) {
+                sub(tg.tab + ' — en iyi eşikler');
+                const rows = bucketResults.filter(r => r.m.tab === tg.tab).slice(0, 8);
+                for (const r of rows) {
+                    console.log('  ' + pad(r.m.col, 10) + pad('≥' + r.threshold, 6)
+                        + ' karışık ' + pad(pct(r.successRate), 7)
+                        + ' · 1. ' + pad(pct(r.b1Rate), 7)
+                        + ' · n=' + r.n + '/' + r.matched);
+                }
+            }
+            sub('GENEL TOP bucket');
+            bucketResults.slice(0, 15).forEach(r => {
+                console.log('  ' + pad(r.m.label, 32) + ' ≥' + r.threshold
+                    + ' → karışık ' + pct(r.successRate) + ' · 1. ' + pct(r.b1Rate) + ' · n=' + r.n);
+            });
+        }
+
+        if (hasPhase('corr')) {
+            hr('4. SIRALAMA KORELASYONU — metrik sırası ↔ BİTİŞ sırası');
+            console.log('  Negatif ρ = yüksek metrik → düşük BİTİŞ (iyi). Pozitif ρ = ters (kötü sinyal).');
+            console.log('  Rapor: -ρ (mutlak yönlendirme; büyük = metrik bitişi iyi sıralıyor)');
+
+            const corrResults = catalog.map(m => {
+                const c = evaluateRankCorrelation(raceGroups, m.get, host);
+                return c.n >= cli.minRaces ? { m, ...c } : null;
+            }).filter(Boolean).sort((a, b) => b.inverted - a.inverted);
+
+            for (const tg of TAB_GROUPS) {
+                sub(tg.tab);
+                corrResults.filter(r => r.m.tab === tg.tab).slice(0, 6).forEach((r, i) => {
+                    console.log('  ' + pad(i + 1 + '.', 4) + pad(r.m.col, 10)
+                        + ' ρ=' + pad((r.avg ?? 0).toFixed(3), 7)
+                        + ' · -ρ=' + pad((r.inverted ?? 0).toFixed(3), 7)
+                        + ' · koşu ' + r.n);
+                });
+            }
+            sub('GENEL TOP korelasyon');
+            corrResults.slice(0, 15).forEach((r, i) => {
+                console.log('  ' + pad(String(i + 1) + '.', 4) + pad(r.m.label, 32)
+                    + ' -ρ=' + (r.inverted ?? 0).toFixed(3) + ' · koşu ' + r.n);
+            });
+        }
+
+        if (hasPhase('winner')) {
+            hr('5. KAZANAN PROFİLİ — 1. bitiren vs diğerleri ortalama');
+            const winResults = catalog.map(m => {
+                const w = evaluateWinnerProfile(withBitis, m.get, host);
+                return w.winN >= 3 ? { m, ...w } : null;
+            }).filter(Boolean).sort((a, b) => (b.delta ?? 0) - (a.delta ?? 0));
+
+            for (const tg of TAB_GROUPS) {
+                sub(tg.tab);
+                winResults.filter(r => r.m.tab === tg.tab).slice(0, 6).forEach((r, i) => {
+                    console.log('  ' + pad(i + 1 + '.', 4) + pad(r.m.col, 10)
+                        + ' 1.ort=' + pad(formatMetricVal(r.winAvg), 6)
+                        + ' diğer=' + pad(formatMetricVal(r.restAvg), 6)
+                        + ' Δ=' + pad(formatMetricVal(r.delta), 6)
+                        + ' (n1=' + r.winN + ')');
+                });
+            }
+            sub('GENEL TOP kazanan farkı (Δ)');
+            winResults.slice(0, 15).forEach((r, i) => {
+                console.log('  ' + pad(String(i + 1) + '.', 4) + pad(r.m.label, 32)
+                    + ' Δ=' + formatMetricVal(r.delta)
+                    + ' · 1.ort=' + formatMetricVal(r.winAvg) + ' · n1=' + r.winN);
+            });
+        }
+
+        if (hasPhase('agree') && tahminBase) {
+            hr('6. TAHMİN UYUMU — metrik lideri = TAHMİN lideri');
+            attachTahminLeader(raceGroups);
+            const agreeResults = catalog.map(m => {
+                let total = 0, b1 = 0, b12 = 0, b123 = 0;
+                for (const entries of raceGroups) {
+                    const ms = entries.map(e => ({ e, s: m.get(e) })).filter(x => x.s != null);
+                    const ts = entries.map(e => ({ e, s: e.row?.tahmin?.score })).filter(x => x.s != null);
+                    if (ms.length < 2 || !ts.length) continue;
+                    ms.sort((a, b) => b.s - a.s);
+                    ts.sort((a, b) => b.s - a.s);
+                    if (ms[0].e.row?.no !== ts[0].e.row?.no) continue;
+                    const bitis = host.bitisValueForSort(ms[0].e);
+                    if (bitis == null || bitis < 1) continue;
+                    total++;
+                    if (bitis === 1) b1++;
+                    if (bitis <= 2) b12++;
+                    if (bitis <= 3) b123++;
+                }
+                return total >= cli.minRaces
+                    ? { m, leaderTotal: total, leaderBlended: blendedFromCounts(total, b1, b12, b123) }
+                    : null;
+            }).filter(Boolean).sort((a, b) => b.leaderBlended - a.leaderBlended);
+
+            agreeResults.slice(0, 20).forEach((r, i) => {
+                console.log('  ' + pad(String(i + 1) + '.', 4) + pad(r.m.label, 32)
+                    + ' karışık ' + pct(r.leaderBlended) + ' · uyum koşu ' + r.leaderTotal);
+            });
+        }
+
+        if (hasPhase('segment') && !cli.fieldSize) {
+            hr('7. AT SAYISINA GÖRE — sekme başına en iyi metrik');
             const { entriesByField, fieldSizes } = buildEntriesByFieldSize(withBitis);
             for (const fs of fieldSizes.filter(n => n >= 6 && n <= 14)) {
                 const subEntries = entriesByField[fs].filter(e => e._dim);
                 const subGroups = buildRaceGroups(subEntries);
-                if (subGroups.length < cli.minRaces) continue;
-                const top = [];
-                for (const spec of METRIC_SPECS) {
-                    const r = evaluateRaceLeader(subGroups, e => getMetric(e, spec.group, spec.key), host);
-                    if (r.leaderTotal >= cli.minRaces) top.push({ spec, ...r });
-                }
-                top.sort((a, b) => b.leaderBlended - a.leaderBlended);
+                if (subGroups.length < 2) continue;
                 console.log('\n  ' + fs + ' atlı koşu (' + subGroups.length + ' koşu):');
-                for (let i = 0; i < Math.min(3, top.length); i++) {
-                    const t = top[i];
-                    console.log('    ' + pad(t.spec.label, 16) + ' karışık ' + pct(t.leaderBlended)
-                        + ' · 1. ' + pct(t.exactRate) + ' · n=' + t.leaderTotal);
+                for (const tg of TAB_GROUPS) {
+                    const tabMetrics = catalog.filter(c => c.tab === tg.tab);
+                    const best = tabMetrics.map(m => ({
+                        m, ...evaluateRaceLeader(subGroups, m.get, host)
+                    })).filter(r => r.leaderTotal >= 2)
+                        .sort((a, b) => b.leaderBlended - a.leaderBlended)[0];
+                    if (best) {
+                        console.log('    ' + pad(tg.short, 4) + pad(best.m.col, 10)
+                            + ' karışık ' + pct(best.leaderBlended)
+                            + ' · 1. ' + pct(best.exactRate));
+                    }
                 }
             }
         }
 
-        if (cli.verbose && (cli.kayitId || cli.raceNo)) {
-            hr('6. KOŞU DETAYI');
-            const topSpec = leaderResults[0]?.spec;
-            if (topSpec) {
-                const r = evaluateRaceLeader(raceGroups, e => getMetric(e, topSpec.group, topSpec.key), host, { collectDetails: true });
-                attachTahminLeader(raceGroups);
-                for (const d of (r.raceDetails || []).slice(0, 20)) {
-                    console.log('  K' + d.raceNo + ' · lider: ' + (d.leaderName || '?')
-                        + ' (gösterge=' + d.leaderScore + ') → BİTİŞ ' + d.bitis
-                        + ' · ' + d.field + ' at');
-                }
-            }
+        if (hasPhase('race') && (cli.raceNo || cli.verbose)) {
+            hr('8. KOŞU FORENSİCS — at-at metrik vs BİTİŞ');
+            printRaceForensics(raceGroups, host, catalog, tahminBase);
         }
 
-        hr('7. TAHMİN SKORU PLANLAMA ÖNERİSİ');
-        const betterThanTahmin = leaderResults.filter(r =>
-            r.leaderTotal >= cli.minRaces && r.leaderBlended > tahminBase.leaderBlended + 0.02
-        );
-        const promising = leaderResults.filter(r =>
-            r.leaderTotal >= cli.minRaces && r.leaderBlended >= 0.35
-        );
-        console.log('  Mevcut TAHMİN karışık başarı: ' + pct(tahminBase.leaderBlended));
-        if (betterThanTahmin.length) {
-            console.log('  TAHMİN\'den daha iyi koşu-lideri göstergeler:');
-            for (const r of betterThanTahmin.slice(0, 5)) {
-                console.log('    ★ ' + r.spec.label + ' → ' + pct(r.leaderBlended)
-                    + ' (+' + pct(r.leaderBlended - tahminBase.leaderBlended) + ')');
-            }
-        } else {
-            console.log('  ⚠ Hiçbir test göstergesi tek başına TAHMİN liderinden belirgin üstün değil.');
-            console.log('    → Hibrit skora ek ağırlık (boost) veya TAHMİN uyumu filtresi düşünülebilir.');
+        if (hasPhase('plan') && tahminBase) {
+            hr('9. TAHMİN SKORU — entegrasyon önceliği');
+            const leaderResults = catalog.map(m => ({
+                m, ...evaluateRaceLeader(raceGroups, m.get, host)
+            })).filter(r => r.leaderTotal >= cli.minRaces)
+                .sort((a, b) => b.leaderBlended - a.leaderBlended);
+
+            console.log('  TAHMİN baseline: ' + pct(tahminBase.leaderBlended) + ' (n=' + tahminBase.leaderTotal + ')');
+            console.log('\n  Öncelik 1 — koşu lideri TAHMİN\'den üstün:');
+            leaderResults.filter(r => r.leaderBlended > tahminBase.leaderBlended + 0.02)
+                .slice(0, 10).forEach(r => {
+                    console.log('    ★ ' + r.m.label + ' → ' + pct(r.leaderBlended)
+                        + ' (+' + pct(r.leaderBlended - tahminBase.leaderBlended) + ')');
+                });
+
+            const corrTop = catalog.map(m => {
+                const c = evaluateRankCorrelation(raceGroups, m.get, host);
+                return c.n >= cli.minRaces ? { m, ...c } : null;
+            }).filter(Boolean).sort((a, b) => b.inverted - a.inverted).slice(0, 5);
+
+            console.log('\n  Öncelik 2 — sıralama korelasyonu (bitişi en iyi ayıran):');
+            corrTop.forEach(r => {
+                console.log('    ◆ ' + r.m.label + ' · -ρ=' + (r.inverted ?? 0).toFixed(3));
+            });
+
+            const winTop = catalog.map(m => {
+                const w = evaluateWinnerProfile(withBitis, m.get, host);
+                return w.winN >= 2 ? { m, ...w } : null;
+            }).filter(Boolean).sort((a, b) => (b.delta ?? 0) - (a.delta ?? 0)).slice(0, 5);
+
+            console.log('\n  Öncelik 3 — kazananlarda belirgin yüksek:');
+            winTop.forEach(r => {
+                console.log('    ▲ ' + r.m.label + ' · Δ=' + formatMetricVal(r.delta)
+                    + ' (1.ort=' + formatMetricVal(r.winAvg) + ')');
+            });
         }
-        if (promising.length) {
-            console.log('  Skora eklenebilecek adaylar (karışık≥35%):');
-            for (const r of promising.slice(0, 8)) {
-                console.log('    · ' + r.spec.label + ' (' + pct(r.leaderBlended) + ', n=' + r.leaderTotal + ')');
-            }
-        }
-        console.log('\nOK');
+
+        console.log('\nOK · ' + catalog.length + ' metrik · ' + raceGroups.length + ' koşu · ' + withBitis.length + ' BİTİŞ');
     } finally {
         db.close();
     }
@@ -505,5 +739,6 @@ async function main() {
 
 main().catch(err => {
     console.error('HATA:', err.message || err);
+    if (err.stack) console.error(err.stack);
     process.exit(1);
 });
