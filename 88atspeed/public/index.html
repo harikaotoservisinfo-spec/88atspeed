@@ -33,6 +33,21 @@
             min-width: 22px; height: 22px; border-radius: 50%;
             background: #7b1fa2; color: #fff; font-size: 11px; font-weight: 800;
         }
+        .son-test-toolbar {
+            display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+            margin-bottom: 14px; padding: 12px 14px;
+            background: #fff; border-radius: 8px; border: 1px solid #e0e0e0;
+        }
+        .son-test-btn {
+            padding: 8px 16px; border: none; border-radius: 6px;
+            background: linear-gradient(135deg, #7b1fa2, #4a148c);
+            color: #fff; font-weight: 700; cursor: pointer; font-size: 13px;
+        }
+        .son-test-btn-outline {
+            background: #fff; color: #6a1b9a; border: 1px solid #ce93d8;
+        }
+        .son-test-meta { font-size: 12px; color: #546e7a; font-weight: 600; }
+        #sonTestKayitListesi { margin-bottom: 14px; }
     </style>
 </head>
 <body>
@@ -87,14 +102,25 @@
         <div id="tab-tahminim" class="tab-content tab-content-tahminim"><iframe id="tahminimFrame" src="tahminim.html?v=20260824n" title="Tahminim"></iframe></div>
         <div id="tab-istatistikler" class="tab-content tab-content-istatistikler"><iframe id="istatistiklerFrame" src="istatistikler.html?v=20260830d" title="İstatistikler"></iframe></div>
         <div id="tab-puanlama-test" class="tab-content tab-content-istatistikler"><iframe id="puanlamaTestFrame" src="istatistik-puanlama-test.html?v=20260831s" title="Puanlama Test"></iframe></div>
-        <div id="tab-son-test" class="tab-content"><div class="info-box">🏁 SON TEST — GETİR butonuna tıklayın</div></div>
+        <div id="tab-son-test" class="tab-content">
+            <div class="son-test-toolbar">
+                <button type="button" id="sonTestKayitBtn" class="son-test-btn">📋 Kayıtlardan Seç</button>
+                <span id="sonTestMeta" class="son-test-meta">GETİR ile canlı program veya kayıtlardan yükleme</span>
+            </div>
+            <div id="sonTestKayitListesi" class="kayit-listesi" style="display:none"></div>
+            <div id="sonTestContent"><div class="info-box">🏁 SON TEST — GETİR veya kayıtlardan seçin</div></div>
+        </div>
     </div>
 
+    <script src="js/utils.js?v=20260831a"></script>
     <script src="js/at-meta-fields.js?v=20260831a"></script>
     <script>
         let veriCache = {};
         let currentRaces = null;
         let currentHorses = [];
+        let currentSonTestKayitId = null;
+        let sonTestKayitSource = null;
+        let currentSonTestMeta = null;
         
         function createStatusDiv() {
             let statusDiv = document.getElementById('status');
@@ -130,6 +156,25 @@
         document.getElementById('tarihSelect').addEventListener('change', function() { loadHipodromlar(); this.blur(); });
         document.getElementById('getirBtn').onclick = fetchProgram;
         document.getElementById('kaydetBtn').onclick = veriKaydet;
+        document.getElementById('sonTestKayitBtn').onclick = sonTestListKayitlar;
+        
+        function getActiveTabId() {
+            return document.querySelector('.tab-btn.active')?.dataset.tab || 'hesaplama';
+        }
+
+        function setActiveTabContentLoading(html) {
+            const tabId = getActiveTabId();
+            if (tabId === 'son-test') {
+                document.getElementById('sonTestContent').innerHTML = html;
+            } else if (tabId === 'hesaplama') {
+                document.getElementById('tab-hesaplama').innerHTML = html;
+            }
+        }
+
+        function sonTestSetMeta(text) {
+            const el = document.getElementById('sonTestMeta');
+            if (el) el.textContent = text || '';
+        }
         
         let lastGosterimKayit = null;
 
@@ -303,15 +348,8 @@
                 return;
             }
             
-            // HESAPLAMA sekmesini aktif yap
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.querySelector('.tab-btn[data-tab="hesaplama"]').classList.add('active');
-            document.getElementById('tab-hesaplama').classList.add('active');
-            
-            let sonucDiv = document.getElementById('tab-hesaplama');
+            setActiveTabContentLoading('<div class="info-box">🏇 Veriler çekiliyor...</div>');
             statusDiv.innerHTML = '<div class="status status-loading">⏳ ' + hipodromText + ' programı çekiliyor...</div>';
-            sonucDiv.innerHTML = '<div class="info-box">🏇 Veriler çekiliyor...</div>';
             
             try {
                 let response = await fetch('/api/yaris-programi?sehir=' + hipodromId + '&sehirAdi=' + encodeURIComponent(hipodromText) + '&tarih=' + tarih);
@@ -346,12 +384,16 @@
                 }
                 
                 hesaplamaGoster(currentRaces);
-                sonTestGoster(currentRaces);
+                sonTestGoster(currentRaces, {
+                    source: 'getir',
+                    tarih: tarih,
+                    hipodrom: hipodromText
+                });
                 statusDiv.innerHTML = '<div class="status status-success">✅ ' + hipodromText + ': ' + result.totalRaces + ' koşu, ' + result.totalHorses + ' at analiz edildi.</div>';
                 
             } catch (error) {
                 statusDiv.innerHTML = '<div class="status status-error">❌ Hata: ' + error.message + '</div>';
-                sonucDiv.innerHTML = '<div class="info-box">❌ ' + error.message + '</div>';
+                setActiveTabContentLoading('<div class="info-box">❌ ' + escapeHtml(error.message) + '</div>');
             }
         }
         
@@ -435,8 +477,18 @@
             document.getElementById('tab-hesaplama').innerHTML = genelHtml;
         }
 
-        function sonTestGoster(races) {
-            const el = document.getElementById('tab-son-test');
+        function sonTestGoster(races, meta) {
+            const el = document.getElementById('sonTestContent');
+            if (!el) return;
+            if (meta) {
+                currentSonTestMeta = meta;
+                const parts = [];
+                if (meta.source === 'kayit' && meta.kayitId) parts.push('Kayıt #' + meta.kayitId);
+                if (meta.tarih) parts.push(meta.tarih);
+                if (meta.hipodrom) parts.push(meta.hipodrom);
+                if (meta.source === 'getir') parts.push('canlı program');
+                sonTestSetMeta(parts.join(' · ') || '—');
+            }
             if (!races || !races.length) {
                 el.innerHTML = '<div class="info-box">📋 Veri bulunamadı</div>';
                 return;
@@ -472,6 +524,78 @@
             }
             html += '</div>';
             el.innerHTML = html;
+        }
+
+        async function sonTestListKayitlar() {
+            const listDiv = document.getElementById('sonTestKayitListesi');
+            statusDiv.innerHTML = '<div class="status status-loading">⏳ Kayıtlar yükleniyor...</div>';
+            try {
+                const response = await fetch('/api/hesaplama-kayitlar');
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+                if (!result.kayitlar.length) {
+                    listDiv.innerHTML = '<div class="empty">⚠️ Hiç hesaplama kaydı yok</div>';
+                    listDiv.style.display = 'block';
+                    statusDiv.innerHTML = '<div class="status status-error">⚠️ Hiç kayıt yok</div>';
+                    return;
+                }
+                let html = '<div class="kayit-listesi-title">📋 HESAPLAMA KAYITLARI</div>';
+                for (let i = 0; i < result.kayitlar.length; i++) {
+                    const k = result.kayitlar[i];
+                    html += AtSpeedUtils.hesaplamaKayitListItemHtml(k, '🏁 ' + k.race_count + ' koşu');
+                }
+                listDiv.innerHTML = html;
+                listDiv.style.display = 'block';
+                AtSpeedUtils.bindHesaplamaKayitList(listDiv, async (id) => {
+                    await loadSonTestKayit(id);
+                    listDiv.style.display = 'none';
+                }, () => {
+                    const left = listDiv.querySelectorAll('.kayit-item').length;
+                    if (left) {
+                        statusDiv.innerHTML = '<div class="status status-success">✅ ' + left + ' kayıt kaldı</div>';
+                    } else {
+                        listDiv.innerHTML = '<div class="empty">⚠️ Hiç hesaplama kaydı yok</div>';
+                        statusDiv.innerHTML = '<div class="status status-error">⚠️ Hiç kayıt yok</div>';
+                    }
+                });
+                statusDiv.innerHTML = '<div class="status status-success">✅ ' + result.kayitlar.length + ' kayıt listelendi — birini seçin</div>';
+            } catch (error) {
+                statusDiv.innerHTML = '<div class="status status-error">❌ ' + escapeHtml(error.message) + '</div>';
+            }
+        }
+
+        async function loadSonTestKayit(id) {
+            document.getElementById('sonTestContent').innerHTML = '<div class="info-box">⏳ Kayıt yükleniyor...</div>';
+            statusDiv.innerHTML = '<div class="status status-loading">⏳ Kayıt #' + id + ' yükleniyor...</div>';
+            try {
+                const response = await fetch('/api/hesaplama-kayit/' + id);
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+                const kayit = result.kayit;
+                currentRaces = kayit.veri || [];
+                currentSonTestKayitId = id;
+                sonTestKayitSource = 'kayit';
+                currentHorses = [];
+                for (let i = 0; i < currentRaces.length; i++) {
+                    for (let j = 0; j < (currentRaces[i].horses || []).length; j++) {
+                        currentHorses.push({
+                            ...currentRaces[i].horses[j],
+                            raceNo: currentRaces[i].raceNo
+                        });
+                    }
+                }
+                sonTestGoster(currentRaces, {
+                    source: 'kayit',
+                    kayitId: id,
+                    tarih: kayit.tarih,
+                    hipodrom: kayit.hipodrom
+                });
+                statusDiv.innerHTML = '<div class="status status-success">✅ Kayıt #' + id + ' yüklendi — '
+                    + (kayit.hipodrom || '') + ' ' + (kayit.tarih || '') + '</div>';
+            } catch (error) {
+                document.getElementById('sonTestContent').innerHTML = '<div class="info-box">❌ ' + escapeHtml(error.message) + '</div>';
+                statusDiv.innerHTML = '<div class="status status-error">❌ ' + escapeHtml(error.message) + '</div>';
+            }
         }
         
         async function veriKaydet() {
