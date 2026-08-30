@@ -559,7 +559,12 @@ async function fetchAtKosularFromPage(page, atId, atAdi, opts = {}) {
             try {
                 await gotoKosuSonucSayfasi(page, ana.tarihLink, ana.sehir);
                 const fieldSize = await page.evaluate(countFieldSizePageEval());
-                const kayit = buildKosuKayit(ana, fieldSize, {});
+                const raceHeaderLine = await page.evaluate(() => {
+                    const bt = document.body.innerText || '';
+                    const m = bt.match(/\d+\.\s*Koşu\s+\d+\.\d+\s*\n([^\n]+(?:Kum|Çim|Sentetik)[^\n]*)/);
+                    return m ? m[1] : '';
+                });
+                const kayit = buildKosuKayit(ana, Object.assign({}, fieldSize, { raceHeaderLine }), {});
                 delete kayit.kosmaz;
                 sonuclar.push(kayit);
                 keys.add(key);
