@@ -226,7 +226,7 @@
 
     <script src="js/utils.js?v=20260831a"></script>
     <script src="js/at-meta-fields.js?v=20260831a"></script>
-    <script src="js/field-size-stats-engine.js?v=20260830a"></script>
+    <script src="js/field-size-stats-engine.js?v=20260830b"></script>
     <script src="js/sehir-stats-engine.js?v=20260830a"></script>
     <script src="js/kosu-dimension-stats-engine.js?v=20260830a"></script>
     <script>
@@ -819,7 +819,8 @@
             let html = '<div class="son-test-wrap">';
             html += '<p class="astest-note">Geçmiş koşulardaki at sayıları TJK sonuç tablosundan (koşmaz/çekildi hariç). '
                 + 'GETİR sonrası ilk 7 koşu tam detay + kalan koşular alan sayısı olarak çekilir. '
-                + '<strong>S5–S1</strong> sütunları son 5/4/3/2/1 koşuya göre aynı metrikleri gösterir (tarih yeniden→eskiye).</p>';
+                + '<strong>S5–S1</strong> sütunları son 5/4/3/2/1 koşuya göre aynı metrikleri gösterir (tarih yeniden→eskiye). '
+                + '1./1-2/… sıra sayıları <strong>sira</strong> ile; MAX-* yalnızca <strong>at_sayisi</strong> bilgili koşularda dolar.</p>';
             for (let i = 0; i < races.length; i++) {
                 const race = races[i];
                 const raceK1 = FieldSizeStatsEngine.raceFieldSize(race);
@@ -898,6 +899,7 @@
                 + '<strong>aynı anda</strong> dolar. Hedef hipodrom: <strong>'
                 + escapeHtml(hedefSehir || '—') + '</strong>. '
                 + 'MAX-* sütunları yalnızca hedef şehirdeki koşular içindir (at_sayisi bilgili olanlar). '
+                + '1./1-2/… <strong>sira</strong> ile hesaplanır. '
                 + '<strong>S5–S1</strong> son 5/4/3/2/1 koşu penceresidir.</p>';
             for (let i = 0; i < races.length; i++) {
                 const race = races[i];
@@ -981,7 +983,8 @@
             }
             let html = '<div class="son-test-wrap">';
             html += '<p class="astest-note">' + escapeHtml(dim.note) + ' GETİR ile diğer test sekmeleriyle '
-                + '<strong>aynı anda</strong> dolar. MAX-* sütunları yalnızca eşleşen koşular içindir (at_sayisi bilgili). '
+                + '<strong>aynı anda</strong> dolar. MAX-* yalnızca eşleşen ve <strong>at_sayisi</strong> bilgili koşularda; '
+                + '1./1-2/… <strong>sira</strong> ile hesaplanır. '
                 + '<strong>S5–S1</strong> son 5/4/3/2/1 koşu penceresidir.</p>';
             for (let i = 0; i < races.length; i++) {
                 const race = races[i];

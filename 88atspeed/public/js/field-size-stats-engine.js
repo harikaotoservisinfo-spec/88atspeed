@@ -45,26 +45,16 @@ const FieldSizeStatsEngine = {
         });
     },
 
+    racesWithSira(kosular) {
+        return (kosular || []).filter(k => this.parseSira(k.sira) != null);
+    },
+
     _computeStatsCore(kosular) {
         const all = kosular || [];
-        const races = this.validRaces(all);
-        const missing = all.length - races.length;
-        if (!races.length) {
-            return {
-                kosuSayisi: 0,
-                missingFieldSize: missing,
-                max1: null,
-                max12: null,
-                max123: null,
-                max1234: null,
-                cnt1: 0,
-                cnt12: 0,
-                cnt123: 0,
-                cnt1234: 0,
-                gecmisStr: '—',
-                gecmisList: []
-            };
-        }
+        const fsRaces = this.validRaces(all);
+        const siraRaces = this.racesWithSira(all);
+        const missing = all.length - fsRaces.length;
+
         let max1 = 0;
         let max12 = 0;
         let max123 = 0;
@@ -74,29 +64,28 @@ const FieldSizeStatsEngine = {
         let cnt123 = 0;
         let cnt1234 = 0;
         const gecmisList = [];
-        for (const k of races) {
+
+        for (const k of fsRaces) {
             const fs = Number(k.at_sayisi);
             const sira = this.parseSira(k.sira);
             gecmisList.push({ tarih: k.tarih, fs, sira });
-            if (sira === 1) {
-                cnt1++;
-                max1 = Math.max(max1, fs);
-            }
-            if (sira <= 2) {
-                cnt12++;
-                max12 = Math.max(max12, fs);
-            }
-            if (sira <= 3) {
-                cnt123++;
-                max123 = Math.max(max123, fs);
-            }
-            if (sira <= 4) {
-                cnt1234++;
-                max1234 = Math.max(max1234, fs);
-            }
+            if (sira === 1) max1 = Math.max(max1, fs);
+            if (sira <= 2) max12 = Math.max(max12, fs);
+            if (sira <= 3) max123 = Math.max(max123, fs);
+            if (sira <= 4) max1234 = Math.max(max1234, fs);
         }
+
+        for (const k of siraRaces) {
+            const sira = this.parseSira(k.sira);
+            if (sira === 1) cnt1++;
+            if (sira <= 2) cnt12++;
+            if (sira <= 3) cnt123++;
+            if (sira <= 4) cnt1234++;
+        }
+
         return {
-            kosuSayisi: races.length,
+            kosuSayisi: fsRaces.length,
+            kosuSayisiSira: siraRaces.length,
             missingFieldSize: missing,
             max1: max1 || null,
             max12: max12 || null,
@@ -106,7 +95,9 @@ const FieldSizeStatsEngine = {
             cnt12,
             cnt123,
             cnt1234,
-            gecmisStr: gecmisList.map(x => x.fs).join('→'),
+            gecmisStr: gecmisList.length
+                ? gecmisList.map(x => x.fs).join('→')
+                : (siraRaces.length ? siraRaces.map(k => this.parseSira(k.sira)).join('→') : '—'),
             gecmisList
         };
     },

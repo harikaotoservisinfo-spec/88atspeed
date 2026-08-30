@@ -222,6 +222,8 @@ function parseKosuDetayEval() {
         let hp = null;
         let taki_badges = [];
         let kosmaz = false;
+        let at_sayisi = 0;
+        let cikan_sayisi = 0;
 
         if (atTabloIndex !== -1) {
             const tablo = tables[atTabloIndex];
@@ -229,11 +231,22 @@ function parseKosuDetayEval() {
             son800 = extractSon800(tablo.innerText);
             for (const row of tablo.querySelectorAll('tbody tr')) {
                 const atIsimCell = row.querySelector('td:nth-child(3)');
-                if (!atIsimCell || !namesMatch(atIsimCell.innerText, atIsmi)) continue;
+                if (!atIsimCell) continue;
                 const dereceCell = row.querySelector('td:nth-child(10)');
                 const parsed = parseNameCell(atIsimCell);
+                const derece = dereceCell?.innerText?.trim() || '';
+                const rowKosmaz = parsed.kosmaz || /^koşmaz$/i.test(derece);
+                if (rowKosmaz) {
+                    cikan_sayisi++;
+                    continue;
+                }
+                const link = atIsimCell.querySelector('a');
+                const rowName = (link?.innerText || atIsimCell.innerText || '').replace(/\(\s*koşmaz\s*\)/gi, '').trim();
+                if (rowName) at_sayisi++;
+
+                if (!namesMatch(atIsimCell.innerText, atIsmi)) continue;
                 taki_badges = parsed.taki_badges;
-                kosmaz = parsed.kosmaz || /^koşmaz$/i.test(dereceCell?.innerText?.trim() || '');
+                kosmaz = rowKosmaz;
                 yas = row.querySelector('td:nth-child(4)')?.innerText?.trim() || null;
                 hp = row.querySelector('td:nth-child(16)')?.innerText?.trim() || null;
                 if (dereceCell) {
@@ -251,8 +264,23 @@ function parseKosuDetayEval() {
             return m ? m[1] : '';
         })();
 
-        return { birinciDerece, atDereceDetay, son800, yas, hp, taki_badges, kosmaz, raceHeaderLine: raceHeader };
+        return {
+            birinciDerece, atDereceDetay, son800, yas, hp, taki_badges, kosmaz, raceHeaderLine: raceHeader,
+            at_sayisi: at_sayisi || null,
+            cikan_sayisi: cikan_sayisi || 0
+        };
     };
+}
+
+function mergeDetayFieldSize(detay, fieldSize) {
+    const pageFs = Number(fieldSize?.at_sayisi);
+    const detayFs = Number(detay?.at_sayisi);
+    const atSayisi = pageFs > 0 ? pageFs : (detayFs > 0 ? detayFs : null);
+    if (!atSayisi) return detay || {};
+    return Object.assign({}, detay || {}, {
+        at_sayisi: atSayisi,
+        cikan_sayisi: Number(fieldSize?.cikan_sayisi) || Number(detay?.cikan_sayisi) || 0
+    });
 }
 
 function countFieldSizePageEval() {
@@ -506,12 +534,7 @@ async function fetchAtKosularFromPage(page, atId, atAdi, opts = {}) {
                 await gotoKosuSonucSayfasi(page, ana.tarihLink, ana.sehir);
                 let detay = await page.evaluate(parseKosuDetayEval(), atIsmi);
                 const fieldSize = await page.evaluate(countFieldSizePageEval());
-                if (fieldSize?.at_sayisi) {
-                    detay = Object.assign({}, detay, {
-                        at_sayisi: fieldSize.at_sayisi,
-                        cikan_sayisi: fieldSize.cikan_sayisi || 0
-                    });
-                }
+                detay = mergeDetayFieldSize(detay, fieldSize);
                 if (!detay.son800) {
                     const extraSon800 = await page.evaluate(() => {
                         const bt = document.body.innerText || '';
@@ -559,12 +582,14 @@ async function fetchAtKosularFromPage(page, atId, atAdi, opts = {}) {
             try {
                 await gotoKosuSonucSayfasi(page, ana.tarihLink, ana.sehir);
                 const fieldSize = await page.evaluate(countFieldSizePageEval());
-                const raceHeaderLine = await page.evaluate(() => {
+                let detay = await page.evaluate(parseKosuDetayEval(), atIsmi);
+                detay = mergeDetayFieldSize(detay, fieldSize);
+                const raceHeaderLine = detay.raceHeaderLine || await page.evaluate(() => {
                     const bt = document.body.innerText || '';
                     const m = bt.match(/\d+\.\s*Koşu\s+\d+\.\d+\s*\n([^\n]+(?:Kum|Çim|Sentetik)[^\n]*)/);
                     return m ? m[1] : '';
                 });
-                const kayit = buildKosuKayit(ana, Object.assign({}, fieldSize, { raceHeaderLine }), {});
+                const kayit = buildKosuKayit(ana, Object.assign({}, detay, { raceHeaderLine }), {});
                 delete kayit.kosmaz;
                 sonuclar.push(kayit);
                 keys.add(key);
