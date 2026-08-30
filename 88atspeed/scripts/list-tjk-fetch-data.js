@@ -30,14 +30,24 @@ const cli = {
 };
 
 const FETCHED_FIELDS = [
-    { key: 'tarih', kaynak: 'AtKosuBilgileri tablo td:1', aciklama: 'Koşu tarihi (GG.AA.YYYY)' },
-    { key: 'sehir', kaynak: 'AtKosuBilgileri tablo td:2', aciklama: 'Hipodrom/şehir' },
-    { key: 'mesafe', kaynak: 'AtKosuBilgileri tablo td:3', aciklama: 'Mesafe (m)' },
-    { key: 'sira', kaynak: 'AtKosuBilgileri tablo td:5', aciklama: 'Bitiş sırası' },
-    { key: 'at_derece', kaynak: 'Sonuç sayfası td:10 (at satırı) veya td:6 ana tablo', aciklama: 'Atın derecesi' },
-    { key: 'birinci_derece', kaynak: 'Sonuç sayfası td:10 (sıra=1 satırı)', aciklama: '1. at derecesi' },
-    { key: 'son800_bir', kaynak: 'Sonuç sayfası "Son 800 :" metni (1. değer)', aciklama: 'Son 800m birinci derece' },
-    { key: 'son800_iki', kaynak: 'Sonuç sayfası "Son 800 :" metni (2. değer)', aciklama: 'Son 800m ikinci derece' }
+    { key: 'tarih', kaynak: 'AtKosuBilgileri td:1', aciklama: 'Koşu tarihi' },
+    { key: 'sehir', kaynak: 'AtKosuBilgileri td:2', aciklama: 'Hipodrom' },
+    { key: 'mesafe', kaynak: 'AtKosuBilgileri td:3', aciklama: 'Mesafe (m)' },
+    { key: 'pist', kaynak: 'AtKosuBilgileri td:4 + koşu başlığı', aciklama: 'Kum / Çim / Sentetik' },
+    { key: 'sira', kaynak: 'AtKosuBilgileri td:5', aciklama: 'Bitiş sırası' },
+    { key: 'at_derece', kaynak: 'Sonuç td:10', aciklama: 'At derecesi' },
+    { key: 'birinci_derece', kaynak: 'Sonuç sıra=1 td:10', aciklama: '1. derece' },
+    { key: 'son800_bir', kaynak: 'Son 800 footer', aciklama: 'Son 800m 1.' },
+    { key: 'son800_iki', kaynak: 'Son 800 footer', aciklama: 'Son 800m 2.' },
+    { key: 'siklet', kaynak: 'AtKosuBilgileri td:7', aciklama: 'Sıklet' },
+    { key: 'grup', kaynak: 'AtKosuBilgileri td:12', aciklama: 'Grup (3İ vb.)' },
+    { key: 'kcins', kaynak: 'AtKosuBilgileri td:14', aciklama: 'Koşu cinsi (Handikap 15 vb.)' },
+    { key: 'hp', kaynak: 'AtKosuBilgileri td:17 + sonuç td:16', aciklama: 'Handikap puanı' },
+    { key: 'taki', kaynak: 'td:8 + span.aciklamaFancy', aciklama: 'KG DB SK vb.' },
+    { key: 'yas', kaynak: 'Sonuç td:4', aciklama: '3y k e vb.' },
+    { key: 'kcins_kosu', kaynak: 'Koşu başlığı', aciklama: 'Maiden/DHÖ vb.' },
+    { key: 'kategori', kaynak: 'Koşu başlığı', aciklama: '3 Yaşlı Araplar vb.' },
+    { key: 'pist_kosu', kaynak: 'Koşu başlığı', aciklama: '1200 Çim → Çim' }
 ];
 
 const TJK_ANA_TABLO_ATLANAN = [
