@@ -7,9 +7,25 @@ const DimensionTahminBoostEngine = (function () {
     /** Eski çarpan — sıra değiştirmiyordu; blend ile değiştirildi */
     const MAX_TOTAL_BOOST = 0.18;
     /** Hybrid taban skor + boyut norm (0–100) karışımı — terminal TK·S3 ~%60 vs hybrid ~%28 */
-    const HYBRID_WEIGHT = 0.58;
-    const DIM_WEIGHT = 0.42;
+    let hybridWeight = 0.58;
+    let dimWeight = 0.42;
     let enabled = true;
+
+    function getBlendWeights() {
+        return { hybridWeight, dimWeight };
+    }
+
+    function setBlendWeights(hybridW, dimW) {
+        const h = Number(hybridW);
+        const d = Number(dimW);
+        if (!Number.isFinite(h) || !Number.isFinite(d) || h < 0 || d < 0 || h + d <= 0) {
+            return getBlendWeights();
+        }
+        const sum = h + d;
+        hybridWeight = Math.round((h / sum) * 1000) / 1000;
+        dimWeight = Math.round((d / sum) * 1000) / 1000;
+        return getBlendWeights();
+    }
 
     /** Kanıt tabanlı rota — ağırlıklar göreli güven */
     const ROUTES = [
@@ -190,7 +206,8 @@ const DimensionTahminBoostEngine = (function () {
 
     function applyRaceBoost(scored, pkg) {
         if (!enabled || pkg?.skipDimensionBoost || !scored?.length) return scored;
-        if (scored.some(s => s.tahmin?.dimensionBoostApplied)) return scored;
+        if (!pkg?.forceDimensionBoost
+            && scored.some(s => s.tahmin?.dimensionBoostApplied)) return scored;
 
         const bundles = new Map();
         for (const s of scored) {
@@ -229,7 +246,7 @@ const DimensionTahminBoostEngine = (function () {
             const combined = boostSum / weightSum;
             const dimScore = combined * 100;
             const newScore = Math.max(1, Math.round(
-                baseScore * HYBRID_WEIGHT + dimScore * DIM_WEIGHT
+                baseScore * hybridWeight + dimScore * dimWeight
             ));
 
             s.tahmin.hybridBaseScore = baseScore;
@@ -270,8 +287,10 @@ const DimensionTahminBoostEngine = (function () {
     return {
         ROUTES,
         MAX_TOTAL_BOOST,
-        HYBRID_WEIGHT,
-        DIM_WEIGHT,
+        get HYBRID_WEIGHT() { return hybridWeight; },
+        get DIM_WEIGHT() { return dimWeight; },
+        getBlendWeights,
+        setBlendWeights,
         setEnabled,
         isEnabled,
         computeDimensionBundle,
