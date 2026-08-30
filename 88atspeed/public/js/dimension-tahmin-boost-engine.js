@@ -6,9 +6,9 @@
 const DimensionTahminBoostEngine = (function () {
     /** Eski çarpan — sıra değiştirmiyordu; blend ile değiştirildi */
     const MAX_TOTAL_BOOST = 0.18;
-    /** Hybrid taban skor + boyut norm (0–100) karışımı — terminal TK·S3 ~%60 vs hybrid ~%28 */
-    let hybridWeight = 0.58;
-    let dimWeight = 0.42;
+    /** Hybrid taban skor + boyut norm (0–100) karışımı — terminal sweep: en iyi boyut %9 */
+    let hybridWeight = 0.91;
+    let dimWeight = 0.09;
     let enabled = true;
 
     function getBlendWeights() {
@@ -268,10 +268,50 @@ const DimensionTahminBoostEngine = (function () {
         return applied ? scored : scored;
     }
 
+    function resetBoostState(rows) {
+        for (const row of rows || []) {
+            delete row._dim;
+            if (row.tahmin) delete row.tahmin.dimensionBoostApplied;
+        }
+    }
+
+    function countBoostCoverage(rows) {
+        let withKosular = 0;
+        let boosted = 0;
+        for (const row of rows || []) {
+            if (row.kosular?.length) withKosular++;
+            if (row.tahmin?.dimensionBoostApplied) boosted++;
+        }
+        return { withKosular, boosted, total: (rows || []).length };
+    }
+
+    function syncTahminOzeti(pkg) {
+        if (!pkg?.rows?.length) return pkg;
+        const leader = pkg.rows.find(r => r.tahmin?.rank === 1)
+            || pkg.rows.slice().sort((a, b) => (a.tahmin?.rank ?? 99) - (b.tahmin?.rank ?? 99))[0];
+        const cov = countBoostCoverage(pkg.rows);
+        const blend = getBlendWeights();
+        const prev = pkg.tahminOzeti || {};
+        pkg.tahminOzeti = Object.assign({}, prev, {
+            leader: leader?.name || null,
+            leaderPct: leader?.tahmin?.pct ?? null,
+            leaderScore: leader?.tahmin?.score ?? 0,
+            horseCount: pkg.rows.length,
+            dimensionBlend: blend,
+            dimensionApplied: cov.boosted > 0,
+            dimensionCoverage: cov,
+            dimensionRoutes: leader?.tahmin?.activeDimensionRoutes || []
+        });
+        return pkg;
+    }
+
     function applyBoostToPkg(pkg) {
         if (!pkg?.rows?.length) return pkg;
         if (!pkg.hedefSehir && pkg.rows[0]?.sehir?.hedef) {
             pkg.hedefSehir = pkg.rows[0].sehir.hedef;
+        }
+        if (pkg.forceDimensionBoost) {
+            resetBoostState(pkg.rows);
         }
         const scored = pkg.rows.map(row => ({
             row,
@@ -281,6 +321,7 @@ const DimensionTahminBoostEngine = (function () {
         if (scored.some(s => s.tahmin?.dimensionBoostApplied)) {
             finalizeScoredRace(scored);
         }
+        syncTahminOzeti(pkg);
         return pkg;
     }
 
@@ -297,7 +338,10 @@ const DimensionTahminBoostEngine = (function () {
         metricValue,
         applyRaceBoost,
         finalizeScoredRace,
-        applyBoostToPkg
+        applyBoostToPkg,
+        syncTahminOzeti,
+        countBoostCoverage,
+        resetBoostState
     };
 })();
 

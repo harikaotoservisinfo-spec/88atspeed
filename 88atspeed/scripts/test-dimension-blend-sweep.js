@@ -128,7 +128,9 @@ function attachTahminWithDimWeight(raceGroups, dimPct) {
             hedefSehir: entries[0]?._pkg?.hedefSehir || entries[0]?.hipodrom || null
         };
         HybridTahminScoringEngine.attachRaceTahmin(pkg);
-        if (dimW > 0) {
+        if (dimW > 0 && !entries.some(e => e.row?.tahmin?.dimensionBoostApplied)) {
+            pkg.skipDimensionBoost = false;
+            pkg.forceDimensionBoost = true;
             DimensionTahminBoostEngine.applyBoostToPkg(pkg);
         }
     }

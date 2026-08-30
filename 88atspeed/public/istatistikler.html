@@ -1050,12 +1050,12 @@
 <script src="js/field-size-stats-engine.js?v=20260830c"></script>
 <script src="js/sehir-stats-engine.js?v=20260830c"></script>
 <script src="js/kosu-dimension-stats-engine.js?v=20260830c"></script>
-<script src="js/dimension-tahmin-boost-engine.js?v=20260830c"></script>
-<script src="js/hybrid-tahmin-scoring-engine.js?v=20260830c"></script>
+<script src="js/dimension-tahmin-boost-engine.js?v=20260830d"></script>
+<script src="js/hybrid-tahmin-scoring-engine.js?v=20260830d"></script>
 <script src="js/ptest-field-factor-engine.js?v=20260830c"></script>
 <script src="js/ptest-field-adaptive-engine.js?v=20260830c"></script>
 <script>
-const ISTAT_BUILD = '20260830c';
+const ISTAT_BUILD = '20260830d';
 const TAHMIN_METRIC_ALL = '__hepsi__';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
@@ -1680,6 +1680,8 @@ function attachRaceTahminForPkg(pkg, teWeights) {
     if (!pkg.hedefSehir && currentKayitMeta?.hipodrom) {
         pkg.hedefSehir = currentKayitMeta.hipodrom;
     }
+    pkg.skipDimensionBoost = true;
+
     if (typeof HybridTahminScoringEngine !== 'undefined' && HybridTahminScoringEngine.isCalibrated?.()) {
         HybridTahminScoringEngine.attachRaceTahmin(pkg);
     } else if (typeof BasariPctScoringEngine !== 'undefined') {
@@ -1689,8 +1691,19 @@ function attachRaceTahminForPkg(pkg, teWeights) {
     } else {
         IstatistikTahminEngine.attachRaceTahmin(pkg, teWeights);
     }
+
     if (typeof DimensionTahminBoostEngine !== 'undefined' && DimensionTahminBoostEngine.applyBoostToPkg) {
+        pkg.skipDimensionBoost = false;
+        pkg.forceDimensionBoost = true;
         DimensionTahminBoostEngine.applyBoostToPkg(pkg);
+    } else if (typeof DimensionTahminBoostEngine !== 'undefined' && DimensionTahminBoostEngine.syncTahminOzeti) {
+        DimensionTahminBoostEngine.syncTahminOzeti(pkg);
+    } else {
+        const leader = pkg.rows.find(r => r.tahmin?.rank === 1);
+        if (leader && pkg.tahminOzeti) {
+            pkg.tahminOzeti.leader = leader.name;
+            pkg.tahminOzeti.leaderPct = leader.tahmin?.pct ?? null;
+        }
     }
     return pkg;
 }
@@ -1848,6 +1861,10 @@ function refreshAllTahmin() {
                     if (fp.priorityPreview?.length) {
                         badgeText += ' · ' + fp.priorityPreview.slice(0, 2).join(' · ');
                     }
+                }
+                const db = entry.pkg.tahminOzeti.dimensionBlend;
+                if (db && entry.pkg.tahminOzeti.dimensionApplied) {
+                    badgeText += ' · boyut %' + Math.round((db.dimWeight || 0) * 100);
                 }
                 badge.textContent = badgeText;
                 badge.style.display = '';
@@ -3320,6 +3337,14 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
                 if (fp.priorityPreview?.length) {
                     tahminBadge += ' · ' + fp.priorityPreview.slice(0, 2).join(' · ');
                 }
+            }
+            const db = pkg.tahminOzeti.dimensionBlend;
+            if (db && pkg.tahminOzeti.dimensionApplied) {
+                tahminBadge += ' · boyut %' + Math.round((db.dimWeight || 0) * 100);
+            } else if (pkg.tahminOzeti.dimensionCoverage) {
+                const c = pkg.tahminOzeti.dimensionCoverage;
+                if (!c.withKosular) tahminBadge += ' · ⚠ kosu yok';
+                else if (!pkg.tahminOzeti.dimensionApplied) tahminBadge += ' · ⚠ boyut yok';
             }
             html += '<span class="istatistik-race-badge" data-tahmin-badge>' + tahminBadge + '</span>';
         }
