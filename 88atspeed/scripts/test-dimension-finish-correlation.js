@@ -85,6 +85,28 @@ function hr(t) { console.log('\n══ ' + t + ' ══'); }
 function sub(t) { console.log('\n── ' + t + ' ──'); }
 function hasPhase(p) { return cli.phases.includes(p); }
 
+function effectiveMinRaces(raceCount) {
+    if (argVal('--min-races') != null) return cli.minRaces;
+    if (cli.raceNo) return 1;
+    if (raceCount < cli.minRaces) return Math.max(1, raceCount);
+    return cli.minRaces;
+}
+
+/** Üst skor beraberlikte (özellikle hepsi 0) en düşük at no ile sahte lider seçme */
+function pickScoredLeader(scored) {
+    if (!scored || scored.length < 2) return null;
+    scored.sort((a, b) => b.score - a.score || (a.entry.row?.no ?? 0) - (b.entry.row?.no ?? 0));
+    if (scored[0].score === scored[1].score) return null;
+    return scored[0];
+}
+
+function isMatchOnlyMetric(m) {
+    const k = m.key;
+    if (k.startsWith('cnt') || k.startsWith('max') || k.includes('max123') || k === '_cnt123rate') return false;
+    if (k === 'kosuSayisi') return false;
+    return true;
+}
+
 function loadAllEngines() {
     loadGostergeEngines();
     eval(fs.readFileSync(path.join(ROOT, 'public/js/at-meta-fields.js'), 'utf8') + '\n; global.AtMetaFields = AtMetaFields;');
@@ -99,6 +121,22 @@ function gval(entry, group, key) {
     if (key === 'matchHitPct') return getMatchHitPct(entry, group);
     return getMetric(entry, group, key);
 }
+
+/** Forensics grid — sabit sekme UI sütunları (lider skoruna göre değil) */
+const FORENSICS_COLUMNS = [
+    { label: 'AS.KOŞU', get: e => gval(e, 'fieldSize', 'kosuSayisi') },
+    { label: 'AS.1-2-3', get: e => gval(e, 'fieldSize', 'cnt123') },
+    { label: 'SH.ŞEH%', get: e => gval(e, 'sehir', 'sehirPct') },
+    { label: 'SH.1-2-3', get: e => gval(e, 'sehir', 'cnt123') },
+    { label: 'KC.KC%', get: e => gval(e, 'kcins_kosu', 'matchPct') },
+    { label: 'KC.1-2-3', get: e => gval(e, 'kcins_kosu', 'cnt123') },
+    { label: 'TK.TK%', get: e => gval(e, 'taki', 'matchPct') },
+    { label: 'TK.1-2-3', get: e => gval(e, 'taki', 'cnt123') },
+    { label: 'PS.PİST%', get: e => gval(e, 'pist', 'matchPct') },
+    { label: 'PS.1-2-3', get: e => gval(e, 'pist', 'cnt123') },
+    { label: 'HP.HP%', get: e => gval(e, 'hp', 'matchPct') },
+    { label: 'SK.SK%', get: e => gval(e, 'siklet', 'matchPct') }
+];
 
 /** Koşu içi min-max normalize ağırlıklı birleşik skor */
 function buildWeightedScorer(entries, parts) {
@@ -343,9 +381,9 @@ function evaluateComboRaceLeader(raceGroups, combo, host) {
         const getScore = combo.buildScorer(entries);
         const scored = entries.map(e => ({ entry: e, score: getScore(e) }))
             .filter(s => s.score != null);
-        if (scored.length < 2) continue;
-        scored.sort((a, b) => b.score - a.score || (a.entry.row?.no ?? 0) - (b.entry.row?.no ?? 0));
-        const bitis = host.bitisValueForSort(scored[0].entry);
+        const leader = pickScoredLeader(scored);
+        if (!leader) continue;
+        const bitis = host.bitisValueForSort(leader.entry);
         if (bitis == null || bitis < 1) continue;
         leaderTotal++;
         if (bitis === 1) b1++;
@@ -359,12 +397,12 @@ function evaluateComboRaceLeader(raceGroups, combo, host) {
     };
 }
 
-function bestSingleForTab(catalog, tab, raceGroups, host) {
+function bestSingleForTab(catalog, tab, raceGroups, host, minRaces) {
     const singles = catalog.filter(m => m.tab === tab);
     let best = null;
     for (const m of singles) {
         const r = evaluateRaceLeader(raceGroups, m.get, host);
-        if (r.leaderTotal < cli.minRaces) continue;
+        if (r.leaderTotal < minRaces) continue;
         if (!best || r.leaderBlended > best.leaderBlended) {
             best = { m, ...r };
         }
@@ -569,9 +607,9 @@ function evaluateRaceLeader(raceGroups, getScore, host) {
     let leaderTotal = 0, b1 = 0, b12 = 0, b123 = 0;
     for (const entries of raceGroups) {
         const scored = entries.map(e => ({ entry: e, score: getScore(e) })).filter(s => s.score != null);
-        if (scored.length < 2) continue;
-        scored.sort((a, b) => b.score - a.score || (a.entry.row?.no ?? 0) - (b.entry.row?.no ?? 0));
-        const bitis = host.bitisValueForSort(scored[0].entry);
+        const leader = pickScoredLeader(scored);
+        if (!leader) continue;
+        const bitis = host.bitisValueForSort(leader.entry);
         if (bitis == null || bitis < 1) continue;
         leaderTotal++;
         if (bitis === 1) b1++;
@@ -699,16 +737,11 @@ function formatMetricVal(v) {
     return v.toFixed(1);
 }
 
-function printRaceForensics(raceGroups, host, catalog, tahminBase) {
+function printRaceForensics(raceGroups, host, catalog) {
     attachTahminLeader(raceGroups);
-    const topMetrics = catalog
-        .map(m => {
-            const r = evaluateRaceLeader(raceGroups, m.get, host);
-            return { m, ...r };
-        })
-        .filter(r => r.leaderTotal > 0)
-        .sort((a, b) => b.leaderBlended - a.leaderBlended)
-        .slice(0, 12);
+    const forensicsMetrics = catalog.filter(m =>
+        ['matchPct', 'matchCount', 'matchHitPct', 'sehirPct', 'inCityCount', 'cnt123', 'kosuSayisi'].includes(m.key)
+    );
 
     for (const entries of raceGroups) {
         const raw0 = entries[0]?._dimRaw;
@@ -726,31 +759,30 @@ function printRaceForensics(raceGroups, host, catalog, tahminBase) {
         });
 
         console.log('  ' + pad('AT', 22) + pad('BİT', 4) + pad('TAH#', 5)
-            + topMetrics.map(t => pad(t.m.short + '.' + t.m.col.slice(0, 6), 9)).join(''));
-        console.log('  ' + '-'.repeat(22 + 4 + 5 + topMetrics.length * 9));
+            + FORENSICS_COLUMNS.map(c => pad(c.label.slice(0, 9), 9)).join(''));
+        console.log('  ' + '-'.repeat(22 + 4 + 5 + FORENSICS_COLUMNS.length * 9));
 
         for (const e of horses) {
             const bitis = host.bitisValueForSort(e);
             const name = (e.row?.name || '?').replace(/\(\d+\)/, '').trim().slice(0, 20);
             const tahRank = e.row?.tahmin?.rank ?? '—';
             let line = '  ' + pad(name, 22) + pad(bitis ?? '—', 4) + pad(String(tahRank), 5);
-            for (const t of topMetrics) {
-                line += pad(formatMetricVal(t.m.get(e)), 9);
+            for (const c of FORENSICS_COLUMNS) {
+                line += pad(formatMetricVal(c.get(e)), 9);
             }
             console.log(line);
         }
 
-        console.log('\n  Metrik liderleri (bu koşu):');
-        for (const t of topMetrics.slice(0, 8)) {
-            const scored = entries.map(e => ({ e, s: t.m.get(e) })).filter(x => x.s != null);
-            if (!scored.length) continue;
-            scored.sort((a, b) => b.s - a.s);
-            const leader = scored[0];
-            const lb = host.bitisValueForSort(leader.e);
+        console.log('\n  Metrik liderleri (bu koşu — MATCH + deneyim):');
+        for (const m of forensicsMetrics) {
+            const scored = entries.map(e => ({ e, s: m.get(e) })).filter(x => x.s != null);
+            const picked = pickScoredLeader(scored.map(x => ({ entry: x.e, score: x.s })));
+            if (!picked) continue;
+            const lb = host.bitisValueForSort(picked.entry);
             const mark = lb === 1 ? '★' : lb <= 3 ? '◆' : '·';
-            console.log('    ' + mark + ' ' + pad(t.m.label, 28)
-                + ' → ' + (leader.e.row?.name || '?').slice(0, 25)
-                + ' (' + formatMetricVal(leader.s) + ') BİTİŞ=' + (lb ?? '?'));
+            console.log('    ' + mark + ' ' + pad(m.label, 28)
+                + ' → ' + (picked.entry.row?.name || '?').slice(0, 25)
+                + ' (' + formatMetricVal(picked.score) + ') BİTİŞ=' + (lb ?? '?'));
         }
     }
 }
@@ -810,8 +842,14 @@ async function main() {
             return;
         }
 
-        const tahminBase = hasPhase('leader') || hasPhase('plan') || hasPhase('agree')
-            ? evaluateTahminLeader(raceGroups, host) : null;
+        const minRaces = effectiveMinRaces(raceGroups.length);
+        if (minRaces !== cli.minRaces) {
+            console.log('  minRaces (otomatik)  : ' + minRaces + ' (koşu=' + raceGroups.length + ')');
+        }
+
+        const needsTahmin = hasPhase('leader') || hasPhase('plan') || hasPhase('agree')
+            || hasPhase('compare') || hasPhase('combo');
+        const tahminBase = needsTahmin ? evaluateTahminLeader(raceGroups, host) : null;
 
         if (hasPhase('leader')) {
             hr('2. KOŞU LİDERİ — TÜM UI SÜTUNLARI (' + catalog.length + ' metrik)');
@@ -822,7 +860,7 @@ async function main() {
             }
             const leaderResults = catalog.map(m => ({
                 m, ...evaluateRaceLeader(raceGroups, m.get, host)
-            })).filter(r => r.leaderTotal >= cli.minRaces)
+            })).filter(r => r.leaderTotal >= minRaces)
                 .sort((a, b) => b.leaderBlended - a.leaderBlended);
 
             for (const tg of TAB_GROUPS) {
@@ -838,6 +876,18 @@ async function main() {
             }
             sub('GENEL TOP ' + cli.top);
             leaderResults.slice(0, cli.top).forEach((r, idx) => {
+                console.log('  ' + pad(String(idx + 1) + '.', 4) + pad(r.m.label, 32)
+                    + ' karışık ' + pad(pct(r.leaderBlended), 7)
+                    + ' · 1. ' + pad(pct(r.exactRate), 7)
+                    + ' · n=' + r.leaderTotal);
+            });
+
+            sub('MATCH-ONLY — cnt/max hariç (beraberlik atlanır)');
+            const matchLeaderResults = leaderResults.filter(r => isMatchOnlyMetric(r.m));
+            if (!matchLeaderResults.length) {
+                console.log('  (yeterli ayırt edici koşu yok — tüm liderler beraberlikte)');
+            }
+            matchLeaderResults.slice(0, cli.top).forEach((r, idx) => {
                 console.log('  ' + pad(String(idx + 1) + '.', 4) + pad(r.m.label, 32)
                     + ' karışık ' + pad(pct(r.leaderBlended), 7)
                     + ' · 1. ' + pad(pct(r.exactRate), 7)
@@ -880,7 +930,7 @@ async function main() {
 
             const corrResults = catalog.map(m => {
                 const c = evaluateRankCorrelation(raceGroups, m.get, host);
-                return c.n >= cli.minRaces ? { m, ...c } : null;
+                return c.n >= minRaces ? { m, ...c } : null;
             }).filter(Boolean).sort((a, b) => b.inverted - a.inverted);
 
             for (const tg of TAB_GROUPS) {
@@ -930,20 +980,20 @@ async function main() {
             const agreeResults = catalog.map(m => {
                 let total = 0, b1 = 0, b12 = 0, b123 = 0;
                 for (const entries of raceGroups) {
-                    const ms = entries.map(e => ({ e, s: m.get(e) })).filter(x => x.s != null);
-                    const ts = entries.map(e => ({ e, s: e.row?.tahmin?.score })).filter(x => x.s != null);
-                    if (ms.length < 2 || !ts.length) continue;
-                    ms.sort((a, b) => b.s - a.s);
-                    ts.sort((a, b) => b.s - a.s);
-                    if (ms[0].e.row?.no !== ts[0].e.row?.no) continue;
-                    const bitis = host.bitisValueForSort(ms[0].e);
+                    const ms = entries.map(e => ({ entry: e, score: m.get(e) })).filter(x => x.score != null);
+                    const ts = entries.map(e => ({ entry: e, score: e.row?.tahmin?.score })).filter(x => x.score != null);
+                    const mLeader = pickScoredLeader(ms);
+                    const tLeader = pickScoredLeader(ts);
+                    if (!mLeader || !tLeader) continue;
+                    if (mLeader.entry.row?.no !== tLeader.entry.row?.no) continue;
+                    const bitis = host.bitisValueForSort(mLeader.entry);
                     if (bitis == null || bitis < 1) continue;
                     total++;
                     if (bitis === 1) b1++;
                     if (bitis <= 2) b12++;
                     if (bitis <= 3) b123++;
                 }
-                return total >= cli.minRaces
+                return total >= minRaces
                     ? { m, leaderTotal: total, leaderBlended: blendedFromCounts(total, b1, b12, b123) }
                     : null;
             }).filter(Boolean).sort((a, b) => b.leaderBlended - a.leaderBlended);
@@ -979,7 +1029,7 @@ async function main() {
 
         if (hasPhase('race') && (cli.raceNo || cli.verbose)) {
             hr('8. KOŞU FORENSİCS — at-at metrik vs BİTİŞ');
-            printRaceForensics(raceGroups, host, catalog, tahminBase);
+            printRaceForensics(raceGroups, host, catalog);
         }
 
         const comboCatalog = buildComboCatalog();
@@ -994,12 +1044,12 @@ async function main() {
             comboResults = comboCatalog.map(c => ({
                 combo: c,
                 ...evaluateComboRaceLeader(raceGroups, c, host)
-            })).filter(r => r.leaderTotal >= cli.minRaces)
+            })).filter(r => r.leaderTotal >= minRaces)
                 .sort((a, b) => b.leaderBlended - a.leaderBlended);
 
             for (const tg of TAB_GROUPS) {
                 sub(tg.tab + ' — tek vs birleşik');
-                const singleBest = bestSingleForTab(catalog, tg.tab, raceGroups, host);
+                const singleBest = bestSingleForTab(catalog, tg.tab, raceGroups, host, minRaces);
                 const tabCombos = comboResults.filter(r => r.combo.tab === tg.tab);
                 const bestCombo = tabCombos[0] || null;
 
@@ -1036,7 +1086,7 @@ async function main() {
             const megaCombos = comboResults.filter(r => r.combo.kind === 'mega');
             const bestSingleGlobal = catalog.map(m => ({
                 m, ...evaluateRaceLeader(raceGroups, m.get, host)
-            })).filter(r => r.leaderTotal >= cli.minRaces)
+            })).filter(r => r.leaderTotal >= minRaces)
                 .sort((a, b) => b.leaderBlended - a.leaderBlended)[0];
 
             for (const r of megaCombos) {
@@ -1054,6 +1104,22 @@ async function main() {
                 tab: 'MEGA (çapraz)',
                 single: bestSingleGlobal,
                 combo: megaCombos[0] ? { label: megaCombos[0].combo.label, ...megaCombos[0] } : null
+            });
+
+            sub('MATCH-ONLY combo — PLACEMENT/cnt123 paketleri hariç');
+            const matchCombos = comboResults.filter(r =>
+                !r.combo.id.includes('placement')
+                && !r.combo.id.includes('cnt123')
+                && !r.combo.id.includes('max-ladder')
+                && r.combo.kind !== 'mega'
+            );
+            matchCombos.slice(0, 15).forEach((r, i) => {
+                const vsTahmin = tahminBase ? r.leaderBlended - tahminBase.leaderBlended : null;
+                console.log('  ' + pad(String(i + 1) + '.', 4) + pad(r.combo.label.slice(0, 38), 40)
+                    + ' karışık ' + pad(pct(r.leaderBlended), 7)
+                    + ' · 1. ' + pad(pct(r.exactRate), 7)
+                    + (vsTahmin != null && vsTahmin > 0.005 ? ' · vsTAH+' + pct(vsTahmin) : '')
+                    + ' · n=' + r.leaderTotal);
             });
         }
 
@@ -1074,7 +1140,7 @@ async function main() {
                 const bestSingleAll = tabSummaries.find(t => t.tab === 'MEGA (çapraz)')?.single
                     || catalog.map(m => ({
                         m, ...evaluateRaceLeader(raceGroups, m.get, host)
-                    })).filter(r => r.leaderTotal >= cli.minRaces)
+                    })).filter(r => r.leaderTotal >= minRaces)
                         .sort((a, b) => b.leaderBlended - a.leaderBlended)[0];
                 console.log('\n  Sonuç:');
                 console.log('    TAHMİN hybrid     : ' + pct(tahminBase.leaderBlended));
@@ -1093,7 +1159,7 @@ async function main() {
             hr('12. TAHMİN SKORU — entegrasyon önceliği');
             const leaderResults = catalog.map(m => ({
                 m, ...evaluateRaceLeader(raceGroups, m.get, host)
-            })).filter(r => r.leaderTotal >= cli.minRaces)
+            })).filter(r => r.leaderTotal >= minRaces)
                 .sort((a, b) => b.leaderBlended - a.leaderBlended);
 
             console.log('  TAHMİN baseline: ' + pct(tahminBase.leaderBlended) + ' (n=' + tahminBase.leaderTotal + ')');
@@ -1106,7 +1172,7 @@ async function main() {
 
             const corrTop = catalog.map(m => {
                 const c = evaluateRankCorrelation(raceGroups, m.get, host);
-                return c.n >= cli.minRaces ? { m, ...c } : null;
+                return c.n >= minRaces ? { m, ...c } : null;
             }).filter(Boolean).sort((a, b) => b.inverted - a.inverted).slice(0, 5);
 
             console.log('\n  Öncelik 2 — sıralama korelasyonu (bitişi en iyi ayıran):');
