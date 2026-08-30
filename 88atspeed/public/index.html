@@ -18,20 +18,37 @@
         .tjk-horse-cell { background: #e8f5e9; font-size: 11px; }
         .son-test-wrap { padding: 8px 0 24px; }
         .son-test-race { margin-bottom: 20px; }
-        .son-test-names {
-            display: flex; flex-wrap: wrap; gap: 8px 12px;
-            padding: 14px 16px; background: #fff;
-            border-radius: 0 0 10px 10px; border: 1px solid #e0e0e0; border-top: none;
+        .son-test-table-wrap {
+            overflow-x: auto; background: #fff;
+            border: 1px solid #e0e0e0; border-top: none;
+            border-radius: 0 0 10px 10px;
         }
-        .son-test-horse {
-            display: inline-flex; align-items: center; gap: 6px;
-            padding: 6px 12px; background: #f3e5f5; border: 1px solid #ce93d8;
-            border-radius: 999px; font-size: 13px; font-weight: 600; color: #4a148c;
+        .son-test-table {
+            min-width: 320px !important; width: 100%;
+            border-collapse: collapse; font-size: 13px;
         }
-        .son-test-no {
-            display: inline-flex; align-items: center; justify-content: center;
-            min-width: 22px; height: 22px; border-radius: 50%;
-            background: #7b1fa2; color: #fff; font-size: 11px; font-weight: 800;
+        .son-test-table thead th {
+            position: sticky; top: 0; z-index: 1;
+            background: #ede7f6; padding: 8px 12px;
+            text-align: left; font-size: 11px; font-weight: 700;
+            color: #4a148c; border-bottom: 2px solid #ce93d8;
+            white-space: nowrap;
+        }
+        .son-test-table tbody td {
+            padding: 8px 12px; border-bottom: 1px solid #eceff1;
+            vertical-align: middle;
+        }
+        .son-test-table tbody tr:hover { background: #f3e5f5; }
+        .son-test-table tbody tr:last-child td { border-bottom: none; }
+        .son-test-table .col-no {
+            width: 52px; text-align: center; font-weight: 800;
+            color: #7b1fa2; background: #fafafa;
+        }
+        .son-test-table .col-name {
+            min-width: 240px; font-weight: 600; text-align: left; color: #263238;
+        }
+        .son-test-table .col-slot {
+            min-width: 72px; text-align: center; color: #90a4ae;
         }
         .son-test-toolbar {
             display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
@@ -384,6 +401,8 @@
                 }
                 
                 hesaplamaGoster(currentRaces);
+                sonTestKayitSource = 'getir';
+                currentSonTestKayitId = null;
                 sonTestGoster(currentRaces, {
                     source: 'getir',
                     tarih: tarih,
@@ -508,19 +527,24 @@
                 html += '<div class="son-test-race race-card">';
                 html += '<div class="race-header"><h3>🏁 ' + race.raceNo + '. KOŞU · '
                     + horses.length + ' at · ' + escapeHtml(header) + '</h3></div>';
-                html += '<div class="son-test-names">';
+                html += '<div class="son-test-table-wrap">';
+                html += '<table class="son-test-table">';
+                html += '<thead><tr>';
+                html += '<th class="col-no">#</th>';
+                html += '<th class="col-name">AT İSMİ</th>';
+                html += '</tr></thead><tbody>';
                 if (!horses.length) {
-                    html += '<span class="son-test-horse">— at yok —</span>';
+                    html += '<tr><td class="col-no">—</td><td class="col-name">At yok</td></tr>';
                 } else {
                     for (let j = 0; j < horses.length; j++) {
                         const h = horses[j];
-                        html += '<span class="son-test-horse">';
-                        html += '<span class="son-test-no">' + escapeHtml(String(h.no ?? (j + 1))) + '</span>';
-                        html += '<span>' + escapeHtml(h.name || '—') + '</span>';
-                        html += '</span>';
+                        html += '<tr>';
+                        html += '<td class="col-no">' + escapeHtml(String(h.no ?? (j + 1))) + '</td>';
+                        html += '<td class="col-name">' + escapeHtml(h.name || '—') + '</td>';
+                        html += '</tr>';
                     }
                 }
-                html += '</div></div>';
+                html += '</tbody></table></div></div>';
             }
             html += '</div>';
             el.innerHTML = html;
