@@ -23,7 +23,7 @@
     "purge:kosmaz-apply": "node scripts/purge-kosmaz-horses.js --db atlar.db --apply",
     "purge:cikan-scan": "node scripts/purge-cikan-from-kayitlar.js --db atlar.db",
     "purge:cikan-apply": "node scripts/purge-cikan-from-kayitlar.js --db atlar.db --apply",
-    "test:near-miss": "node scripts/test-near-miss-report.js --db atlar.db --field-size 10",
+    "test:tjk-race": "node scripts/test-tjk-race-fetch.js --sehir Ankara --sehir-id 5 --tarih 29/08/2026 --race 1",
     "test:near-miss-race": "node scripts/test-near-miss-report.js --db atlar.db --kayit 133 --race 6 --verbose"
   },
   "dependencies": {

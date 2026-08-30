@@ -451,6 +451,8 @@
                     raceNo: race.raceNo,
                     mesafe: race.mesafe || '?',
                     pist: race.pist || '?',
+                    kcins_kosu: race.kcins_kosu || '',
+                    kategori: race.kategori || '',
                     horses: []
                 };
                 for (let j = 0; j < race.horses.length; j++) {
@@ -468,6 +470,10 @@
                         no: horse.no,
                         name: horse.name,
                         atId: horse.atId,
+                        yas: horse.yas || '',
+                        taki: horse.taki || '',
+                        hp: horse.hp || '',
+                        siklet: horse.siklet || '',
                         kosular: kosular
                     });
                 }
