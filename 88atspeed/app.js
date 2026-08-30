@@ -837,6 +837,31 @@ app.get('/api/hesaplama-kayit/:id', (req, res) => {
     });
 });
 
+/** hesaplama_kayitlari — veri güncelle (PUANLAMA TEST çıkan at kalıcı silme) */
+app.put('/api/hesaplama-kayit/:id', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const body = req.body || {};
+    if (!body.veri || !Array.isArray(body.veri)) {
+        res.json({ success: false, error: 'veri (dizi) gerekli' });
+        return;
+    }
+    const raceCount = body.race_count != null ? body.race_count : body.raceCount;
+    const totalHorses = body.total_horses != null ? body.total_horses : body.totalHorses;
+    const sql = `UPDATE hesaplama_kayitlari SET veri = ?, race_count = ?, total_horses = ? WHERE id = ?`;
+    db.run(sql, [JSON.stringify(body.veri), raceCount, totalHorses, id], function(err) {
+        if (err) {
+            res.json({ success: false, error: err.message });
+            return;
+        }
+        if (this.changes === 0) {
+            res.json({ success: false, error: 'Kayıt bulunamadı' });
+            return;
+        }
+        console.log('💾 Hesaplama kaydı güncellendi ID:', id, '·', totalHorses, 'at');
+        res.json({ success: true, id, race_count: raceCount, total_horses: totalHorses });
+    });
+});
+
 function parsePuanlamaStore(raw) {
     if (!raw || typeof raw !== 'object') return { bitis: {}, cikan: {} };
     const isLegacy = !raw.bitis && !raw.cikan

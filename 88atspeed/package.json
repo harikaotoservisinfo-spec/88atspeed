@@ -21,8 +21,10 @@
     "repair:k6-depth-apply": "node scripts/repair-missing-kosular.js --db atlar.db --kayit 133 --race 6 --horse 5,6,8 --refresh --apply",
     "purge:kosmaz": "node scripts/purge-kosmaz-horses.js --db atlar.db --scan",
     "purge:kosmaz-apply": "node scripts/purge-kosmaz-horses.js --db atlar.db --apply",
+    "purge:cikan-scan": "node scripts/purge-cikan-from-kayitlar.js --db atlar.db",
+    "purge:cikan-apply": "node scripts/purge-cikan-from-kayitlar.js --db atlar.db --apply",
     "test:near-miss": "node scripts/test-near-miss-report.js --db atlar.db --field-size 10",
-    "test:near-miss-race": "node scripts/test-near-miss-report.js --db atlar.db --verbose"
+    "test:near-miss-race": "node scripts/test-near-miss-report.js --db atlar.db --kayit 133 --race 6 --verbose"
   },
   "dependencies": {
     "cheerio": "^1.2.0",

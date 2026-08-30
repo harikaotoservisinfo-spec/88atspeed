@@ -122,6 +122,50 @@ const AtSpeedUtils = {
         return Object.assign({}, race, { horses, horseCount: horses.length });
     },
 
+    /** hesaplama_kayitlari.veri — koşudan atı kalıcı çıkar */
+    removeHorseFromKayitVeri(races, raceNo, horseNo) {
+        if (!Array.isArray(races)) return null;
+        for (let i = 0; i < races.length; i++) {
+            const race = races[i];
+            const rn = race.raceNo || race.race_no || (i + 1);
+            if (Number(rn) !== Number(raceNo)) continue;
+            const horses = race.horses || [];
+            const idx = horses.findIndex(h => String(h.no) === String(horseNo));
+            if (idx < 0) return null;
+            return horses.splice(idx, 1)[0];
+        }
+        return null;
+    },
+
+    /** Yedekten atı koşuya geri ekle (at no sırasına göre) */
+    restoreHorseToKayitVeri(races, raceNo, horse) {
+        if (!Array.isArray(races) || !horse) return false;
+        for (let i = 0; i < races.length; i++) {
+            const race = races[i];
+            const rn = race.raceNo || race.race_no || (i + 1);
+            if (Number(rn) !== Number(raceNo)) continue;
+            if (!race.horses) race.horses = [];
+            if (race.horses.some(h => String(h.no) === String(horse.no))) return false;
+            race.horses.push(horse);
+            race.horses.sort((a, b) => Number(a.no) - Number(b.no));
+            return true;
+        }
+        return false;
+    },
+
+    recountKayitTotals(races) {
+        let raceCount = 0;
+        let totalHorses = 0;
+        for (const race of races || []) {
+            const n = (race.horses || []).length;
+            if (n > 0) {
+                raceCount++;
+                totalHorses += n;
+            }
+        }
+        return { raceCount, totalHorses };
+    },
+
     /**
      * Doğrusal min–max yüzde: en düşük (en iyi) değer %100, en yüksek (en kötü) %0.
      * Ara değerler: (max − value) / (max − min) × 100

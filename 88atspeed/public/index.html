@@ -457,7 +457,9 @@
                     let horse = race.horses[j];
                     if (/\(\s*koşmaz\s*\)/i.test(horse.name || '')
                         || /\(\s*kosmaz\s*\)/i.test(horse.name || '')
-                        || /\(\s*koşm\s*\)/i.test(horse.name || '')) {
+                        || /\(\s*koşm\s*\)/i.test(horse.name || '')
+                        || /\(\s*çekildi\s*\)/i.test(horse.name || '')
+                        || /\(\s*cekildi\s*\)/i.test(horse.name || '')) {
                         kosmazSkipped++;
                         continue;
                     }

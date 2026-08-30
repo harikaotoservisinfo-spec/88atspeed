@@ -1327,6 +1327,7 @@ const COL_COUNT = () => ptestTableColCount();
 
 let savedBitisMap = {};
 let savedCikanMap = {};
+let removedHorseBackup = {};
 let kayitCache = new Map();
 let flatEntries = [];
 let kayitCountLoaded = 0;
@@ -1350,15 +1351,41 @@ function raceKey(kayitId, raceNo) {
     return String(kayitId) + '|' + raceNo;
 }
 
+function parseRaceKey(rk) {
+    const parts = String(rk || '').split('|');
+    return { kayitId: Number(parts[0]), raceNo: Number(parts[1]) };
+}
+
 function getCikanSet(kayitId, raceNo) {
     const arr = savedCikanMap[raceKey(kayitId, raceNo)] || [];
     return new Set(arr.map(String));
 }
 
 function countCikanHorses() {
-    let n = 0;
-    for (const arr of Object.values(savedCikanMap)) n += (arr || []).length;
-    return n;
+    return Object.keys(removedHorseBackup).length
+        + Object.values(savedCikanMap).reduce((n, arr) => n + (arr?.length || 0), 0);
+}
+
+function buildRestorableCikanList() {
+    const items = [];
+    for (const [key, horse] of Object.entries(removedHorseBackup)) {
+        const parts = key.split('|');
+        if (parts.length < 3) continue;
+        const kayitId = Number(parts[0]);
+        const raceNo = Number(parts[1]);
+        const horseNo = parts[2];
+        const kayit = kayitCache.get(kayitId);
+        items.push({
+            kayitId,
+            raceNo,
+            horseNo,
+            horseName: horse.name || '—',
+            tarih: kayit?.tarih || '—',
+            hipodrom: kayit?.hipodrom || '—',
+            raceKey: parts[0] + '|' + parts[1]
+        });
+    }
+    return items;
 }
 
 function raceWithoutCikan(race, kayitId, raceNo) {
@@ -5571,7 +5598,7 @@ function renderRow(entry) {
     h += '<td class="ptest-meta-col ptest-hipodrom">' + AtSpeedUtils.escapeHtml(entry.hipodrom || '—') + '</td>';
     h += '<td class="ptest-meta-col">' + entry.raceNo + '</td>';
     h += '<td class="ptest-at">' + AtSpeedUtils.escapeHtml(row.name || '—') + '</td>';
-    h += '<td><button type="button" class="ptest-cikan-btn" data-race-key="' + AtSpeedUtils.escapeHtml(rk) + '" data-horse-no="' + AtSpeedUtils.escapeHtml(String(row.no ?? '')) + '" data-horse-name="' + AtSpeedUtils.escapeHtml(row.name || '') + '" title="Çıkan at — koşudan çıkar, metrikler yeniden hesaplanır">✕</button></td>';
+    h += '<td><button type="button" class="ptest-cikan-btn" data-race-key="' + AtSpeedUtils.escapeHtml(rk) + '" data-horse-no="' + AtSpeedUtils.escapeHtml(String(row.no ?? '')) + '" data-horse-name="' + AtSpeedUtils.escapeHtml(row.name || '') + '" title="Çıkan at — kayıttan kalıcı sil, metrikler yeniden hesaplanır">✕</button></td>';
     h += '<td>' + bitisInputHtml(entry) + '</td>';
     h += '<td>' + tahminHtml(row.tahmin) + '</td>';
     h += renderOverviewStripDataCells(entry);
@@ -5708,14 +5735,15 @@ function renderCikanPanel() {
         return;
     }
     panel.classList.remove('hidden');
-    list.innerHTML = cikanMetaList.map(item =>
+    const restorable = buildRestorableCikanList();
+    list.innerHTML = restorable.length ? restorable.map(item =>
         '<span class="ptest-cikan-chip">' +
         AtSpeedUtils.escapeHtml(item.tarih) + ' · ' + AtSpeedUtils.escapeHtml(item.hipodrom) +
-        ' · Koşu ' + item.raceNo + ' · #' + AtSpeedUtils.escapeHtml(item.horseNo) + ' ' +
+        ' · Koşu ' + item.raceNo + ' · #' + AtSpeedUtils.escapeHtml(String(item.horseNo)) + ' ' +
         AtSpeedUtils.escapeHtml(item.horseName) +
         ' <button type="button" class="ptest-cikan-restore" data-race-key="' + AtSpeedUtils.escapeHtml(item.raceKey) +
-        '" data-horse-no="' + AtSpeedUtils.escapeHtml(item.horseNo) + '">↩ Geri al</button></span>'
-    ).join('');
+        '" data-horse-no="' + AtSpeedUtils.escapeHtml(String(item.horseNo)) + '">↩ Geri al</button></span>'
+    ).join('') : '<span style="color:#789;font-size:12px">Bu oturumda geri alınabilir silinen at yok.</span>';
     list.querySelectorAll('.ptest-cikan-restore').forEach(btn => {
         btn.onclick = () => restoreCikan(btn.dataset.raceKey, btn.dataset.horseNo);
     });
@@ -5754,6 +5782,26 @@ async function loadSavedData() {
     }
 }
 
+async function persistKayitVeri(kayitId) {
+    const kayit = kayitCache.get(Number(kayitId));
+    if (!kayit?.veri) return null;
+    const totals = AtSpeedUtils.recountKayitTotals(kayit.veri);
+    kayit.race_count = totals.raceCount;
+    kayit.total_horses = totals.totalHorses;
+    const res = await fetch('/api/hesaplama-kayit/' + kayitId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            veri: kayit.veri,
+            race_count: totals.raceCount,
+            total_horses: totals.totalHorses
+        })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'Kayıt güncellenemedi');
+    return json;
+}
+
 async function persistAll(showStatus) {
     const sonuclar = collectBitisFromDom();
     const res = await fetch('/api/puanlama-bitis-sonuclari', {
@@ -5788,32 +5836,65 @@ async function saveAllSettings() {
 }
 
 async function markCikan(rk, horseNo, horseName) {
-    if (!confirm('«' + horseName + '» çıkan at olarak işaretlensin mi?\nKoşudaki tüm metrikler yeniden hesaplanır.')) return;
-    const arr = savedCikanMap[rk] ? [...savedCikanMap[rk]] : [];
-    if (!arr.map(String).includes(String(horseNo))) arr.push(String(horseNo));
-    savedCikanMap[rk] = arr;
+    if (!confirm('«' + horseName + '» çıkan at olarak işaretlensin mi?\n\n'
+        + '• hesaplama_kayitlari kaydından KALICI silinir\n'
+        + '• Bitiş verisi temizlenir · metrikler yeniden hesaplanır\n'
+        + '• Oturum içinde «Geri al» ile geri yüklenebilir')) return;
+    const { kayitId, raceNo } = parseRaceKey(rk);
+    const removed = AtSpeedUtils.removeHorseFromKayitVeri(
+        kayitCache.get(kayitId)?.veri, raceNo, horseNo
+    );
+    if (!removed) {
+        alert('At kayıt verisinde bulunamadı.');
+        return;
+    }
+    const totals = AtSpeedUtils.recountKayitTotals(kayitCache.get(kayitId).veri);
+    kayitCache.get(kayitId).race_count = totals.raceCount;
+    kayitCache.get(kayitId).total_horses = totals.totalHorses;
+    removedHorseBackup[rowKeyFromParts(rk, horseNo)] = removed;
+
+    const arr = (savedCikanMap[rk] || []).filter(n => String(n) !== String(horseNo));
+    if (arr.length) savedCikanMap[rk] = arr;
+    else delete savedCikanMap[rk];
     delete savedBitisMap[rowKeyFromParts(rk, horseNo)];
+
     const status = document.getElementById('status');
-    status.innerHTML = '<span style="color:#e65100">⏳ Çıkan at işlendi, metrikler yeniden hesaplanıyor…</span>';
+    status.innerHTML = '<span style="color:#e65100">⏳ Çıkan at kayıttan silindi, DB güncelleniyor…</span>';
     try {
+        await persistKayitVeri(kayitId);
         await persistAll(false);
         await buildFlatFromCache();
-        await renderTableAsync('çıkan at güncellendi');
+        await renderTableAsync('çıkan at kayıttan silindi');
     } catch (err) {
         status.innerHTML = '<span style="color:#c62828">❌ ' + AtSpeedUtils.escapeHtml(err.message) + '</span>';
     }
 }
 
 async function restoreCikan(rk, horseNo) {
-    const arr = (savedCikanMap[rk] || []).filter(n => String(n) !== String(horseNo));
-    if (arr.length) savedCikanMap[rk] = arr;
-    else delete savedCikanMap[rk];
+    const bkKey = rowKeyFromParts(rk, horseNo);
+    const horse = removedHorseBackup[bkKey];
+    const { kayitId, raceNo } = parseRaceKey(rk);
+    if (!horse) {
+        alert('Bu oturumda yedek yok. Atı geri almak için programı yeniden yükleyip kaydedin.');
+        return;
+    }
+    const ok = AtSpeedUtils.restoreHorseToKayitVeri(kayitCache.get(kayitId)?.veri, raceNo, horse);
+    if (!ok) {
+        alert('At koşuya geri eklenemedi (zaten var veya koşu yok).');
+        return;
+    }
+    const totals = AtSpeedUtils.recountKayitTotals(kayitCache.get(kayitId).veri);
+    kayitCache.get(kayitId).race_count = totals.raceCount;
+    kayitCache.get(kayitId).total_horses = totals.totalHorses;
+    delete removedHorseBackup[bkKey];
+
     const status = document.getElementById('status');
-    status.innerHTML = '<span style="color:#6a1b9a">⏳ At geri alınıyor, metrikler yeniden hesaplanıyor…</span>';
+    status.innerHTML = '<span style="color:#6a1b9a">⏳ At kayda geri ekleniyor…</span>';
     try {
+        await persistKayitVeri(kayitId);
         await persistAll(false);
         await buildFlatFromCache();
-        await renderTableAsync('at geri alındı');
+        await renderTableAsync('at kayda geri eklendi');
     } catch (err) {
         status.innerHTML = '<span style="color:#c62828">❌ ' + AtSpeedUtils.escapeHtml(err.message) + '</span>';
     }
