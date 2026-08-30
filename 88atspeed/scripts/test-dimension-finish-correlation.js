@@ -18,7 +18,8 @@
  *   node scripts/test-dimension-finish-correlation.js --phase combo,compare
  *   node scripts/test-dimension-finish-correlation.js --race 1 -v
  *   node scripts/test-dimension-finish-correlation.js --all-races
- *   node scripts/test-dimension-finish-correlation.js --phase per-race
+ *   node scripts/test-dimension-finish-correlation.js --context
+ *   node scripts/test-dimension-finish-correlation.js --phase per-race,context
  *   node scripts/test-dimension-finish-correlation.js --list-kayitlar
  *   node scripts/test-dimension-finish-correlation.js --phase leader,bucket,corr,winner,race
  */
@@ -54,9 +55,11 @@ const cli = {
     top: argVal('--top') ? Number(argVal('--top')) : 25,
     verbose: args.includes('--verbose') || args.includes('-v'),
     allRaces: args.includes('--all-races'),
+    context: args.includes('--context'),
     listKayitlar: args.includes('--list-kayitlar'),
     engine: (argVal('--engine') || 'hybrid').toLowerCase(),
     phases: (() => {
+        if (args.includes('--context')) return ['context'];
         if (args.includes('--all-races')) return ['per-race'];
         if (phasesRaw === 'all') {
             return ['leader', 'bucket', 'corr', 'winner', 'agree', 'combo', 'compare', 'segment', 'race', 'plan'];
@@ -901,6 +904,329 @@ function printPerRaceReport(raceGroups, host, comboCatalog, catalog) {
     });
 }
 
+function getSignalScorer(sig, entries) {
+    if (sig.kind === 'tahmin') return e => e.row?.tahmin?.score ?? null;
+    if (sig.combo) return sig.combo.buildScorer(entries);
+    return sig.metric.get;
+}
+
+function metricSpread(entries, getScore) {
+    const vals = entries.map(e => getScore(e)).filter(v => v != null && Number.isFinite(v));
+    if (!vals.length) return { n: 0, unique: 0, min: null, max: null, spread: 0 };
+    const rounded = vals.map(v => Math.round(v * 10) / 10);
+    const unique = new Set(rounded).size;
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    return { n: vals.length, unique, min, max, spread: max - min };
+}
+
+function classifyRaceType(kcins) {
+    const s = String(kcins || '').toLocaleLowerCase('tr-TR');
+    if (/maiden|maid/i.test(s)) return 'Maiden';
+    if (/kv[-\s]|kv\d/i.test(s)) return 'KV';
+    if (/handikap|handicap|dhöw|dhö/i.test(s)) return 'Handikap/DHÖ';
+    if (/şartlı|sartli/i.test(s)) return 'Şartlı';
+    if (/grup|g\d/i.test(s)) return 'Grup';
+    return 'Diğer';
+}
+
+function classifyBreed(kat) {
+    const s = String(kat || '').toLocaleLowerCase('tr-TR');
+    if (/arap/i.test(s)) return 'Arap';
+    if (/ingiliz/i.test(s)) return 'İngiliz';
+    return 'Diğer';
+}
+
+function mesafeBand(mesafe) {
+    const n = parseInt(String(mesafe || '').replace(/\D/g, ''), 10);
+    if (!n) return 'bilinmiyor';
+    if (n <= 1200) return '≤1200m';
+    if (n <= 1600) return '1201-1600m';
+    if (n <= 2000) return '1601-2000m';
+    return '2000m+';
+}
+
+function fieldMetricStats(entries, group, key) {
+    const vals = entries.map(e => gval(e, group, key)).filter(v => v != null && Number.isFinite(v));
+    if (!vals.length) return { n: 0, unique: 0, zero: 0, avg: null, min: null, max: null };
+    const unique = new Set(vals.map(v => Math.round(v * 10) / 10)).size;
+    const zero = vals.filter(v => v === 0).length;
+    const sum = vals.reduce((a, b) => a + b, 0);
+    return {
+        n: vals.length,
+        unique,
+        zero,
+        avg: sum / vals.length,
+        min: Math.min(...vals),
+        max: Math.max(...vals)
+    };
+}
+
+function extractRaceFactors(entries, raw) {
+    const race = raw?.race || {};
+    const rm = typeof AtMetaFields !== 'undefined'
+        ? AtMetaFields.extractRaceMeta(race)
+        : { mesafe: race.mesafe, pist: race.pist, kcins_kosu: race.kcins_kosu, kategori: race.kategori };
+    const fieldSize = entries.length;
+    const as = fieldMetricStats(entries, 'fieldSize', 'kosuSayisi');
+    const tk = fieldMetricStats(entries, 'taki', 'matchPct');
+    const kc = fieldMetricStats(entries, 'kcins_kosu', 'matchPct');
+    const hp = fieldMetricStats(entries, 'hp', 'matchPct');
+    const cnt123as = fieldMetricStats(entries, 'fieldSize', 'cnt123');
+
+    const flags = [];
+    if (as.n && as.zero === as.n) flags.push('AS_kosu_sifir');
+    if (cnt123as.n && cnt123as.zero === cnt123as.n) flags.push('cnt123_sifir');
+    if (tk.n && tk.unique <= 1) flags.push('TK_pct_duz');
+    if (kc.n && kc.unique <= 1) flags.push('KC_pct_duz');
+    if (hp.n && hp.unique <= 1) flags.push('HP_pct_duz');
+    if (as.avg != null && as.avg < 3) flags.push('dusuk_AS_deneyim');
+    const avgKosu = ['kcins_kosu', 'taki', 'pist', 'hp', 'siklet', 'sehir']
+        .map(g => fieldMetricStats(entries, g, 'kosuSayisi').avg)
+        .filter(v => v != null);
+    const meanKosu = avgKosu.length ? avgKosu.reduce((a, b) => a + b, 0) / avgKosu.length : 0;
+    if (meanKosu < 4) flags.push('dusuk_sekme_deneyim');
+
+    return {
+        fieldSize,
+        fieldBand: fieldSize <= 7 ? '≤7 at' : fieldSize <= 9 ? '8-9 at' : '10+ at',
+        mesafe: rm.mesafe,
+        mesafeBand: mesafeBand(rm.mesafe),
+        pist: rm.pist || '?',
+        raceType: classifyRaceType(rm.kcins_kosu),
+        breed: classifyBreed(rm.kategori),
+        kcinsShort: String(rm.kcins_kosu || '—').slice(0, 28),
+        katShort: String(rm.kategori || '—').slice(0, 24),
+        hipodrom: raw?.hipodrom || '—',
+        flags,
+        as, tk, kc, hp, cnt123as,
+        meanKosuExp: meanKosu
+    };
+}
+
+function diagnoseSignalReason(pick, spread, winnerTahRank) {
+    if (pick.tie) {
+        if (spread.n === 0) return 'veri_yok — skor hesaplanamadı';
+        if (spread.unique <= 1) return 'beraberlik — tüm atlar aynı değer (' + formatMetricVal(spread.max) + ')';
+        return 'beraberlik — üst skor eşit (spread ' + formatMetricVal(spread.spread) + ')';
+    }
+    if (pick.bitis === 1) return 'isabet — lider 1. geldi';
+    if (pick.bitis != null && pick.bitis <= 3) {
+        return 'plase — lider B' + pick.bitis + ' (kazanan farklı)';
+    }
+    if (pick.bitis != null) {
+        let msg = 'kaçtı — lider B' + pick.bitis;
+        if (winnerTahRank != null && pick.score != null) msg += ' · kazanan TAH#' + winnerTahRank;
+        return msg;
+    }
+    return 'bilinmiyor';
+}
+
+function diagnoseRaceRow(entries, signals, host) {
+    attachTahminLeader([entries]);
+    const raw = entries[0]?._dimRaw;
+    const factors = extractRaceFactors(entries, raw);
+    const winner = entries.find(e => host.bitisValueForSort(e) === 1);
+    const winnerTahRank = winner?.row?.tahmin?.rank ?? null;
+
+    const signalDiags = signals.map(sig => {
+        const getScore = getSignalScorer(sig, entries);
+        const pick = pickLeaderInRace(entries, getScore, host);
+        const spread = metricSpread(entries, getScore);
+        const reason = diagnoseSignalReason(pick, spread, winnerTahRank);
+        const outcome = pick.tie ? 'tie' : pick.bitis === 1 ? 'hit' : pick.bitis <= 3 ? 'plase' : 'miss';
+        return { id: sig.id, label: sig.label, pick, spread, reason, outcome };
+    });
+
+    return {
+        raceNo: entries[0].raceNo,
+        kayitId: entries[0].kayitId,
+        factors,
+        winnerName: winner ? shortHorseName(winner) : '?',
+        winnerTahRank,
+        header: typeof AtMetaFields !== 'undefined'
+            ? AtMetaFields.formatRaceHeader(raw?.race || {})
+            : '',
+        signals: signalDiags
+    };
+}
+
+function segmentStatsForSignal(rows, signalId) {
+    let n = 0, sum = 0, b1 = 0, ties = 0;
+    for (const row of rows) {
+        const d = row.signals.find(s => s.id === signalId);
+        if (!d) continue;
+        if (d.pick.tie) { ties++; continue; }
+        n++;
+        sum += d.pick.blended;
+        if (d.pick.bitis === 1) b1++;
+    }
+    return {
+        n, ties, total: rows.length,
+        blended: n ? sum / n : 0,
+        exact: n ? b1 / n : 0,
+        b1
+    };
+}
+
+function bestMethodForSegment(rows, signalIds, labels) {
+    let best = null;
+    for (let i = 0; i < signalIds.length; i++) {
+        const st = segmentStatsForSignal(rows, signalIds[i]);
+        if (!st.n) continue;
+        if (!best || st.blended > best.st.blended) {
+            best = { id: signalIds[i], label: labels[i], st };
+        }
+    }
+    return best;
+}
+
+const CONTEXT_SEGMENT_KEYS = [
+    { key: 'fieldBand', label: 'At sayısı' },
+    { key: 'mesafeBand', label: 'Mesafe' },
+    { key: 'pist', label: 'Pist' },
+    { key: 'raceType', label: 'Koşu tipi' },
+    { key: 'breed', label: 'Irk/yaş' }
+];
+
+const CONTEXT_FLAG_LABELS = {
+    AS_kosu_sifir: 'AS.KOŞU=0 (tüm atlar)',
+    cnt123_sifir: 'cnt123=0 (placement yok)',
+    TK_pct_duz: 'TK% düz (ayırt etmiyor)',
+    KC_pct_duz: 'KC% düz',
+    HP_pct_duz: 'HP% düz',
+    dusuk_AS_deneyim: 'düşük AS deneyimi',
+    dusuk_sekme_deneyim: 'düşük sekme deneyimi (<4 ort.koşu)'
+};
+
+function printContextReport(raceGroups, host, comboCatalog, catalog) {
+    const signals = buildPerRaceSignals(comboCatalog, catalog);
+    const signalIds = signals.map(s => s.id);
+    const signalLabels = signals.map(s => s.label);
+    const coreIds = ['TAH', 'AS-RF', 'TK-RF', 'KC-RF', 'PS-RF', 'SH-RF', 'MEGA-RF', 'HP%', 'TK%'];
+    const coreLabels = coreIds.map(id => signals.find(s => s.id === id)?.label || id);
+
+    const sorted = [...raceGroups].sort((a, b) => {
+        const [ka, ra] = raceGroupSortKey(a);
+        const [kb, rb] = raceGroupSortKey(b);
+        return ka - kb || ra - rb;
+    });
+
+    const rows = sorted.map(entries => diagnoseRaceRow(entries, signals, host));
+
+    hr('13. KOŞU ETİKEN ANALİZİ — neden çalışmadı / ne zaman işe yarar');
+    console.log('  Her koşuda yöntem sonucu + kök neden · ardından etken segmentlerinde en iyi yöntem');
+
+    for (const row of rows) {
+        const f = row.factors;
+        console.log('\n  🏁 K' + row.raceNo + ' · #' + row.kayitId + ' · ' + f.fieldSize + ' at · ' + row.header);
+        console.log('  Kazanan: ' + row.winnerName + ' · TAHMİN sırası: ' + (row.winnerTahRank ?? '—'));
+        console.log('  Etkenler: ' + f.fieldBand + ' · ' + f.mesafeBand + ' · ' + f.pist
+            + ' · ' + f.raceType + ' · ' + f.breed
+            + (f.katShort !== '—' ? ' · ' + f.katShort : ''));
+
+        console.log('  Veri kalitesi: AS.koşu ort=' + formatMetricVal(f.as.avg)
+            + ' (sıfır ' + f.as.zero + '/' + f.as.n + ')'
+            + ' · TK% uniq=' + f.tk.unique + '/' + f.tk.n
+            + ' · KC% uniq=' + f.kc.unique + '/' + f.kc.n
+            + ' · HP% uniq=' + f.hp.unique + '/' + f.hp.n
+            + ' · ort.sekmeKOŞU=' + formatMetricVal(f.meanKosuExp));
+        if (f.flags.length) {
+            console.log('  Bayraklar: ' + f.flags.map(fl => CONTEXT_FLAG_LABELS[fl] || fl).join(' · '));
+        }
+
+        console.log('  ' + pad('Yöntem', 10) + pad('Sonuç', 8) + pad('Lider', 18) + 'Neden');
+        console.log('  ' + '-'.repeat(72));
+        for (const d of row.signals.filter(s => coreIds.includes(s.id))) {
+            const cell = d.pick.tie ? '—' : bitisMark(d.pick.bitis) + Math.round(d.pick.blended * 100) + '%';
+            console.log('  ' + pad(d.label, 10) + pad(cell, 8)
+                + pad(d.pick.tie ? '—' : d.pick.name.slice(0, 16), 18)
+                + d.reason);
+        }
+    }
+
+    sub('ETKEN SEGMENT — en iyi yöntem (karışık başarı)');
+    const rules = [];
+    for (const seg of CONTEXT_SEGMENT_KEYS) {
+        const groups = new Map();
+        for (const row of rows) {
+            const val = row.factors[seg.key];
+            if (!groups.has(val)) groups.set(val, []);
+            groups.get(val).push(row);
+        }
+        console.log('\n  ▶ ' + seg.label);
+        for (const [val, groupRows] of [...groups.entries()].sort((a, b) => b[1].length - a[1].length)) {
+            const best = bestMethodForSegment(groupRows, coreIds, coreLabels);
+            if (!best) {
+                console.log('    ' + pad(String(val), 14) + ' n=' + groupRows.length + ' · ayırt edici koşu yok');
+                continue;
+            }
+            const races = groupRows.map(r => 'K' + r.raceNo).join(',');
+            console.log('    ' + pad(String(val), 14) + ' n=' + groupRows.length
+                + ' → ' + pad(best.label, 10)
+                + ' karışık ' + pct(best.st.blended)
+                + ' · ★ ' + best.st.b1 + '/' + best.st.n
+                + (best.st.ties ? ' · berab=' + best.st.ties : '')
+                + ' · [' + races + ']');
+            rules.push({
+                segment: seg.label,
+                value: val,
+                n: groupRows.length,
+                method: best.label,
+                blended: best.st.blended,
+                exact: best.st.exact,
+                races: groupRows.map(r => r.raceNo)
+            });
+        }
+    }
+
+    sub('BAYRAK SEGMENT — veri sorunu varken en iyi yöntem');
+    const allFlags = [...new Set(rows.flatMap(r => r.factors.flags))];
+    for (const flag of allFlags) {
+        const groupRows = rows.filter(r => r.factors.flags.includes(flag));
+        const best = bestMethodForSegment(groupRows, coreIds, coreLabels);
+        const label = CONTEXT_FLAG_LABELS[flag] || flag;
+        if (!best) {
+            console.log('  ' + pad(label.slice(0, 32), 34) + ' n=' + groupRows.length + ' · —');
+            continue;
+        }
+        console.log('  ' + pad(label.slice(0, 32), 34) + ' n=' + groupRows.length
+            + ' → ' + best.label + ' ' + pct(best.st.blended)
+            + ' (★' + best.st.b1 + '/' + best.st.n + ')');
+    }
+    const noFlagRows = rows.filter(r => !r.factors.flags.length);
+    if (noFlagRows.length) {
+        const best = bestMethodForSegment(noFlagRows, coreIds, coreLabels);
+        if (best) {
+            console.log('  ' + pad('(bayrak yok — temiz veri)', 34) + ' n=' + noFlagRows.length
+                + ' → ' + best.label + ' ' + pct(best.st.blended)
+                + ' (★' + best.st.b1 + '/' + best.st.n + ')');
+        }
+    }
+
+    sub('KURAL ÖZETİ — etkene göre tercih edilecek yöntem');
+    rules.sort((a, b) => b.blended - a.blended || b.n - a.n);
+    for (const r of rules) {
+        if (r.n < 1) continue;
+        console.log('  EĞER ' + r.segment + '=' + r.value + ' (n=' + r.n + ')'
+            + ' → ' + r.method + ' (' + pct(r.blended) + ' karışık, ★' + pct(r.exact) + ')');
+    }
+
+    sub('TK% / HP% / KC% neden — koşu koşu teşhis');
+    for (const row of rows) {
+        const pctSigs = row.signals.filter(s => ['TK.matchPct', 'HP.matchPct', 'KC.matchPct'].includes(s.id));
+        const lines = pctSigs.map(d => {
+            const sp = d.spread;
+            if (d.pick.tie && sp.unique <= 1) {
+                return d.label + ': düz değer ' + formatMetricVal(sp.max) + ' (' + sp.n + ' at)';
+            }
+            if (d.pick.tie) return d.label + ': üst beraberlik';
+            return d.label + ': ' + d.reason;
+        });
+        console.log('  K' + row.raceNo + ': ' + lines.join(' · '));
+    }
+}
+
 function printRaceForensics(raceGroups, host, catalog) {
     attachTahminLeader(raceGroups);
     const forensicsMetrics = catalog.filter(m =>
@@ -1204,6 +1530,20 @@ async function main() {
                 console.log('\nOK · ' + raceGroups.length + ' koşu · ' + withBitis.length + ' BİTİŞ · faz=per-race');
                 return;
             }
+        }
+
+        if (hasPhase('context')) {
+            printContextReport(raceGroups, host, comboCatalog, catalog);
+            if (cli.phases.length === 1) {
+                console.log('\nOK · ' + raceGroups.length + ' koşu · ' + withBitis.length + ' BİTİŞ · faz=context');
+                return;
+            }
+        }
+
+        if (cli.phases.every(p => p === 'per-race' || p === 'context')) {
+            console.log('\nOK · ' + raceGroups.length + ' koşu · ' + withBitis.length + ' BİTİŞ · faz='
+                + cli.phases.join(','));
+            return;
         }
 
         let comboResults = [];
