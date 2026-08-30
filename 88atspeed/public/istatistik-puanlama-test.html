@@ -256,6 +256,13 @@
         .ptest-table td.ptest-meta-col { background: #fafafa; font-weight: 600; color: #37474f; }
         .ptest-table td.ptest-hipodrom { text-align: left; font-weight: 700; color: #4a148c; min-width: 72px; }
         .ptest-table td.ptest-at { text-align: left; font-weight: 600; max-width: 160px; }
+        .ptest-table th.ptest-tjk-col,
+        .ptest-table td.ptest-tjk-col {
+            background: #e0f7fa; font-size: 10px; color: #006064; min-width: 36px;
+        }
+        .ptest-table thead th.ptest-tjk-grp {
+            background: #00838f; color: #fff; font-size: 10px;
+        }
         .ptest-table tbody tr:nth-child(even) td { filter: brightness(0.99); }
         .ptest-table tbody tr:hover td { filter: brightness(0.97); }
         .ptest-pct {
@@ -1309,7 +1316,8 @@
 </div>
 
 <script src="js/utils.js?v=20260830z"></script>
-<script src="js/istatistik-engine.js?v=20260830z"></script>
+<script src="js/at-meta-fields.js?v=20260831a"></script>
+<script src="js/istatistik-engine.js?v=20260831a"></script>
 <script src="js/istatistik-grids-extra.js?v=20260830z"></script>
 <script src="js/istatistik-gosterim-flags.js?v=20260830z"></script>
 <script src="js/istatistik-tahmin-engine.js?v=20260830z"></script>
@@ -5551,6 +5559,7 @@ function renderHead() {
     h += '<th rowspan="2" class="ptest-meta-col">HİPODROM</th>';
     h += '<th rowspan="2" class="ptest-meta-col">KOŞU</th>';
     h += '<th rowspan="2" class="ptest-at">AT İSMİ</th>';
+    h += '<th colspan="' + AtMetaFields.PUANLAMA_COLUMNS.length + '" rowspan="1" class="ptest-tjk-grp">TJK META</th>';
     h += '<th rowspan="2" class="ptest-th-cikan">ÇIKAR</th>';
     h += '<th rowspan="2" class="ptest-th-bitis"><div class="ptest-th-bitis-inner">BİTİŞ';
     h += '<select id="bitisSortSelect" class="ptest-bitis-sort-select" title="0: tarih/koşu · 1: global bitiş sırası">';
@@ -5571,6 +5580,9 @@ function renderHead() {
             + AtSpeedUtils.escapeHtml(m.label) + ' · SON derinlik</th>';
     }
     h += '</tr><tr>';
+    for (const col of AtMetaFields.PUANLAMA_COLUMNS) {
+        h += '<th class="ptest-tjk-col">' + AtSpeedUtils.escapeHtml(col.label) + '</th>';
+    }
     h += renderOverviewStripSubHeaders();
     for (const m of metrics) {
         h += renderMetricSubHeadCells(m);
@@ -5598,6 +5610,9 @@ function renderRow(entry) {
     h += '<td class="ptest-meta-col ptest-hipodrom">' + AtSpeedUtils.escapeHtml(entry.hipodrom || '—') + '</td>';
     h += '<td class="ptest-meta-col">' + entry.raceNo + '</td>';
     h += '<td class="ptest-at">' + AtSpeedUtils.escapeHtml(row.name || '—') + '</td>';
+    for (const cell of AtMetaFields.puanlamaRowCells(row)) {
+        h += '<td class="ptest-tjk-col">' + AtSpeedUtils.escapeHtml(String(cell)) + '</td>';
+    }
     h += '<td><button type="button" class="ptest-cikan-btn" data-race-key="' + AtSpeedUtils.escapeHtml(rk) + '" data-horse-no="' + AtSpeedUtils.escapeHtml(String(row.no ?? '')) + '" data-horse-name="' + AtSpeedUtils.escapeHtml(row.name || '') + '" title="Çıkan at — kayıttan kalıcı sil, metrikler yeniden hesaplanır">✕</button></td>';
     h += '<td>' + bitisInputHtml(entry) + '</td>';
     h += '<td>' + tahminHtml(row.tahmin) + '</td>';
@@ -5987,6 +6002,7 @@ async function clearAllKayitlar() {
         flatEntries = [];
         savedBitisMap = {};
         savedCikanMap = {};
+        removedHorseBackup = {};
         cikanMetaList = [];
         kayitCountLoaded = 0;
         cikanPanelOpen = false;

@@ -11,7 +11,11 @@
     <link href="css/theme.css?v=20260822a" rel="stylesheet">
     <style>
         .table-wrapper { padding: 0; }
-        table { min-width: 2800px; }
+        table { min-width: 5200px; }
+        .tjk-meta-th { background: #00838f !important; color: #fff; font-size: 10px; }
+        .tjk-horse-th { background: #00695c !important; color: #fff; font-size: 10px; }
+        .tjk-meta-cell { background: #e0f7fa; font-size: 11px; }
+        .tjk-horse-cell { background: #e8f5e9; font-size: 11px; }
     </style>
 </head>
 <body>
@@ -61,12 +65,13 @@
         <div id="tab-hesaplama" class="tab-content active"><div class="info-box">📊 HESAPLAMA - GETİR butonuna tıklayın</div></div>
         <div id="tab-yonetim" class="tab-content tab-content-iframe"><iframe id="yonetimFrame" src="yonetim.html?v=20260821c" title="Yönetim"></iframe></div>
         <div id="tab-karsilastirma" class="tab-content tab-content-iframe"><iframe id="karsilastirmaFrame" src="karsilastirma.html?v=20260821c" title="Karşılaştırma"></iframe></div>
-        <div id="tab-gosterim" class="tab-content tab-content-gosterim"><iframe id="gosterimFrame" src="gosterim_full.html?v=20260824r" title="Gösterim"></iframe></div>
+        <div id="tab-gosterim" class="tab-content tab-content-gosterim"><iframe id="gosterimFrame" src="gosterim_full.html?v=20260831s" title="Gösterim"></iframe></div>
         <div id="tab-tahminim" class="tab-content tab-content-tahminim"><iframe id="tahminimFrame" src="tahminim.html?v=20260824n" title="Tahminim"></iframe></div>
         <div id="tab-istatistikler" class="tab-content tab-content-istatistikler"><iframe id="istatistiklerFrame" src="istatistikler.html?v=20260830d" title="İstatistikler"></iframe></div>
-        <div id="tab-puanlama-test" class="tab-content tab-content-istatistikler"><iframe id="puanlamaTestFrame" src="istatistik-puanlama-test.html?v=20260831r" title="Puanlama Test"></iframe></div>
+        <div id="tab-puanlama-test" class="tab-content tab-content-istatistikler"><iframe id="puanlamaTestFrame" src="istatistik-puanlama-test.html?v=20260831s" title="Puanlama Test"></iframe></div>
     </div>
 
+    <script src="js/at-meta-fields.js?v=20260831a"></script>
     <script>
         let veriCache = {};
         let currentRaces = null;
@@ -341,20 +346,26 @@
             for (let raceIdx = 0; raceIdx < races.length; raceIdx++) {
                 const race = races[raceIdx];
                 
+                const kosuCols = AtMetaFields.kosuPreviewColCount();
+                const horseMetaCount = AtMetaFields.HORSE_FIELDS.length;
                 let thead = '<thead><tr>';
-                thead += '<th class="sticky-col">#</th>';
-                thead += '<th class="sticky-col2">AT İSMİ</th>';
-                thead += '<th class="sticky-col3">AT ID</th>';
+                thead += '<th class="sticky-col" rowspan="2">#</th>';
+                thead += '<th class="sticky-col2" rowspan="2">AT İSMİ</th>';
+                thead += '<th class="sticky-col3" rowspan="2">AT ID</th>';
+                thead += '<th colspan="' + horseMetaCount + '" class="tjk-horse-th" rowspan="1">AT META (TJK)</th>';
                 for (let k = 1; k <= 7; k++) {
-                    thead += '<th colspan="8" style="text-align:center;background:#3949ab;color:#fff;">KOŞU ' + k + '</th>';
+                    thead += '<th colspan="' + kosuCols + '" style="text-align:center;background:#3949ab;color:#fff;">KOŞU ' + k + '</th>';
                 }
                 thead += '</tr>';
                 thead += '<tr>';
-                thead += '<th class="sticky-col">#</th>';
-                thead += '<th class="sticky-col2">AT İSMİ</th>';
-                thead += '<th class="sticky-col3">AT ID</th>';
+                for (const f of AtMetaFields.HORSE_FIELDS) {
+                    thead += '<th class="tjk-horse-th">' + f.label + '</th>';
+                }
                 for (let k = 1; k <= 7; k++) {
                     thead += '<th>TARİH</th><th>ŞEHİR</th><th>MESAFE</th><th>SIRA</th><th>AT DEREÇE</th><th>BİR.DEREÇE</th><th>SON800-1</th><th>SON800-2</th>';
+                    for (const f of AtMetaFields.KOSU_FIELDS) {
+                        thead += '<th class="tjk-meta-th">' + f.label + '</th>';
+                    }
                 }
                 thead += '</tr></thead>';
                 
@@ -362,12 +373,17 @@
                 for (let j = 0; j < race.horses.length; j++) {
                     const horse = race.horses[j];
                     const kosular = veriCache[horse.atId] || [];
+                    const hm = AtMetaFields.extractHorseMeta(Object.assign({}, horse, { kosular: kosular }));
                     tbody += '<tr>';
                     tbody += '<td class="horse-no sticky-col">' + horse.no + '</td>';
                     tbody += '<td class="sticky-col2"><strong>' + escapeHtml(horse.name) + '</strong></td>';
                     tbody += '<td class="sticky-col3">' + (horse.atId || '-') + '</td>';
+                    for (const f of AtMetaFields.HORSE_FIELDS) {
+                        tbody += '<td class="tjk-horse-cell">' + escapeHtml(String(hm[f.key] || '—')) + '</td>';
+                    }
                     for (let k = 0; k < 7; k++) {
                         const kose = kosular[k] || {};
+                        const km = AtMetaFields.extractKosuMeta(kose);
                         tbody += '<td>' + (kose.tarih || '-') + '</td>';
                         tbody += '<td>' + (kose.sehir || '-') + '</td>';
                         tbody += '<td>' + (kose.mesafe || '-') + '</td>';
@@ -376,15 +392,18 @@
                         tbody += '<td>' + (kose.birinci_derece || '-') + '</td>';
                         tbody += '<td><span class="son800-badge">' + (kose.son800_bir || '-') + '</span></td>';
                         tbody += '<td><span class="son800-badge">' + (kose.son800_iki || '-') + '</span></td>';
+                        for (const f of AtMetaFields.KOSU_FIELDS) {
+                            tbody += '<td class="tjk-meta-cell">' + escapeHtml(String(km[f.key] || '—')) + '</td>';
+                        }
                     }
                     tbody += '</tr>';
                 }
                 tbody += '</tbody>';
                 
-                let raceMesafe = (race.mesafe && race.mesafe !== '?') ? race.mesafe + ' ' + (race.pist || '') : '?';
+                let raceHeader = AtMetaFields.formatRaceHeader(race);
                 
                 genelHtml += '<div class="race-card">';
-                genelHtml += '<div class="race-header"><h3>🏁 ' + race.raceNo + '. KOŞU (' + race.horseCount + ' at) - MESAFE: ' + raceMesafe + '</h3></div>';
+                genelHtml += '<div class="race-header"><h3>🏁 ' + race.raceNo + '. KOŞU (' + race.horseCount + ' at) — ' + escapeHtml(raceHeader) + '</h3></div>';
                 genelHtml += '<div class="table-wrapper">';
                 genelHtml += '<table border="0" cellpadding="5" cellspacing="0">';
                 genelHtml += thead;

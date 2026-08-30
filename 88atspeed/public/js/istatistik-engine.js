@@ -1732,7 +1732,7 @@ const IstatistikEngine = {
             const test123SiraliDepths = test123SiraliGrid.byHorse.get(key) || [];
             const t1drDepths = t1drGrid.byHorse.get(key) || [];
             const kosuHistory = this.analyzeKosuHistory(kosular, programTarih);
-            return {
+            const row = {
                 no: horse.no,
                 name: horse.name || '-',
                 atId: horse.atId,
@@ -1808,6 +1808,10 @@ const IstatistikEngine = {
                 mesafeIlk2,
                 mesafeIlk1
             };
+            if (typeof AtMetaFields !== 'undefined') {
+                AtMetaFields.attachToIstatistikRow(row, horse, race);
+            }
+            return row;
         });
         return {
             maxDepth1: son8001Grid.maxDepth,

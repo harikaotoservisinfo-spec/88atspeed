@@ -923,6 +923,10 @@ const GosterimEngine = {
             trends.sonFark[horseIndex] !== null ? (trends.sonFark[horseIndex] > 0 ? '+' : '') + trends.sonFark[horseIndex].toFixed(4) : '-',
             trends.farklarinFarki[horseIndex] !== null ? (trends.farklarinFarki[horseIndex] > 0 ? '+' : '') + trends.farklarinFarki[horseIndex].toFixed(4) : '-'
         ];
+        if (typeof AtMetaFields !== 'undefined') {
+            values.push(...AtMetaFields.horseMetaCells(horse));
+            values.push(...AtMetaFields.kosuMetaCells(atKosu));
+        }
 
         const farkBosMu = values[this.COL.FARK] === '-';
         const fark8002BosMu = values[this.COL.FARK8002] === '-';

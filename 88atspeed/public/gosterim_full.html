@@ -598,7 +598,8 @@
 </div>
 
 <script src="js/utils.js?v=20260827g"></script>
-<script src="js/formula-engine.js?v=20260824w"></script>
+<script src="js/at-meta-fields.js?v=20260831a"></script>
+<script src="js/formula-engine.js?v=20260831a"></script>
 <script>
 let currentHesaplamaData = null;
 let currentHesaplamaId = null;
@@ -641,6 +642,12 @@ const GOSTERIM_HEADERS = [
     { col: 31, label: 'SON FARK', type: 'number' },
     { col: 32, label: 'FARKLARIN FARKI', type: 'number' }
 ];
+for (const f of AtMetaFields.HORSE_FIELDS) {
+    GOSTERIM_HEADERS.push({ col: GOSTERIM_HEADERS.length, label: f.label, type: 'string', title: 'At meta · ' + f.short });
+}
+for (const f of AtMetaFields.KOSU_FIELDS) {
+    GOSTERIM_HEADERS.push({ col: GOSTERIM_HEADERS.length, label: f.label, type: 'string', title: 'Geçmiş koşu · ' + f.short });
+}
 
 function headerStickyClass(h) {
     if (h.sticky === 1) return ' col-sticky';
@@ -743,8 +750,7 @@ function displayResults(data) {
     for (let i = 0; i < data.length; i++) {
         const race = data[i];
         const raceMesafe = (race.mesafe && race.mesafe !== '?') ? race.mesafe : (race.raceDistance || '?');
-        const racePist = race.pist || '';
-        const mesafeGosterim = raceMesafe !== '?' ? raceMesafe + ' ' + racePist : '?';
+        const mesafeGosterim = AtMetaFields.formatRaceHeader(race);
 
         let raceRowsData = GosterimEngine.buildRaceRows(race, {
             programTarih: currentProgramTarih,
