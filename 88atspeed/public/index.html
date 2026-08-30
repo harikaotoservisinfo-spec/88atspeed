@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>88ATSPEED | 10 Sekmeli Analiz Platformu</title>
+    <title>88ATSPEED | 11 Sekmeli Analiz Platformu</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="css/theme.css?v=20260822a" rel="stylesheet">
     <style>
@@ -63,6 +63,12 @@
             min-width: 140px; text-align: left; font-size: 11px;
             color: #546e7a; max-width: 320px; white-space: normal;
         }
+        .sehirtest-table .col-hedef {
+            min-width: 56px; text-align: center; font-weight: 800;
+            color: #2e7d32; background: #e8f5e9; font-size: 11px;
+        }
+        .sehirtest-table .col-stat-sehir { background: #e8f5e9; color: #1b5e20; font-weight: 700; }
+        .sehirtest-table .col-gecmis-match { color: #1565c0; }
         .astest-note {
             font-size: 11px; color: #78909c; margin: 0 0 10px 2px;
         }
@@ -91,7 +97,7 @@
                 <span class="logo-at">AT</span>
                 <span class="logo-speed">SPEED</span>
             </div>
-            <div class="subtitle">10 SEKMELİ PROFESYONEL ANALİZ PLATFORMU <span id="appVersion" style="font-size:11px;opacity:0.7;margin-left:8px"></span></div>
+            <div class="subtitle">11 SEKMELİ PROFESYONEL ANALİZ PLATFORMU <span id="appVersion" style="font-size:11px;opacity:0.7;margin-left:8px"></span></div>
         </div>
         
         <div class="global-controls">
@@ -127,6 +133,7 @@
             <div class="tab-btn" data-tab="puanlama-test">🧪 PUANLAMA TEST</div>
             <div class="tab-btn" data-tab="son-test">🏁 SON TEST</div>
             <div class="tab-btn" data-tab="at-sayisi-test">👥 KOŞU AT SAYISI</div>
+            <div class="tab-btn" data-tab="sehir-test">🏟️ ŞEHİR DURUMU</div>
         </div>
         
         <div id="tab-hesaplama" class="tab-content active"><div class="info-box">📊 HESAPLAMA - GETİR butonuna tıklayın</div></div>
@@ -152,11 +159,20 @@
             <div id="atSayisiKayitListesi" class="kayit-listesi" style="display:none"></div>
             <div id="atSayisiContent"><div class="info-box">👥 KOŞU AT SAYISI — GETİR veya kayıtlardan seçin</div></div>
         </div>
+        <div id="tab-sehir-test" class="tab-content">
+            <div class="son-test-toolbar">
+                <button type="button" id="sehirKayitBtn" class="son-test-btn">📋 Kayıtlardan Seç</button>
+                <span id="sehirMeta" class="son-test-meta">Hedef hipodromda geçmiş koşu deneyimi (tüm kosular[])</span>
+            </div>
+            <div id="sehirKayitListesi" class="kayit-listesi" style="display:none"></div>
+            <div id="sehirContent"><div class="info-box">🏟️ ŞEHİR DURUMU — GETİR veya kayıtlardan seçin</div></div>
+        </div>
     </div>
 
     <script src="js/utils.js?v=20260831a"></script>
     <script src="js/at-meta-fields.js?v=20260831a"></script>
     <script src="js/field-size-stats-engine.js?v=20260831b"></script>
+    <script src="js/sehir-stats-engine.js?v=20260831c"></script>
     <script>
         let veriCache = {};
         let currentRaces = null;
@@ -164,6 +180,7 @@
         let currentSonTestKayitId = null;
         let sonTestKayitSource = null;
         let currentSonTestMeta = null;
+        let currentHipodrom = null;
         
         function createStatusDiv() {
             let statusDiv = document.getElementById('status');
@@ -201,6 +218,7 @@
         document.getElementById('kaydetBtn').onclick = veriKaydet;
         document.getElementById('sonTestKayitBtn').onclick = () => sonTestListKayitlar('sonTest');
         document.getElementById('atSayisiKayitBtn').onclick = () => sonTestListKayitlar('atSayisi');
+        document.getElementById('sehirKayitBtn').onclick = () => sonTestListKayitlar('sehir');
         
         function getActiveTabId() {
             return document.querySelector('.tab-btn.active')?.dataset.tab || 'hesaplama';
@@ -212,6 +230,8 @@
                 document.getElementById('sonTestContent').innerHTML = html;
             } else if (tabId === 'at-sayisi-test') {
                 document.getElementById('atSayisiContent').innerHTML = html;
+            } else if (tabId === 'sehir-test') {
+                document.getElementById('sehirContent').innerHTML = html;
             } else if (tabId === 'hesaplama') {
                 document.getElementById('tab-hesaplama').innerHTML = html;
             }
@@ -229,8 +249,10 @@
 
         function testTabsSetMeta(text) {
             sonTestSetMeta(text);
-            const el = document.getElementById('atSayisiMeta');
-            if (el) el.textContent = text || '';
+            const el1 = document.getElementById('atSayisiMeta');
+            const el2 = document.getElementById('sehirMeta');
+            if (el1) el1.textContent = text || '';
+            if (el2) el2.textContent = text || '';
         }
 
         function sonTestSetMeta(text) {
@@ -419,6 +441,7 @@
                 if (!result.success) throw new Error(result.error);
                 
                 currentRaces = result.data;
+                currentHipodrom = hipodromText;
                 currentHorses = [];
                 for (let i = 0; i < currentRaces.length; i++) {
                     for (let j = 0; j < currentRaces[i].horses.length; j++) {
@@ -542,8 +565,10 @@
         }
 
         function refreshTestTabs(races, meta) {
+            if (meta?.hipodrom) currentHipodrom = meta.hipodrom;
             sonTestGoster(races, meta);
             atSayisiTestGoster(races, meta);
+            sehirTestGoster(races, meta);
         }
 
         function formatTestTabsMeta(meta) {
@@ -679,10 +704,98 @@
             el.innerHTML = html;
         }
 
+        function sehirTestGoster(races, meta) {
+            const el = document.getElementById('sehirContent');
+            if (!el) return;
+            if (meta) testTabsSetMeta(formatTestTabsMeta(meta));
+            const hedefSehir = meta?.hipodrom || currentHipodrom || '';
+            if (!races || !races.length) {
+                el.innerHTML = '<div class="info-box">📋 Veri bulunamadı</div>';
+                return;
+            }
+            let html = '<div class="son-test-wrap">';
+            html += '<p class="astest-note">Şehir verisi kosular[].sehir alanından gelir — GETİR ile at sayısı sekmesiyle '
+                + '<strong>aynı anda</strong> dolar. Hedef hipodrom: <strong>'
+                + escapeHtml(hedefSehir || '—') + '</strong>. '
+                + 'MAX-* sütunları yalnızca hedef şehirdeki koşular içindir (at_sayisi bilgili olanlar).</p>';
+            for (let i = 0; i < races.length; i++) {
+                const race = races[i];
+                const header = typeof AtMetaFields !== 'undefined'
+                    ? AtMetaFields.formatRaceHeader(race)
+                    : ((race.mesafe || '?') + ' ' + (race.pist || '')).trim();
+                const horses = [...(race.horses || [])].sort((a, b) => {
+                    const na = parseInt(a.no, 10);
+                    const nb = parseInt(b.no, 10);
+                    if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
+                    return String(a.name || '').localeCompare(String(b.name || ''), 'tr');
+                });
+                const hedefAbbrev = SehirStatsEngine.abbrevSehir(hedefSehir);
+                html += '<div class="son-test-race race-card">';
+                html += '<div class="race-header"><h3>🏁 ' + race.raceNo + '. KOŞU · '
+                    + horses.length + ' at · ' + escapeHtml(header) + '</h3></div>';
+                html += '<div class="son-test-table-wrap">';
+                html += '<table class="son-test-table astest-table sehirtest-table">';
+                html += '<thead><tr>';
+                html += '<th class="col-no">#</th>';
+                html += '<th class="col-name">AT İSMİ</th>';
+                html += '<th class="col-hedef" title="Hedef hipodrom">HEDEF</th>';
+                html += '<th class="col-stat" title="Geçmiş koşu (şehir bilgili)">KOŞU</th>';
+                html += '<th class="col-stat col-stat-sehir" title="Hedef şehirde koşma oranı">ŞEH%</th>';
+                html += '<th class="col-stat col-stat-sehir" title="Hedef şehirdeki koşu sayısı">Ş-KOŞU</th>';
+                html += '<th class="col-stat col-stat-max" title="Hedef şehirde en fazla kaç atlı koşuda 1.">MAX-1</th>';
+                html += '<th class="col-stat col-stat-max">MAX-12</th>';
+                html += '<th class="col-stat col-stat-max">MAX-123</th>';
+                html += '<th class="col-stat col-stat-max">MAX-1234</th>';
+                html += '<th class="col-stat col-stat-cnt">1.</th>';
+                html += '<th class="col-stat col-stat-cnt">1-2</th>';
+                html += '<th class="col-stat col-stat-cnt">1-2-3</th>';
+                html += '<th class="col-stat col-stat-cnt">1-2-3-4</th>';
+                html += '<th class="col-gecmis col-gecmis-match" title="Hedef şehir eşleşmesi (✓)">EŞLEŞME</th>';
+                html += '<th class="col-gecmis" title="Geçmiş koşu şehirleri">GEÇMİŞ ŞEHİR</th>';
+                html += '</tr></thead><tbody>';
+                if (!horses.length) {
+                    html += '<tr><td colspan="16" class="col-name">At yok</td></tr>';
+                } else {
+                    for (let j = 0; j < horses.length; j++) {
+                        const h = horses[j];
+                        const kosular = veriCache[h.atId] || h.kosular || [];
+                        const st = SehirStatsEngine.computeStats(kosular, hedefSehir);
+                        html += '<tr>';
+                        html += '<td class="col-no">' + escapeHtml(String(h.no ?? (j + 1))) + '</td>';
+                        html += '<td class="col-name">' + escapeHtml(h.name || '—') + '</td>';
+                        html += '<td class="col-hedef">' + escapeHtml(hedefAbbrev) + '</td>';
+                        html += '<td class="col-stat">' + SehirStatsEngine.formatCell(st.kosuSayisi) + '</td>';
+                        html += '<td class="col-stat col-stat-sehir">' + SehirStatsEngine.formatPct(st.sehirPct) + '</td>';
+                        html += '<td class="col-stat col-stat-sehir">' + st.inCityCount + '</td>';
+                        html += '<td class="col-stat col-stat-max">' + SehirStatsEngine.formatCell(st.max1) + '</td>';
+                        html += '<td class="col-stat col-stat-max">' + SehirStatsEngine.formatCell(st.max12) + '</td>';
+                        html += '<td class="col-stat col-stat-max">' + SehirStatsEngine.formatCell(st.max123) + '</td>';
+                        html += '<td class="col-stat col-stat-max">' + SehirStatsEngine.formatCell(st.max1234) + '</td>';
+                        html += '<td class="col-stat col-stat-cnt">' + st.cnt1 + '</td>';
+                        html += '<td class="col-stat col-stat-cnt">' + st.cnt12 + '</td>';
+                        html += '<td class="col-stat col-stat-cnt">' + st.cnt123 + '</td>';
+                        html += '<td class="col-stat col-stat-cnt">' + st.cnt1234 + '</td>';
+                        html += '<td class="col-gecmis col-gecmis-match">' + escapeHtml(st.gecmisMatchStr) + '</td>';
+                        html += '<td class="col-gecmis">' + escapeHtml(st.gecmisSehirStr) + '</td>';
+                        html += '</tr>';
+                    }
+                }
+                html += '</tbody></table></div></div>';
+            }
+            html += '</div>';
+            el.innerHTML = html;
+        }
+
         async function sonTestListKayitlar(which) {
-            const listDiv = document.getElementById(which === 'atSayisi' ? 'atSayisiKayitListesi' : 'sonTestKayitListesi');
+            const listIds = {
+                sonTest: 'sonTestKayitListesi',
+                atSayisi: 'atSayisiKayitListesi',
+                sehir: 'sehirKayitListesi'
+            };
+            const listDiv = document.getElementById(listIds[which] || 'sonTestKayitListesi');
             document.getElementById('sonTestKayitListesi').style.display = 'none';
             document.getElementById('atSayisiKayitListesi').style.display = 'none';
+            document.getElementById('sehirKayitListesi').style.display = 'none';
             statusDiv.innerHTML = '<div class="status status-loading">⏳ Kayıtlar yükleniyor...</div>';
             try {
                 const response = await fetch('/api/hesaplama-kayitlar');
@@ -722,6 +835,7 @@
         async function loadSonTestKayit(id) {
             document.getElementById('sonTestContent').innerHTML = '<div class="info-box">⏳ Kayıt yükleniyor...</div>';
             document.getElementById('atSayisiContent').innerHTML = '<div class="info-box">⏳ Kayıt yükleniyor...</div>';
+            document.getElementById('sehirContent').innerHTML = '<div class="info-box">⏳ Kayıt yükleniyor...</div>';
             statusDiv.innerHTML = '<div class="status status-loading">⏳ Kayıt #' + id + ' yükleniyor...</div>';
             try {
                 const response = await fetch('/api/hesaplama-kayit/' + id);
@@ -731,6 +845,7 @@
                 currentRaces = kayit.veri || [];
                 currentSonTestKayitId = id;
                 sonTestKayitSource = 'kayit';
+                currentHipodrom = kayit.hipodrom || null;
                 currentHorses = [];
                 veriCache = {};
                 syncVeriCacheFromRaces(currentRaces);
@@ -754,6 +869,7 @@
                 const errHtml = '<div class="info-box">❌ ' + escapeHtml(error.message) + '</div>';
                 document.getElementById('sonTestContent').innerHTML = errHtml;
                 document.getElementById('atSayisiContent').innerHTML = errHtml;
+                document.getElementById('sehirContent').innerHTML = errHtml;
                 statusDiv.innerHTML = '<div class="status status-error">❌ ' + escapeHtml(error.message) + '</div>';
             }
         }
