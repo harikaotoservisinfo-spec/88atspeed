@@ -19,7 +19,8 @@
  *   node scripts/test-dimension-finish-correlation.js --race 1 -v
  *   node scripts/test-dimension-finish-correlation.js --all-races
  *   node scripts/test-dimension-finish-correlation.js --context
- *   node scripts/test-dimension-finish-correlation.js --phase per-race,context
+ *   node scripts/test-dimension-finish-correlation.js --windows
+ *   node scripts/test-dimension-finish-correlation.js --phase windows --kayit 148
  *   node scripts/test-dimension-finish-correlation.js --list-kayitlar
  *   node scripts/test-dimension-finish-correlation.js --phase leader,bucket,corr,winner,race
  */
@@ -56,11 +57,13 @@ const cli = {
     verbose: args.includes('--verbose') || args.includes('-v'),
     allRaces: args.includes('--all-races'),
     context: args.includes('--context'),
+    windows: args.includes('--windows'),
     listKayitlar: args.includes('--list-kayitlar'),
     engine: (argVal('--engine') || 'hybrid').toLowerCase(),
     phases: (() => {
         if (args.includes('--context')) return ['context'];
         if (args.includes('--all-races')) return ['per-race'];
+        if (args.includes('--windows')) return ['windows'];
         if (phasesRaw === 'all') {
             return ['leader', 'bucket', 'corr', 'winner', 'agree', 'combo', 'compare', 'segment', 'race', 'plan'];
         }
@@ -92,6 +95,308 @@ const PLACEMENT_KEYS = [
 ];
 
 const RECENT_WINDOWS = [5, 4, 3, 2, 1];
+const WINDOW_LADDER = [null, 5, 4, 3, 2, 1];
+
+const WINDOW_CORE_KEYS = {
+    fieldSize: ['kosuSayisi', 'cnt123', 'cnt1', 'max123', '_cnt123rate'],
+    sehir: ['sehirPct', 'inCityCount', 'cnt123', 'max123', 'matchHitPct'],
+    default: ['matchPct', 'matchCount', 'cnt123', 'cnt1', 'max123', 'matchHitPct', '_max123xpct']
+};
+
+function windowLabel(w) {
+    return w == null ? 'TÜM' : 'S' + w;
+}
+
+function catalogMetric(catalog, short, key, windowSize) {
+    const winTag = windowSize ? '.S' + windowSize : '';
+    return catalog.find(m => m.id === short + winTag + '.' + key) || null;
+}
+
+function recencyTrendLabel(delta) {
+    if (delta == null || isNaN(delta)) return '—';
+    if (delta > 0.04) return '↑↑ yakın güçlü';
+    if (delta > 0.015) return '↑ yakın daha iyi';
+    if (delta < -0.04) return '↓↓ uzak daha iyi';
+    if (delta < -0.015) return '↓ uzak daha iyi';
+    return '≈ fark yok';
+}
+
+function linearRecencySlope(scoresByWindow) {
+    const xMap = { all: 0, 5: 1, 4: 2, 3: 3, 2: 4, 1: 5 };
+    const pts = [];
+    for (const w of WINDOW_LADDER) {
+        const wKey = w == null ? 'all' : w;
+        const y = scoresByWindow[wKey];
+        if (y == null) continue;
+        pts.push({ x: xMap[wKey], y });
+    }
+    if (pts.length < 3) return null;
+    const n = pts.length;
+    const sx = pts.reduce((a, p) => a + p.x, 0);
+    const sy = pts.reduce((a, p) => a + p.y, 0);
+    const sxx = pts.reduce((a, p) => a + p.x * p.x, 0);
+    const sxy = pts.reduce((a, p) => a + p.x * p.y, 0);
+    const denom = n * sxx - sx * sx;
+    if (!denom) return null;
+    return (n * sxy - sx * sy) / denom;
+}
+
+function buildWindowRankFusionScorer(catalog, tg, windowSize, entries) {
+    const keys = tg.group === 'fieldSize' ? WINDOW_CORE_KEYS.fieldSize
+        : tg.group === 'sehir' ? WINDOW_CORE_KEYS.sehir
+            : WINDOW_CORE_KEYS.default;
+    const matchKeys = keys.filter(k => k.includes('Pct') || k.includes('Count') || k === 'matchHitPct');
+    const getters = matchKeys.map(k => {
+        const m = catalogMetric(catalog, tg.short, k, windowSize);
+        return m ? e => m.get(e) : null;
+    }).filter(Boolean);
+    if (!getters.length) return null;
+    return buildRankFusionScorer(entries, getters);
+}
+
+function printWindowCorrelationPhase(catalog, raceGroups, withBitis, host, minRaces, tahminBase) {
+    hr('PENCERE KORELASYONU — TÜM vs S5→S1 · BİTİŞ başarısı');
+    console.log('  Her sekme kendi metrikleriyle analiz edilir.');
+    console.log('  Karışık = 80/12/8 (★/◆/·). Δ(S1-TÜM) pozitif → son 1 koşu sinyali daha başarılı.');
+    console.log('  Eğim > 0 → yakın pencereye indikçe lider isabeti artıyor.\n');
+
+    if (tahminBase) {
+        console.log('  TAHMİN referans: karışık ' + pct(tahminBase.leaderBlended)
+            + ' · ★ ' + pct(tahminBase.exactRate) + ' · n=' + tahminBase.leaderTotal + '\n');
+    }
+
+    const tabBestWindow = [];
+    const recencyWins = { up: 0, down: 0, flat: 0 };
+    const allComparisons = [];
+
+    for (const tg of TAB_GROUPS) {
+        const keys = tg.group === 'fieldSize' ? WINDOW_CORE_KEYS.fieldSize
+            : tg.group === 'sehir' ? WINDOW_CORE_KEYS.sehir
+                : WINDOW_CORE_KEYS.default;
+
+        sub(tg.tab + ' — lider karışık oran (pencere × metrik)');
+        const hdr = pad('Metrik', 16)
+            + WINDOW_LADDER.map(w => pad(windowLabel(w), 8)).join('')
+            + pad('Δ(S1-TÜM)', 10) + pad('Eğim', 8) + 'Yorum';
+        console.log('  ' + hdr);
+        console.log('  ' + '-'.repeat(Math.min(hdr.length, 100)));
+
+        const windowWins = { all: 0, 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+
+        for (const key of keys) {
+            const cells = [];
+            const scoresByWindow = {};
+            let allScore = null;
+            let s1Score = null;
+
+            for (const w of WINDOW_LADDER) {
+                const m = catalogMetric(catalog, tg.short, key, w);
+                if (!m) {
+                    cells.push(pad('—', 8));
+                    continue;
+                }
+                const r = evaluateRaceLeader(raceGroups, m.get, host);
+                if (r.leaderTotal < minRaces) {
+                    cells.push(pad('n<' + minRaces, 8));
+                    continue;
+                }
+                cells.push(pad(pct(r.leaderBlended), 8));
+                const wKey = w == null ? 'all' : w;
+                scoresByWindow[wKey] = r.leaderBlended;
+                if (w == null) allScore = r.leaderBlended;
+                if (w === 1) s1Score = r.leaderBlended;
+            }
+
+            const delta = (allScore != null && s1Score != null) ? s1Score - allScore : null;
+            const slope = linearRecencySlope(scoresByWindow);
+            const trend = recencyTrendLabel(delta);
+
+            if (delta != null) {
+                allComparisons.push({ tg, key, delta, slope, allScore, s1Score, trend });
+                if (delta > 0.015) recencyWins.up++;
+                else if (delta < -0.015) recencyWins.down++;
+                else recencyWins.flat++;
+            }
+
+            console.log('  ' + pad(key, 16) + cells.join('')
+                + pad(delta != null ? ((delta >= 0 ? '+' : '') + pct(delta)) : '—', 10)
+                + pad(slope != null ? slope.toFixed(3) : '—', 8)
+                + trend);
+        }
+
+        sub(tg.tab + ' — Rank-Fusion (pencere içi çoklu metrik)');
+        const fusionRows = [];
+        for (const w of WINDOW_LADDER) {
+            const sampleEntries = raceGroups[0] || [];
+            const scorer = buildWindowRankFusionScorer(catalog, tg, w, sampleEntries);
+            if (!scorer) continue;
+            const r = evaluateRaceLeader(raceGroups, scorer, host);
+            if (r.leaderTotal < minRaces) continue;
+            fusionRows.push({ w, r });
+            const wKey = w == null ? 'all' : w;
+            windowWins[wKey] = (windowWins[wKey] || 0) + r.leaderBlended;
+        }
+        fusionRows.sort((a, b) => b.r.leaderBlended - a.r.leaderBlended);
+        for (const row of fusionRows) {
+            console.log('  ' + pad(windowLabel(row.w), 6)
+                + ' RF karışık ' + pad(pct(row.r.leaderBlended), 7)
+                + ' · ★ ' + pad(pct(row.exactRate), 7)
+                + ' · n=' + row.r.leaderTotal);
+        }
+        if (fusionRows.length) {
+            const best = fusionRows[0];
+            tabBestWindow.push({
+                tab: tg.tab,
+                short: tg.short,
+                window: best.w,
+                blended: best.r.leaderBlended,
+                exact: best.r.exactRate,
+                n: best.r.leaderTotal
+            });
+        }
+
+        sub(tg.tab + ' — Spearman (-ρ) pencere kıyası');
+        const corrByWindow = [];
+        for (const w of WINDOW_LADDER) {
+            const matchM = catalogMetric(catalog, tg.short,
+                tg.group === 'sehir' ? 'sehirPct' : tg.group === 'fieldSize' ? 'cnt123' : 'matchPct', w);
+            const cntM = catalogMetric(catalog, tg.short, 'cnt123', w);
+            const metrics = [matchM, cntM].filter(Boolean);
+            let bestInv = null;
+            let bestLabel = '';
+            for (const m of metrics) {
+                const c = evaluateRankCorrelation(raceGroups, m.get, host);
+                if (c.n < minRaces || c.inverted == null) continue;
+                if (bestInv == null || c.inverted > bestInv) {
+                    bestInv = c.inverted;
+                    bestLabel = m.col;
+                }
+            }
+            if (bestInv != null) {
+                corrByWindow.push({ w, inv: bestInv, label: bestLabel });
+                console.log('  ' + pad(windowLabel(w), 6) + ' en iyi -ρ=' + bestInv.toFixed(3)
+                    + ' (' + bestLabel + ')');
+            }
+        }
+        if (corrByWindow.length >= 2) {
+            const allC = corrByWindow.find(x => x.w == null);
+            const s1C = corrByWindow.find(x => x.w === 1);
+            if (allC && s1C) {
+                const d = s1C.inv - allC.inv;
+                console.log('  → S1 vs TÜM -ρ farkı: ' + (d >= 0 ? '+' : '') + d.toFixed(3)
+                    + (d > 0.02 ? ' (yakın dönem daha iyi sıralıyor)' : d < -0.02 ? ' (tüm geçmiş daha iyi)' : ''));
+            }
+        }
+    }
+
+    sub('YAKIN DÖNEM HİPOTEZİ — S1 vs TÜM (tüm sekmeler)');
+    console.log('  S1 > TÜM (+Δ): ' + recencyWins.up + ' metrik');
+    console.log('  S1 < TÜM (-Δ): ' + recencyWins.down + ' metrik');
+    console.log('  ≈ aynı       : ' + recencyWins.flat + ' metrik');
+    const pctUp = allComparisons.length
+        ? Math.round(1000 * recencyWins.up / allComparisons.length) / 10 : 0;
+    console.log('  Sonuç: ' + (pctUp >= 55
+        ? 'Yakın dönem (S1) çoğu metrikte TÜM geçmişten DAHA İYİ — form yakın dönemde daha ayırt edici.'
+        : pctUp <= 45
+            ? 'TÜM geçmiş çoğu metrikte S1\'den DAHA İYİ — uzun seri daha güvenilir.'
+            : 'Karışık — sekme/metrik bazında seçim gerekir.'));
+
+    allComparisons.sort((a, b) => (b.delta ?? 0) - (a.delta ?? 0));
+    sub('EN ÇOK YAKIN DÖNEM KAZANANLARI — Δ(S1-TÜM) TOP');
+    allComparisons.slice(0, 12).forEach((r, i) => {
+        console.log('  ' + pad(String(i + 1) + '.', 4) + pad(r.tg.short + '.' + r.key, 18)
+            + ' TÜM=' + pad(pct(r.allScore), 6) + ' S1=' + pad(pct(r.s1Score), 6)
+            + ' Δ=' + pad((r.delta >= 0 ? '+' : '') + pct(r.delta), 7)
+            + ' · ' + r.trend);
+    });
+
+    sub('EN ÇOK UZAK DÖNEM KAZANANLARI — TÜM geçmiş daha iyi');
+    [...allComparisons].sort((a, b) => (a.delta ?? 0) - (b.delta ?? 0)).slice(0, 8).forEach((r, i) => {
+        console.log('  ' + pad(String(i + 1) + '.', 4) + pad(r.tg.short + '.' + r.key, 18)
+            + ' TÜM=' + pad(pct(r.allScore), 6) + ' S1=' + pad(pct(r.s1Score), 6)
+            + ' Δ=' + pad(pct(r.delta), 7));
+    });
+
+    sub('SEKME BAZINDA EN İYİ PENCERE (Rank-Fusion)');
+    tabBestWindow.sort((a, b) => b.blended - a.blended);
+    for (const r of tabBestWindow) {
+        const vsTah = tahminBase ? r.blended - tahminBase.leaderBlended : null;
+        console.log('  ' + pad(r.tab, 18) + ' → ' + pad(windowLabel(r.window), 5)
+            + ' karışık ' + pad(pct(r.blended), 7)
+            + ' · ★ ' + pad(pct(r.exact), 7)
+            + ' · n=' + r.n
+            + (vsTah != null ? ' · vs TAHMİN ' + (vsTah >= 0 ? '+' : '') + pct(vsTah) : ''));
+    }
+
+    sub('SENARYO MATRİSİ — hangi pencere ne zaman?');
+    const scenarios = [
+        {
+            label: 'S1 matchPct lideri',
+            desc: 'Son koşuda hedefe en iyi uyan at',
+            get: tg => catalogMetric(catalog, tg.short, tg.group === 'sehir' ? 'sehirPct' : tg.group === 'fieldSize' ? 'cnt123' : 'matchPct', 1)
+        },
+        {
+            label: 'S3 cnt123 lideri',
+            desc: 'Son 3 koşuda en çok plase',
+            get: tg => catalogMetric(catalog, tg.short, 'cnt123', 3)
+        },
+        {
+            label: 'TÜM matchPct lideri',
+            desc: 'Tüm geçmişte hedef uyumu',
+            get: tg => catalogMetric(catalog, tg.short, tg.group === 'sehir' ? 'sehirPct' : tg.group === 'fieldSize' ? 'cnt123' : 'matchPct', null)
+        },
+        {
+            label: 'S5 RF birleşik',
+            desc: 'Son 5 koşu çoklu metrik fusion',
+            get: tg => null,
+            rfWindow: 5
+        }
+    ];
+
+    for (const sc of scenarios) {
+        let best = null;
+        for (const tg of TAB_GROUPS) {
+            let r;
+            if (sc.rfWindow != null) {
+                const scorer = buildWindowRankFusionScorer(catalog, tg, sc.rfWindow, raceGroups[0] || []);
+                if (!scorer) continue;
+                r = evaluateRaceLeader(raceGroups, scorer, host);
+            } else {
+                const m = sc.get(tg);
+                if (!m) continue;
+                r = evaluateRaceLeader(raceGroups, m.get, host);
+            }
+            if (r.leaderTotal < minRaces) continue;
+            if (!best || r.leaderBlended > best.r.leaderBlended) {
+                best = { tg, r };
+            }
+        }
+        if (best) {
+            console.log('  ' + pad(sc.label, 22) + ' → ' + pad(best.tg.short, 4)
+                + ' karışık ' + pad(pct(best.r.leaderBlended), 7)
+                + ' · ★ ' + pad(pct(best.r.exactRate), 7)
+                + ' · n=' + best.r.leaderTotal
+                + '  (' + sc.desc + ')');
+        }
+    }
+
+    sub('KAZANAN PROFİLİ — S1 vs TÜM ortalama fark (Δ)');
+    for (const tg of TAB_GROUPS.filter(t => t.group !== 'fieldSize')) {
+        const pctKey = tg.group === 'sehir' ? 'sehirPct' : 'matchPct';
+        const mAll = catalogMetric(catalog, tg.short, pctKey, null);
+        const mS1 = catalogMetric(catalog, tg.short, pctKey, 1);
+        if (!mAll || !mS1) continue;
+        const wAll = evaluateWinnerProfile(withBitis, mAll.get, host);
+        const wS1 = evaluateWinnerProfile(withBitis, mS1.get, host);
+        if (wAll.winN < 2 || wS1.winN < 2) continue;
+        const d = (wS1.delta ?? 0) - (wAll.delta ?? 0);
+        console.log('  ' + pad(tg.short + '.' + pctKey, 12)
+            + ' TÜM Δ=' + pad(formatMetricVal(wAll.delta), 6)
+            + ' S1 Δ=' + pad(formatMetricVal(wS1.delta), 6)
+            + ' · 1.bitiş n=' + wAll.winN
+            + (d > 1 ? ' → S1 kazananları daha yüksek%' : d < -1 ? ' → TÜM daha ayırt edici' : ''));
+    }
+}
 
 function hr(t) { console.log('\n══ ' + t + ' ══'); }
 function sub(t) { console.log('\n── ' + t + ' ──'); }
@@ -1574,7 +1879,16 @@ async function main() {
             }
         }
 
-        if (cli.phases.every(p => p === 'per-race' || p === 'context')) {
+        if (hasPhase('windows')) {
+            const tahminWin = evaluateTahminLeader(raceGroups, host);
+            printWindowCorrelationPhase(catalog, raceGroups, withBitis, host, minRaces, tahminWin);
+            if (cli.phases.length === 1) {
+                console.log('\nOK · ' + raceGroups.length + ' koşu · ' + withBitis.length + ' BİTİŞ · faz=windows');
+                return;
+            }
+        }
+
+        if (cli.phases.every(p => p === 'per-race' || p === 'context' || p === 'windows')) {
             console.log('\nOK · ' + raceGroups.length + ' koşu · ' + withBitis.length + ' BİTİŞ · faz='
                 + cli.phases.join(','));
             return;

@@ -69,6 +69,26 @@
             background: #bbdefb; color: #0d47a1; text-align: center;
             border-left: 2px solid #64b5f6;
         }
+        .astest-window-summary {
+            margin: 8px 12px 0; padding: 10px 12px;
+            background: #f5f5f5; border-radius: 8px; border: 1px solid #e0e0e0;
+        }
+        .astest-window-summary-title {
+            font-size: 11px; font-weight: 700; color: #37474f; margin: 0 0 8px;
+        }
+        .astest-window-summary-table {
+            min-width: 480px !important; width: 100%; font-size: 11px;
+            border-collapse: collapse;
+        }
+        .astest-window-summary-table th,
+        .astest-window-summary-table td {
+            padding: 4px 8px; border: 1px solid #eceff1; text-align: center;
+        }
+        .astest-window-summary-table th { background: #eceff1; color: #455a64; }
+        .astest-window-summary-table td:first-child { text-align: left; font-weight: 600; }
+        .astest-window-summary-note {
+            font-size: 10px; color: #78909c; margin: 6px 0 0;
+        }
         .astest-table .col-gecmis {
             min-width: 140px; text-align: left; font-size: 11px;
             color: #546e7a; max-width: 320px; white-space: normal;
@@ -329,6 +349,68 @@
             sehir: RECENT_WINDOWS.length * 11,
             dimension: RECENT_WINDOWS.length * 11
         };
+
+        function astestPickLeader(entries, getScore) {
+            let best = null;
+            for (let i = 0; i < entries.length; i++) {
+                const e = entries[i];
+                const s = getScore(e);
+                if (s == null || !Number.isFinite(Number(s))) continue;
+                const no = parseInt(e.h?.no, 10);
+                if (!best || s > best.score || (s === best.score && no < best.no)) {
+                    const nm = (e.h?.name || '').replace(/\(\d+\)/, '').trim();
+                    best = { name: nm, no: isNaN(no) ? 99 : no, score: s };
+                }
+            }
+            return best;
+        }
+
+        function astestWindowLeaderSummary(horses, race, kind, dimOrSehir) {
+            const ladder = [null].concat(RECENT_WINDOWS);
+            const rows = horses.map(function(h) {
+                const kosular = veriCache[h.atId] || h.kosular || [];
+                const horseCtx = Object.assign({}, h, { kosular: kosular });
+                let st;
+                if (kind === 'fieldSize') st = FieldSizeStatsEngine.computeStats(kosular);
+                else if (kind === 'sehir') st = SehirStatsEngine.computeStats(kosular, dimOrSehir);
+                else st = KosuDimensionStatsEngine.computeStats(kosular, kind, dimOrSehir.getTarget(horseCtx, race));
+                return { h: h, st: st };
+            });
+            function scoreFor(row, metric, w) {
+                const src = w == null ? row.st : (row.st.windows?.[w] || {});
+                const v = src[metric];
+                return v != null && v !== '' ? Number(v) : null;
+            }
+            const metrics = kind === 'fieldSize'
+                ? [{ key: 'cnt123', label: '1-2-3' }, { key: 'kosuSayisi', label: 'KOŞU' }]
+                : kind === 'sehir'
+                    ? [{ key: 'sehirPct', label: 'ŞEH%' }, { key: 'cnt123', label: '1-2-3' }]
+                    : [{ key: 'matchPct', label: dimOrSehir.pctLabel }, { key: 'cnt123', label: '1-2-3' }];
+            let html = '<div class="astest-window-summary">';
+            html += '<div class="astest-window-summary-title">Pencere lider özeti (TÜM → S1 · sekme içi)</div>';
+            html += '<table class="astest-window-summary-table"><thead><tr>';
+            html += '<th>Metrik</th><th>TÜM</th>';
+            for (let wi = 0; wi < RECENT_WINDOWS.length; wi++) {
+                html += '<th>S' + RECENT_WINDOWS[wi] + '</th>';
+            }
+            html += '</tr></thead><tbody>';
+            for (let mi = 0; mi < metrics.length; mi++) {
+                const m = metrics[mi];
+                html += '<tr><td>' + escapeHtml(m.label) + '</td>';
+                for (let li = 0; li < ladder.length; li++) {
+                    const w = ladder[li];
+                    const leader = astestPickLeader(rows, function(r) { return scoreFor(r, m.key, w); });
+                    html += '<td title="' + escapeHtml(leader ? String(leader.score) : '') + '">'
+                        + escapeHtml(leader ? leader.name.slice(0, 20) : '—') + '</td>';
+                }
+                html += '</tr>';
+            }
+            html += '</tbody></table>';
+            html += '<p class="astest-window-summary-note">BİTİŞ korelasyonu için terminal: '
+                + '<code>npm run test:dimension-windows -- --kayit ID</code></p>';
+            html += '</div>';
+            return html;
+        }
 
         const DIMENSION_TEST_TABS = [
             { key: 'kcins_kosu', tabId: 'kcins-test', contentId: 'kcinsContent', metaId: 'kcinsMeta', listId: 'kcinsKayitListesi', kayitBtn: 'kcinsKayitBtn' },
@@ -879,7 +961,9 @@
                         html += '</tr>';
                     }
                 }
-                html += '</tbody></table></div></div>';
+                html += '</tbody></table></div>';
+                html += astestWindowLeaderSummary(horses, race, 'fieldSize');
+                html += '</div>';
             }
             html += '</div>';
             el.innerHTML = html;
@@ -965,7 +1049,9 @@
                         html += '</tr>';
                     }
                 }
-                html += '</tbody></table></div></div>';
+                html += '</tbody></table></div>';
+                html += astestWindowLeaderSummary(horses, race, 'sehir', hedefSehir);
+                html += '</div>';
             }
             html += '</div>';
             el.innerHTML = html;
@@ -1052,7 +1138,9 @@
                         html += '</tr>';
                     }
                 }
-                html += '</tbody></table></div></div>';
+                html += '</tbody></table></div>';
+                html += astestWindowLeaderSummary(horses, race, dimKey, dim);
+                html += '</div>';
             }
             html += '</div>';
             el.innerHTML = html;
