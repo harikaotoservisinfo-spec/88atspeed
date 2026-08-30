@@ -7,7 +7,7 @@ const KOSU_KRITIK = ['at_derece', 'birinci_derece', 'son800_bir'];
 const KOSU_TUM_ALANLAR = [
     'tarih', 'sehir', 'mesafe', 'pist', 'sira', 'at_derece', 'birinci_derece',
     'son800_bir', 'son800_iki', 'siklet', 'grup', 'kcins', 'hp', 'taki', 'yas',
-    'kcins_kosu', 'kategori', 'pist_kosu'
+    'kcins_kosu', 'kategori', 'pist_kosu', 'at_sayisi', 'cikan_sayisi'
 ];
 
 function getBrowserHeaders() {
@@ -255,6 +255,77 @@ function parseKosuDetayEval() {
     };
 }
 
+function countFieldSizePageEval() {
+    return function countField() {
+        function parseNameCell(nameCell) {
+            if (!nameCell) return { name: '', kosmaz: false };
+            const fullText = nameCell.innerText || '';
+            const link = nameCell.querySelector('a');
+            const name = (link?.innerText || fullText.split('\n')[0] || '')
+                .replace(/\(\s*koşmaz\s*\)/gi, '').replace(/\s+/g, ' ').trim();
+            const kosmaz = /\(\s*koşmaz\s*\)/i.test(fullText)
+                || /\(\s*kosmaz\s*\)/i.test(fullText)
+                || /\(\s*çekildi\s*\)/i.test(fullText)
+                || /\(\s*koşm\s*\)/i.test(fullText);
+            return { name, kosmaz };
+        }
+        function findTableByHash() {
+            const hashId = (location.hash || '').replace(/^#/, '');
+            if (!hashId) return null;
+            const anchor = document.getElementById(hashId);
+            if (!anchor) return null;
+            let node = anchor;
+            for (let i = 0; i < 10 && node; i++) {
+                const table = node.querySelector ? node.querySelector('table') : null;
+                if (table && table.querySelectorAll('tbody tr').length) return table;
+                node = node.nextElementSibling || node.parentElement;
+            }
+            return null;
+        }
+        function findResultTable() {
+            let target = findTableByHash();
+            if (target) return target;
+            const tables = document.querySelectorAll('table');
+            let best = null;
+            let bestRows = 0;
+            for (const t of tables) {
+                const ths = [...t.querySelectorAll('thead th')].map(x => x.innerText.trim());
+                const looksLike = ths.some(h => /at/i.test(h) && /ism/i.test(h))
+                    || (ths.includes('S') && ths.some(h => /at/i.test(h)));
+                const rows = t.querySelectorAll('tbody tr').length;
+                if (looksLike && rows > bestRows) {
+                    best = t;
+                    bestRows = rows;
+                }
+            }
+            if (best) return best;
+            for (const t of tables) {
+                const rows = t.querySelectorAll('tbody tr').length;
+                if (rows > bestRows && t.querySelector('tbody tr td:nth-child(3) a')) {
+                    best = t;
+                    bestRows = rows;
+                }
+            }
+            return best;
+        }
+        const target = findResultTable();
+        if (!target) return { error: 'tablo_yok', at_sayisi: 0, cikan_sayisi: 0 };
+
+        let atSayisi = 0;
+        let cikan = 0;
+        for (const row of target.querySelectorAll('tbody tr')) {
+            const nameCell = row.querySelector('td:nth-child(3)');
+            if (!nameCell) continue;
+            const derece = row.querySelector('td:nth-child(10)')?.innerText?.trim() || '';
+            const parsed = parseNameCell(nameCell);
+            const kosmaz = parsed.kosmaz || /^koşmaz$/i.test(derece);
+            if (kosmaz) { cikan++; continue; }
+            if (parsed.name) atSayisi++;
+        }
+        return { at_sayisi: atSayisi, cikan_sayisi: cikan };
+    };
+}
+
 async function gotoKosuSonucSayfasi(page, url, sehirAdi) {
     await page.setExtraHTTPHeaders(getBrowserHeaders());
     const hashId = url.includes('#') ? url.split('#').pop() : '';
@@ -326,7 +397,9 @@ function buildKosuKayit(ana, detay, raceMeta) {
         kcins_kosu: meta.kcins_kosu || '',
         kategori: meta.kategori || '',
         pist_kosu: normalizePist(meta.pist_kosu || ana.pist || ''),
-        kosmaz: !!detay?.kosmaz
+        kosmaz: !!detay?.kosmaz,
+        at_sayisi: detay?.at_sayisi != null ? detay.at_sayisi : '',
+        cikan_sayisi: detay?.cikan_sayisi != null ? detay.cikan_sayisi : ''
     };
 }
 
@@ -374,7 +447,7 @@ async function fetchAtKosularFromPage(page, atId, atAdi, opts = {}) {
     }
 
     const pageTitle = await page.evaluate(() => document.querySelector('h2.tableTitle')?.innerText?.trim() || '');
-    const atIsmi = pageTitle || adiParam;
+    const atIsmi = pageTitle || atAdi;
     const anaKosular = await page.evaluate(() => {
         function parseRow(row) {
             const cell = n => {
@@ -432,6 +505,13 @@ async function fetchAtKosularFromPage(page, atId, atAdi, opts = {}) {
                 const ana = anaKosular[i];
                 await gotoKosuSonucSayfasi(page, ana.tarihLink, ana.sehir);
                 let detay = await page.evaluate(parseKosuDetayEval(), atIsmi);
+                const fieldSize = await page.evaluate(countFieldSizePageEval());
+                if (fieldSize?.at_sayisi) {
+                    detay = Object.assign({}, detay, {
+                        at_sayisi: fieldSize.at_sayisi,
+                        cikan_sayisi: fieldSize.cikan_sayisi || 0
+                    });
+                }
                 if (!detay.son800) {
                     const extraSon800 = await page.evaluate(() => {
                         const bt = document.body.innerText || '';
@@ -467,6 +547,26 @@ async function fetchAtKosularFromPage(page, atId, atAdi, opts = {}) {
             qualityLog.push({ tarih: kayit.tarih, status: q.status, criticalMissing: q.criticalMissing, attempt: attempts });
         }
         await new Promise(r => setTimeout(r, 500));
+    }
+
+    if (opts.fetchAllFieldSizes !== false) {
+        const maxAll = opts.maxAllKosu != null ? opts.maxAllKosu : anaKosular.length;
+        const keys = new Set(sonuclar.map(k => [k.tarih, k.sehir, k.mesafe].join('|')));
+        for (let i = maxKosu; i < Math.min(maxAll, anaKosular.length); i++) {
+            const ana = anaKosular[i];
+            const key = [ana.tarih, ana.sehir, ana.mesafe].join('|');
+            if (keys.has(key)) continue;
+            try {
+                await gotoKosuSonucSayfasi(page, ana.tarihLink, ana.sehir);
+                const fieldSize = await page.evaluate(countFieldSizePageEval());
+                const kayit = buildKosuKayit(ana, fieldSize, {});
+                delete kayit.kosmaz;
+                sonuclar.push(kayit);
+                keys.add(key);
+                qualityLog.push({ tarih: kayit.tarih, status: 'alan_sayisi_only', criticalMissing: [], attempt: 1 });
+            } catch (_) { /* at sayısı ek koşu atlanır */ }
+            await new Promise(r => setTimeout(r, 350));
+        }
     }
 
     const tam = qualityLog.filter(q => q.status === 'tam').length;
@@ -562,6 +662,7 @@ module.exports = {
     parseAtKosuRowEval,
     parseHorseNameCellEval,
     parseKosuDetayEval,
+    countFieldSizePageEval,
     buildKosuKayit,
     evaluateKosuKayit,
     mergeKosuRetry,

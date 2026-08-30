@@ -569,6 +569,8 @@ app.get('/api/at-tum-veriler', async (req, res) => {
         
         const result = await tjkScrape.fetchAtKosularFromPage(page, atId, adiParam, {
             maxKosu: 7,
+            maxAllKosu: Number(req.query.maxAllKosu) || 40,
+            fetchAllFieldSizes: req.query.allFieldSizes !== '0',
             maxRetry: Number(req.query.retry) || 1
         });
         
