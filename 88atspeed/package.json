@@ -26,6 +26,7 @@
     "test:tjk-race": "node scripts/test-tjk-race-fetch.js --sehir Ankara --sehir-id 5 --tarih 29/08/2026 --race 1",
     "test:tjk-field-size": "node scripts/test-tjk-field-size.js --at-id 111738 --max-kosu 5",
     "test:tjk-kosu-meta": "node scripts/test-tjk-kosu-meta-fields.js --at-id 111738 --max-kosu 3",
+    "test:dimension-finish": "node scripts/test-dimension-finish-correlation.js --db atlar.db",
     "test:near-miss-race": "node scripts/test-near-miss-report.js --db atlar.db --kayit 133 --race 6 --verbose"
   },
   "dependencies": {
