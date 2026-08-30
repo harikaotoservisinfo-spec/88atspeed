@@ -1736,6 +1736,7 @@ const IstatistikEngine = {
                 no: horse.no,
                 name: horse.name || '-',
                 atId: horse.atId,
+                kosular,
                 kosuHistory,
                 hedefMesafe,
                 sehir,

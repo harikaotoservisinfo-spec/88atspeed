@@ -440,6 +440,7 @@ function loadAllEngines() {
     eval(fs.readFileSync(path.join(ROOT, 'public/js/kosu-dimension-stats-engine.js'), 'utf8') + '\n; global.KosuDimensionStatsEngine = KosuDimensionStatsEngine;');
     eval(fs.readFileSync(path.join(ROOT, 'public/js/basari-pct-scoring-engine.js'), 'utf8') + '\n; global.BasariPctScoringEngine = BasariPctScoringEngine;');
     eval(fs.readFileSync(path.join(ROOT, 'public/js/hybrid-tahmin-scoring-engine.js'), 'utf8') + '\n; global.HybridTahminScoringEngine = HybridTahminScoringEngine;');
+    eval(fs.readFileSync(path.join(ROOT, 'public/js/dimension-tahmin-boost-engine.js'), 'utf8') + '\n; global.DimensionTahminBoostEngine = DimensionTahminBoostEngine;');
 }
 
 function gval(entry, group, key, windowSize) {
@@ -1069,21 +1070,24 @@ function evaluateBestBucket(entries, metric, host) {
     return best;
 }
 
-function attachTahminLeader(raceGroups) {
+function attachTahminLeader(raceGroups, opts) {
+    opts = opts || {};
     for (const entries of raceGroups) {
         const rows = entries.map(e => e.row);
         const pkg = {
             rows,
             depthCoverage: entries[0]?._pkg?.depthCoverage || null,
-            kosuHistorySummary: entries[0]?._pkg?.kosuHistorySummary || null
+            kosuHistorySummary: entries[0]?._pkg?.kosuHistorySummary || null,
+            hedefSehir: entries[0]?._pkg?.hedefSehir || entries[0]?.hipodrom || null,
+            skipDimensionBoost: opts.skipBoost === true
         };
         if (cli.engine === 'hybrid') HybridTahminScoringEngine.attachRaceTahmin(pkg);
         else GostergeScoringEngine.attachRaceTahmin(pkg);
     }
 }
 
-function evaluateTahminLeader(raceGroups, host) {
-    attachTahminLeader(raceGroups);
+function evaluateTahminLeader(raceGroups, host, opts) {
+    attachTahminLeader(raceGroups, opts);
     return evaluateRaceLeader(raceGroups, e => e.row?.tahmin?.score ?? null, host);
 }
 
@@ -1685,15 +1689,27 @@ async function main() {
         }
 
         const needsTahmin = hasPhase('leader') || hasPhase('plan') || hasPhase('agree')
-            || hasPhase('compare') || hasPhase('combo');
-        const tahminBase = needsTahmin ? evaluateTahminLeader(raceGroups, host) : null;
+            || hasPhase('compare') || hasPhase('combo') || hasPhase('windows');
+        let tahminBaseline = null;
+        let tahminActive = null;
+        if (needsTahmin) {
+            if (hasPhase('windows') || hasPhase('plan') || hasPhase('compare')) {
+                tahminBaseline = evaluateTahminLeader(raceGroups, host, { skipBoost: true });
+            }
+            tahminActive = evaluateTahminLeader(raceGroups, host);
+        }
+        const tahminBase = tahminBaseline || tahminActive;
 
         if (hasPhase('leader')) {
             hr('2. KOŞU LİDERİ — TÜM UI SÜTUNLARI (' + catalog.length + ' metrik)');
             console.log('  Her koşuda en yüksek değere sahip atın BİTİŞ\'i · karışık = 80/12/8');
-            if (tahminBase) {
-                console.log('  ' + pad('TAHMİN(hybrid)', 32) + ' karışık ' + pad(pct(tahminBase.leaderBlended), 7)
-                    + ' · 1. ' + pad(pct(tahminBase.exactRate), 7) + ' · n=' + tahminBase.leaderTotal);
+            if (tahminActive) {
+                console.log('  ' + pad('TAHMİN(hybrid+boost)', 32) + ' karışık ' + pad(pct(tahminActive.leaderBlended), 7)
+                    + ' · 1. ' + pad(pct(tahminActive.exactRate), 7) + ' · n=' + tahminActive.leaderTotal);
+            }
+            if (tahminBaseline) {
+                console.log('  ' + pad('TAHMİN(baseline)', 32) + ' karışık ' + pad(pct(tahminBaseline.leaderBlended), 7)
+                    + ' · 1. ' + pad(pct(tahminBaseline.exactRate), 7) + ' · n=' + tahminBaseline.leaderTotal);
             }
             const leaderResults = catalog.map(m => ({
                 m, ...evaluateRaceLeader(raceGroups, m.get, host)
@@ -1888,8 +1904,21 @@ async function main() {
         }
 
         if (hasPhase('windows')) {
-            const tahminWin = evaluateTahminLeader(raceGroups, host);
-            printWindowCorrelationPhase(catalog, raceGroups, withBitis, host, minRaces, tahminWin);
+            printWindowCorrelationPhase(catalog, raceGroups, withBitis, host, minRaces, tahminBase);
+            if (tahminBaseline && tahminActive) {
+                sub('TAHMİN BOYUT ENTEGRASYONU — hybrid baseline vs boost');
+                console.log('  Baseline (boost kapalı): karışık ' + pct(tahminBaseline.leaderBlended)
+                    + ' · ★ ' + pct(tahminBaseline.exactRate) + ' · n=' + tahminBaseline.leaderTotal);
+                console.log('  Boost aktif           : karışık ' + pct(tahminActive.leaderBlended)
+                    + ' · ★ ' + pct(tahminActive.exactRate) + ' · n=' + tahminActive.leaderTotal);
+                const delta = tahminActive.leaderBlended - tahminBaseline.leaderBlended;
+                console.log('  Δ boost               : ' + (delta >= 0 ? '+' : '') + pct(delta)
+                    + (delta > 0.02 ? ' ✓' : delta < -0.02 ? ' ↓' : ' ≈'));
+                if (typeof DimensionTahminBoostEngine !== 'undefined') {
+                    console.log('  Rotalar: ' + DimensionTahminBoostEngine.ROUTES.map(r => r.label).join(' · '));
+                    console.log('  maxBoost=' + Math.round(DimensionTahminBoostEngine.MAX_TOTAL_BOOST * 100) + '%');
+                }
+            }
             if (cli.phases.length === 1) {
                 console.log('\nOK · ' + raceGroups.length + ' koşu · ' + withBitis.length + ' BİTİŞ · faz=windows');
                 return;

@@ -150,6 +150,14 @@ const HybridTahminScoringEngine = (function () {
         }
     }
 
+    function finishWithDimensionBoost(scored, pkg) {
+        if (typeof DimensionTahminBoostEngine !== 'undefined'
+            && DimensionTahminBoostEngine.applyRaceBoost) {
+            DimensionTahminBoostEngine.applyRaceBoost(scored, pkg);
+        }
+        return finalizeRaceScores(scored);
+    }
+
     function finalizeRaceScores(scored) {
         applyTahminEligibility(scored);
         const eligible = scored.filter(s => !s.tahmin.ineligible);
@@ -325,7 +333,7 @@ const HybridTahminScoringEngine = (function () {
             row,
             tahmin: BasariPctScoringEngine.computeRowScore(row, basariWeights)
         }));
-        finalizeRaceScores(scored);
+        finishWithDimensionBoost(scored, pkg);
         const leader = pkg.rows.find(r => r.tahmin?.rank === 1);
         pkg.tahminOzeti = {
             leader: leader?.name || null,
@@ -342,7 +350,7 @@ const HybridTahminScoringEngine = (function () {
 
     function attachGostergeOnly(pkg, profile) {
         const scored = scoreGostergeRows(pkg.rows, profile);
-        finalizeRaceScores(scored);
+        finishWithDimensionBoost(scored, pkg);
         const leader = pkg.rows.find(r => r.tahmin?.rank === 1);
         pkg.tahminOzeti = {
             leader: leader?.name || null,
@@ -391,8 +399,9 @@ const HybridTahminScoringEngine = (function () {
         if (GostergeScoringEngine.isCalibrated?.()) {
             const gostergeScored = scoreGostergeRows(pkg.rows, profile);
             blended = blendRaceScores(basariScored, gostergeScored, basariWeight);
+            finishWithDimensionBoost(blended, pkg);
         } else {
-            finalizeRaceScores(basariScored);
+            finishWithDimensionBoost(basariScored, pkg);
             blended = basariScored;
         }
 
