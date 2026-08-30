@@ -59,6 +59,16 @@
         }
         .astest-table .col-stat-max { background: #fff8e1; font-weight: 700; color: #f57f17; }
         .astest-table .col-stat-cnt { background: #f1f8e9; color: #33691e; }
+        .astest-table .col-stat-window { background: #e3f2fd; color: #0d47a1; font-size: 11px; }
+        .astest-table .col-stat-window.col-stat-max { background: #fff3e0; color: #e65100; }
+        .astest-table .col-stat-window.col-stat-cnt { background: #e8f5e9; color: #2e7d32; }
+        .astest-table .col-stat-window.col-stat-dim,
+        .astest-table .col-stat-window.col-stat-sehir { background: #e8eaf6; color: #283593; }
+        .astest-table .col-stat-all-hdr { border-right: 2px solid #ce93d8; }
+        .astest-table .col-stat-window-hdr {
+            background: #bbdefb; color: #0d47a1; text-align: center;
+            border-left: 2px solid #64b5f6;
+        }
         .astest-table .col-gecmis {
             min-width: 140px; text-align: left; font-size: 11px;
             color: #546e7a; max-width: 320px; white-space: normal;
@@ -216,10 +226,110 @@
 
     <script src="js/utils.js?v=20260831a"></script>
     <script src="js/at-meta-fields.js?v=20260831a"></script>
-    <script src="js/field-size-stats-engine.js?v=20260831b"></script>
-    <script src="js/sehir-stats-engine.js?v=20260831c"></script>
-    <script src="js/kosu-dimension-stats-engine.js?v=20260831d"></script>
+    <script src="js/field-size-stats-engine.js?v=20260830a"></script>
+    <script src="js/sehir-stats-engine.js?v=20260830a"></script>
+    <script src="js/kosu-dimension-stats-engine.js?v=20260830a"></script>
     <script>
+        const RECENT_WINDOWS = FieldSizeStatsEngine.RECENT_WINDOWS;
+
+        function astestWindowStatHeaders(kind, pctLabel, matchLabel) {
+            let html = '';
+            for (let wi = 0; wi < RECENT_WINDOWS.length; wi++) {
+                const w = RECENT_WINDOWS[wi];
+                const tag = 'S' + w;
+                const edge = wi === 0 ? ' col-stat-window-hdr' : '';
+                html += '<th class="col-stat col-stat-window' + edge + '" title="Son ' + w + ' koşu · geçmiş koşu sayısı">' + tag + '·KOŞU</th>';
+                if (kind === 'sehir') {
+                    html += '<th class="col-stat col-stat-window col-stat-sehir' + edge + '" title="Son ' + w + ' koşu · hedef şehir oranı">' + tag + '·ŞEH%</th>';
+                    html += '<th class="col-stat col-stat-window col-stat-sehir' + edge + '" title="Son ' + w + ' koşu · hedef şehirde koşu">' + tag + '·Ş-KOŞU</th>';
+                } else if (kind === 'dimension') {
+                    html += '<th class="col-stat col-stat-window col-stat-dim' + edge + '" title="Son ' + w + ' koşu · eşleşme oranı">' + tag + '·' + escapeHtml(pctLabel) + '</th>';
+                    html += '<th class="col-stat col-stat-window col-stat-dim' + edge + '" title="Son ' + w + ' koşu · eşleşen koşu">' + tag + '·' + escapeHtml(matchLabel) + '</th>';
+                }
+                html += '<th class="col-stat col-stat-window col-stat-max' + edge + '">' + tag + '·MAX-1</th>';
+                html += '<th class="col-stat col-stat-window col-stat-max">' + tag + '·MAX-12</th>';
+                html += '<th class="col-stat col-stat-window col-stat-max">' + tag + '·MAX-123</th>';
+                html += '<th class="col-stat col-stat-window col-stat-max">' + tag + '·MAX-1234</th>';
+                html += '<th class="col-stat col-stat-window col-stat-cnt' + edge + '">' + tag + '·1.</th>';
+                html += '<th class="col-stat col-stat-window col-stat-cnt">' + tag + '·1-2</th>';
+                html += '<th class="col-stat col-stat-window col-stat-cnt">' + tag + '·1-2-3</th>';
+                html += '<th class="col-stat col-stat-window col-stat-cnt">' + tag + '·1-2-3-4</th>';
+            }
+            return html;
+        }
+
+        function astestWindowFieldSizeCells(st) {
+            let html = '';
+            const fmt = FieldSizeStatsEngine.formatCell.bind(FieldSizeStatsEngine);
+            for (let wi = 0; wi < RECENT_WINDOWS.length; wi++) {
+                const w = RECENT_WINDOWS[wi];
+                const ws = st.windows?.[w] || {};
+                const edge = wi === 0 ? ' col-stat-window-hdr' : '';
+                html += '<td class="col-stat col-stat-window' + edge + '">' + fmt(ws.kosuSayisi) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-max' + edge + '">' + fmt(ws.max1) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-max">' + fmt(ws.max12) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-max">' + fmt(ws.max123) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-max">' + fmt(ws.max1234) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-cnt' + edge + '">' + (ws.cnt1 ?? 0) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-cnt">' + (ws.cnt12 ?? 0) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-cnt">' + (ws.cnt123 ?? 0) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-cnt">' + (ws.cnt1234 ?? 0) + '</td>';
+            }
+            return html;
+        }
+
+        function astestWindowSehirCells(st) {
+            let html = '';
+            const fmt = SehirStatsEngine.formatCell.bind(SehirStatsEngine);
+            const fmtPct = SehirStatsEngine.formatPct.bind(SehirStatsEngine);
+            for (let wi = 0; wi < RECENT_WINDOWS.length; wi++) {
+                const w = RECENT_WINDOWS[wi];
+                const ws = st.windows?.[w] || {};
+                const edge = wi === 0 ? ' col-stat-window-hdr' : '';
+                html += '<td class="col-stat col-stat-window' + edge + '">' + fmt(ws.kosuSayisi) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-sehir' + edge + '">' + fmtPct(ws.sehirPct) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-sehir">' + (ws.inCityCount ?? 0) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-max' + edge + '">' + fmt(ws.max1) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-max">' + fmt(ws.max12) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-max">' + fmt(ws.max123) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-max">' + fmt(ws.max1234) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-cnt' + edge + '">' + (ws.cnt1 ?? 0) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-cnt">' + (ws.cnt12 ?? 0) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-cnt">' + (ws.cnt123 ?? 0) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-cnt">' + (ws.cnt1234 ?? 0) + '</td>';
+            }
+            return html;
+        }
+
+        function astestWindowDimensionCells(st) {
+            let html = '';
+            const fmt = KosuDimensionStatsEngine.formatCell.bind(KosuDimensionStatsEngine);
+            const fmtPct = KosuDimensionStatsEngine.formatPct.bind(KosuDimensionStatsEngine);
+            for (let wi = 0; wi < RECENT_WINDOWS.length; wi++) {
+                const w = RECENT_WINDOWS[wi];
+                const ws = st.windows?.[w] || {};
+                const edge = wi === 0 ? ' col-stat-window-hdr' : '';
+                html += '<td class="col-stat col-stat-window' + edge + '">' + fmt(ws.kosuSayisi) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-dim' + edge + '">' + fmtPct(ws.matchPct) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-dim">' + (ws.matchCount ?? 0) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-max' + edge + '">' + fmt(ws.max1) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-max">' + fmt(ws.max12) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-max">' + fmt(ws.max123) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-max">' + fmt(ws.max1234) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-cnt' + edge + '">' + (ws.cnt1 ?? 0) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-cnt">' + (ws.cnt12 ?? 0) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-cnt">' + (ws.cnt123 ?? 0) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-cnt">' + (ws.cnt1234 ?? 0) + '</td>';
+            }
+            return html;
+        }
+
+        const ASTEST_WINDOW_COLS = {
+            fieldSize: RECENT_WINDOWS.length * 9,
+            sehir: RECENT_WINDOWS.length * 11,
+            dimension: RECENT_WINDOWS.length * 11
+        };
+
         const DIMENSION_TEST_TABS = [
             { key: 'kcins_kosu', tabId: 'kcins-test', contentId: 'kcinsContent', metaId: 'kcinsMeta', listId: 'kcinsKayitListesi', kayitBtn: 'kcinsKayitBtn' },
             { key: 'taki', tabId: 'taki-test', contentId: 'takiContent', metaId: 'takiMeta', listId: 'takiKayitListesi', kayitBtn: 'takiKayitBtn' },
@@ -708,7 +818,8 @@
             }
             let html = '<div class="son-test-wrap">';
             html += '<p class="astest-note">Geçmiş koşulardaki at sayıları TJK sonuç tablosundan (koşmaz/çekildi hariç). '
-                + 'GETİR sonrası ilk 7 koşu tam detay + kalan koşular alan sayısı olarak çekilir.</p>';
+                + 'GETİR sonrası ilk 7 koşu tam detay + kalan koşular alan sayısı olarak çekilir. '
+                + '<strong>S5–S1</strong> sütunları son 5/4/3/2/1 koşuya göre aynı metrikleri gösterir (tarih yeniden→eskiye).</p>';
             for (let i = 0; i < races.length; i++) {
                 const race = races[i];
                 const raceK1 = FieldSizeStatsEngine.raceFieldSize(race);
@@ -738,11 +849,12 @@
                 html += '<th class="col-stat col-stat-cnt">1.</th>';
                 html += '<th class="col-stat col-stat-cnt">1-2</th>';
                 html += '<th class="col-stat col-stat-cnt">1-2-3</th>';
-                html += '<th class="col-stat col-stat-cnt">1-2-3-4</th>';
-                html += '<th class="col-gecmis">GEÇMİŞ AT SAYILARI</th>';
+                html += '<th class="col-stat col-stat-cnt col-stat-all-hdr">1-2-3-4</th>';
+                html += '<th class="col-gecmis col-stat-all-hdr">GEÇMİŞ AT SAYILARI</th>';
+                html += astestWindowStatHeaders('fieldSize');
                 html += '</tr></thead><tbody>';
                 if (!horses.length) {
-                    html += '<tr><td colspan="13" class="col-name">At yok</td></tr>';
+                    html += '<tr><td colspan="' + (13 + ASTEST_WINDOW_COLS.fieldSize) + '" class="col-name">At yok</td></tr>';
                 } else {
                     for (let j = 0; j < horses.length; j++) {
                         const h = horses[j];
@@ -760,8 +872,9 @@
                         html += '<td class="col-stat col-stat-cnt">' + st.cnt1 + '</td>';
                         html += '<td class="col-stat col-stat-cnt">' + st.cnt12 + '</td>';
                         html += '<td class="col-stat col-stat-cnt">' + st.cnt123 + '</td>';
-                        html += '<td class="col-stat col-stat-cnt">' + st.cnt1234 + '</td>';
-                        html += '<td class="col-gecmis">' + escapeHtml(st.gecmisStr || '—') + '</td>';
+                        html += '<td class="col-stat col-stat-cnt col-stat-all-hdr">' + st.cnt1234 + '</td>';
+                        html += '<td class="col-gecmis col-stat-all-hdr">' + escapeHtml(st.gecmisStr || '—') + '</td>';
+                        html += astestWindowFieldSizeCells(st);
                         html += '</tr>';
                     }
                 }
@@ -784,7 +897,8 @@
             html += '<p class="astest-note">Şehir verisi kosular[].sehir alanından gelir — GETİR ile at sayısı sekmesiyle '
                 + '<strong>aynı anda</strong> dolar. Hedef hipodrom: <strong>'
                 + escapeHtml(hedefSehir || '—') + '</strong>. '
-                + 'MAX-* sütunları yalnızca hedef şehirdeki koşular içindir (at_sayisi bilgili olanlar).</p>';
+                + 'MAX-* sütunları yalnızca hedef şehirdeki koşular içindir (at_sayisi bilgili olanlar). '
+                + '<strong>S5–S1</strong> son 5/4/3/2/1 koşu penceresidir.</p>';
             for (let i = 0; i < races.length; i++) {
                 const race = races[i];
                 const header = typeof AtMetaFields !== 'undefined'
@@ -816,12 +930,13 @@
                 html += '<th class="col-stat col-stat-cnt">1.</th>';
                 html += '<th class="col-stat col-stat-cnt">1-2</th>';
                 html += '<th class="col-stat col-stat-cnt">1-2-3</th>';
-                html += '<th class="col-stat col-stat-cnt">1-2-3-4</th>';
-                html += '<th class="col-gecmis col-gecmis-match" title="Hedef şehir eşleşmesi (✓)">EŞLEŞME</th>';
-                html += '<th class="col-gecmis" title="Geçmiş koşu şehirleri">GEÇMİŞ ŞEHİR</th>';
+                html += '<th class="col-stat col-stat-cnt col-stat-all-hdr">1-2-3-4</th>';
+                html += '<th class="col-gecmis col-gecmis-match col-stat-all-hdr" title="Hedef şehir eşleşmesi (✓)">EŞLEŞME</th>';
+                html += '<th class="col-gecmis col-stat-all-hdr" title="Geçmiş koşu şehirleri">GEÇMİŞ ŞEHİR</th>';
+                html += astestWindowStatHeaders('sehir');
                 html += '</tr></thead><tbody>';
                 if (!horses.length) {
-                    html += '<tr><td colspan="16" class="col-name">At yok</td></tr>';
+                    html += '<tr><td colspan="' + (16 + ASTEST_WINDOW_COLS.sehir) + '" class="col-name">At yok</td></tr>';
                 } else {
                     for (let j = 0; j < horses.length; j++) {
                         const h = horses[j];
@@ -841,9 +956,10 @@
                         html += '<td class="col-stat col-stat-cnt">' + st.cnt1 + '</td>';
                         html += '<td class="col-stat col-stat-cnt">' + st.cnt12 + '</td>';
                         html += '<td class="col-stat col-stat-cnt">' + st.cnt123 + '</td>';
-                        html += '<td class="col-stat col-stat-cnt">' + st.cnt1234 + '</td>';
-                        html += '<td class="col-gecmis col-gecmis-match">' + escapeHtml(st.gecmisMatchStr) + '</td>';
-                        html += '<td class="col-gecmis">' + escapeHtml(st.gecmisSehirStr) + '</td>';
+                        html += '<td class="col-stat col-stat-cnt col-stat-all-hdr">' + st.cnt1234 + '</td>';
+                        html += '<td class="col-gecmis col-gecmis-match col-stat-all-hdr">' + escapeHtml(st.gecmisMatchStr) + '</td>';
+                        html += '<td class="col-gecmis col-stat-all-hdr">' + escapeHtml(st.gecmisSehirStr) + '</td>';
+                        html += astestWindowSehirCells(st);
                         html += '</tr>';
                     }
                 }
@@ -865,7 +981,8 @@
             }
             let html = '<div class="son-test-wrap">';
             html += '<p class="astest-note">' + escapeHtml(dim.note) + ' GETİR ile diğer test sekmeleriyle '
-                + '<strong>aynı anda</strong> dolar. MAX-* sütunları yalnızca eşleşen koşular içindir (at_sayisi bilgili).</p>';
+                + '<strong>aynı anda</strong> dolar. MAX-* sütunları yalnızca eşleşen koşular içindir (at_sayisi bilgili). '
+                + '<strong>S5–S1</strong> son 5/4/3/2/1 koşu penceresidir.</p>';
             for (let i = 0; i < races.length; i++) {
                 const race = races[i];
                 const header = typeof AtMetaFields !== 'undefined'
@@ -896,12 +1013,13 @@
                 html += '<th class="col-stat col-stat-cnt">1.</th>';
                 html += '<th class="col-stat col-stat-cnt">1-2</th>';
                 html += '<th class="col-stat col-stat-cnt">1-2-3</th>';
-                html += '<th class="col-stat col-stat-cnt">1-2-3-4</th>';
-                html += '<th class="col-gecmis col-gecmis-match" title="Hedef eşleşmesi (✓)">EŞLEŞME</th>';
-                html += '<th class="col-gecmis" title="Geçmiş ' + escapeHtml(dim.label) + ' değerleri">GEÇMİŞ</th>';
+                html += '<th class="col-stat col-stat-cnt col-stat-all-hdr">1-2-3-4</th>';
+                html += '<th class="col-gecmis col-gecmis-match col-stat-all-hdr" title="Hedef eşleşmesi (✓)">EŞLEŞME</th>';
+                html += '<th class="col-gecmis col-stat-all-hdr" title="Geçmiş ' + escapeHtml(dim.label) + ' değerleri">GEÇMİŞ</th>';
+                html += astestWindowStatHeaders('dimension', dim.pctLabel, dim.matchLabel);
                 html += '</tr></thead><tbody>';
                 if (!horses.length) {
-                    html += '<tr><td colspan="16" class="col-name">At yok</td></tr>';
+                    html += '<tr><td colspan="' + (16 + ASTEST_WINDOW_COLS.dimension) + '" class="col-name">At yok</td></tr>';
                 } else {
                     for (let j = 0; j < horses.length; j++) {
                         const h = horses[j];
@@ -924,9 +1042,10 @@
                         html += '<td class="col-stat col-stat-cnt">' + st.cnt1 + '</td>';
                         html += '<td class="col-stat col-stat-cnt">' + st.cnt12 + '</td>';
                         html += '<td class="col-stat col-stat-cnt">' + st.cnt123 + '</td>';
-                        html += '<td class="col-stat col-stat-cnt">' + st.cnt1234 + '</td>';
-                        html += '<td class="col-gecmis col-gecmis-match">' + escapeHtml(st.gecmisMatchStr) + '</td>';
-                        html += '<td class="col-gecmis">' + escapeHtml(st.gecmisValStr) + '</td>';
+                        html += '<td class="col-stat col-stat-cnt col-stat-all-hdr">' + st.cnt1234 + '</td>';
+                        html += '<td class="col-gecmis col-gecmis-match col-stat-all-hdr">' + escapeHtml(st.gecmisMatchStr) + '</td>';
+                        html += '<td class="col-gecmis col-stat-all-hdr">' + escapeHtml(st.gecmisValStr) + '</td>';
+                        html += astestWindowDimensionCells(st);
                         html += '</tr>';
                     }
                 }

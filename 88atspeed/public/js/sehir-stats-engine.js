@@ -34,7 +34,7 @@ const SehirStatsEngine = {
         return this.validRaces(kosular).filter(k => this.sehirMatch(k.sehir, hedefSehir));
     },
 
-    computeStats(kosular, hedefSehir) {
+    _computeStatsCore(kosular, hedefSehir) {
         const all = kosular || [];
         const races = this.validRaces(all);
         const inCity = this.inCityRaces(all, hedefSehir);
@@ -49,7 +49,7 @@ const SehirStatsEngine = {
             ? Math.round(100 * inCity.length / races.length)
             : null;
         const placement = typeof FieldSizeStatsEngine !== 'undefined'
-            ? FieldSizeStatsEngine.computeStats(inCity)
+            ? FieldSizeStatsEngine._computeStatsCore(inCity)
             : {
                 kosuSayisi: 0, max1: null, max12: null, max123: null, max1234: null,
                 cnt1: 0, cnt12: 0, cnt123: 0, cnt1234: 0
@@ -72,6 +72,21 @@ const SehirStatsEngine = {
             gecmisSehirStr: gecmisSehir.length ? gecmisSehir.join('→') : '—',
             missingSehir: all.length - races.length
         };
+    },
+
+    computeStats(kosular, hedefSehir) {
+        const base = this._computeStatsCore(kosular, hedefSehir);
+        const windows = {};
+        const recentWindows = typeof FieldSizeStatsEngine !== 'undefined'
+            ? FieldSizeStatsEngine.RECENT_WINDOWS
+            : [5, 4, 3, 2, 1];
+        for (const w of recentWindows) {
+            const sliced = typeof FieldSizeStatsEngine !== 'undefined'
+                ? FieldSizeStatsEngine.recentSlice(kosular, w)
+                : (kosular || []).slice(0, w);
+            windows[w] = this._computeStatsCore(sliced, hedefSehir);
+        }
+        return Object.assign(base, { windows });
     },
 
     formatCell(v) {

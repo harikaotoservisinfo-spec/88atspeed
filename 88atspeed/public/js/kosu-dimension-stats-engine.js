@@ -185,7 +185,7 @@ const KosuDimensionStatsEngine = {
         );
     },
 
-    computeStats(kosular, dimKey, hedef) {
+    _computeStatsCore(kosular, dimKey, hedef) {
         const dim = this.getDim(dimKey);
         const empty = {
             hedef: hedef || '—',
@@ -215,7 +215,7 @@ const KosuDimensionStatsEngine = {
             ? Math.round(100 * matched.length / races.length)
             : null;
         const placement = typeof FieldSizeStatsEngine !== 'undefined'
-            ? FieldSizeStatsEngine.computeStats(matched)
+            ? FieldSizeStatsEngine._computeStatsCore(matched)
             : {
                 kosuSayisi: 0, max1: null, max12: null, max123: null, max1234: null,
                 cnt1: 0, cnt12: 0, cnt123: 0, cnt1234: 0
@@ -239,6 +239,24 @@ const KosuDimensionStatsEngine = {
             gecmisValStr: gecmisVal.length ? gecmisVal.join('→') : '—',
             missing: all.length - races.length
         };
+    },
+
+    computeStats(kosular, dimKey, hedef) {
+        const dim = this.getDim(dimKey);
+        if (!dim) return this._computeStatsCore(kosular, dimKey, hedef);
+
+        const base = this._computeStatsCore(kosular, dimKey, hedef);
+        const windows = {};
+        const recentWindows = typeof FieldSizeStatsEngine !== 'undefined'
+            ? FieldSizeStatsEngine.RECENT_WINDOWS
+            : [5, 4, 3, 2, 1];
+        for (const w of recentWindows) {
+            const sliced = typeof FieldSizeStatsEngine !== 'undefined'
+                ? FieldSizeStatsEngine.recentSlice(kosular, w)
+                : (kosular || []).slice(0, w);
+            windows[w] = this._computeStatsCore(sliced, dimKey, hedef);
+        }
+        return Object.assign(base, { windows });
     },
 
     formatCell(v) {

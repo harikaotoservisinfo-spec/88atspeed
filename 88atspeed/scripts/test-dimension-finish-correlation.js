@@ -2,7 +2,7 @@
 /**
  * Test sekmeleri — EKSAUSTİF BİTİŞ korelasyon raporu
  *
- * UI'daki TÜM sütunları test eder (KOŞU, %, MAX-*, cnt*, eşleşme oranı):
+ * UI'daki TÜM sütunları test eder (KOŞU, %, MAX-*, cnt*, eşleşme oranı + S5–S1 pencereleri):
  *   KOŞU AT SAYISI · ŞEHİR · KCİNS · TAKİ · PİST · HP · SİKLET
  *
  * Analiz türleri:
@@ -91,6 +91,8 @@ const PLACEMENT_KEYS = [
     { key: 'cnt1234', col: '1-2-3-4' }
 ];
 
+const RECENT_WINDOWS = [5, 4, 3, 2, 1];
+
 function hr(t) { console.log('\n══ ' + t + ' ══'); }
 function sub(t) { console.log('\n── ' + t + ' ──'); }
 function hasPhase(p) { return cli.phases.includes(p); }
@@ -127,9 +129,9 @@ function loadAllEngines() {
     eval(fs.readFileSync(path.join(ROOT, 'public/js/hybrid-tahmin-scoring-engine.js'), 'utf8') + '\n; global.HybridTahminScoringEngine = HybridTahminScoringEngine;');
 }
 
-function gval(entry, group, key) {
-    if (key === 'matchHitPct') return getMatchHitPct(entry, group);
-    return getMetric(entry, group, key);
+function gval(entry, group, key, windowSize) {
+    if (key === 'matchHitPct') return getMatchHitPct(entry, group, windowSize);
+    return getMetric(entry, group, key, windowSize);
 }
 
 /** Forensics grid — sabit sekme UI sütunları (lider skoruna göre değil) */
@@ -451,19 +453,24 @@ function blendedFromStats(stats) {
 
 function buildMetricCatalog() {
     const catalog = [];
-    function add(group, key, col, tab, short) {
+    function winTag(windowSize) {
+        return windowSize ? '.S' + windowSize : '';
+    }
+    function add(group, key, col, tab, short, windowSize) {
         catalog.push({
             group, key, col, tab, short,
-            id: short + '.' + key,
-            label: tab + ' · ' + col,
-            get: e => getMetric(e, group, key)
+            windowSize: windowSize || null,
+            id: short + winTag(windowSize) + '.' + key,
+            label: tab + ' · ' + col + (windowSize ? ' (S' + windowSize + ')' : ''),
+            get: e => getMetric(e, group, key, windowSize)
         });
     }
-    for (const tg of TAB_GROUPS) {
-        add(tg.group, 'kosuSayisi', 'KOŞU', tg.tab, tg.short);
+    function addGroupMetrics(tg, windowSize) {
+        const winSuffix = windowSize ? '·S' + windowSize : '';
+        add(tg.group, 'kosuSayisi', 'KOŞU' + winSuffix, tg.tab, tg.short, windowSize);
         if (tg.group === 'sehir') {
-            add('sehir', 'sehirPct', 'ŞEH%', tg.tab, tg.short);
-            add('sehir', 'inCityCount', 'Ş-KOŞU', tg.tab, tg.short);
+            add('sehir', 'sehirPct', 'ŞEH%' + winSuffix, tg.tab, tg.short, windowSize);
+            add('sehir', 'inCityCount', 'Ş-KOŞU' + winSuffix, tg.tab, tg.short, windowSize);
         } else if (tg.group !== 'fieldSize') {
             const pctCol = tg.group === 'kcins_kosu' ? 'KC%'
                 : tg.group === 'taki' ? 'TK%'
@@ -475,43 +482,66 @@ function buildMetricCatalog() {
                     : tg.group === 'pist' ? 'P-KOŞU'
                         : tg.group === 'hp' ? 'HP-KOŞU'
                             : tg.group === 'siklet' ? 'SK-KOŞU' : 'MATCH-KOŞU';
-            add(tg.group, 'matchPct', pctCol, tg.tab, tg.short);
-            add(tg.group, 'matchCount', cntCol, tg.tab, tg.short);
+            add(tg.group, 'matchPct', pctCol + winSuffix, tg.tab, tg.short, windowSize);
+            add(tg.group, 'matchCount', cntCol + winSuffix, tg.tab, tg.short, windowSize);
         }
         for (const p of PLACEMENT_KEYS) {
-            add(tg.group, p.key, p.col, tg.tab, tg.short);
+            add(tg.group, p.key, p.col + winSuffix, tg.tab, tg.short, windowSize);
         }
         if (tg.group !== 'fieldSize') {
             catalog.push({
-                group: tg.group, key: 'matchHitPct', col: 'EŞLEŞME%', tab: tg.tab, short: tg.short,
-                id: tg.short + '.matchHitPct',
-                label: tg.tab + ' · EŞLEŞME%',
-                get: e => getMatchHitPct(e, tg.group)
+                group: tg.group, key: 'matchHitPct', col: 'EŞLEŞME%' + winSuffix, tab: tg.tab, short: tg.short,
+                windowSize: windowSize || null,
+                id: tg.short + winTag(windowSize) + '.matchHitPct',
+                label: tg.tab + ' · EŞLEŞME%' + (windowSize ? ' (S' + windowSize + ')' : ''),
+                get: e => getMatchHitPct(e, tg.group, windowSize)
             });
         }
     }
-    // türev metrikler
-    catalog.push({
-        group: 'fieldSize', key: '_cnt123rate', col: 'cnt123/KOŞU', tab: 'KOŞU AT SAYISI', short: 'AS',
-        id: 'AS.cnt123rate', label: 'KOŞU AT SAYISI · cnt123/KOŞU',
-        get: e => {
-            const k = getMetric(e, 'fieldSize', 'kosuSayisi');
-            const c = getMetric(e, 'fieldSize', 'cnt123');
-            return k > 0 && c != null ? c / k : null;
+    for (const tg of TAB_GROUPS) {
+        addGroupMetrics(tg, null);
+        for (const w of RECENT_WINDOWS) {
+            addGroupMetrics(tg, w);
         }
-    });
-    for (const g of ['kcins_kosu', 'taki', 'pist', 'hp', 'siklet', 'sehir']) {
-        const tg = TAB_GROUPS.find(t => t.group === g);
+    }
+    // türev metrikler (tüm zaman + pencere)
+    function addDerived(group, short, tab, windowSize) {
+        const winTag = windowSize ? '.S' + windowSize : '';
+        const winLabel = windowSize ? ' (S' + windowSize + ')' : '';
+        if (group === 'fieldSize') {
+            catalog.push({
+                group: 'fieldSize', key: '_cnt123rate', col: 'cnt123/KOŞU' + (windowSize ? '·S' + windowSize : ''),
+                tab: 'KOŞU AT SAYISI', short: 'AS', windowSize: windowSize || null,
+                id: 'AS' + winTag + '.cnt123rate',
+                label: 'KOŞU AT SAYISI · cnt123/KOŞU' + winLabel,
+                get: e => {
+                    const k = getMetric(e, 'fieldSize', 'kosuSayisi', windowSize);
+                    const c = getMetric(e, 'fieldSize', 'cnt123', windowSize);
+                    return k > 0 && c != null ? c / k : null;
+                }
+            });
+            return;
+        }
         catalog.push({
-            group: g, key: '_max123xpct', col: 'max123×%', tab: tg.tab, short: tg.short,
-            id: tg.short + '.max123xpct',
-            label: tg.tab + ' · max123×match%',
+            group, key: '_max123xpct', col: 'max123×%' + (windowSize ? '·S' + windowSize : ''),
+            tab, short, windowSize: windowSize || null,
+            id: short + winTag + '.max123xpct',
+            label: tab + ' · max123×match%' + winLabel,
             get: e => {
-                const m = getMetric(e, g, 'max123');
-                const p = g === 'sehir' ? getMetric(e, g, 'sehirPct') : getMetric(e, g, 'matchPct');
+                const m = getMetric(e, group, 'max123', windowSize);
+                const p = group === 'sehir'
+                    ? getMetric(e, group, 'sehirPct', windowSize)
+                    : getMetric(e, group, 'matchPct', windowSize);
                 return m != null && p != null ? m * p / 100 : null;
             }
         });
+    }
+    addDerived('fieldSize', 'AS', 'KOŞU AT SAYISI', null);
+    for (const w of RECENT_WINDOWS) addDerived('fieldSize', 'AS', 'KOŞU AT SAYISI', w);
+    for (const g of ['kcins_kosu', 'taki', 'pist', 'hp', 'siklet', 'sehir']) {
+        const tg = TAB_GROUPS.find(t => t.group === g);
+        addDerived(g, tg.short, tg.tab, null);
+        for (const w of RECENT_WINDOWS) addDerived(g, tg.short, tg.tab, w);
     }
     return catalog;
 }
@@ -567,17 +597,21 @@ function attachDimensionStats(flatEntries, lookup) {
     return hit;
 }
 
-function getMetric(entry, groupKey, metricKey) {
+function getMetric(entry, groupKey, metricKey, windowSize) {
     const g = entry._dim?.[groupKey];
     if (!g) return null;
-    const v = g[metricKey];
+    const src = windowSize ? g.windows?.[windowSize] : g;
+    if (!src) return null;
+    const v = src[metricKey];
     if (v == null || v === '' || v === '—') return null;
     const n = Number(v);
     return Number.isFinite(n) ? n : null;
 }
 
-function getMatchHitPct(entry, groupKey) {
-    const str = entry._dim?.[groupKey]?.gecmisMatchStr;
+function getMatchHitPct(entry, groupKey, windowSize) {
+    const g = entry._dim?.[groupKey];
+    if (!g) return null;
+    const str = windowSize ? g.windows?.[windowSize]?.gecmisMatchStr : g.gecmisMatchStr;
     if (!str || str === '—') return null;
     const parts = str.split('→');
     const hits = parts.filter(p => p.trim() === '✓').length;

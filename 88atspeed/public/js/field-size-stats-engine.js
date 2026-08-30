@@ -2,6 +2,8 @@
  * Geçmiş koşulardaki at sayısı istatistikleri (çıkan/koşmaz hariç at_sayisi)
  */
 const FieldSizeStatsEngine = {
+    RECENT_WINDOWS: [5, 4, 3, 2, 1],
+
     parseSira(raw) {
         if (raw == null || raw === '' || raw === '-') return null;
         const s = String(raw).trim();
@@ -22,6 +24,19 @@ const FieldSizeStatsEngine = {
         return (race?.horses || []).filter(h => !this.isKosmazName(h.name)).length;
     },
 
+    sortKosularNewest(kosular) {
+        return [...(kosular || [])].sort((a, b) => {
+            const da = (a.tarih || '').split('.').reverse().join('');
+            const db = (b.tarih || '').split('.').reverse().join('');
+            return db.localeCompare(da);
+        });
+    },
+
+    recentSlice(kosular, windowSize) {
+        if (!windowSize) return kosular || [];
+        return this.sortKosularNewest(kosular).slice(0, windowSize);
+    },
+
     validRaces(kosular) {
         return (kosular || []).filter(k => {
             const fs = Number(k.at_sayisi);
@@ -30,7 +45,7 @@ const FieldSizeStatsEngine = {
         });
     },
 
-    computeStats(kosular) {
+    _computeStatsCore(kosular) {
         const all = kosular || [];
         const races = this.validRaces(all);
         const missing = all.length - races.length;
@@ -94,6 +109,15 @@ const FieldSizeStatsEngine = {
             gecmisStr: gecmisList.map(x => x.fs).join('→'),
             gecmisList
         };
+    },
+
+    computeStats(kosular) {
+        const base = this._computeStatsCore(kosular);
+        const windows = {};
+        for (const w of this.RECENT_WINDOWS) {
+            windows[w] = this._computeStatsCore(this.recentSlice(kosular, w));
+        }
+        return Object.assign(base, { windows });
     },
 
     formatCell(v) {
