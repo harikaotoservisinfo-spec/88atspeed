@@ -1073,9 +1073,9 @@
                 html += '<th class="col-no">#</th>';
                 html += '<th class="col-name">AT İSMİ</th>';
                 html += '<th class="col-hedef" title="Hedef hipodrom">HEDEF</th>';
-                html += '<th class="col-stat" title="Geçmiş koşu (şehir bilgili)">KOŞU</th>';
-                html += '<th class="col-stat col-stat-sehir" title="Hedef şehirde koşma oranı">ŞEH%</th>';
-                html += '<th class="col-stat col-stat-sehir" title="Hedef şehirdeki koşu sayısı">Ş-KOŞU</th>';
+                html += '<th class="col-stat" title="Geçmiş koşu (kosular[] içinde şehir bilgili)">TÜM KOŞU</th>';
+                html += '<th class="col-stat col-stat-sehir" title="Hedef şehirdeki koşu sayısı (' + escapeHtml(hedefAbbrev) + ')">' + escapeHtml(hedefAbbrev) + ' KOŞU</th>';
+                html += '<th class="col-stat col-stat-sehir" title="Hedef şehirde koşma oranı (TÜM KOŞU içinde)">ŞEH%</th>';
                 html += '<th class="col-stat col-stat-max" title="Hedef şehirde en fazla kaç atlı koşuda 1.">MAX-1</th>';
                 html += '<th class="col-stat col-stat-max">MAX-12</th>';
                 html += '<th class="col-stat col-stat-max">MAX-123</th>';
@@ -1100,8 +1100,8 @@
                         html += '<td class="col-name">' + escapeHtml(h.name || '—') + '</td>';
                         html += '<td class="col-hedef">' + escapeHtml(hedefAbbrev) + '</td>';
                         html += '<td class="col-stat">' + SehirStatsEngine.formatCell(st.kosuSayisi) + '</td>';
-                        html += '<td class="col-stat col-stat-sehir">' + SehirStatsEngine.formatPct(st.sehirPct) + '</td>';
                         html += '<td class="col-stat col-stat-sehir">' + st.inCityCount + '</td>';
+                        html += '<td class="col-stat col-stat-sehir">' + SehirStatsEngine.formatPct(st.sehirPct) + '</td>';
                         html += '<td class="col-stat col-stat-max">' + SehirStatsEngine.formatCell(st.max1) + '</td>';
                         html += '<td class="col-stat col-stat-max">' + SehirStatsEngine.formatCell(st.max12) + '</td>';
                         html += '<td class="col-stat col-stat-max">' + SehirStatsEngine.formatCell(st.max123) + '</td>';
