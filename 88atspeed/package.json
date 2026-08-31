@@ -38,6 +38,8 @@
     "test:siklet-max-sources": "node scripts/test-siklet-max-sources.js --db atlar.db --kayit 148",
     "test:siklet-max-sources100": "node scripts/test-siklet-max-sources.js --db atlar.db --kayit 148 --max100-only -v",
     "test:siklet-recency": "node scripts/test-siklet-recency-correlation.js --db atlar.db --kayit 148",
+    "test:siklet-son800": "node scripts/test-siklet-son800-correlation.js --db atlar.db",
+    "test:siklet-son800-demo": "node scripts/test-siklet-son800-correlation.js --demo --phase exhaustive,forensics",
     "test:siklet-horse": "node scripts/test-dimension-tab-horse.js --db atlar.db --kayit 148 --race 7 --horse PATARA --dim siklet",
     "test:kayit-basari": "node scripts/test-kayit-basari-report.js --kayit 148",
     "test:top3-tabs": "node scripts/test-top3-tab-success.js --all-kayitlar",
