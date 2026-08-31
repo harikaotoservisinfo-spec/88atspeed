@@ -1085,12 +1085,10 @@
                 html += '<th class="col-stat col-stat-cnt" title="Hedef şehirde kaç kez 2. oldu">1-2</th>';
                 html += '<th class="col-stat col-stat-cnt" title="Hedef şehirde kaç kez 3. oldu">1-2-3</th>';
                 html += '<th class="col-stat col-stat-cnt col-stat-all-hdr" title="Hedef şehirde kaç kez 4. oldu">1-2-3-4</th>';
-                html += '<th class="col-gecmis col-gecmis-match col-stat-all-hdr" title="Hedef şehir eşleşmesi (✓)">EŞLEŞME</th>';
-                html += '<th class="col-gecmis col-stat-all-hdr" title="Geçmiş koşu şehirleri">GEÇMİŞ ŞEHİR</th>';
                 html += astestWindowStatHeaders('sehir');
                 html += '</tr></thead><tbody>';
                 if (!horses.length) {
-                    html += '<tr><td colspan="' + (12 + ASTEST_WINDOW_COLS.sehir) + '" class="col-name">At yok</td></tr>';
+                    html += '<tr><td colspan="' + (10 + ASTEST_WINDOW_COLS.sehir) + '" class="col-name">At yok</td></tr>';
                 } else {
                     for (let j = 0; j < horses.length; j++) {
                         const h = horses[j];
@@ -1107,8 +1105,6 @@
                         html += '<td class="col-stat col-stat-cnt">' + (st.cnt2 ?? 0) + '</td>';
                         html += '<td class="col-stat col-stat-cnt">' + (st.cnt3 ?? 0) + '</td>';
                         html += '<td class="col-stat col-stat-cnt col-stat-all-hdr">' + (st.cnt4 ?? 0) + '</td>';
-                        html += '<td class="col-gecmis col-gecmis-match col-stat-all-hdr">' + escapeHtml(st.gecmisMatchStr) + '</td>';
-                        html += '<td class="col-gecmis col-stat-all-hdr">' + escapeHtml(st.gecmisSehirStr) + '</td>';
                         html += astestWindowSehirCells(st);
                         html += '</tr>';
                     }
