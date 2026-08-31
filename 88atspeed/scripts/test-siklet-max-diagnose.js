@@ -55,13 +55,15 @@ function analyzeHorse(horse, race, fieldSize) {
     const valid = KosuDimensionStatsEngine.validRaces(kosular, 'siklet');
     const matched = KosuDimensionStatsEngine.matchedRaces(kosular, 'siklet', hedef);
     const parseSira = k => FieldSizeStatsEngine.parseSira(k.sira);
+    const placement = FieldSizeStatsEngine._computeStatsCore(matched);
+    const matchedNewest = FieldSizeStatsEngine.sortKosularNewest(matched);
 
     const newestK = allSorted[0] || null;
     const sameKosu = (a, b) => a && b && (a.tarih || '') === (b.tarih || '')
         && String(a.sira || '') === String(b.sira || '');
 
-    const matchedRows = matched.map(k => {
-        const sira = parseSira(k.sira);
+    const matchedRows = matchedNewest.map(k => {
+        const sira = parseSira(k);
         const fs = Number(k.at_sayisi) || 0;
         const tags = [];
         if (sira === 1 && fs > 0) tags.push('MAX-1');
@@ -92,8 +94,10 @@ function analyzeHorse(horse, race, fieldSize) {
             totalKosular: kosular.length,
             validSiklet: valid.length,
             matchedSk: matched.length,
-            withFsAndSira: matched.filter(k => Number(k.at_sayisi) > 0 && parseSira(k.sira) != null).length,
-            maxContributors: contributesMax.length
+            withFsAndSira: matched.filter(k => Number(k.at_sayisi) > 0 && parseSira(k) != null).length,
+            maxContributors: contributesMax.length,
+            placementKosu: placement.kosuSayisi,
+            placementGecmis: placement.gecmisList || []
         },
         matchedRows,
         newestMatched
@@ -134,12 +138,21 @@ function printHorseReport(r) {
             + (row.tags.length ? row.tags.join(',') : '—'));
     }
 
+    if (r.counts.placementKosu !== r.counts.withFsAndSira) {
+        console.log('  (engine MAX kaynağı: ' + r.counts.placementKosu + ' koşu, gecmisList doğrulandı)');
+    }
+
     if (r.maxPct.avg === 100) {
         console.log('\n  ✓ MAX% 100%·100%·100%·100% → eşleşen koşularda 1. olduğu en geniş alan ('
             + r.st.max1 + ') ≥ bugünkü alan (' + r.fieldSize + ')');
         const wins = r.matchedRows.filter(x => x.sira === 1);
         console.log('  1. olduğu eşleşen koşu sayısı: ' + wins.length
-            + (wins.length ? ' → ' + wins.map(w => w.tarih + '(S1/' + w.fs + 'at)').join(', ') : ''));
+            + (wins.length ? ' → ' + wins.map(w => w.tarih + '(S' + w.sira + '/' + w.fs + 'at)').join(', ') : ''));
+    } else if (r.st.max1 != null) {
+        const wins = r.matchedRows.filter(x => x.sira === 1);
+        if (wins.length) {
+            console.log('\n  MAX-1=' + r.st.max1 + ' ← ' + wins.map(w => w.tarih + '(S1/' + w.fs + 'at)').join(', '));
+        }
     }
 
     if (r.newestMatched) {
