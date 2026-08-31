@@ -1,17 +1,25 @@
 /**
- * Boyut penceresi sinyalleri → TAHMİN skor çarpanı.
- * Terminal korelasyon (#148): TK·S3 cnt123, PS·S4 cnt123, AS·TÜM/S5 cnt123,
- * SH·TÜM cnt123, HP·S1 cnt123, KC·S1 cnt1 (düşük güven).
+ * Test sekmesi BAŞ+ sinyalleri → TAHMİN skor karışımı.
+ * ŞEHİR / AS / KC·TK·PS·HP·SK birleşik test skorları BİTİŞ verisiyle kalibre edilir.
  */
 const DimensionTahminBoostEngine = (function () {
-    /** Eski çarpan — sıra değiştirmiyordu; blend ile değiştirildi */
-    const MAX_TOTAL_BOOST = 0.18;
-    /** Hybrid taban skor + boyut norm (0–100) karışımı — kalibrasyon ile güncellenir */
-    const DEFAULT_DIM_WEIGHT = 0.09;
+    const ROUTES_VERSION = 2;
+    const DEFAULT_DIM_WEIGHT = 0.12;
     const SUCCESS_BLEND = { b1: 0.80, b12: 0.12, b123: 0.08 };
     let hybridWeight = 1 - DEFAULT_DIM_WEIGHT;
     let dimWeight = DEFAULT_DIM_WEIGHT;
     let enabled = true;
+
+    /** BAŞ+ rotaları — göreli ağırlık (kalibrasyon sonrası güncellenebilir) */
+    let ROUTES = [
+        { id: 'as-bas', label: 'AS BAŞ+', group: 'fieldSize', window: null, metrics: ['basSuccess.pct'], weight: 0.22 },
+        { id: 'sh-bas', label: 'SH BAŞ+', group: 'sehir', window: null, metrics: ['basSuccess.pct'], weight: 0.20 },
+        { id: 'sk-bas', label: 'SK BAŞ+', group: 'siklet', window: null, metrics: ['basSuccess.pct'], weight: 0.16 },
+        { id: 'tk-bas', label: 'TK BAŞ+', group: 'taki', window: null, metrics: ['basSuccess.pct'], weight: 0.14 },
+        { id: 'ps-bas', label: 'PS BAŞ+', group: 'pist', window: null, metrics: ['basSuccess.pct'], weight: 0.12 },
+        { id: 'hp-bas', label: 'HP BAŞ+', group: 'hp', window: null, metrics: ['basSuccess.pct'], weight: 0.10 },
+        { id: 'kc-bas', label: 'KC BAŞ+', group: 'kcins_kosu', window: null, metrics: ['basSuccess.pct'], weight: 0.06, minSpread: 2 }
+    ];
 
     function getBlendWeights() {
         return { hybridWeight, dimWeight };
@@ -29,40 +37,16 @@ const DimensionTahminBoostEngine = (function () {
         return getBlendWeights();
     }
 
-    /** Kanıt tabanlı rota — ağırlıklar göreli güven */
-    const ROUTES = [
-        {
-            id: 'tk', label: 'TK S3·1-2-3', group: 'taki', window: 3,
-            metrics: ['cnt123'], weight: 0.24
-        },
-        {
-            id: 'ps', label: 'PS S4·1-2-3', group: 'pist', window: 4,
-            metrics: ['cnt123'], weight: 0.22
-        },
-        {
-            id: 'as', label: 'AS S5·1-2-3', group: 'fieldSize', window: 5,
-            metrics: ['cnt123'], weight: 0.18, fallbackWindow: null
-        },
-        {
-            id: 'sh', label: 'SH TÜM·1-2-3', group: 'sehir', window: null,
-            metrics: ['cnt123'], weight: 0.14
-        },
-        {
-            id: 'hp', label: 'HP S1·1-2-3', group: 'hp', window: 1,
-            metrics: ['cnt123'], weight: 0.12
-        },
-        {
-            id: 'kc', label: 'KC S1·1.', group: 'kcins_kosu', window: 1,
-            metrics: ['cnt1'], weight: 0.06, minSpread: 0.01
-        }
-    ];
-
     function setEnabled(v) {
         enabled = !!v;
     }
 
     function isEnabled() {
         return enabled;
+    }
+
+    function getRoutes() {
+        return ROUTES.map(r => Object.assign({}, r));
     }
 
     function raceFromRow(row) {
@@ -85,6 +69,18 @@ const DimensionTahminBoostEngine = (function () {
         };
     }
 
+    function resolveMetric(src, metricPath) {
+        if (!src || !metricPath) return null;
+        const parts = String(metricPath).split('.');
+        let v = src;
+        for (let i = 0; i < parts.length; i++) {
+            v = v?.[parts[i]];
+            if (v == null || v === '' || v === '—') return null;
+        }
+        const n = Number(v);
+        return Number.isFinite(n) ? n : null;
+    }
+
     function computeDimensionBundle(row, pkg) {
         if (row?._dim) return row._dim;
         const kosular = row?.kosular;
@@ -98,14 +94,15 @@ const DimensionTahminBoostEngine = (function () {
         const race = raceFromRow(row);
         const hedefSehir = pkg?.hedefSehir || '';
         const programTarih = pkg?.programTarih || null;
+        const hedefFieldSize = pkg?.hedefFieldSize ?? pkg?.rows?.length ?? null;
         const out = {
-            fieldSize: FieldSizeStatsEngine.computeStats(kosular, programTarih),
+            fieldSize: FieldSizeStatsEngine.computeStats(kosular, programTarih, hedefFieldSize),
             sehir: SehirStatsEngine.computeStats(kosular, hedefSehir, programTarih)
         };
         for (const key of Object.keys(KosuDimensionStatsEngine.DIMENSIONS)) {
             const dim = KosuDimensionStatsEngine.DIMENSIONS[key];
             out[key] = KosuDimensionStatsEngine.computeStats(
-                kosular, key, dim.getTarget(horse, race), pkg?.programTarih || null
+                kosular, key, dim.getTarget(horse, race), programTarih
             );
         }
         row._dim = out;
@@ -118,10 +115,7 @@ const DimensionTahminBoostEngine = (function () {
         if (!g) return null;
         const src = windowSize ? g.windows?.[windowSize] : g;
         if (!src) return null;
-        const v = src[metric];
-        if (v == null || v === '' || v === '—') return null;
-        const n = Number(v);
-        return Number.isFinite(n) ? n : null;
+        return resolveMetric(src, metric);
     }
 
     function metricWithFallback(bundle, route) {
@@ -303,7 +297,8 @@ const DimensionTahminBoostEngine = (function () {
             dimensionBlend: blend,
             dimensionApplied: cov.boosted > 0,
             dimensionCoverage: cov,
-            dimensionRoutes: leader?.tahmin?.activeDimensionRoutes || []
+            dimensionRoutes: leader?.tahmin?.activeDimensionRoutes || [],
+            dimensionRoutesVersion: ROUTES_VERSION
         });
         return pkg;
     }
@@ -312,6 +307,9 @@ const DimensionTahminBoostEngine = (function () {
         if (!pkg?.rows?.length) return pkg;
         if (!pkg.hedefSehir && pkg.rows[0]?.sehir?.hedef) {
             pkg.hedefSehir = pkg.rows[0].sehir.hedef;
+        }
+        if (pkg.hedefFieldSize == null) {
+            pkg.hedefFieldSize = pkg.rows.length;
         }
         if (pkg.forceDimensionBoost) {
             resetBoostState(pkg.rows);
@@ -364,7 +362,7 @@ const DimensionTahminBoostEngine = (function () {
         };
     }
 
-    function buildSweepSteps(_raceCount) {
+    function buildSweepSteps(raceCount) {
         const steps = new Set();
         for (let d = 0; d <= 50; d++) steps.add(d);
         for (let d = 55; d <= 100; d += 5) steps.add(d);
@@ -380,20 +378,28 @@ const DimensionTahminBoostEngine = (function () {
         }
     }
 
+    function buildPkgFromRaceEntries(entries) {
+        const rows = entries.map(e => e.row);
+        const first = entries[0] || {};
+        return {
+            rows,
+            skipDimensionBoost: true,
+            hedefSehir: first.hipodrom || first._pkg?.hedefSehir || null,
+            programTarih: first.tarih || first._pkg?.programTarih || null,
+            hedefFieldSize: rows.length,
+            depthCoverage: first._pkg?.depthCoverage || null,
+            kosuHistorySummary: first._pkg?.kosuHistorySummary || null
+        };
+    }
+
     function attachTahminForDimPct(raceGroups, dimPct) {
         const dimW = dimPct / 100;
         setBlendWeights(1 - dimW, dimW);
         setEnabled(dimW > 0);
         if (typeof HybridTahminScoringEngine === 'undefined') return;
         for (const entries of raceGroups) {
-            const rows = entries.map(e => e.row);
-            const pkg = {
-                rows,
-                skipDimensionBoost: true,
-                hedefSehir: entries[0]?._pkg?.hedefSehir || entries[0]?.hipodrom || null,
-                depthCoverage: entries[0]?._pkg?.depthCoverage || null,
-                kosuHistorySummary: entries[0]?._pkg?.kosuHistorySummary || null
-            };
+            const pkg = buildPkgFromRaceEntries(entries);
+            for (const e of entries) e._pkg = pkg;
             HybridTahminScoringEngine.attachRaceTahmin(pkg);
             if (dimW > 0) {
                 pkg.forceDimensionBoost = true;
@@ -402,10 +408,6 @@ const DimensionTahminBoostEngine = (function () {
         }
     }
 
-    /**
-     * BİTİŞ verisi üzerinde boyut payını tarar — hybrid kalibrasyonundan sonra çağrılır.
-     * Az koşuda (≤12) 0–50 arası 1'er puan, geniş veride 5'er puan.
-     */
     function calibrateBlendFromFlatEntries(flatEntries, bitisValueForSort) {
         if (!flatEntries?.length || !bitisValueForSort) return null;
         if (typeof HybridTahminScoringEngine === 'undefined'
@@ -431,6 +433,7 @@ const DimensionTahminBoostEngine = (function () {
                 dimWeight: DEFAULT_DIM_WEIGHT,
                 dimPct: Math.round(DEFAULT_DIM_WEIGHT * 100),
                 hybridPct: Math.round((1 - DEFAULT_DIM_WEIGHT) * 100),
+                routesVersion: ROUTES_VERSION,
                 source: 'default-min-races',
                 raceCount: raceGroups.length
             };
@@ -471,13 +474,15 @@ const DimensionTahminBoostEngine = (function () {
             raceCount: raceGroups.length,
             bitisRows: withBitis.length,
             lowSample: raceGroups.length < 15,
-            source: 'calibrated-sweep'
+            routesVersion: ROUTES_VERSION,
+            routeIds: ROUTES.map(r => r.id),
+            source: 'calibrated-sweep-bas'
         };
     }
 
     return {
-        ROUTES,
-        MAX_TOTAL_BOOST,
+        ROUTES_VERSION,
+        get ROUTES() { return getRoutes(); },
         DEFAULT_DIM_WEIGHT,
         get HYBRID_WEIGHT() { return hybridWeight; },
         get DIM_WEIGHT() { return dimWeight; },
@@ -485,6 +490,7 @@ const DimensionTahminBoostEngine = (function () {
         setBlendWeights,
         setEnabled,
         isEnabled,
+        getRoutes,
         computeDimensionBundle,
         metricValue,
         applyRaceBoost,

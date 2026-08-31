@@ -129,7 +129,9 @@ function attachTahminWithDimWeight(raceGroups, dimPct) {
             skipDimensionBoost: true,
             depthCoverage: entries[0]?._pkg?.depthCoverage || null,
             kosuHistorySummary: entries[0]?._pkg?.kosuHistorySummary || null,
-            hedefSehir: entries[0]?._pkg?.hedefSehir || entries[0]?.hipodrom || null
+            hedefSehir: entries[0]?._pkg?.hedefSehir || entries[0]?.hipodrom || null,
+            programTarih: entries[0]?._pkg?.programTarih || entries[0]?.tarih || null,
+            hedefFieldSize: rows.length
         };
         HybridTahminScoringEngine.attachRaceTahmin(pkg);
         if (dimW > 0) {

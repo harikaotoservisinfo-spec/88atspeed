@@ -4,7 +4,7 @@
  */
 const HybridTahminScoringEngine = (function () {
     const STORAGE_KEY = 'hybridTahminCalibration';
-    const PROFILE_VERSION = 2;
+    const PROFILE_VERSION = 3;
     const MIN_RACES_FOR_MODE = 10;
     const MIN_RACES_FOR_CURATED_ONLY = 15;
     const SUCCESS_BLEND = { b1: 0.80, b12: 0.12, b123: 0.08 };
@@ -743,6 +743,11 @@ const HybridTahminScoringEngine = (function () {
             if (!raw) return null;
             const parsed = JSON.parse(raw);
             if (parsed.version !== PROFILE_VERSION) return null;
+            if (typeof DimensionTahminBoostEngine !== 'undefined'
+                && parsed.dimensionBlend?.routesVersion != null
+                && parsed.dimensionBlend.routesVersion !== DimensionTahminBoostEngine.ROUTES_VERSION) {
+                return null;
+            }
             calibration = parsed;
             gostergeProfiles = parsed.gostergeProfiles || null;
             if (gostergeProfiles) GostergeScoringEngine.setFieldAdaptiveProfiles?.(gostergeProfiles);
