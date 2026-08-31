@@ -97,9 +97,9 @@ function printRace(kayit, race, programTarih) {
             + pad(String(a.inCity), 6)
             + pad(a.sehirPct != null ? a.sehirPct + '%' : '—', 6)
             + pad(String(a.st.cnt1), 4)
-            + pad(String(a.st.cnt12), 4)
-            + pad(String(a.st.cnt123), 4)
-            + pad(String(a.st.cnt1234), 4)
+            + pad(String(a.st.cnt2 ?? 0), 4)
+            + pad(String(a.st.cnt3 ?? 0), 4)
+            + pad(String(a.st.cnt4 ?? 0), 4)
             + pad(String(a.rawLen), 6)
             + (a.gecmisSehir || '—').slice(0, 28)
             + ' ' + bitMark + (bitis ?? ''));
@@ -125,11 +125,32 @@ function printRace(kayit, race, programTarih) {
         }
     }
 
-    console.log('\n  Sütunlar: 1.=1.lik adet · 1-2=1.+2. adet · 1-3=ilk3 adet (hedef şehirde)');
+    console.log('\n  Sütunlar: 1.=1.lik · 1-2=2.lik · 1-3=3.lük · 1-4=4.lük adet (hedef şehirde, kümülatif değil)');
+}
+
+function runGerardFixture() {
+    const gerardKosular = [
+        { tarih: '29.08.2026', sehir: 'İzmir', mesafe: '2000', sira: '5', at_sayisi: 9 },
+        { tarih: '09.08.2026', sehir: 'İzmir', mesafe: '1400', sira: '7', at_sayisi: 15 },
+        { tarih: '14.06.2026', sehir: 'İzmir', mesafe: '1600', sira: '7', at_sayisi: 12 },
+        { tarih: '06.06.2026', sehir: 'İzmir', mesafe: '1900', sira: '9', at_sayisi: 7 },
+        { tarih: '21.05.2026', sehir: 'İzmir', mesafe: '2000', sira: '4', at_sayisi: 9 },
+        { tarih: '09.05.2026', sehir: 'İzmir', mesafe: '1900', sira: '9', at_sayisi: 8 }
+    ];
+    const st = SehirStatsEngine.computeStats(gerardKosular, 'İzmir', '29.08.2026');
+    const ok = st.cnt1 === 0 && st.cnt2 === 0 && st.cnt3 === 0 && st.cnt4 === 1 && st.inCityCount === 5;
+    console.log('GERARD fixture (TJK İzmir, program günü hariç):');
+    console.log('  cnt1=' + st.cnt1 + ' cnt2=' + st.cnt2 + ' cnt3=' + st.cnt3 + ' cnt4=' + st.cnt4
+        + ' · inCity=' + st.inCityCount + ' · ' + (ok ? 'OK' : 'HATA'));
+    if (!ok) process.exit(1);
 }
 
 async function main() {
     loadEngines();
+    if (args.includes('--fixture-gerard')) {
+        runGerardFixture();
+        return;
+    }
     const db = openDb(cli.dbPath);
     try {
         const rows = await dbAll(db,

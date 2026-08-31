@@ -52,7 +52,7 @@ const SehirStatsEngine = {
             ? FieldSizeStatsEngine._computeStatsCore(inCity)
             : {
                 kosuSayisi: 0, max1: null, max12: null, max123: null, max1234: null,
-                cnt1: 0, cnt12: 0, cnt123: 0, cnt1234: 0
+                cnt1: 0, cnt2: 0, cnt3: 0, cnt4: 0, cnt12: 0, cnt123: 0, cnt1234: 0
             };
         return {
             hedefSehir: hedefSehir || '—',
@@ -64,6 +64,9 @@ const SehirStatsEngine = {
             max123: placement.max123,
             max1234: placement.max1234,
             cnt1: placement.cnt1,
+            cnt2: placement.cnt2,
+            cnt3: placement.cnt3,
+            cnt4: placement.cnt4,
             cnt12: placement.cnt12,
             cnt123: placement.cnt123,
             cnt1234: placement.cnt1234,

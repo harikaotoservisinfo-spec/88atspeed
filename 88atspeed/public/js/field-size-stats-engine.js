@@ -76,6 +76,9 @@ const FieldSizeStatsEngine = {
         let cnt12 = 0;
         let cnt123 = 0;
         let cnt1234 = 0;
+        let cnt2 = 0;
+        let cnt3 = 0;
+        let cnt4 = 0;
         const gecmisList = [];
 
         for (const k of fsRaces) {
@@ -90,10 +93,10 @@ const FieldSizeStatsEngine = {
 
         for (const k of siraRaces) {
             const sira = this.parseSira(k.sira);
-            if (sira === 1) cnt1++;
-            if (sira <= 2) cnt12++;
-            if (sira <= 3) cnt123++;
-            if (sira <= 4) cnt1234++;
+            if (sira === 1) { cnt1++; cnt12++; cnt123++; cnt1234++; }
+            else if (sira === 2) { cnt2++; cnt12++; cnt123++; cnt1234++; }
+            else if (sira === 3) { cnt3++; cnt123++; cnt1234++; }
+            else if (sira === 4) { cnt4++; cnt1234++; }
         }
 
         return {
@@ -105,6 +108,9 @@ const FieldSizeStatsEngine = {
             max123: max123 || null,
             max1234: max1234 || null,
             cnt1,
+            cnt2,
+            cnt3,
+            cnt4,
             cnt12,
             cnt123,
             cnt1234,
