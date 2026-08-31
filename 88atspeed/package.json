@@ -42,6 +42,7 @@
     "test:kayit-basari": "node scripts/test-kayit-basari-report.js --kayit 148",
     "test:top3-tabs": "node scripts/test-top3-tab-success.js --all-kayitlar",
     "test:sehir-race": "node scripts/test-sehir-tab-race.js --kayit 148 --race 1",
+    "test:audit-kosu-counts": "node scripts/audit-horse-kosu-counts.js --kayit 148",
     "test:race-factors": "node scripts/test-race-all-factors.js --kayit 148 --race 1 --dim siklet",
     "test:race-factors-demo": "node scripts/test-race-all-factors.js --fixture little-joe-k1-demo",
     "test:dimension-finish": "node scripts/test-dimension-finish-correlation.js --db atlar.db",
