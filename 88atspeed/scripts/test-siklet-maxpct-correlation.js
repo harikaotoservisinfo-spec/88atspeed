@@ -179,10 +179,11 @@ function evaluateRaceLeader(raceGroups, pickFn, label) {
     };
 }
 
-function pickMaxFull100Leader(horses) {
+function pickMaxFull100Leader(horses, minSkKosu) {
+    const minSk = minSkKosu ?? cli.minSkKosu;
     const pool = horses.filter(h =>
         h.skFilled
-        && h.matchCount >= cli.minSkKosu
+        && h.matchCount >= minSk
         && h.maxFull100
     );
     if (!pool.length) return null;
@@ -194,10 +195,11 @@ function pickMaxFull100Leader(horses) {
     return { horse: pool[0], tie: false };
 }
 
-function pickSkPctLeader(horses) {
+function pickSkPctLeader(horses, minSkKosu) {
+    const minSk = minSkKosu ?? cli.minSkKosu;
     const pool = horses.filter(h =>
         h.skFilled
-        && h.matchCount >= cli.minSkKosu
+        && h.matchCount >= minSk
         && h.st.matchPct != null
         && h.bitis != null
         && h.bitis >= 1
@@ -222,6 +224,23 @@ function pickRandomBaseline(raceGroups) {
         races,
         pct1: races ? Math.round(1000 * b1 / races) / 10 : null
     };
+}
+
+function buildPool(rows, minSkKosu) {
+    const skPool = rows.filter(h => h.skFilled && h.matchCount >= minSkKosu);
+    return {
+        skPool,
+        maxFull: skPool.filter(h => h.maxFull100),
+        raceGroups: buildRaceGroups(skPool, h => h.bitis != null && h.bitis >= 1)
+    };
+}
+
+function analyzeMinSk(rows, minSkKosu) {
+    const { skPool, maxFull, raceGroups } = buildPool(rows, minSkKosu);
+    const statFull = summarizeBitis(maxFull);
+    const statAll = summarizeBitis(skPool);
+    const leaderMax = evaluateRaceLeader(raceGroups, h => pickMaxFull100Leader(h, minSkKosu));
+    return { skPool, maxFull, statFull, statAll, leaderMax };
 }
 
 function hr(t) { console.log('\n══ ' + t + ' ══'); }
@@ -345,22 +364,29 @@ async function main() {
                 + (lift != null ? (lift >= 0 ? '+' : '') + lift + ' puan' : '—'));
         }
 
+        const sk1Count = maxFull.filter(h => h.matchCount === 1).length;
+        if (maxFull.length && sk1Count >= Math.ceil(maxFull.length / 2)) {
+            console.log('\n  ⚠ ' + sk1Count + '/' + maxFull.length
+                + ' MAX%100×4 at SK-KOŞU=1 — tek eşleşme ile MAX% kolay dolabilir.'
+                + ' Bölüm 4\'te SK-KOŞU≥2 kontrolüne bakın.');
+        }
+
         hr('2. KOŞU LİDERİ — koşuda MAX%100×4 adayını seç → BİTİŞ');
-        const leaderMax = evaluateRaceLeader(raceGroupsAll, pickMaxFull100Leader, 'MAX%100×4');
-        const leaderSk = evaluateRaceLeader(raceGroupsAll, pickSkPctLeader, 'SK%');
+        const leaderMax = evaluateRaceLeader(raceGroupsAll, h => pickMaxFull100Leader(h, cli.minSkKosu));
+        const leaderSk = evaluateRaceLeader(raceGroupsAll, h => pickSkPctLeader(h, cli.minSkKosu));
         const baseline = pickRandomBaseline(raceGroupsAll);
 
         console.log('  Koşuda MAX%100×4 aday varsa seçilir; birden fazlaysa cnt1 ile tie-break.');
         console.log('  ' + pad('Strateji', 22) + pad('★ 1.', 10) + pad('◆ 1-2', 10)
             + pad('◆◆ 1-3', 10) + 'koşu');
         console.log('  ' + '-'.repeat(58));
-        console.log('  ' + pad('MAX%100×4 lider', 22)
+        console.log('  ' + pad('MAX%100×4 lider', 24)
             + pad(leaderMax.pct1 != null ? leaderMax.pct1 + '%' : '—', 10)
             + pad(leaderMax.pct12 != null ? leaderMax.pct12 + '%' : '—', 10)
             + pad(leaderMax.pct123 != null ? leaderMax.pct123 + '%' : '—', 10)
             + leaderMax.races
             + ' (tie=' + leaderMax.tie + ', aday yok=' + leaderMax.skippedNoPick + ')');
-        console.log('  ' + pad('SK% lider (karşılaştır)', 22)
+        console.log('  ' + pad('SK% lider', 24)
             + pad(leaderSk.pct1 != null ? leaderSk.pct1 + '%' : '—', 10)
             + pad(leaderSk.pct12 != null ? leaderSk.pct12 + '%' : '—', 10)
             + pad(leaderSk.pct123 != null ? leaderSk.pct123 + '%' : '—', 10)
@@ -382,7 +408,7 @@ async function main() {
                 if (cands[0].bitis === 1) winByCand[1].w1++;
             }
             if (cands.length >= 2) {
-                const pick = pickMaxFull100Leader(horses);
+                const pick = pickMaxFull100Leader(horses, cli.minSkKosu);
                 if (pick && !pick.tie && pick.horse?.bitis != null) {
                     winByCand['2+'].n++;
                     if (pick.horse.bitis === 1) winByCand['2+'].w1++;
@@ -398,6 +424,24 @@ async function main() {
         if (winByCand['2+'].n) {
             console.log('  2+ aday (cnt1 tie-break) ★: '
                 + Math.round(1000 * winByCand['2+'].w1 / winByCand['2+'].n) / 10 + '% (n=' + winByCand['2+'].n + ')');
+        }
+
+        if (cli.minSkKosu < 2) {
+            hr('4. SAĞLAMLIK — SK-KOŞU≥2 (tek eşleşme artefaktı hariç)');
+            const strict = analyzeMinSk(rows, 2);
+            console.log('  MAX%100×4 at: ' + strict.maxFull.length
+                + ' · ★ ' + (strict.statFull.pct1 != null ? strict.statFull.pct1 + '%' : '—')
+                + ' (n=' + strict.statFull.n + ')');
+            console.log('  Koşu lideri ★: '
+                + (strict.leaderMax.pct1 != null ? strict.leaderMax.pct1 + '%' : '—')
+                + ' · ' + strict.leaderMax.races + ' koşu (aday yok='
+                + strict.leaderMax.skippedNoPick + ')');
+            if (strict.maxFull.length) {
+                console.log('  Kalan atlar:');
+                for (const h of strict.maxFull) printHorseLine(h);
+            } else {
+                console.log('  (SK-KOŞU≥2 ile MAX%100×4 kalmadı — tüm DB ile genişlet: --db atlar.db)');
+            }
         }
 
         if (kayitlar.length > 1 && !cli.kayitId) {
