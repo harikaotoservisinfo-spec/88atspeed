@@ -123,7 +123,7 @@
             color: #4a148c; font-weight: 800; min-width: 52px;
         }
         /* BAŞ+ top-4 tahmin — satır geneli mor gradyan (1=koyu → 4=açık) */
-        .dimtest-table tbody tr.bas-pick-1 > td {
+        .dimtest-table tbody tr.bas-pick-1 > td:not([class*="istat-"]) {
             background: #ce93d8 !important;
             color: #311b92;
         }
@@ -133,7 +133,7 @@
             font-weight: 900;
         }
         .dimtest-table tbody tr.bas-pick-1 > td.col-name { font-weight: 800; color: #4a148c; }
-        .dimtest-table tbody tr.bas-pick-2 > td {
+        .dimtest-table tbody tr.bas-pick-2 > td:not([class*="istat-"]) {
             background: #e1bee7 !important;
             color: #4a148c;
         }
@@ -143,7 +143,7 @@
             font-weight: 900;
         }
         .dimtest-table tbody tr.bas-pick-2 > td.col-name { font-weight: 800; }
-        .dimtest-table tbody tr.bas-pick-3 > td {
+        .dimtest-table tbody tr.bas-pick-3 > td:not([class*="istat-"]) {
             background: #ede7f6 !important;
             color: #4a148c;
         }
@@ -152,7 +152,7 @@
             color: #fff !important;
             font-weight: 900;
         }
-        .dimtest-table tbody tr.bas-pick-4 > td {
+        .dimtest-table tbody tr.bas-pick-4 > td:not([class*="istat-"]) {
             background: #f3e5f5 !important;
             color: #6a1b9a;
         }
@@ -170,11 +170,17 @@
         .dimtest-table tbody tr[class*="bas-pick-"] > td.col-stat-gen-adj {
             background: rgba(255, 243, 224, 0.55) !important;
         }
-        .siklet-son800-table tbody tr.bas-pick-1:hover td,
-        .siklet-son800-table tbody tr.bas-pick-2:hover td,
-        .siklet-son800-table tbody tr.bas-pick-3:hover td,
-        .siklet-son800-table tbody tr.bas-pick-4:hover td {
-            filter: brightness(0.97);
+        .siklet-son800-table tbody tr.bas-pick-1 > td[class*="istat-"] {
+            box-shadow: inset 0 0 0 9999px rgba(142, 36, 170, 0.14);
+        }
+        .siklet-son800-table tbody tr.bas-pick-2 > td[class*="istat-"] {
+            box-shadow: inset 0 0 0 9999px rgba(171, 71, 188, 0.10);
+        }
+        .siklet-son800-table tbody tr.bas-pick-3 > td[class*="istat-"] {
+            box-shadow: inset 0 0 0 9999px rgba(186, 104, 200, 0.08);
+        }
+        .siklet-son800-table tbody tr.bas-pick-4 > td[class*="istat-"] {
+            box-shadow: inset 0 0 0 9999px rgba(206, 147, 216, 0.06);
         }
         /* SİKLET · SON800-1 — İstatistikler ile aynı renklendirme */
         .siklet-son800-table { min-width: 2400px !important; }
