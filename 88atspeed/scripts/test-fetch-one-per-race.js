@@ -27,6 +27,7 @@ const cli = {
     pick: argVal('--pick') != null ? Number(argVal('--pick')) : 0,
     maxRaces: argVal('--max-races') ? Number(argVal('--max-races')) : null,
     maxKosu: Number(argVal('--max-kosu') || '7'),
+    maxAllKosu: argVal('--max-all-kosu') ? Number(argVal('--max-all-kosu')) : 40,
     delayMs: Number(argVal('--delay')) || 600,
     quick: args.includes('--quick'),
     sehir: argVal('--sehir') || '',
@@ -182,7 +183,8 @@ async function main() {
     console.log('╚══════════════════════════════════════════════════════════════╝');
     console.log('pick index=' + cli.pick + ' · maxKosu=' + cli.maxKosu
         + ' · delay=' + cli.delayMs + 'ms'
-        + (cli.quick ? ' · quick (sadece ilk ' + cli.maxKosu + ' koşu detay)' : '') + '\n');
+        + (cli.quick ? ' · quick (sadece ilk ' + cli.maxKosu + ' koşu detay)'
+            : ' · maxAllKosu=' + cli.maxAllKosu + ' (GETİR ile aynı limit)') + '\n');
 
     let program;
     const browser = await launchBrowser();
@@ -229,11 +231,16 @@ async function main() {
 
             console.log('── ' + raceLabel + ' ──');
             console.log('  At #' + horse.no + ' ' + horse.name + ' (atId=' + horse.atId + ') çekiliyor...');
+            if (!cli.quick) {
+                console.log('  (ilk ' + cli.maxKosu + ' koşu tam detay + kalanlarda at_sayisi, max ' + cli.maxAllKosu + ' koşu — ~1-3 dk/at)');
+            }
 
             const res = await fetchAtKosularFromPage(page, horse.atId, horse.name, {
                 maxKosu: cli.maxKosu,
+                maxAllKosu: cli.maxAllKosu,
                 maxRetry: 1,
-                fetchAllFieldSizes: !cli.quick
+                fetchAllFieldSizes: !cli.quick,
+                onProgress: cli.verbose ? (msg) => console.log('    … ' + msg) : null
             });
 
             if (!res.success) {

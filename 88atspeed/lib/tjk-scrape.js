@@ -570,6 +570,7 @@ async function fetchAtKosularFromPage(page, atId, atAdi, opts = {}) {
             attempts++;
             try {
                 const ana = anaKosular[i];
+                if (opts.onProgress) opts.onProgress('detay ' + (i + 1) + '/' + Math.min(maxKosu, anaKosular.length) + ' ' + ana.tarih);
                 await gotoKosuSonucSayfasi(page, ana.tarihLink, ana.sehir);
                 let detay = await page.evaluate(parseKosuDetayEval(), atIsmi);
                 const fieldSize = await readFieldSizeFromPage(page);
@@ -619,10 +620,17 @@ async function fetchAtKosularFromPage(page, atId, atAdi, opts = {}) {
     if (opts.fetchAllFieldSizes !== false) {
         const maxAll = opts.maxAllKosu != null ? opts.maxAllKosu : anaKosular.length;
         const keys = new Set(sonuclar.map(k => [k.tarih, k.sehir, k.mesafe].join('|')));
-        for (let i = maxKosu; i < Math.min(maxAll, anaKosular.length); i++) {
+        const extraEnd = Math.min(maxAll, anaKosular.length);
+        if (opts.onProgress && extraEnd > maxKosu) {
+            opts.onProgress('at_sayisi ek koşular ' + maxKosu + '..' + extraEnd + ' / ' + anaKosular.length);
+        }
+        for (let i = maxKosu; i < extraEnd; i++) {
             const ana = anaKosular[i];
             const key = [ana.tarih, ana.sehir, ana.mesafe].join('|');
             if (keys.has(key)) continue;
+            if (opts.onProgress && (i - maxKosu) % 5 === 0) {
+                opts.onProgress('at_sayisi ' + (i + 1) + '/' + extraEnd + ' ' + ana.tarih);
+            }
             try {
                 await gotoKosuSonucSayfasi(page, ana.tarihLink, ana.sehir);
                 const fieldSize = await readFieldSizeFromPage(page);
