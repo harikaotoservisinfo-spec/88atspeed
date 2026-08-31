@@ -127,10 +127,10 @@ const KosuDimensionStatsEngine = {
                 return k?.siklet || '';
             },
             match(a, b) {
-                return KosuDimensionStatsEngine.numMatch(a, b);
+                return KosuDimensionStatsEngine.sikletMatch(a, b);
             },
             abbrev(v) {
-                const n = KosuDimensionStatsEngine.parseNum(v);
+                const n = KosuDimensionStatsEngine.parseSiklet(v);
                 return n != null ? String(Math.round(n)) : '—';
             }
         }
@@ -153,6 +153,43 @@ const KosuDimensionStatsEngine = {
         if (v == null || v === '' || v === '-' || v === '—') return null;
         const n = parseFloat(String(v).replace(/[^\d.,]/g, '').replace(',', '.'));
         return isNaN(n) ? null : n;
+    },
+
+    /** TJK program: "56 +1", "57+2" → taşınan kg; düz "56" → 56 */
+    parseSiklet(v) {
+        if (v == null || v === '' || v === '-' || v === '—') return null;
+        const s = String(v).replace(/\s+/g, ' ').trim();
+        const plus = s.match(/^(\d+(?:[.,]\d+)?)\s*\+\s*(\d+(?:[.,]\d+)?)$/);
+        if (plus) {
+            const base = parseFloat(plus[1].replace(',', '.'));
+            const adj = parseFloat(plus[2].replace(',', '.'));
+            if (!isNaN(base) && !isNaN(adj)) return Math.round((base + adj) * 10) / 10;
+        }
+        const plain = s.match(/^(\d+(?:[.,]\d+)?)$/);
+        if (plain) {
+            let n = parseFloat(plain[1].replace(',', '.'));
+            if (isNaN(n)) return null;
+            // Eski hata: "56 +1" → parseNum ile 561 birleşmiş kayıtlar
+            if (Number.isInteger(n) && n >= 520 && n < 700) {
+                const base = Math.floor(n / 10);
+                const adj = n % 10;
+                if (base >= 48 && base <= 66 && adj <= 4) return base + adj;
+            }
+            return n;
+        }
+        const first = s.match(/(\d+(?:[.,]\d+)?)/);
+        if (first) {
+            const n = parseFloat(first[1].replace(',', '.'));
+            return isNaN(n) ? null : n;
+        }
+        return null;
+    },
+
+    sikletMatch(a, b) {
+        const na = this.parseSiklet(a);
+        const nb = this.parseSiklet(b);
+        if (na == null || nb == null) return false;
+        return Math.abs(na - nb) < 0.01;
     },
 
     numMatch(a, b) {
