@@ -64,6 +64,8 @@
         .astest-table .col-stat-window.col-stat-cnt { background: #e8f5e9; color: #2e7d32; }
         .astest-table .col-stat-window.col-stat-dim,
         .astest-table .col-stat-window.col-stat-sehir { background: #e8eaf6; color: #283593; }
+        .astest-table .col-stat-rise { background: #f3e5f5; color: #6a1b9a; font-weight: 600; }
+        .astest-table .col-stat-rise-up { background: #e8f5e9; color: #1b5e20; font-weight: 700; }
         .astest-table .col-stat-all-hdr { border-right: 2px solid #ce93d8; }
         .astest-table .col-stat-window-hdr {
             background: #bbdefb; color: #0d47a1; text-align: center;
@@ -248,7 +250,7 @@
     <script src="js/at-meta-fields.js?v=20260831a"></script>
     <script src="js/field-size-stats-engine.js?v=20260830b"></script>
     <script src="js/sehir-stats-engine.js?v=20260830a"></script>
-    <script src="js/kosu-dimension-stats-engine.js?v=20260831d"></script>
+    <script src="js/kosu-dimension-stats-engine.js?v=20260831e"></script>
     <script>
         const RECENT_WINDOWS = FieldSizeStatsEngine.RECENT_WINDOWS;
 
@@ -319,6 +321,34 @@
                 html += '<td class="col-stat col-stat-window col-stat-cnt">' + (ws.cnt1234 ?? 0) + '</td>';
             }
             return html;
+        }
+
+        function astestDimensionRiseHeader(dimKey, pctLabel) {
+            if (dimKey !== 'siklet') return '';
+            return '<th class="col-stat col-stat-dim col-stat-rise" title="Son 5 koşu '
+                + escapeHtml(pctLabel) + ' − TÜM ' + escapeHtml(pctLabel)
+                + '. ≥5 puan artış (SK-KOŞU≥2).">SK↑S5</th>';
+        }
+
+        function astestDimensionRiseCell(st, dimKey) {
+            if (dimKey !== 'siklet') return '';
+            const rise = KosuDimensionStatsEngine.computeWindowRise(st, 5);
+            let cls = 'col-stat col-stat-dim col-stat-rise';
+            if (rise.rising) cls += ' col-stat-rise-up';
+            let title = '';
+            if (rise.rising) {
+                title = 'TÜM ' + KosuDimensionStatsEngine.formatPct(rise.tumPct)
+                    + ' → S5 ' + KosuDimensionStatsEngine.formatPct(rise.windowPct)
+                    + ' · Δ+' + rise.delta + ' puan';
+            } else if (rise.artifact) {
+                title = 'SK-KOŞU=1 — tek eşleşme artefaktı, yükseliş gösterilmez';
+            } else if (rise.delta != null && rise.delta > 0) {
+                title = 'Artış var (+' + rise.delta + ') ama eşik altında (<5)';
+            } else {
+                title = 'Son 5 koşuda TÜM\'e göre anlamlı artış yok';
+            }
+            return '<td class="' + cls + '" title="' + escapeHtml(title) + '">'
+                + escapeHtml(rise.display) + '</td>';
         }
 
         function astestWindowDimensionCells(st) {
@@ -1098,6 +1128,7 @@
                 html += '<th class="col-stat" title="Geçmiş koşu (' + escapeHtml(dim.label) + ' bilgili)">KOŞU</th>';
                 html += '<th class="col-stat col-stat-dim" title="Eşleşme oranı">' + escapeHtml(dim.pctLabel) + '</th>';
                 html += '<th class="col-stat col-stat-dim" title="Eşleşen koşu sayısı">' + escapeHtml(dim.matchLabel) + '</th>';
+                html += astestDimensionRiseHeader(dimKey, dim.pctLabel);
                 html += '<th class="col-stat col-stat-max" title="Eşleşen koşularda en fazla kaç atlı koşuda 1.">MAX-1</th>';
                 html += '<th class="col-stat col-stat-max">MAX-12</th>';
                 html += '<th class="col-stat col-stat-max">MAX-123</th>';
@@ -1110,8 +1141,9 @@
                 html += '<th class="col-gecmis col-stat-all-hdr" title="Geçmiş ' + escapeHtml(dim.label) + ' değerleri">GEÇMİŞ</th>';
                 html += astestWindowStatHeaders('dimension', dim.pctLabel, dim.matchLabel);
                 html += '</tr></thead><tbody>';
+                const dimBaseCols = dimKey === 'siklet' ? 17 : 16;
                 if (!horses.length) {
-                    html += '<tr><td colspan="' + (16 + ASTEST_WINDOW_COLS.dimension) + '" class="col-name">At yok</td></tr>';
+                    html += '<tr><td colspan="' + (dimBaseCols + ASTEST_WINDOW_COLS.dimension) + '" class="col-name">At yok</td></tr>';
                 } else {
                     let raceFsWarn = 0;
                     let raceAtSayisiMiss = 0;
@@ -1135,6 +1167,7 @@
                         html += '<td class="col-stat">' + KosuDimensionStatsEngine.formatCell(st.kosuSayisi) + '</td>';
                         html += '<td class="col-stat col-stat-dim">' + KosuDimensionStatsEngine.formatPct(st.matchPct) + '</td>';
                         html += '<td class="col-stat col-stat-dim">' + st.matchCount + '</td>';
+                        html += astestDimensionRiseCell(st, dimKey);
                         html += '<td class="col-stat col-stat-max"' + maxTitle + '>' + KosuDimensionStatsEngine.formatCell(st.max1) + '</td>';
                         html += '<td class="col-stat col-stat-max"' + maxTitle + '>' + KosuDimensionStatsEngine.formatCell(st.max12) + '</td>';
                         html += '<td class="col-stat col-stat-max"' + maxTitle + '>' + KosuDimensionStatsEngine.formatCell(st.max123) + '</td>';
@@ -1149,7 +1182,7 @@
                         html += '</tr>';
                     }
                     if (raceFsWarn > 0 || raceAtSayisiMiss > 0) {
-                        html += '<tr class="astest-warn-row"><td colspan="' + (16 + ASTEST_WINDOW_COLS.dimension)
+                        html += '<tr class="astest-warn-row"><td colspan="' + (dimBaseCols + ASTEST_WINDOW_COLS.dimension)
                             + '" class="col-name" style="color:#b45309;font-size:11px">⚠ '
                             + (raceFsWarn ? raceFsWarn + ' at: eşleşen koşuda at_sayisi eksik (MAX-* boş). ' : '')
                             + (raceAtSayisiMiss ? 'Geçmiş koşularda at_sayisi tamamlanmamış — GETİR yenile veya repair çalıştır.' : '')

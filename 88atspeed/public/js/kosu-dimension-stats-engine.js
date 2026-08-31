@@ -326,6 +326,36 @@ const KosuDimensionStatsEngine = {
 
     formatPct(pct) {
         return pct != null ? '%' + pct : '—';
+    },
+
+    /**
+     * Son N koşu penceresinde başarı (matchPct) TÜM'e göre artıyor mu
+     * @returns {{ delta, rising, display, windowPct, tumPct, artifact }}
+     */
+    computeWindowRise(st, windowSize, opts) {
+        const minMatch = (opts && opts.minMatchCount != null) ? opts.minMatchCount : 2;
+        const minDelta = (opts && opts.minDelta != null) ? opts.minDelta : 5;
+        const empty = {
+            delta: null, rising: false, display: '—',
+            windowPct: null, tumPct: st?.matchPct ?? null, artifact: false
+        };
+        if (!st || st.kosuSayisi <= 0) return empty;
+        const wst = st.windows?.[windowSize];
+        if (!wst || wst.kosuSayisi <= 0) return empty;
+        if (st.matchCount < minMatch) {
+            return Object.assign({}, empty, { artifact: true, windowPct: wst.matchPct });
+        }
+        if (st.matchPct == null || wst.matchPct == null) return empty;
+        const delta = wst.matchPct - st.matchPct;
+        const rising = delta >= minDelta;
+        return {
+            delta,
+            rising,
+            display: rising ? ('+' + delta + '%') : '—',
+            windowPct: wst.matchPct,
+            tumPct: st.matchPct,
+            artifact: false
+        };
     }
 };
 
