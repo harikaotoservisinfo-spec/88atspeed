@@ -37,7 +37,8 @@ const cli = {
     horseName: argVal('--horse') || '',
     risingOnly: args.includes('--rising-only'),
     verbose: args.includes('--verbose') || args.includes('-v'),
-    deltaMin: argVal('--delta-min') ? Number(argVal('--delta-min')) : 5
+    deltaMin: argVal('--delta-min') ? Number(argVal('--delta-min')) : 5,
+    minSkKosu: argVal('--min-sk-kosu') ? Number(argVal('--min-sk-kosu')) : 2
 };
 
 const WINDOWS = [null, 5, 4, 3, 2, 1];
@@ -128,8 +129,22 @@ function spearmanFromPairs(pairs) {
     return 1 - (6 * sumD2) / (n * (n * n - 1));
 }
 
-function fmtPct(v) {
-    return v != null ? '%' + v : '—';
+function fmtPct100(v) {
+    return v != null && Number.isFinite(v) ? v.toFixed(1) + '%' : '—';
+}
+
+function fmtWinRate(s) {
+    if (!s?.n) return '—';
+    return s.win1 + '/' + s.n + ' (' + fmtPct100(s.pct1) + ')';
+}
+
+/** TÜM'de ≥2 hedef sıklet eşleşmesi — tek SK-KOŞU artefaktını ele */
+function isMeaningfulRecency(h) {
+    return h.recencyComparable && h.matchCount >= cli.minSkKosu;
+}
+
+function isSingleSkArtifact(h) {
+    return h.recencyComparable && h.matchCount === 1;
 }
 
 function getWindowStats(st, w) {
@@ -215,7 +230,11 @@ function buildHorseRow(ctx, bitisLookup) {
     const deltaSk = isRecencyComparable(rowDraft)
         ? skByWindow.S1 - skByWindow.TÜM : null;
     const slope = linearRecencySlope(skByWindow);
-    const trend = recencyTrendLabel(deltaSk);
+    const matchCount = st.matchCount;
+    const recencyComparable = isRecencyComparable(rowDraft);
+    const meaningful = isMeaningfulRecency({ recencyComparable, matchCount });
+    const singleSkArtifact = isSingleSkArtifact({ recencyComparable, matchCount });
+    const trend = singleSkArtifact ? '⚠ tek SK' : recencyTrendLabel(deltaSk);
 
     const bitis = resolveBitis(kayitId, race.raceNo, horse, bitisLookup);
 
@@ -239,9 +258,11 @@ function buildHorseRow(ctx, bitisLookup) {
         deltaSk,
         slope,
         trend,
-        rising: deltaSk != null && deltaSk >= cli.deltaMin,
+        rising: meaningful && deltaSk != null && deltaSk >= cli.deltaMin,
         skFilled: isSkFilled(rowDraft),
-        recencyComparable: isRecencyComparable(rowDraft),
+        recencyComparable,
+        meaningfulRecency: meaningful,
+        singleSkArtifact,
         sonKosu,
         sonSira,
         sonMatch,
@@ -332,11 +353,13 @@ function printHorseLine(h, compact) {
             + ' BİT=' + pad(h.bitis ?? '—', 3)
             + ' Δ=' + pad(h.deltaSk != null ? (h.deltaSk >= 0 ? '+' : '') + h.deltaSk : '—', 5)
             + ' ' + pad(h.trend, 12)
+            + ' SK=' + h.matchCount + '/' + h.kosuSayisi
             + ' ' + skLadder);
         return;
     }
     console.log('  ' + bitMark + ' K' + h.raceNo + ' #' + h.no + ' ' + name
-        + ' · hedef ' + h.hedef + ' · BİTİŞ ' + (h.bitis ?? '—'));
+        + ' · hedef ' + h.hedef + ' · BİTİŞ ' + (h.bitis ?? '—')
+        + ' · SK-KOŞU ' + h.matchCount + '/' + h.kosuSayisi);
     console.log('    SK%  : ' + skLadder);
     console.log('    1.   : ' + ['TÜM', 'S5', 'S4', 'S3', 'S2', 'S1']
         .map(w => w + ':' + (h.cnt1ByWindow[w] ?? '—')).join(' '));
@@ -407,7 +430,9 @@ async function main() {
         const withSkData = horses.filter(h => h.skFilled);
         const skEmpty = horses.length - withSkData.length;
         const comparableRecency = withSkData.filter(h => h.recencyComparable);
-        const comparableWithBitis = comparableRecency.filter(h => h.bitis != null && h.bitis >= 1);
+        const meaningfulPool = withSkData.filter(h => h.meaningfulRecency);
+        const singleSkArtifacts = withSkData.filter(h => h.singleSkArtifact);
+        const comparableWithBitis = meaningfulPool.filter(h => h.bitis != null && h.bitis >= 1);
         const raceGroups = buildRaceGroups(withSkData, h => h.bitis != null && h.bitis >= 1);
         const fromNameOnly = withBitis.filter(h => {
             const key = rowKeyParts(h.kayitId, h.raceNo, h.no);
@@ -421,10 +446,11 @@ async function main() {
         console.log('Kayıt #' + cli.kayitId + ' · ' + (row.hipodrom || '') + ' · ' + (row.tarih || ''));
         console.log('Toplam: ' + horses.length + ' at · SİKLET dolu: ' + withSkData.length
             + ' · boş (kıyas dışı): ' + skEmpty
-            + ' · yükseliş kıyaslanabilir: ' + comparableRecency.length
-            + ' · BİTİŞ dolu (SİKLET dolu): ' + comparableWithBitis.length
+            + ' · anlamlı yükseliş (SK-KOŞU≥' + cli.minSkKosu + '): ' + meaningfulPool.length
+            + ' · tek SK artefakt: ' + singleSkArtifacts.length
+            + ' · BİTİŞ+dolu: ' + comparableWithBitis.length
             + ' · koşu: ' + raceGroups.length);
-        console.log('Kural: boş kosular[] / SK% yok → kıyas dışı · lider/Spearman için koşuda ≥2 dolu at gerekir');
+        console.log('Kural: boş → kıyas dışı · SK-KOŞU=1 → Δ artefakt (14→100%) · lider için koşuda ≥2 dolu at');
         if (withBitis.length && fromNameOnly) {
             console.log('BİTİŞ kaynağı: puanlama + isim (' + fromNameOnly + ' at isimden)');
         } else if (withBitis.length && !Object.keys(bitisMap).length) {
@@ -482,8 +508,8 @@ async function main() {
             console.log('  (BİTİŞ verisi yok — atlanıyor)\n');
         }
 
-        hr('3. YÜKSELİŞ vs BİTİŞ — Δ(S1 SK% − TÜM SK%) [yalnız dolu TÜM+S1]');
-        const risingPool = comparableWithBitis.length ? comparableWithBitis : comparableRecency;
+        hr('3. YÜKSELİŞ vs BİTİŞ — Δ(S1−TÜM) [SK-KOŞU≥' + cli.minSkKosu + ', artefakt hariç]');
+        const risingPool = comparableWithBitis.length ? comparableWithBitis : meaningfulPool;
         const rising = risingPool.filter(h => h.rising).sort((a, b) => (b.deltaSk || 0) - (a.deltaSk || 0));
         if (comparableWithBitis.length) {
             const rise = bucketStats(comparableWithBitis, h => h.rising);
@@ -496,24 +522,36 @@ async function main() {
                 h => h.sonMatch
             );
             console.log('  Yükselen (Δ≥' + cli.deltaMin + '): n=' + rise.yes.n
-                + ' · 1.=' + pct(rise.yes.pct1) + ' · 1-3=' + pct(rise.yes.pct123));
+                + ' · 1.= ' + fmtWinRate(rise.yes)
+                + ' · 1-3= ' + rise.yes.win123 + '/' + rise.yes.n
+                + ' (' + fmtPct100(rise.yes.pct123) + ')');
             console.log('  Sabit/düşen       : n=' + rise.no.n
-                + ' · 1.=' + pct(rise.no.pct1) + ' · 1-3=' + pct(rise.no.pct123));
+                + ' · 1.= ' + fmtWinRate(rise.no)
+                + ' · 1-3= ' + rise.no.win123 + '/' + rise.no.n
+                + ' (' + fmtPct100(rise.no.pct123) + ')');
             if (rise.yes.n && rise.no.n) {
                 const d1 = (rise.yes.pct1 || 0) - (rise.no.pct1 || 0);
                 console.log('  Δ kazanma         : ' + (d1 >= 0 ? '+' : '') + d1.toFixed(1) + ' puan (yükselen − diğer)');
             }
             console.log('');
-            console.log('  Pozitif eğim (S1 yönünde artış): n=' + slopeUp.yes.n
-                + ' · 1.=' + pct(slopeUp.yes.pct1));
-            console.log('  Son koşu sıklet eşleşmesi ✓   : n=' + s1MatchSon.yes.n
-                + ' · 1.=' + pct(s1MatchSon.yes.pct1));
-            console.log('  Son koşu sıklet eşleşmesi ·   : n=' + s1MatchSon.no.n
-                + ' · 1.=' + pct(s1MatchSon.no.pct1));
-        } else if (comparableRecency.length) {
-            console.log('  BİTİŞ yok — yükselen form (dolu TÜM+S1): ' + rising.length + ' at\n');
+            console.log('  Pozitif eğim      : n=' + slopeUp.yes.n + ' · 1.= ' + fmtWinRate(slopeUp.yes));
+            console.log('  Son koşu ✓ eşleş  : n=' + s1MatchSon.yes.n + ' · 1.= ' + fmtWinRate(s1MatchSon.yes));
+            console.log('  Son koşu · eşleş  : n=' + s1MatchSon.no.n + ' · 1.= ' + fmtWinRate(s1MatchSon.no));
+        } else if (meaningfulPool.length) {
+            console.log('  BİTİŞ yok — anlamlı yükselen: ' + rising.length + ' at\n');
         } else {
-            console.log('  Yükseliş kıyaslanabilir at yok (TÜM+S1 dolu gerekli)\n');
+            console.log('  Anlamlı yükseliş yok (SK-KOŞU≥' + cli.minSkKosu + ' gerekli)\n');
+        }
+
+        if (singleSkArtifacts.length) {
+            sub('Tek SK-KOŞU artefakt — Δ kıyas dışı (' + singleSkArtifacts.length + ' at)');
+            console.log('  TÜM\'de 1 eşleşme → S1=%100 → yapay Δ+86; gerçek trend değil');
+            for (const h of singleSkArtifacts.slice(0, 8)) {
+                printHorseLine(h, true);
+            }
+            if (singleSkArtifacts.length > 8) {
+                console.log('  … +' + (singleSkArtifacts.length - 8) + ' at');
+            }
         }
 
         hr('4. SON KOŞU (S1) BAŞARI — hedef sıklette en son koşu [SİKLET dolu]');
@@ -546,7 +584,7 @@ async function main() {
             if (skEmpty > 12) console.log('  … +' + (skEmpty - 12) + ' at daha');
         }
 
-        sub('Yükselen form (' + rising.length + ' at — Δ≥' + cli.deltaMin + ', dolu TÜM+S1)');
+        sub('Yükselen form (' + rising.length + ' at — Δ≥' + cli.deltaMin + ', SK-KOŞU≥' + cli.minSkKosu + ')');
         if (!rising.length) {
             console.log('  (yok)');
         } else {
@@ -572,7 +610,8 @@ async function main() {
 
         console.log('\nOK · ' + horses.length + ' at · ' + skEmpty + ' boş · '
             + withSkData.length + ' dolu · ' + raceGroups.length + ' koşu · '
-            + comparableWithBitis.length + ' BİTİŞ+dolu · yükselen=' + rising.length);
+            + ' · anlamlı=' + meaningfulPool.length + ' · yükselen=' + rising.length
+            + ' · artefakt=' + singleSkArtifacts.length);
     } finally {
         db.close();
     }
