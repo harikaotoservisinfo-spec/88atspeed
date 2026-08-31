@@ -137,11 +137,58 @@ function getWindowStats(st, w) {
     return st.windows?.[w] || null;
 }
 
+/** Pencerede en az 1 geçerli sıklet koşusu var mı */
+function windowFilled(h, w) {
+    const ws = getWindowStats(h.st, w);
+    return ws != null && ws.kosuSayisi > 0;
+}
+
+/** SİKLET sekmesi dolu — geçmiş koşu + hedef sıklet */
+function isSkFilled(h) {
+    return h.kosuSayisi > 0 && h.hedef && h.hedef !== '—';
+}
+
+/** TÜM ve S1 pencereleri dolu — yükseliş kıyası için */
+function isRecencyComparable(h) {
+    return isSkFilled(h)
+        && windowFilled(h, null)
+        && windowFilled(h, 1)
+        && h.skByWindow.TÜM != null
+        && h.skByWindow.S1 != null;
+}
+
+function metricValue(h, w, key) {
+    if (!windowFilled(h, w)) return null;
+    const ws = getWindowStats(h.st, w);
+    const v = ws?.[key];
+    return v != null && v !== '' ? Number(v) : null;
+}
+
+function buildRaceGroups(horses, predicate) {
+    const map = new Map();
+    for (const h of horses.filter(predicate)) {
+        const rk = String(h.raceNo);
+        if (!map.has(rk)) map.set(rk, []);
+        map.get(rk).push(h);
+    }
+    return [...map.values()];
+}
+
 function parseSira(s) {
     return FieldSizeStatsEngine.parseSira(s);
 }
 
-function buildHorseRow(ctx, bitisMap) {
+function resolveBitis(kayitId, raceNo, horse, bitisLookup) {
+    const key = rowKeyParts(kayitId, raceNo, horse.no);
+    if (bitisLookup.has(key)) {
+        const b = bitisLookup.get(key);
+        if (b != null && b >= 1) return b;
+    }
+    const fromName = global.AtSpeedUtils.extractBitisFromHorseName(horse.name);
+    return fromName != null && fromName >= 1 ? fromName : null;
+}
+
+function buildHorseRow(ctx, bitisLookup) {
     const { horse, race, kayitId, hipodrom, tarih } = ctx;
     const dim = KosuDimensionStatsEngine.DIMENSIONS.siklet;
     const kosular = horse.kosular || [];
@@ -149,21 +196,28 @@ function buildHorseRow(ctx, bitisMap) {
     const hedef = dim.getTarget(horseCtx, race);
     const st = KosuDimensionStatsEngine.computeStats(kosular, 'siklet', hedef);
 
+    const hedefAbbrev = dim.abbrev(hedef);
+
     const skByWindow = {};
     const cnt1ByWindow = {};
     for (const w of WINDOWS) {
         const ws = getWindowStats(st, w);
-        skByWindow[windowLabel(w)] = ws?.matchPct ?? null;
-        cnt1ByWindow[windowLabel(w)] = ws?.cnt1 ?? null;
+        skByWindow[windowLabel(w)] = windowFilled({ st }, w) ? (ws?.matchPct ?? null) : null;
+        cnt1ByWindow[windowLabel(w)] = windowFilled({ st }, w) ? (ws?.cnt1 ?? null) : null;
     }
 
-    const deltaSk = skByWindow.S1 != null && skByWindow.TÜM != null
+    const rowDraft = {
+        st,
+        skByWindow,
+        kosuSayisi: st.kosuSayisi,
+        hedef: hedefAbbrev
+    };
+    const deltaSk = isRecencyComparable(rowDraft)
         ? skByWindow.S1 - skByWindow.TÜM : null;
     const slope = linearRecencySlope(skByWindow);
     const trend = recencyTrendLabel(deltaSk);
 
-    const key = rowKeyParts(kayitId, race.raceNo, horse.no);
-    const bitis = bitisMap[key] ?? null;
+    const bitis = resolveBitis(kayitId, race.raceNo, horse, bitisLookup);
 
     const sorted = FieldSizeStatsEngine.sortKosularNewest(kosular);
     const sonKosu = sorted[0] || null;
@@ -177,7 +231,7 @@ function buildHorseRow(ctx, bitisMap) {
         no: horse.no,
         name: horse.name,
         atId: horse.atId,
-        hedef: dim.abbrev(hedef),
+        hedef: hedefAbbrev,
         bitis,
         st,
         skByWindow,
@@ -186,6 +240,8 @@ function buildHorseRow(ctx, bitisMap) {
         slope,
         trend,
         rising: deltaSk != null && deltaSk >= cli.deltaMin,
+        skFilled: isSkFilled(rowDraft),
+        recencyComparable: isRecencyComparable(rowDraft),
         sonKosu,
         sonSira,
         sonMatch,
@@ -202,27 +258,32 @@ function buildHorseRow(ctx, bitisMap) {
     };
 }
 
-function evaluateWindowLeader(raceGroups, getScore) {
-    let total = 0, b1 = 0, b12 = 0, b123 = 0, tie = 0;
+function evaluateWindowLeader(raceGroups, getScore, minScored = 2) {
+    let total = 0, b1 = 0, b12 = 0, b123 = 0, tie = 0, skipped = 0;
     for (const horses of raceGroups) {
         const scored = horses.map(h => ({
             horse: h,
             score: getScore(h),
             no: h.no
         })).filter(s => s.score != null);
+        if (scored.length < minScored) {
+            skipped++;
+            continue;
+        }
         const leader = pickScoredLeader(scored);
         if (!leader) { tie++; continue; }
-        total++;
         const bit = leader.horse.bitis;
+        if (bit == null || bit < 1) continue;
+        total++;
         if (bit === 1) b1++;
-        if (bit != null && bit <= 2) b12++;
-        if (bit != null && bit <= 3) b123++;
+        if (bit <= 2) b12++;
+        if (bit <= 3) b123++;
     }
     const blended = total ? (0.80 * b1 + 0.12 * (b12 - b1) + 0.08 * (b123 - b12)) / total : 0;
-    return { total, tie, b1, b12, b123, leaderBlended: blended, exactRate: total ? b1 / total : 0 };
+    return { total, tie, skipped, b1, b12, b123, leaderBlended: blended, exactRate: total ? b1 / total : 0 };
 }
 
-function evaluateSpearman(raceGroups, getScore) {
+function evaluateSpearman(raceGroups, getScore, minPairs = 3) {
     const rhos = [];
     for (const horses of raceGroups) {
         const pairs = [];
@@ -231,6 +292,7 @@ function evaluateSpearman(raceGroups, getScore) {
             const b = h.bitis;
             if (m != null && b != null && b >= 1) pairs.push({ x: m, y: b });
         }
+        if (pairs.length < minPairs) continue;
         const rho = spearmanFromPairs(pairs);
         if (rho != null && !isNaN(rho)) rhos.push(rho);
     }
@@ -304,10 +366,18 @@ async function main() {
             process.exit(1);
         }
 
-        const { bitisMap } = await buildFlatEntriesFromDb(db, {
+        const { flatEntries, bitisMap } = await buildFlatEntriesFromDb(db, {
             filterKayit: cli.kayitId,
             filterRace: cli.raceNo
         });
+        const host = makeGostergeHost(flatEntries, bitisMap);
+        const bitisLookup = new Map();
+        for (const e of flatEntries) {
+            bitisLookup.set(
+                rowKeyParts(e.kayitId, e.raceNo, e.row?.no),
+                host.bitisValueForSort(e)
+            );
+        }
 
         const races = JSON.parse(row.veri);
         const horses = [];
@@ -324,7 +394,7 @@ async function main() {
                     kayitId: row.id,
                     hipodrom: row.hipodrom,
                     tarih: row.tarih
-                }, bitisMap));
+                }, bitisLookup));
             }
         }
 
@@ -334,97 +404,149 @@ async function main() {
         }
 
         const withBitis = horses.filter(h => h.bitis != null && h.bitis >= 1);
-        const raceMap = new Map();
-        for (const h of withBitis) {
-            const rk = String(h.raceNo);
-            if (!raceMap.has(rk)) raceMap.set(rk, []);
-            raceMap.get(rk).push(h);
-        }
-        const raceGroups = [...raceMap.values()];
+        const withSkData = horses.filter(h => h.skFilled);
+        const skEmpty = horses.length - withSkData.length;
+        const comparableRecency = withSkData.filter(h => h.recencyComparable);
+        const comparableWithBitis = comparableRecency.filter(h => h.bitis != null && h.bitis >= 1);
+        const raceGroups = buildRaceGroups(withSkData, h => h.bitis != null && h.bitis >= 1);
+        const fromNameOnly = withBitis.filter(h => {
+            const key = rowKeyParts(h.kayitId, h.raceNo, h.no);
+            const stored = bitisLookup.get(key);
+            return stored == null && global.AtSpeedUtils.extractBitisFromHorseName(h.name) != null;
+        }).length;
 
         console.log('╔══════════════════════════════════════════════════════════════════╗');
         console.log('║  SİKLET pencere korelasyonu — TÜM vs S5→S1 · at-at analiz       ║');
         console.log('╚══════════════════════════════════════════════════════════════════╝');
         console.log('Kayıt #' + cli.kayitId + ' · ' + (row.hipodrom || '') + ' · ' + (row.tarih || ''));
-        console.log('At sayısı: ' + horses.length + ' · BİTİŞ dolu: ' + withBitis.length
+        console.log('Toplam: ' + horses.length + ' at · SİKLET dolu: ' + withSkData.length
+            + ' · boş (kıyas dışı): ' + skEmpty
+            + ' · yükseliş kıyaslanabilir: ' + comparableRecency.length
+            + ' · BİTİŞ dolu (SİKLET dolu): ' + comparableWithBitis.length
             + ' · koşu: ' + raceGroups.length);
+        console.log('Kural: boş kosular[] / SK% yok → kıyas dışı · lider/Spearman için koşuda ≥2 dolu at gerekir');
+        if (withBitis.length && fromNameOnly) {
+            console.log('BİTİŞ kaynağı: puanlama + isim (' + fromNameOnly + ' at isimden)');
+        } else if (withBitis.length && !Object.keys(bitisMap).length) {
+            console.log('BİTİŞ kaynağı: at ismi (puanlama_bitis_sonuclari boş)');
+        }
         console.log('Yükseliş eşiği: Δ(S1-TÜM) ≥ ' + cli.deltaMin + ' puan\n');
 
-        hr('1. PENCERE LİDER KORELASYONU — SK% / cnt metrikleri → BİTİŞ');
-        console.log('  Her koşuda en yüksek metrik = lider. Karışık = 80/12/8 (★/◆/·)\n');
-        console.log('  ' + pad('Metrik', 14) + WINDOWS.map(w => pad(windowLabel(w), 10)).join('')
-            + pad('En iyi', 10));
-        console.log('  ' + '-'.repeat(14 + WINDOWS.length * 10 + 10));
-
-        let bestWindow = null;
-        let bestScore = -1;
-        for (const m of METRICS) {
-            const cells = [];
-            for (const w of WINDOWS) {
-                const r = evaluateWindowLeader(raceGroups, h => {
-                    const ws = getWindowStats(h.st, w);
-                    return ws?.[m.key] ?? null;
-                });
-                cells.push(pad(r.total ? pct(r.leaderBlended) + '(' + r.total + ')' : 'tie', 10));
-                if (r.total && r.leaderBlended > bestScore) {
-                    bestScore = r.leaderBlended;
-                    bestWindow = { metric: m.label, window: windowLabel(w), ...r };
-                }
-            }
-            console.log('  ' + pad(m.label, 14) + cells.join(''));
+        if (!withBitis.length) {
+            console.log('⚠ BİTİŞ yok — korelasyon bölümleri atlanır. puanlama_bitis_sonuclari veya at ismi (N) gerekli.\n');
         }
-        if (bestWindow) {
-            console.log('\n  En iyi: ' + bestWindow.metric + ' · ' + bestWindow.window
-                + ' → karışık ' + pct(bestWindow.leaderBlended)
-                + ' · ★ ' + pct(bestWindow.exactRate) + ' · n=' + bestWindow.total);
+
+        hr('1. PENCERE LİDER KORELASYONU — SK% / cnt metrikleri → BİTİŞ');
+        if (withBitis.length && raceGroups.length) {
+            console.log('  Her koşuda yalnızca SİKLET dolu atlar · ≥2 dolu at olan koşular sayılır · Karışık = 80/12/8\n');
+            console.log('  ' + pad('Metrik', 14) + WINDOWS.map(w => pad(windowLabel(w), 10)).join('')
+                + pad('En iyi', 10));
+            console.log('  ' + '-'.repeat(14 + WINDOWS.length * 10 + 10));
+
+            let bestWindow = null;
+            let bestScore = -1;
+            for (const m of METRICS) {
+                const cells = [];
+                for (const w of WINDOWS) {
+                    const r = evaluateWindowLeader(raceGroups, h => metricValue(h, w, m.key));
+                    const cell = r.total
+                        ? pct(r.leaderBlended) + '(' + r.total + ')'
+                        : (r.skipped ? '—' : 'tie');
+                    cells.push(pad(cell, 10));
+                    if (r.total && r.leaderBlended > bestScore) {
+                        bestScore = r.leaderBlended;
+                        bestWindow = { metric: m.label, window: windowLabel(w), ...r };
+                    }
+                }
+                console.log('  ' + pad(m.label, 14) + cells.join(''));
+            }
+            if (bestWindow) {
+                console.log('\n  En iyi: ' + bestWindow.metric + ' · ' + bestWindow.window
+                    + ' → karışık ' + pct(bestWindow.leaderBlended)
+                    + ' · ★ ' + pct(bestWindow.exactRate) + ' · n=' + bestWindow.total);
+            }
+        } else {
+            console.log('  (BİTİŞ verisi yok — atlanıyor)\n');
         }
 
         hr('2. SK% SPEARMAN — metrik sırası ↔ BİTİŞ sırası (negatif = yüksek SK% daha iyi)');
-        console.log('  ' + pad('Pencere', 10) + pad('ρ ort', 10) + pad('koşu', 8));
-        for (const w of WINDOWS) {
-            const { avg, n } = evaluateSpearman(raceGroups, h => {
-                const ws = getWindowStats(h.st, w);
-                return ws?.matchPct ?? null;
-            });
-            console.log('  ' + pad(windowLabel(w), 10)
-                + pad(avg != null ? avg.toFixed(3) : '—', 10)
-                + pad(String(n), 8));
+        if (withBitis.length && raceGroups.length) {
+            console.log('  ' + pad('Pencere', 10) + pad('ρ ort', 10) + pad('koşu', 8));
+            for (const w of WINDOWS) {
+                const { avg, n } = evaluateSpearman(raceGroups, h => metricValue(h, w, 'matchPct'));
+                console.log('  ' + pad(windowLabel(w), 10)
+                    + pad(avg != null ? avg.toFixed(3) : '—', 10)
+                    + pad(String(n), 8));
+            }
+        } else {
+            console.log('  (BİTİŞ verisi yok — atlanıyor)\n');
         }
 
-        hr('3. YÜKSELİŞ vs BİTİŞ — Δ(S1 SK% − TÜM SK%)');
-        const rise = bucketStats(withBitis, h => h.rising);
-        const slopeUp = bucketStats(withBitis, h => h.slope != null && h.slope > 0.5);
-        const s1MatchSon = bucketStats(withBitis, h => h.sonMatch);
-        console.log('  Yükselen (Δ≥' + cli.deltaMin + '): n=' + rise.yes.n
-            + ' · 1.=' + pct(rise.yes.pct1) + ' · 1-3=' + pct(rise.yes.pct123));
-        console.log('  Sabit/düşen       : n=' + rise.no.n
-            + ' · 1.=' + pct(rise.no.pct1) + ' · 1-3=' + pct(rise.no.pct123));
-        if (rise.yes.n && rise.no.n) {
-            const d1 = (rise.yes.pct1 || 0) - (rise.no.pct1 || 0);
-            console.log('  Δ kazanma         : ' + (d1 >= 0 ? '+' : '') + d1.toFixed(1) + ' puan (yükselen − diğer)');
+        hr('3. YÜKSELİŞ vs BİTİŞ — Δ(S1 SK% − TÜM SK%) [yalnız dolu TÜM+S1]');
+        const risingPool = comparableWithBitis.length ? comparableWithBitis : comparableRecency;
+        const rising = risingPool.filter(h => h.rising).sort((a, b) => (b.deltaSk || 0) - (a.deltaSk || 0));
+        if (comparableWithBitis.length) {
+            const rise = bucketStats(comparableWithBitis, h => h.rising);
+            const slopeUp = bucketStats(
+                comparableWithBitis.filter(h => h.slope != null),
+                h => h.slope > 0.5
+            );
+            const s1MatchSon = bucketStats(
+                comparableWithBitis.filter(h => h.sonKosu),
+                h => h.sonMatch
+            );
+            console.log('  Yükselen (Δ≥' + cli.deltaMin + '): n=' + rise.yes.n
+                + ' · 1.=' + pct(rise.yes.pct1) + ' · 1-3=' + pct(rise.yes.pct123));
+            console.log('  Sabit/düşen       : n=' + rise.no.n
+                + ' · 1.=' + pct(rise.no.pct1) + ' · 1-3=' + pct(rise.no.pct123));
+            if (rise.yes.n && rise.no.n) {
+                const d1 = (rise.yes.pct1 || 0) - (rise.no.pct1 || 0);
+                console.log('  Δ kazanma         : ' + (d1 >= 0 ? '+' : '') + d1.toFixed(1) + ' puan (yükselen − diğer)');
+            }
+            console.log('');
+            console.log('  Pozitif eğim (S1 yönünde artış): n=' + slopeUp.yes.n
+                + ' · 1.=' + pct(slopeUp.yes.pct1));
+            console.log('  Son koşu sıklet eşleşmesi ✓   : n=' + s1MatchSon.yes.n
+                + ' · 1.=' + pct(s1MatchSon.yes.pct1));
+            console.log('  Son koşu sıklet eşleşmesi ·   : n=' + s1MatchSon.no.n
+                + ' · 1.=' + pct(s1MatchSon.no.pct1));
+        } else if (comparableRecency.length) {
+            console.log('  BİTİŞ yok — yükselen form (dolu TÜM+S1): ' + rising.length + ' at\n');
+        } else {
+            console.log('  Yükseliş kıyaslanabilir at yok (TÜM+S1 dolu gerekli)\n');
         }
-        console.log('');
-        console.log('  Pozitif eğim (S1 yönünde artış): n=' + slopeUp.yes.n
-            + ' · 1.=' + pct(slopeUp.yes.pct1));
-        console.log('  Son koşu sıklet eşleşmesi ✓   : n=' + s1MatchSon.yes.n
-            + ' · 1.=' + pct(s1MatchSon.yes.pct1));
-        console.log('  Son koşu sıklet eşleşmesi ·   : n=' + s1MatchSon.no.n
-            + ' · 1.=' + pct(s1MatchSon.no.pct1));
 
-        hr('4. SON KOŞU (S1) BAŞARI — hedef sıklette en son koşu derecesi');
-        const s1Win = withBitis.filter(h => h.sonMatch && h.sonSira === 1);
-        const s1Top3 = withBitis.filter(h => h.sonMatch && h.sonSira != null && h.sonSira <= 3);
-        console.log('  Son koşuda hedef sıklet eşleşen: '
-            + withBitis.filter(h => h.sonMatch).length + ' at');
-        console.log('  Son koşuda 1. olan (eşleşen)  : ' + s1Win.length);
-        console.log('  Son koşuda 1-3 (eşleşen)     : ' + s1Top3.length);
-        const s1WinActual = s1Win.filter(h => h.bitis === 1);
-        console.log('  Bunların bugünkü BİTİŞ 1.      : ' + s1WinActual.length
-            + '/' + s1Win.length
-            + (s1Win.length ? ' (' + pct(s1WinActual.length / s1Win.length) + ')' : ''));
+        hr('4. SON KOŞU (S1) BAŞARI — hedef sıklette en son koşu [SİKLET dolu]');
+        const sonPool = comparableWithBitis.length ? comparableWithBitis : withSkData;
+        if (sonPool.length) {
+            const s1Win = sonPool.filter(h => h.sonMatch && h.sonSira === 1);
+            const s1Top3 = sonPool.filter(h => h.sonMatch && h.sonSira != null && h.sonSira <= 3);
+            console.log('  Son koşuda hedef sıklet eşleşen: '
+                + sonPool.filter(h => h.sonMatch).length + ' at');
+            console.log('  Son koşuda 1. olan (eşleşen)  : ' + s1Win.length);
+            console.log('  Son koşuda 1-3 (eşleşen)     : ' + s1Top3.length);
+            if (comparableWithBitis.length) {
+                const s1WinActual = s1Win.filter(h => h.bitis === 1);
+                console.log('  Bunların bugünkü BİTİŞ 1.      : ' + s1WinActual.length
+                    + '/' + s1Win.length
+                    + (s1Win.length ? ' (' + pct(s1WinActual.length / s1Win.length) + ')' : ''));
+            }
+        } else {
+            console.log('  (SİKLET dolu at yok)');
+        }
 
-        const rising = withBitis.filter(h => h.rising).sort((a, b) => (b.deltaSk || 0) - (a.deltaSk || 0));
-        sub('Yükselen form (' + rising.length + ' at — Δ≥' + cli.deltaMin + ')');
+        if (skEmpty) {
+            sub('Boş SİKLET — kıyas dışı (' + skEmpty + ' at)');
+            for (const h of horses.filter(x => !x.skFilled).slice(0, 12)) {
+                const name = String(h.name || '').replace(/\(\d+\)/, '').trim().slice(0, 22);
+                console.log('  K' + h.raceNo + ' #' + h.no + ' ' + name
+                    + ' · kosular=' + (h.st?.kosuSayisi ?? 0)
+                    + ' · hedef=' + (h.hedef || '—'));
+            }
+            if (skEmpty > 12) console.log('  … +' + (skEmpty - 12) + ' at daha');
+        }
+
+        sub('Yükselen form (' + rising.length + ' at — Δ≥' + cli.deltaMin + ', dolu TÜM+S1)');
         if (!rising.length) {
             console.log('  (yok)');
         } else {
@@ -436,17 +558,21 @@ async function main() {
             }
         }
 
-        hr('5. AT-AT DETAY — tüm atlar');
-        const display = cli.risingOnly ? rising : withBitis.sort((a, b) => {
+        hr('5. AT-AT DETAY — SİKLET pencere merdiveni');
+        const display = cli.risingOnly ? rising : withSkData.sort((a, b) => {
             if (a.raceNo !== b.raceNo) return a.raceNo - b.raceNo;
             return (a.bitis ?? 99) - (b.bitis ?? 99);
         });
+        if (!display.length) {
+            console.log('  (SİKLET verisi olan at yok — kosular[] repair gerekebilir)');
+        }
         for (const h of display) {
             printHorseLine(h, !cli.verbose && !cli.horseName);
         }
 
-        console.log('\nOK · ' + horses.length + ' at · ' + raceGroups.length + ' koşu · '
-            + withBitis.length + ' BİTİŞ · yükselen=' + rising.length);
+        console.log('\nOK · ' + horses.length + ' at · ' + skEmpty + ' boş · '
+            + withSkData.length + ' dolu · ' + raceGroups.length + ' koşu · '
+            + comparableWithBitis.length + ' BİTİŞ+dolu · yükselen=' + rising.length);
     } finally {
         db.close();
     }
