@@ -20,6 +20,7 @@
     "repair:k6-depth-scan": "node scripts/repair-missing-kosular.js --db atlar.db --kayit 133 --race 6 --horse 5,6,8 --scan-depth",
     "repair:k6-depth-apply": "node scripts/repair-missing-kosular.js --db atlar.db --kayit 133 --race 6 --horse 5,6,8 --refresh --apply",
     "audit:at-sayisi": "node scripts/audit-at-sayisi-coverage.js --db atlar.db",
+    "audit:tab-coverage": "node scripts/audit-tab-coverage.js --db atlar.db",
     "test:siklet-horse": "node scripts/test-siklet-horse-diagnose.js --db atlar.db",
     "purge:kosmaz": "node scripts/purge-kosmaz-horses.js --db atlar.db --scan",
     "purge:kosmaz-apply": "node scripts/purge-kosmaz-horses.js --db atlar.db --apply",
