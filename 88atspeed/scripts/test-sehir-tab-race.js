@@ -79,7 +79,7 @@ function printRace(kayit, race, programTarih) {
         + horses.length + ' at · hedef: ' + hedefSehir + ' ──');
     console.log('  Program: ' + programTarih + ' · hesap geçmişi: program günü hariç');
     console.log('  ' + pad('#', 4) + pad('AT İSMİ', 22) + pad('HEDEF', 8)
-        + pad('TÜM', 5) + pad(hedefAbbrev, 6) + pad('ŞEH%', 6) + pad('Ş-FORM', 8)
+        + pad('TÜM', 5) + pad(hedefAbbrev, 6) + pad('ŞEH%', 6) + pad('Ş-FORM', 8) + pad('ŞEH+', 7)
         + pad('1.', 4) + pad('1-2', 4) + pad('1-3', 4) + pad('1-4', 4)
         + pad('ham[]', 6) + 'GEÇMİŞ ŞEHİR');
     console.log('  ' + '-'.repeat(88));
