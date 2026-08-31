@@ -35,6 +35,8 @@
     "test:siklet-max": "node scripts/test-siklet-max-diagnose.js --db atlar.db --kayit 148 --race 2",
     "test:siklet-max100": "node scripts/test-siklet-max-diagnose.js --db atlar.db --kayit 148 --race 2 --max100",
     "test:siklet-maxpct": "node scripts/test-siklet-maxpct-correlation.js --db atlar.db --kayit 148",
+    "test:siklet-max-sources": "node scripts/test-siklet-max-sources.js --db atlar.db --kayit 148",
+    "test:siklet-max-sources100": "node scripts/test-siklet-max-sources.js --db atlar.db --kayit 148 --max100-only -v",
     "test:siklet-recency": "node scripts/test-siklet-recency-correlation.js --db atlar.db --kayit 148",
     "test:siklet-horse": "node scripts/test-dimension-tab-horse.js --db atlar.db --kayit 148 --race 7 --horse PATARA --dim siklet",
     "test:kayit-basari": "node scripts/test-kayit-basari-report.js --kayit 148",
