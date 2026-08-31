@@ -32,6 +32,7 @@
     "test:fetch-one-per-race": "node scripts/test-fetch-one-per-race.js --kayit 112 --max-races 3 --quick --max-kosu 3",
     "test:horse-tabs": "node scripts/test-horse-all-tabs.js --db atlar.db --kayit 148 --race 7 --horse PATARA",
     "test:taki-horse": "node scripts/test-dimension-tab-horse.js --db atlar.db --kayit 148 --race 7 --horse PATARA --dim taki",
+    "test:kayit-basari": "node scripts/test-kayit-basari-report.js --kayit 148",
     "test:dimension-finish": "node scripts/test-dimension-finish-correlation.js --db atlar.db",
     "test:dimension-per-race": "node scripts/test-dimension-finish-correlation.js --db atlar.db --all-races",
     "test:dimension-context": "node scripts/test-dimension-finish-correlation.js --db atlar.db --context",
