@@ -118,19 +118,22 @@ function attachTahminWithDimWeight(raceGroups, dimPct) {
     DimensionTahminBoostEngine.setEnabled(dimW > 0);
 
     for (const entries of raceGroups) {
+        for (const e of entries) {
+            if (e.row?.tahmin) delete e.row.tahmin;
+            delete e.row?._dim;
+        }
         const rows = entries.map(e => e.row);
         const pkg = {
             rows,
             forceDimensionBoost: dimW > 0,
-            skipDimensionBoost: dimW <= 0,
+            skipDimensionBoost: true,
             depthCoverage: entries[0]?._pkg?.depthCoverage || null,
             kosuHistorySummary: entries[0]?._pkg?.kosuHistorySummary || null,
             hedefSehir: entries[0]?._pkg?.hedefSehir || entries[0]?.hipodrom || null
         };
         HybridTahminScoringEngine.attachRaceTahmin(pkg);
-        if (dimW > 0 && !entries.some(e => e.row?.tahmin?.dimensionBoostApplied)) {
+        if (dimW > 0) {
             pkg.skipDimensionBoost = false;
-            pkg.forceDimensionBoost = true;
             DimensionTahminBoostEngine.applyBoostToPkg(pkg);
         }
     }

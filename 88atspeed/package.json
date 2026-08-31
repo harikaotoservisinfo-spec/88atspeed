@@ -33,6 +33,8 @@
     "test:dimension-blend": "node scripts/test-dimension-blend-sweep.js --db atlar.db",
     "test:dimension-blend-fine": "node scripts/test-dimension-blend-sweep.js --db atlar.db --dim-min 20 --dim-max 55 --step 2",
     "test:tahmin-race": "node scripts/test-tahmin-race-diagnose.js --db atlar.db --race 5",
+    "test:tahmin-buckets": "node scripts/test-tahmin-position-buckets.js --db atlar.db --sweep",
+    "test:tahmin-buckets-quick": "node scripts/test-tahmin-position-buckets.js --db atlar.db",
     "test:near-miss-race": "node scripts/test-near-miss-report.js --db atlar.db --kayit 133 --race 6 --verbose"
   },
   "dependencies": {
