@@ -427,7 +427,7 @@
             return best;
         }
 
-        function astestWindowLeaderSummary(horses, race, kind, dimOrSehir) {
+        function astestWindowLeaderSummary(horses, race, kind, dimOrSehir, programTarih) {
             const ladder = [null].concat(RECENT_WINDOWS);
             const rows = horses.map(function(h) {
                 const kosular = veriCache[h.atId] || h.kosular || [];
@@ -435,7 +435,8 @@
                 let st;
                 if (kind === 'fieldSize') st = FieldSizeStatsEngine.computeStats(kosular);
                 else if (kind === 'sehir') st = SehirStatsEngine.computeStats(kosular, dimOrSehir);
-                else st = KosuDimensionStatsEngine.computeStats(kosular, kind, dimOrSehir.getTarget(horseCtx, race));
+                else st = KosuDimensionStatsEngine.computeStats(
+                    kosular, kind, dimOrSehir.getTarget(horseCtx, race), programTarih);
                 return { h: h, st: st };
             });
             function scoreFor(row, metric, w) {
@@ -1139,7 +1140,9 @@
                         + ' <strong>SK↑S5</strong> = son 5 koşu SK% − TÜM SK% (≥5 puan artış, SK-KOŞU≥2).'
                         + ' <strong>MAX%Ø</strong> = MAX-1/12/123/1234 % ortalaması.'
                         + ' <strong>MAX%</strong> = ayrıntılı 1·12·123·1234 (%100 tavan).'
+                        + ' Program günü koşusu geçmişten hariç tutulur.'
                     : '') + '</p>';
+            const programTarih = meta?.tarih || null;
             for (let i = 0; i < races.length; i++) {
                 const race = races[i];
                 const header = typeof AtMetaFields !== 'undefined'
@@ -1189,7 +1192,7 @@
                         const kosular = veriCache[h.atId] || h.kosular || [];
                         const horseCtx = Object.assign({}, h, { kosular: kosular });
                         const hedef = dim.getTarget(horseCtx, race);
-                        const st = KosuDimensionStatsEngine.computeStats(kosular, dimKey, hedef);
+                        const st = KosuDimensionStatsEngine.computeStats(kosular, dimKey, hedef, programTarih);
                         if (st.fieldSizeMissingOnMatch > 0) raceFsWarn++;
                         if (st.atSayisiMissing > 0 && st.kosuSayisi > 0) raceAtSayisiMiss++;
                         const maxTitle = st.fieldSizeMissingOnMatch > 0
@@ -1229,7 +1232,7 @@
                     }
                 }
                 html += '</tbody></table></div>';
-                html += astestWindowLeaderSummary(horses, race, dimKey, dim);
+                html += astestWindowLeaderSummary(horses, race, dimKey, dim, programTarih);
                 html += '</div>';
             }
             html += '</div>';

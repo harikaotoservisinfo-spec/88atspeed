@@ -202,11 +202,13 @@ async function main() {
                         if (!normName(horse.name).includes(t)) continue;
                     }
                     const kosular = horse.kosular || [];
+                    const prog = kayit.tarih;
+                    const calcKosular = KosuDimensionStatsEngine.filterKosularForCalc(kosular, prog);
                     const horseCtx = Object.assign({}, horse, { kosular });
                     const hedef = dim.getTarget(horseCtx, race);
-                    const st = KosuDimensionStatsEngine.computeStats(kosular, 'siklet', hedef);
+                    const st = KosuDimensionStatsEngine.computeStats(kosular, 'siklet', hedef, prog);
                     const maxPct = FieldSizeStatsEngine.computeMaxSuccessPct(st, fieldSize);
-                    const matched = KosuDimensionStatsEngine.matchedRaces(kosular, 'siklet', hedef);
+                    const matched = KosuDimensionStatsEngine.matchedRaces(calcKosular, 'siklet', hedef);
                     const sources = analyzeSources(matched, fieldSize, st, maxPct);
                     const maxFull100 = isMaxFull100(maxPct);
 
@@ -244,6 +246,7 @@ async function main() {
         console.log('@100 = eşleşen sıklet geçmişinde: derece uygun + alan ≥ bugünkü alan');
         console.log('cnt  = o dereceye kaç kez ulaşıldı (küçük alanlar dahil — MAX% ile farklı)');
         console.log('MAX’i belirleyen = MAX-N sayısını oluşturan en geniş alanlı yarış(lar)');
+        console.log('Program günü koşusu geçmişten hariç tutulur (29.08 ≠ lookahead).\n');
 
         if (cli.verbose || rows.length <= 25) {
             for (const r of rows) printHorseBlock(r);

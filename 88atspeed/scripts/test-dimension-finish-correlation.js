@@ -894,7 +894,9 @@ function computeDimensionBundle(raw) {
     };
     for (const key of Object.keys(KosuDimensionStatsEngine.DIMENSIONS)) {
         const dim = KosuDimensionStatsEngine.DIMENSIONS[key];
-        out[key] = KosuDimensionStatsEngine.computeStats(kosular, key, dim.getTarget(horseCtx, race));
+        out[key] = KosuDimensionStatsEngine.computeStats(
+            kosular, key, dim.getTarget(horseCtx, race), raw?.tarih || null
+        );
     }
     return out;
 }

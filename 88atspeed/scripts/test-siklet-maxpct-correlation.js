@@ -91,15 +91,17 @@ function fmtStat(s) {
 }
 
 function buildHorseRow(ctx, bitisLookup) {
-    const { horse, race, kayitId, hipodrom, tarih } = ctx;
+    const { horse, race, kayitId, hipodrom, tarih, programTarih } = ctx;
     const dim = KosuDimensionStatsEngine.DIMENSIONS.siklet;
     const kosular = horse.kosular || [];
     const horseCtx = Object.assign({}, horse, { kosular });
     const hedef = dim.getTarget(horseCtx, race);
-    const st = KosuDimensionStatsEngine.computeStats(kosular, 'siklet', hedef);
+    const prog = programTarih || tarih;
+    const st = KosuDimensionStatsEngine.computeStats(kosular, 'siklet', hedef, prog);
     const fieldSize = FieldSizeStatsEngine.raceFieldSize(race);
     const maxPct = FieldSizeStatsEngine.computeMaxSuccessPct(st, fieldSize);
     const skFilled = st.kosuSayisi > 0;
+    const calcKosular = KosuDimensionStatsEngine.filterKosularForCalc(kosular, prog);
 
     return {
         kayitId,
@@ -108,6 +110,7 @@ function buildHorseRow(ctx, bitisLookup) {
         name: horse.name,
         hipodrom,
         tarih,
+        programTarih: prog,
         hedef: st.hedefAbbrev,
         fieldSize,
         bitis: resolveBitis(kayitId, race.raceNo, horse, bitisLookup),
@@ -308,7 +311,8 @@ async function main() {
                         race,
                         kayitId: kayit.id,
                         hipodrom: kayit.hipodrom,
-                        tarih: kayit.tarih
+                        tarih: kayit.tarih,
+                        programTarih: kayit.tarih
                     }, bitisLookup));
                 }
             }
@@ -343,7 +347,8 @@ async function main() {
         console.log('Kayıt: ' + (cli.kayitId ? '#' + cli.kayitId : kayitlar.length + ' kayıt')
             + (cli.raceNo ? ' · K' + cli.raceNo : '')
             + ' · SK-KOŞU≥' + cli.minSkKosu);
-        console.log('MAX% tam %100 = MAX-1/12/123/1234 hepsi bugünkü alana yetiyor\n');
+        console.log('MAX% tam %100 = MAX-1/12/123/1234 hepsi bugünkü alana yetiyor');
+        console.log('Program günü koşusu geçmiş MAX/KOŞU hesabından hariç tutulur.\n');
 
         hr('1. AT DÜZEYİ — MAX% 100%·100%·100%·100% vs diğerleri');
         console.log('  ' + pad('Grup', 28) + pad('★ 1.', 12) + pad('◆ 1-2', 12) + 'n');

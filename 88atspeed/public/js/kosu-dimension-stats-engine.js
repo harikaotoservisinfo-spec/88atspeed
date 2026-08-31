@@ -218,6 +218,20 @@ const KosuDimensionStatsEngine = {
         return true;
     },
 
+    /** Kayıt/program tarihi ile kosular[].tarih aynı formata (29.08.2026) */
+    normalizeProgramTarih(tarih) {
+        if (!tarih) return '';
+        return String(tarih).trim().replace(/\//g, '.');
+    },
+
+    /** Program günü koşusunu geçmiş istatistikten çıkar (bugünkü sonuç sızıntısı) */
+    filterKosularForCalc(kosular, programTarih) {
+        if (!programTarih || !kosular?.length) return kosular || [];
+        const programNorm = this.normalizeProgramTarih(programTarih);
+        if (!programNorm) return kosular || [];
+        return kosular.filter(k => this.normalizeProgramTarih(k.tarih) !== programNorm);
+    },
+
     validRaces(kosular, dimKey) {
         const dim = this.getDim(dimKey);
         if (!dim) return [];
@@ -302,19 +316,22 @@ const KosuDimensionStatsEngine = {
         };
     },
 
-    computeStats(kosular, dimKey, hedef) {
+    computeStats(kosular, dimKey, hedef, programTarih) {
         const dim = this.getDim(dimKey);
-        if (!dim) return this._computeStatsCore(kosular, dimKey, hedef);
+        const calcKosular = programTarih
+            ? this.filterKosularForCalc(kosular, programTarih)
+            : (kosular || []);
+        if (!dim) return this._computeStatsCore(calcKosular, dimKey, hedef);
 
-        const base = this._computeStatsCore(kosular, dimKey, hedef);
+        const base = this._computeStatsCore(calcKosular, dimKey, hedef);
         const windows = {};
         const recentWindows = typeof FieldSizeStatsEngine !== 'undefined'
             ? FieldSizeStatsEngine.RECENT_WINDOWS
             : [5, 4, 3, 2, 1];
         for (const w of recentWindows) {
             const sliced = typeof FieldSizeStatsEngine !== 'undefined'
-                ? FieldSizeStatsEngine.recentSlice(kosular, w)
-                : (kosular || []).slice(0, w);
+                ? FieldSizeStatsEngine.recentSlice(calcKosular, w)
+                : calcKosular.slice(0, w);
             windows[w] = this._computeStatsCore(sliced, dimKey, hedef);
         }
         return Object.assign(base, { windows });

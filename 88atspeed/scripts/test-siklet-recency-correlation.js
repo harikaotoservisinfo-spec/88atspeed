@@ -204,12 +204,13 @@ function resolveBitis(kayitId, raceNo, horse, bitisLookup) {
 }
 
 function buildHorseRow(ctx, bitisLookup) {
-    const { horse, race, kayitId, hipodrom, tarih } = ctx;
+    const { horse, race, kayitId, hipodrom, tarih, programTarih } = ctx;
     const dim = KosuDimensionStatsEngine.DIMENSIONS.siklet;
     const kosular = horse.kosular || [];
     const horseCtx = Object.assign({}, horse, { kosular });
     const hedef = dim.getTarget(horseCtx, race);
-    const st = KosuDimensionStatsEngine.computeStats(kosular, 'siklet', hedef);
+    const prog = programTarih || tarih;
+    const st = KosuDimensionStatsEngine.computeStats(kosular, 'siklet', hedef, prog);
 
     const hedefAbbrev = dim.abbrev(hedef);
 
@@ -416,7 +417,8 @@ async function main() {
                     race,
                     kayitId: row.id,
                     hipodrom: row.hipodrom,
-                    tarih: row.tarih
+                    tarih: row.tarih,
+                    programTarih: row.tarih
                 }, bitisLookup));
             }
         }

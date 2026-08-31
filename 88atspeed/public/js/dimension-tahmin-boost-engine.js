@@ -104,7 +104,7 @@ const DimensionTahminBoostEngine = (function () {
         for (const key of Object.keys(KosuDimensionStatsEngine.DIMENSIONS)) {
             const dim = KosuDimensionStatsEngine.DIMENSIONS[key];
             out[key] = KosuDimensionStatsEngine.computeStats(
-                kosular, key, dim.getTarget(horse, race)
+                kosular, key, dim.getTarget(horse, race), pkg?.programTarih || null
             );
         }
         row._dim = out;

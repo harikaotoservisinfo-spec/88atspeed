@@ -43,17 +43,19 @@ function parseBitis(name) {
     return m ? Number(m[1]) : null;
 }
 
-function analyzeHorse(horse, race, fieldSize) {
+function analyzeHorse(horse, race, fieldSize, programTarih) {
     const dim = KosuDimensionStatsEngine.DIMENSIONS.siklet;
     const kosular = horse.kosular || [];
     const horseCtx = Object.assign({}, horse, { kosular });
     const hedef = dim.getTarget(horseCtx, race);
-    const st = KosuDimensionStatsEngine.computeStats(kosular, 'siklet', hedef);
+    const st = KosuDimensionStatsEngine.computeStats(kosular, 'siklet', hedef, programTarih);
     const maxPct = FieldSizeStatsEngine.computeMaxSuccessPct(st, fieldSize);
 
     const allSorted = FieldSizeStatsEngine.sortKosularNewest(kosular);
-    const valid = KosuDimensionStatsEngine.validRaces(kosular, 'siklet');
-    const matched = KosuDimensionStatsEngine.matchedRaces(kosular, 'siklet', hedef);
+    const valid = KosuDimensionStatsEngine.validRaces(
+        KosuDimensionStatsEngine.filterKosularForCalc(kosular, programTarih), 'siklet');
+    const matched = KosuDimensionStatsEngine.matchedRaces(
+        KosuDimensionStatsEngine.filterKosularForCalc(kosular, programTarih), 'siklet', hedef);
     const parseSira = k => FieldSizeStatsEngine.parseSira(k.sira);
     const placement = FieldSizeStatsEngine._computeStatsCore(matched);
     const matchedNewest = FieldSizeStatsEngine.sortKosularNewest(matched);
@@ -203,8 +205,9 @@ async function main() {
         console.log('');
         console.log('MAX-1/12/123/1234 = eşleşen TÜM geçmiş koşularda o dereceye ulaşılan EN GENİŞ alan');
         console.log('MAX% = her MAX ÷ bugünkü alan (%100 tavan) · MAX%Ø = dörtlünün ortalaması');
+        console.log('Program günü koşusu geçmişten hariç (lookahead önleme)\n');
 
-        const reports = horses.map(h => analyzeHorse(h, race, fieldSize));
+        const reports = horses.map(h => analyzeHorse(h, race, fieldSize, row.tarih));
         let filtered = reports;
         if (cli.max100Only) {
             filtered = reports.filter(r => r.maxPct.avg === 100);
