@@ -115,7 +115,8 @@ const KosuDimensionStatsEngine = {
             label: 'SİKLET',
             pctLabel: 'SK%',
             matchLabel: 'SK-KOŞU',
-            note: 'Hedef sıklet geçmiş koşulardaki siklet ile eşleşir.',
+            note: 'Hedef sıklet geçmiş koşulardaki sıklet ile eşleşir. TJK 58,5→59 kg gösterim; '
+                + '±0,5 kg tolerans (59,5–60,5 arası 60 sayılır).',
             targetFrom: 'horse',
             getTarget(horse, _race) {
                 const hm = typeof AtMetaFields !== 'undefined'
@@ -123,18 +124,18 @@ const KosuDimensionStatsEngine = {
                     : horse || {};
                 const raw = hm.siklet && hm.siklet !== '—' ? hm.siklet : (horse?.siklet || '');
                 const n = KosuDimensionStatsEngine.parseSiklet(raw);
-                return n != null ? String(Math.round(n)) : raw;
+                return n != null ? String(n) : raw;
             },
             getKosuValue(k) {
                 const n = KosuDimensionStatsEngine.parseSiklet(k?.siklet);
-                return n != null ? String(Math.round(n)) : (k?.siklet || '');
+                return n != null ? String(n) : (k?.siklet || '');
             },
             match(a, b) {
                 return KosuDimensionStatsEngine.sikletMatch(a, b);
             },
             abbrev(v) {
                 const n = KosuDimensionStatsEngine.parseSiklet(v);
-                return n != null ? String(Math.round(n)) : '—';
+                return n != null ? String(n) : '—';
             }
         }
     },
@@ -158,21 +159,20 @@ const KosuDimensionStatsEngine = {
         return isNaN(n) ? null : n;
     },
 
-    /** TJK program: "56 +1", "57+2" → taşınan kg; düz "56" → 56 */
-    parseSiklet(v) {
+    /** Ham kg — ondalık korunur (58,5 → 58.5) */
+    parseSikletRaw(v) {
         if (v == null || v === '' || v === '-' || v === '—') return null;
         const s = String(v).replace(/\s+/g, ' ').trim();
         const plus = s.match(/^(\d+(?:[.,]\d+)?)\s*\+\s*(\d+(?:[.,]\d+)?)$/);
         if (plus) {
             const base = parseFloat(plus[1].replace(',', '.'));
             const adj = parseFloat(plus[2].replace(',', '.'));
-            if (!isNaN(base) && !isNaN(adj)) return Math.round((base + adj) * 10) / 10;
+            if (!isNaN(base) && !isNaN(adj)) return base + adj;
         }
         const plain = s.match(/^(\d+(?:[.,]\d+)?)$/);
         if (plain) {
             let n = parseFloat(plain[1].replace(',', '.'));
             if (isNaN(n)) return null;
-            // Eski hata: "56 +1" → parseNum ile 561 birleşmiş kayıtlar
             if (Number.isInteger(n) && n >= 520 && n < 700) {
                 const base = Math.floor(n / 10);
                 const adj = n % 10;
@@ -188,11 +188,18 @@ const KosuDimensionStatsEngine = {
         return null;
     },
 
+    /** TJK gösterim kg — tam sayı (58,5→59 · 59,5→60 · 60,5→61) */
+    parseSiklet(v) {
+        const raw = this.parseSikletRaw(v);
+        return raw == null ? null : Math.round(raw);
+    },
+
+    /** ±0,5 kg — 59,5 ile 60,5 hedef 60 ile eşleşir */
     sikletMatch(a, b) {
-        const na = this.parseSiklet(a);
-        const nb = this.parseSiklet(b);
-        if (na == null || nb == null) return false;
-        return Math.abs(na - nb) < 0.01;
+        const ra = this.parseSikletRaw(a);
+        const rb = this.parseSikletRaw(b);
+        if (ra == null || rb == null) return false;
+        return Math.abs(ra - rb) <= 0.5;
     },
 
     numMatch(a, b) {
@@ -220,9 +227,10 @@ const KosuDimensionStatsEngine = {
     matchedRaces(kosular, dimKey, hedef) {
         const dim = this.getDim(dimKey);
         if (!dim || !this.hasValue(hedef)) return [];
-        return this.validRaces(kosular, dimKey).filter(k =>
-            dim.match(dim.getKosuValue(k), hedef)
-        );
+        return this.validRaces(kosular, dimKey).filter(k => {
+            const left = dimKey === 'siklet' ? (k?.siklet || '') : dim.getKosuValue(k);
+            return dim.match(left, hedef);
+        });
     },
 
     _computeStatsCore(kosular, dimKey, hedef) {
@@ -249,9 +257,9 @@ const KosuDimensionStatsEngine = {
         const gecmisMatch = [];
         const gecmisVal = [];
         for (const k of races) {
-            const val = dim.getKosuValue(k);
-            gecmisMatch.push(dim.match(val, hedef) ? '✓' : '·');
-            gecmisVal.push(dim.abbrev(val));
+            const rawVal = dimKey === 'siklet' ? (k?.siklet || '') : dim.getKosuValue(k);
+            gecmisMatch.push(dim.match(rawVal, hedef) ? '✓' : '·');
+            gecmisVal.push(dim.abbrev(rawVal));
         }
         const matchPct = races.length
             ? Math.round(100 * matched.length / races.length)
