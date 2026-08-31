@@ -270,14 +270,17 @@
                     html += '<th class="col-stat col-stat-window col-stat-dim' + edge + '" title="Son ' + w + ' koşu · eşleşme oranı">' + tag + '·' + escapeHtml(pctLabel) + '</th>';
                     html += '<th class="col-stat col-stat-window col-stat-dim' + edge + '" title="Son ' + w + ' koşu · eşleşen koşu">' + tag + '·' + escapeHtml(matchLabel) + '</th>';
                 }
-                html += '<th class="col-stat col-stat-window col-stat-max' + edge + '">' + tag + '·MAX-1</th>';
-                html += '<th class="col-stat col-stat-window col-stat-max">' + tag + '·MAX-12</th>';
-                html += '<th class="col-stat col-stat-window col-stat-max">' + tag + '·MAX-123</th>';
-                html += '<th class="col-stat col-stat-window col-stat-max">' + tag + '·MAX-1234</th>';
-                html += '<th class="col-stat col-stat-window col-stat-cnt' + edge + '">' + tag + '·1.</th>';
-                html += '<th class="col-stat col-stat-window col-stat-cnt">' + tag + '·1-2</th>';
-                html += '<th class="col-stat col-stat-window col-stat-cnt">' + tag + '·1-2-3</th>';
-                html += '<th class="col-stat col-stat-window col-stat-cnt">' + tag + '·1-2-3-4</th>';
+                if (kind !== 'sehir') {
+                    html += '<th class="col-stat col-stat-window col-stat-max' + edge + '">' + tag + '·MAX-1</th>';
+                    html += '<th class="col-stat col-stat-window col-stat-max">' + tag + '·MAX-12</th>';
+                    html += '<th class="col-stat col-stat-window col-stat-max">' + tag + '·MAX-123</th>';
+                    html += '<th class="col-stat col-stat-window col-stat-max">' + tag + '·MAX-1234</th>';
+                }
+                const cntTitle = kind === 'sehir' ? ' · hedef şehirde' : '';
+                html += '<th class="col-stat col-stat-window col-stat-cnt' + edge + '" title="Son ' + w + ' koşu' + cntTitle + ' · 1. sayısı">' + tag + '·1.</th>';
+                html += '<th class="col-stat col-stat-window col-stat-cnt" title="Son ' + w + ' koşu' + cntTitle + ' · 1-2 sayısı">' + tag + '·1-2</th>';
+                html += '<th class="col-stat col-stat-window col-stat-cnt" title="Son ' + w + ' koşu' + cntTitle + ' · 1-2-3 sayısı">' + tag + '·1-2-3</th>';
+                html += '<th class="col-stat col-stat-window col-stat-cnt" title="Son ' + w + ' koşu' + cntTitle + ' · 1-2-3-4 sayısı">' + tag + '·1-2-3-4</th>';
             }
             return html;
         }
@@ -313,10 +316,6 @@
                 html += '<td class="col-stat col-stat-window' + edge + '">' + fmt(ws.kosuSayisi) + '</td>';
                 html += '<td class="col-stat col-stat-window col-stat-sehir' + edge + '">' + fmtPct(ws.sehirPct) + '</td>';
                 html += '<td class="col-stat col-stat-window col-stat-sehir">' + (ws.inCityCount ?? 0) + '</td>';
-                html += '<td class="col-stat col-stat-window col-stat-max' + edge + '">' + fmt(ws.max1) + '</td>';
-                html += '<td class="col-stat col-stat-window col-stat-max">' + fmt(ws.max12) + '</td>';
-                html += '<td class="col-stat col-stat-window col-stat-max">' + fmt(ws.max123) + '</td>';
-                html += '<td class="col-stat col-stat-window col-stat-max">' + fmt(ws.max1234) + '</td>';
                 html += '<td class="col-stat col-stat-window col-stat-cnt' + edge + '">' + (ws.cnt1 ?? 0) + '</td>';
                 html += '<td class="col-stat col-stat-window col-stat-cnt">' + (ws.cnt12 ?? 0) + '</td>';
                 html += '<td class="col-stat col-stat-window col-stat-cnt">' + (ws.cnt123 ?? 0) + '</td>';
@@ -408,7 +407,7 @@
 
         const ASTEST_WINDOW_COLS = {
             fieldSize: RECENT_WINDOWS.length * 9,
-            sehir: RECENT_WINDOWS.length * 11,
+            sehir: RECENT_WINDOWS.length * 7,
             dimension: RECENT_WINDOWS.length * 11
         };
 
@@ -1048,8 +1047,7 @@
             html += '<p class="astest-note">Şehir verisi kosular[].sehir alanından gelir — GETİR ile at sayısı sekmesiyle '
                 + '<strong>aynı anda</strong> dolar. Hedef hipodrom: <strong>'
                 + escapeHtml(hedefSehir || '—') + '</strong>. '
-                + 'MAX-* sütunları yalnızca hedef şehirdeki koşular içindir (at_sayisi bilgili olanlar). '
-                + '1./1-2/… <strong>sira</strong> ile hesaplanır. '
+                + 'ŞEH% sonrası <strong>1. / 1-2 / 1-2-3 / 1-2-3-4</strong> = hedef şehirdeki koşularda kaç kez o dereceye girdi (adet). '
                 + '<strong>S5–S1</strong> son 5/4/3/2/1 koşu penceresidir.'
                 + ' Program günü koşusu geçmişten hariç tutulur.</p>';
             for (let i = 0; i < races.length; i++) {
@@ -1076,20 +1074,16 @@
                 html += '<th class="col-stat" title="Geçmiş koşu (kosular[] içinde şehir bilgili)">TÜM KOŞU</th>';
                 html += '<th class="col-stat col-stat-sehir" title="Hedef şehirdeki koşu sayısı (' + escapeHtml(hedefAbbrev) + ')">' + escapeHtml(hedefAbbrev) + ' KOŞU</th>';
                 html += '<th class="col-stat col-stat-sehir" title="Hedef şehirde koşma oranı (TÜM KOŞU içinde)">ŞEH%</th>';
-                html += '<th class="col-stat col-stat-max" title="Hedef şehirde en fazla kaç atlı koşuda 1.">MAX-1</th>';
-                html += '<th class="col-stat col-stat-max">MAX-12</th>';
-                html += '<th class="col-stat col-stat-max">MAX-123</th>';
-                html += '<th class="col-stat col-stat-max">MAX-1234</th>';
-                html += '<th class="col-stat col-stat-cnt">1.</th>';
-                html += '<th class="col-stat col-stat-cnt">1-2</th>';
-                html += '<th class="col-stat col-stat-cnt">1-2-3</th>';
-                html += '<th class="col-stat col-stat-cnt col-stat-all-hdr">1-2-3-4</th>';
+                html += '<th class="col-stat col-stat-cnt" title="Hedef şehirde kaç kez 1. oldu">1.</th>';
+                html += '<th class="col-stat col-stat-cnt" title="Hedef şehirde kaç kez 1. veya 2. oldu">1-2</th>';
+                html += '<th class="col-stat col-stat-cnt" title="Hedef şehirde kaç kez ilk 3\'e girdi">1-2-3</th>';
+                html += '<th class="col-stat col-stat-cnt col-stat-all-hdr" title="Hedef şehirde kaç kez ilk 4\'e girdi">1-2-3-4</th>';
                 html += '<th class="col-gecmis col-gecmis-match col-stat-all-hdr" title="Hedef şehir eşleşmesi (✓)">EŞLEŞME</th>';
                 html += '<th class="col-gecmis col-stat-all-hdr" title="Geçmiş koşu şehirleri">GEÇMİŞ ŞEHİR</th>';
                 html += astestWindowStatHeaders('sehir');
                 html += '</tr></thead><tbody>';
                 if (!horses.length) {
-                    html += '<tr><td colspan="' + (16 + ASTEST_WINDOW_COLS.sehir) + '" class="col-name">At yok</td></tr>';
+                    html += '<tr><td colspan="' + (12 + ASTEST_WINDOW_COLS.sehir) + '" class="col-name">At yok</td></tr>';
                 } else {
                     for (let j = 0; j < horses.length; j++) {
                         const h = horses[j];
@@ -1102,10 +1096,6 @@
                         html += '<td class="col-stat">' + SehirStatsEngine.formatCell(st.kosuSayisi) + '</td>';
                         html += '<td class="col-stat col-stat-sehir">' + st.inCityCount + '</td>';
                         html += '<td class="col-stat col-stat-sehir">' + SehirStatsEngine.formatPct(st.sehirPct) + '</td>';
-                        html += '<td class="col-stat col-stat-max">' + SehirStatsEngine.formatCell(st.max1) + '</td>';
-                        html += '<td class="col-stat col-stat-max">' + SehirStatsEngine.formatCell(st.max12) + '</td>';
-                        html += '<td class="col-stat col-stat-max">' + SehirStatsEngine.formatCell(st.max123) + '</td>';
-                        html += '<td class="col-stat col-stat-max">' + SehirStatsEngine.formatCell(st.max1234) + '</td>';
                         html += '<td class="col-stat col-stat-cnt">' + st.cnt1 + '</td>';
                         html += '<td class="col-stat col-stat-cnt">' + st.cnt12 + '</td>';
                         html += '<td class="col-stat col-stat-cnt">' + st.cnt123 + '</td>';
