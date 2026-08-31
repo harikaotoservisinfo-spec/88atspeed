@@ -252,7 +252,7 @@
     <script src="js/utils.js?v=20260831a"></script>
     <script src="js/at-meta-fields.js?v=20260831a"></script>
     <script src="js/field-size-stats-engine.js?v=20260831e"></script>
-    <script src="js/sehir-stats-engine.js?v=20260831d"></script>
+    <script src="js/sehir-stats-engine.js?v=20260831e"></script>
     <script src="js/kosu-dimension-stats-engine.js?v=20260831e"></script>
     <script>
         const RECENT_WINDOWS = FieldSizeStatsEngine.RECENT_WINDOWS;
@@ -1078,7 +1078,7 @@
                 + '<strong>aynı anda</strong> dolar. Hedef hipodrom: <strong>'
                 + escapeHtml(hedefSehir || '—') + '</strong>. '
                 + 'ŞEH% sonrası <strong>Ş-FORM</strong> = son 5 koşuda hedef şehirde performans momentumu (%50 nötr). '
-                + '<strong>ŞEH+</strong> = ŞEH% + Ş-FORM ödül/ceza + S5 derece katkısı (1–4. yakın koşuda daha ağır; %100+ olabilir). '
+                + '<strong>ŞEH+</strong> = ŞEH% + Ş-FORM + <strong>son koşu şehri</strong> (hedef=+8, değişim=−10) + S5 derece (%100+ olabilir). '
                 + '<strong>1. / 1-2 / 1-2-3 / 1-2-3-4</strong> = hedef şehirde tam olarak 1./2./3./4. olma adedi (kümülatif değil). '
                 + '<strong>S5–S1</strong> son 5/4/3/2/1 koşu penceresidir.'
                 + ' Program günü koşusu geçmişten hariç tutulur.</p>';
@@ -1107,7 +1107,7 @@
                 html += '<th class="col-stat col-stat-sehir" title="Hedef şehirdeki koşu sayısı (' + escapeHtml(hedefAbbrev) + ')">' + escapeHtml(hedefAbbrev) + ' KOŞU</th>';
                 html += '<th class="col-stat col-stat-sehir" title="Hedef şehirde koşma oranı (TÜM KOŞU içinde)">ŞEH%</th>';
                 html += '<th class="col-stat col-stat-sehir col-stat-rise" title="Son 5 koşuda hedef şehirde performans momentumu (%50=nötr, yüksek=son koşulara doğru iyileşme)">Ş-FORM</th>';
-                html += '<th class="col-stat col-stat-sehir col-stat-sehir-adj" title="Düzeltilmiş şehir skoru: ŞEH% + form + S5 derece (yakın koşu ağırlıklı)">ŞEH+</th>';
+                html += '<th class="col-stat col-stat-sehir col-stat-sehir-adj" title="Düzeltilmiş şehir skoru: ŞEH% + form + son koşu şehri (+8/−10) + S5 derece">ŞEH+</th>';
                 html += '<th class="col-stat col-stat-cnt" title="Hedef şehirde kaç kez 1. oldu">1.</th>';
                 html += '<th class="col-stat col-stat-cnt" title="Hedef şehirde kaç kez 2. oldu">1-2</th>';
                 html += '<th class="col-stat col-stat-cnt" title="Hedef şehirde kaç kez 3. oldu">1-2-3</th>';

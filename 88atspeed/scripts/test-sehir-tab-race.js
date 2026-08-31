@@ -154,7 +154,8 @@ function runSehirAdjFixture() {
                 { tarih: '05.04.2026', sehir: 'İzmir', sira: '2' },
                 { tarih: '06.03.2026', sehir: 'İzmir', sira: '1' }
             ],
-            expect: st => st.sehirPct === 100 && st.formTrend?.pct < 20 && st.sehirAdj?.pct < st.sehirPct
+            expect: st => st.sehirPct === 100 && st.formTrend?.pct < 20
+                && st.sehirAdj?.formAdj < 0 && st.sehirAdj?.lastCityAdj === 8
         },
         {
             name: 'FORM yok ceza (ŞEH17)',
@@ -167,6 +168,24 @@ function runSehirAdjFixture() {
                 { tarih: '06.03.2026', sehir: 'Ankara', sira: '9' }
             ],
             expect: st => st.sehirPct === 17 && st.formTrend?.pct == null && st.sehirAdj?.pct < st.sehirPct
+        },
+        {
+            name: 'Son koşu Bursa → İzmir ceza',
+            kosular: [
+                { tarih: '01.08.2026', sehir: 'Bursa', sira: '5' },
+                { tarih: '02.07.2026', sehir: 'İzmir', sira: '4' },
+                { tarih: '03.06.2026', sehir: 'İzmir', sira: '3' }
+            ],
+            expect: st => st.sehirAdj?.lastCityAdj === -10 && !st.sehirAdj?.lastCity?.inTarget
+        },
+        {
+            name: 'Son koşu İzmir → İzmir ödül',
+            kosular: [
+                { tarih: '01.08.2026', sehir: 'İzmir', sira: '4' },
+                { tarih: '02.07.2026', sehir: 'Bursa', sira: '6' },
+                { tarih: '03.06.2026', sehir: 'İzmir', sira: '2' }
+            ],
+            expect: st => st.sehirAdj?.lastCityAdj === 8 && st.sehirAdj?.lastCity?.inTarget === true
         }
     ];
 
@@ -176,8 +195,31 @@ function runSehirAdjFixture() {
         const st = SehirStatsEngine.computeStats(c.kosular, 'İzmir', null);
         const pass = c.expect(st);
         console.log('  ' + c.name + ': ŞEH%=' + st.sehirPct + ' FORM=' + (st.formTrend?.display || '—')
-            + ' ŞEH+=' + (st.sehirAdj?.display || '—') + ' · ' + (pass ? 'OK' : 'HATA'));
+            + ' ŞEH+=' + (st.sehirAdj?.display || '—')
+            + (st.sehirAdj?.lastCityAdj ? ' sonŞehir=' + st.sehirAdj.lastCityAdj : '')
+            + ' · ' + (pass ? 'OK' : 'HATA'));
         if (!pass) ok = false;
+    }
+
+    const izmirLast = [
+        { tarih: '01.08.2026', sehir: 'İzmir', sira: '5' },
+        { tarih: '02.07.2026', sehir: 'İzmir', sira: '4' },
+        { tarih: '03.06.2026', sehir: 'Ankara', sira: '6' }
+    ];
+    const bursaLast = [
+        { tarih: '01.08.2026', sehir: 'Bursa', sira: '5' },
+        { tarih: '02.07.2026', sehir: 'İzmir', sira: '4' },
+        { tarih: '03.06.2026', sehir: 'İzmir', sira: '3' }
+    ];
+    const stIz = SehirStatsEngine.computeStats(izmirLast, 'İzmir', null);
+    const stBu = SehirStatsEngine.computeStats(bursaLast, 'İzmir', null);
+    if (!(stIz.sehirAdj?.pct > stBu.sehirAdj?.pct)) {
+        console.log('  Son koşu İzmir vs Bursa karşılaştırma HATA: '
+            + stIz.sehirAdj?.display + ' vs ' + stBu.sehirAdj?.display);
+        ok = false;
+    } else {
+        console.log('  Son koşu karşılaştırma: İzmi son=' + stIz.sehirAdj?.display
+            + ' > Bursa son=' + stBu.sehirAdj?.display + ' · OK');
     }
     if (!ok) process.exit(1);
 }

@@ -294,7 +294,49 @@ const SehirStatsEngine = {
     },
 
     /**
-     * ŞEH% + Ş-FORM düzeltmesi + son 5 koşu derece ödülü/cezası.
+     * Son koşu hedef hipodromda mı? (şehir sürekliliği)
+     * Son koşu hedef şehirde → ödül; başka şehirde → ceza.
+     */
+    computeLastRaceCityAdj(calcKosular, hedefSehir, opts) {
+        const empty = {
+            delta: 0,
+            lastSehir: null,
+            lastTarih: null,
+            inTarget: null,
+            display: '—',
+            tooltip: 'Son koşu bilgisi yok'
+        };
+        const FSE = typeof FieldSizeStatsEngine !== 'undefined' ? FieldSizeStatsEngine : null;
+        if (!FSE || !hedefSehir) return empty;
+
+        const bonus = (opts && opts.lastCityBonus != null) ? opts.lastCityBonus : 8;
+        const penalty = (opts && opts.lastCityPenalty != null) ? opts.lastCityPenalty : -10;
+
+        const recent = FSE.recentSlice(calcKosular || [], 1);
+        const last = recent[0];
+        if (!last || !last.sehir || last.sehir === '-') return empty;
+
+        const inTarget = this.sehirMatch(last.sehir, hedefSehir);
+        const delta = inTarget ? bonus : penalty;
+        const abbrev = this.abbrevSehir(last.sehir);
+        const hedefAbbrev = this.abbrevSehir(hedefSehir);
+
+        return {
+            delta,
+            lastSehir: last.sehir,
+            lastTarih: last.tarih || null,
+            inTarget,
+            display: (delta >= 0 ? '+' : '') + delta,
+            tooltip: inTarget
+                ? ('Son koşu ' + (last.tarih || '?') + ' ' + abbrev
+                    + ' = hedef ' + hedefAbbrev + ' → süreklilik ödülü +' + bonus)
+                : ('Son koşu ' + (last.tarih || '?') + ' ' + abbrev
+                    + ' ≠ hedef ' + hedefAbbrev + ' → şehir değişimi cezası ' + penalty)
+        };
+    },
+
+    /**
+     * ŞEH% + Ş-FORM düzeltmesi + son koşu şehir sürekliliği + S5 derece ödülü/cezası.
      * %100 üstü mümkün; FORM yoksa ŞEH%'den oransal ceza.
      */
     computeAdjustedSehirScore(sehirPct, formTrend, calcKosular, hedefSehir, opts) {
@@ -305,7 +347,7 @@ const SehirStatsEngine = {
         const maxPct = (opts && opts.maxPct != null) ? opts.maxPct : 130;
 
         let formAdj = 0;
-        const tipLines = ['ŞEH+ = ŞEH% + form düzeltmesi + S5 derece (yakın koşu ağırlıklı)'];
+        const tipLines = ['ŞEH+ = ŞEH% + form + son koşu şehri + S5 derece'];
         tipLines.push('Taban ŞEH%: %' + base);
 
         const formPct = formTrend?.pct;
@@ -317,6 +359,15 @@ const SehirStatsEngine = {
             formAdj = Math.round((formPct - 50) * formScale);
             tipLines.push('Ş-FORM %' + formPct + ' → ' + (formAdj >= 0 ? '+' : '') + formAdj
                 + ' (50=nötr, ölçek×' + formScale + ')');
+        }
+
+        const lastCity = this.computeLastRaceCityAdj(calcKosular, hedefSehir, opts);
+        const lastCityAdj = lastCity.delta || 0;
+        if (lastCity.inTarget != null) {
+            tipLines.push('Son koşu şehri: ' + (lastCityAdj >= 0 ? '+' : '') + lastCityAdj
+                + ' (' + lastCity.tooltip + ')');
+        } else {
+            tipLines.push('Son koşu şehri: 0 (bilgi yok)');
         }
 
         const place = this.computeRecencyPlacementBonus(calcKosular, hedefSehir);
@@ -333,12 +384,13 @@ const SehirStatsEngine = {
             tipLines.push('S5 derece katkısı: 0 (hedef şehirde derece yok)');
         }
 
-        const raw = base + formAdj + placeAdj;
+        const raw = base + formAdj + lastCityAdj + placeAdj;
         const pct = Math.round(Math.min(maxPct, Math.max(0, raw)));
         const boosted = pct > base + 2;
         const penalized = pct < base - 2;
 
         tipLines.push('Toplam: %' + base + ' ' + (formAdj >= 0 ? '+' : '') + formAdj
+            + ' ' + (lastCityAdj >= 0 ? '+' : '') + lastCityAdj
             + ' ' + (placeAdj >= 0 ? '+' : '') + placeAdj + ' = %' + pct);
 
         return {
@@ -346,8 +398,10 @@ const SehirStatsEngine = {
             display: '%' + pct,
             base,
             formAdj,
+            lastCityAdj,
+            lastCity,
             placeAdj,
-            totalAdj: formAdj + placeAdj,
+            totalAdj: formAdj + lastCityAdj + placeAdj,
             boosted,
             penalized,
             tooltip: tipLines.join('\n')
