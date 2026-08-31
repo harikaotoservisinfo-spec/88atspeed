@@ -36,6 +36,9 @@ const cli = {
     fetch: args.includes('--fetch'),
     noFetch: args.includes('--no-fetch'),
     fetchDelayMs: Number(argVal('--fetch-delay')) || 800,
+    fetchTimeoutMs: Number(argVal('--fetch-timeout')) || 300000,
+    fetchQuick: args.includes('--fetch-quick'),
+    maxAllKosu: argVal('--max-all-kosu') ? Number(argVal('--max-all-kosu')) : null,
     apiBase: argVal('--api') || 'http://127.0.0.1:3023',
     verbose: args.includes('--verbose') || args.includes('-v')
 };
@@ -139,11 +142,14 @@ function findRepairTargets(horses, atIdFilter) {
     return findMissing(scoped, atIdFilter);
 }
 
-function fetchAtKosular(apiBase, atId, atAdi) {
-    const url = apiBase + '/api/at-tum-veriler?id=' + encodeURIComponent(atId)
-        + '&adi=' + encodeURIComponent(atAdi || '');
+function fetchAtKosular(apiBase, atId, atAdi, opts = {}) {
+    const q = new URLSearchParams({ id: atId, adi: atAdi || '' });
+    if (opts.quick) q.set('allFieldSizes', '0');
+    if (opts.maxAllKosu != null) q.set('maxAllKosu', String(opts.maxAllKosu));
+    const url = apiBase + '/api/at-tum-veriler?' + q.toString();
+    const timeoutMs = opts.timeoutMs || 300000;
     return new Promise((resolve, reject) => {
-        http.get(url, res => {
+        const req = http.get(url, res => {
             let body = '';
             res.on('data', c => { body += c; });
             res.on('end', () => {
@@ -153,7 +159,12 @@ function fetchAtKosular(apiBase, atId, atAdi) {
                     reject(e);
                 }
             });
-        }).on('error', reject);
+        });
+        req.on('error', reject);
+        req.setTimeout(timeoutMs, () => {
+            req.destroy();
+            reject(new Error('timeout ' + Math.round(timeoutMs / 1000) + 's'));
+        });
     });
 }
 
@@ -168,31 +179,53 @@ function formatKosuPreview(kosular) {
 async function runFetchPlan(plan, apiBase, delayMs) {
     hr('TJK fetch (' + apiBase + ')');
     console.log('  Not: TJK atId sayfasından çekilir — tarih/hipodrom/at eşleşmesi atId ile garanti.');
-    console.log('  API son 7 koşuyu detaylı döner (son800, derece dahil).');
-    let ok = 0;
-    let fail = 0;
+    if (cli.fetchQuick) {
+        console.log('  Mod: fetch-quick — sadece son 7 koşu tam detay (~1-2 dk/at)');
+    } else {
+        console.log('  Mod: tam — son 7 detay + max ' + (cli.maxAllKosu || 40) + ' koşu at_sayisi (~2-4 dk/at)');
+    }
+
+    const byAtId = new Map();
     for (const p of plan) {
         if (p.donor && !cli.refresh) continue;
+        if (!p.atId) continue;
+        if (!byAtId.has(p.atId)) byAtId.set(p.atId, p);
+    }
+    const unique = [...byAtId.values()];
+    console.log('  Benzersiz atId: ' + unique.length + ' (satır tekrarı atlanır)');
+    console.log('  Tahmini süre: ~' + Math.ceil(unique.length * (cli.fetchQuick ? 1.5 : 3)) + ' dk\n');
+
+    let ok = 0;
+    let fail = 0;
+    for (let i = 0; i < unique.length; i++) {
+        const p = unique[i];
+        const tag = '[' + (i + 1) + '/' + unique.length + ']';
+        process.stdout.write('  ' + tag + ' fetch ' + p.atId + ' #' + p.horseNo + ' ' + (p.horseName || '') + ' … ');
         try {
-            const data = await fetchAtKosular(apiBase, p.atId, p.horseName);
+            const data = await fetchAtKosular(apiBase, p.atId, p.horseName, {
+                quick: cli.fetchQuick,
+                maxAllKosu: cli.maxAllKosu,
+                timeoutMs: cli.fetchTimeoutMs
+            });
             if (data.success && data.kosular?.length) {
-                p.fetched = data.kosular;
+                for (const row of plan) {
+                    if (row.atId === p.atId) row.fetched = data.kosular;
+                }
                 ok++;
-                console.log('  ✓ fetch ' + p.atId + ' #' + p.horseNo + ' ' + (p.horseName || '')
-                    + ' → ' + formatKosuPreview(data.kosular)
-                    + (data.atAdi ? ' · TJK adı: ' + data.atAdi : ''));
+                console.log('✓ ' + formatKosuPreview(data.kosular)
+                    + (data.atAdi ? ' · ' + data.atAdi : ''));
             } else {
                 fail++;
-                console.log('  ✗ fetch ' + p.atId + ' #' + p.horseNo + ' → boş'
-                    + (data.error ? ' (' + data.error + ')' : '') + ' · ' + (data.atAdi || '—'));
+                console.log('✗ boş' + (data.error ? ' (' + data.error + ')' : ''));
             }
         } catch (e) {
             fail++;
-            console.log('  ✗ fetch ' + p.atId + ' hata: ' + e.message);
+            console.log('✗ ' + e.message);
+            console.log('    → pm2 restart 88atspeed sonra kaldığı yerden: --at-id ' + p.atId);
         }
-        if (delayMs > 0) await sleep(delayMs);
+        if (delayMs > 0 && i < unique.length - 1) await sleep(delayMs);
     }
-    console.log('  Fetch özeti: ' + ok + ' başarılı · ' + fail + ' başarısız');
+    console.log('\n  Fetch özeti: ' + ok + ' başarılı · ' + fail + ' başarısız');
     return { ok, fail };
 }
 

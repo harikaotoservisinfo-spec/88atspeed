@@ -574,12 +574,13 @@ app.get('/api/at-tum-veriler', async (req, res) => {
             maxRetry: Number(req.query.retry) || 1
         });
         
-        await page.close();
         res.json(result);
         
     } catch (error) {
         console.error('At tüm veriler hatası:', error.message);
         res.json({ success: false, error: error.message });
+    } finally {
+        try { if (page) await page.close(); } catch (_) {}
     }
 });
 
