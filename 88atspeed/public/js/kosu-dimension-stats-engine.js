@@ -8,6 +8,8 @@ const KosuDimensionStatsEngine = {
             label: 'KOŞU CİNSİ',
             pctLabel: 'KC%',
             matchLabel: 'KC-KOŞU',
+            formLabel: 'KC-FORM',
+            adjLabel: 'KC+',
             note: 'Hedef koşu cinsi (kcins_kosu) geçmiş koşularla karşılaştırılır.',
             targetFrom: 'race',
             getTarget(_horse, race) {
@@ -32,6 +34,8 @@ const KosuDimensionStatsEngine = {
             label: 'TAKİ',
             pctLabel: 'TK%',
             matchLabel: 'TK-KOŞU',
+            formLabel: 'TK-FORM',
+            adjLabel: 'TK+',
             note: 'Hedef takı (KG DB SK GKR vb.) geçmiş koşulardaki taki ile eşleşir.',
             targetFrom: 'horse',
             getTarget(horse, _race) {
@@ -60,6 +64,8 @@ const KosuDimensionStatsEngine = {
             label: 'PİST',
             pctLabel: 'PİST%',
             matchLabel: 'P-KOŞU',
+            formLabel: 'P-FORM',
+            adjLabel: 'P+',
             note: 'Hedef pist (Kum/Çim/Sentetik) geçmiş koşulardaki pist/pist_kosu ile eşleşir.',
             targetFrom: 'race',
             getTarget(_horse, race) {
@@ -92,6 +98,8 @@ const KosuDimensionStatsEngine = {
             label: 'HP',
             pctLabel: 'HP%',
             matchLabel: 'HP-KOŞU',
+            formLabel: 'HP-FORM',
+            adjLabel: 'HP+',
             note: 'Hedef handikap puanı geçmiş koşulardaki hp ile eşleşir.',
             targetFrom: 'horse',
             getTarget(horse, _race) {
@@ -115,6 +123,8 @@ const KosuDimensionStatsEngine = {
             label: 'SİKLET',
             pctLabel: 'SK%',
             matchLabel: 'SK-KOŞU',
+            formLabel: 'SK-FORM',
+            adjLabel: 'SK+',
             note: 'Hedef sıklet geçmiş koşulardaki sıklet ile eşleşir. TJK 58,5→59 kg gösterim; '
                 + '±0,5 kg tolerans (59,5–60,5 arası 60 sayılır).',
             targetFrom: 'horse',
@@ -309,6 +319,9 @@ const KosuDimensionStatsEngine = {
             max123: placement.max123,
             max1234: placement.max1234,
             cnt1: placement.cnt1,
+            cnt2: placement.cnt2 ?? 0,
+            cnt3: placement.cnt3 ?? 0,
+            cnt4: placement.cnt4 ?? 0,
             cnt12: placement.cnt12,
             cnt123: placement.cnt123,
             cnt1234: placement.cnt1234,
@@ -339,7 +352,13 @@ const KosuDimensionStatsEngine = {
                 : calcKosular.slice(0, w);
             windows[w] = this._computeStatsCore(sliced, dimKey, hedef);
         }
-        return Object.assign(base, { windows });
+
+        const formTrend = this.computeRecentFormTrend(calcKosular, dimKey, hedef);
+        const dimAdj = this.computeAdjustedDimScore(base.matchPct, formTrend, calcKosular, dimKey, hedef);
+        const genBlock = this._computeGeneralBlock(calcKosular, dimKey, hedef);
+        const full = Object.assign(base, { windows, formTrend, dimAdj }, genBlock);
+        full.basSuccess = this.computeBasSuccessScore(full);
+        return full;
     },
 
     formatCell(v) {
@@ -348,6 +367,393 @@ const KosuDimensionStatsEngine = {
 
     formatPct(pct) {
         return pct != null ? '%' + pct : '—';
+    },
+
+    _placementScore(sira) {
+        if (typeof SehirStatsEngine !== 'undefined') {
+            return SehirStatsEngine.placementScore(sira);
+        }
+        const FSE = typeof FieldSizeStatsEngine !== 'undefined' ? FieldSizeStatsEngine : null;
+        const n = FSE ? FSE.parseSira(sira) : parseInt(String(sira || '').replace(/[^\d]/g, ''), 10);
+        if (n == null || n < 1 || isNaN(n)) return null;
+        if (n === 1) return 100;
+        if (n === 2) return 88;
+        if (n === 3) return 76;
+        if (n === 4) return 64;
+        return Math.max(12, 64 - (n - 4) * 7);
+    },
+
+    _weightedSlope(points) {
+        if (typeof SehirStatsEngine !== 'undefined') {
+            return SehirStatsEngine._weightedSlope(points);
+        }
+        let sw = 0, sx = 0, sy = 0, sxx = 0, sxy = 0;
+        for (let i = 0; i < points.length; i++) {
+            const p = points[i];
+            sw += p.w;
+            sx += p.w * p.x;
+            sy += p.w * p.y;
+            sxx += p.w * p.x * p.x;
+            sxy += p.w * p.x * p.y;
+        }
+        const denom = sw * sxx - sx * sx;
+        return denom ? (sw * sxy - sx * sy) / denom : null;
+    },
+
+    _raceMatchesDim(k, dimKey, hedef) {
+        const dim = this.getDim(dimKey);
+        if (!dim || !this.hasValue(hedef)) return false;
+        const rawVal = dimKey === 'siklet' ? (k?.siklet || '') : dim.getKosuValue(k);
+        return dim.match(rawVal, hedef);
+    },
+
+    _avgPlacementFromCounts(c1, c2, c3, c4, n) {
+        const total = Number(n) || 0;
+        if (!total) return 0;
+        const pts = (Number(c1) || 0) * 100
+            + (Number(c2) || 0) * 88
+            + (Number(c3) || 0) * 76
+            + (Number(c4) || 0) * 64;
+        return Math.round(pts / total);
+    },
+
+    _effectiveFormPct(formTrend, basePct, missingMin) {
+        if (formTrend?.pct != null) return formTrend.pct;
+        const base = basePct != null ? basePct : 0;
+        return Math.max(0, 50 - Math.round(Math.max(missingMin, base * 0.18)));
+    },
+
+    /** Son 5 koşuda hedef boyutta performans momentumu (0–100, 50=nötr). */
+    computeRecentFormTrend(calcKosular, dimKey, hedef, opts) {
+        const dim = this.getDim(dimKey);
+        const allScope = !!(opts && opts.allScope);
+        const formLabel = allScope ? 'G-FORM' : (dim?.formLabel || 'FORM');
+        const empty = {
+            pct: null,
+            display: '—',
+            delta: null,
+            slope: null,
+            rising: false,
+            falling: false,
+            tooltip: allScope
+                ? 'Son 5 koşuda (tüm geçerli) en az 2 dereceli koşu gerekir'
+                : 'Son 5 koşuda hedef boyutta en az 2 dereceli koşu gerekir',
+            matchSamples: 0
+        };
+        const FSE = typeof FieldSizeStatsEngine !== 'undefined' ? FieldSizeStatsEngine : null;
+        if (!FSE || !dim || (!allScope && !this.hasValue(hedef))) return empty;
+
+        const windowSize = (opts && opts.windowSize != null) ? opts.windowSize : 5;
+        const minSamples = (opts && opts.minSamples != null) ? opts.minSamples : 2;
+        const recent = FSE.recentSlice(calcKosular || [], windowSize);
+        if (!recent.length) return empty;
+
+        const chronological = [...recent].reverse();
+        const samples = [];
+        const tipLines = allScope
+            ? ['Son ' + windowSize + ' koşu · tüm geçerli ' + dim.label]
+            : ['Son ' + windowSize + ' koşu · hedef: ' + dim.abbrev(hedef)];
+
+        for (let xi = 0; xi < chronological.length; xi++) {
+            const k = chronological[xi];
+            const dimVal = dimKey === 'siklet' ? (k?.siklet || '') : dim.getKosuValue(k);
+            if (!this.hasValue(dimVal)) continue;
+            const matched = allScope || this._raceMatchesDim(k, dimKey, hedef);
+            if (!allScope && !matched) {
+                tipLines.push((k.tarih || '?') + ': ' + dim.abbrev(dimVal) + ' (hedef dışı)');
+                continue;
+            }
+            const sira = FSE.parseSira(k.sira);
+            const score = this._placementScore(sira);
+            if (score == null) {
+                tipLines.push((k.tarih || '?') + ': ' + dim.abbrev(dimVal) + ' · sıra yok');
+                continue;
+            }
+            const w = Math.pow(xi + 1, 1.6);
+            samples.push({ x: xi, y: score, w, sira, tarih: k.tarih, val: dimVal });
+            tipLines.push((k.tarih || '?') + ': ' + dim.abbrev(dimVal) + ' · ' + sira + '. → puan ' + score);
+        }
+
+        if (samples.length < minSamples) {
+            return Object.assign({}, empty, {
+                tooltip: allScope
+                    ? ('S' + windowSize + ' penceresinde ≥' + minSamples + ' dereceli koşu yok')
+                    : ('S' + windowSize + ' penceresinde hedef boyutta ≥' + minSamples + ' dereceli koşu yok'),
+                matchSamples: samples.length
+            });
+        }
+
+        let slope = this._weightedSlope(samples);
+        if (slope == null && samples.length >= 2) {
+            const a = samples[samples.length - 2];
+            const b = samples[samples.length - 1];
+            slope = (b.y - a.y) / Math.max(1, b.x - a.x);
+        }
+
+        const last = samples[samples.length - 1];
+        const prev = samples.length >= 2 ? samples[samples.length - 2] : null;
+        const stepDelta = prev ? last.y - prev.y : null;
+
+        let olderW = 0, olderS = 0, newerW = 0, newerS = 0;
+        const half = Math.floor(samples.length / 2);
+        for (let i = 0; i < samples.length; i++) {
+            const s = samples[i];
+            if (i < half) { olderW += s.w; olderS += s.y * s.w; }
+            else { newerW += s.w; newerS += s.y * s.w; }
+        }
+        const avgOlder = olderW ? olderS / olderW : null;
+        const avgNewer = newerW ? newerS / newerW : null;
+        const halfDelta = (avgOlder != null && avgNewer != null) ? avgNewer - avgOlder : null;
+
+        const blendDelta = (slope != null ? slope * (windowSize - 1) : 0) * 0.55
+            + (halfDelta != null ? halfDelta : 0) * 0.45
+            + (stepDelta != null ? stepDelta : 0) * 0.25;
+        const pct = Math.round(Math.min(100, Math.max(0, 50 + blendDelta * 1.15)));
+
+        tipLines.push(formLabel + ': %' + pct + ' (50=nötr · yüksek=iyileşme)');
+
+        return {
+            pct,
+            display: '%' + pct,
+            delta: halfDelta != null ? Math.round(halfDelta) : null,
+            slope: slope != null ? Math.round(slope * 10) / 10 : null,
+            rising: pct >= 58,
+            falling: pct <= 42,
+            tooltip: tipLines.join('\n'),
+            matchSamples: samples.length,
+            samples
+        };
+    },
+
+    computeRecencyPlacementBonus(calcKosular, dimKey, hedef, opts) {
+        const allScope = !!(opts && opts.allScope) || (opts && opts.placeScope === 'all');
+        const empty = { total: 0, parts: [], races: [] };
+        const FSE = typeof FieldSizeStatsEngine !== 'undefined' ? FieldSizeStatsEngine : null;
+        const dim = this.getDim(dimKey);
+        if (!FSE || !dim || (!allScope && !this.hasValue(hedef))) return empty;
+
+        const windowSize = (opts && opts.windowSize != null) ? opts.windowSize : 5;
+        const siraPoints = { 1: 10, 2: 6, 3: 4, 4: 2 };
+        const recent = FSE.recentSlice(calcKosular || [], windowSize);
+        if (!recent.length) return empty;
+
+        const chronological = [...recent].reverse();
+        const n = chronological.length;
+        let total = 0;
+        const parts = [];
+        const races = [];
+
+        for (let i = 0; i < n; i++) {
+            const k = chronological[i];
+            const recency = n <= 1 ? 1 : 0.35 + 0.65 * (i / (n - 1));
+            const dimVal = dimKey === 'siklet' ? (k?.siklet || '') : dim.getKosuValue(k);
+            if (!allScope && !this._raceMatchesDim(k, dimKey, hedef)) {
+                const pen = -Math.round(2 * recency);
+                total += pen;
+                parts.push({ tarih: k.tarih, sira: null, recency, delta: pen, note: 'hedef dışı' });
+                races.push({ tarih: k.tarih, sira: null, recency, delta: pen });
+                continue;
+            }
+            if (!this.hasValue(dimVal)) continue;
+            const sira = FSE.parseSira(k.sira);
+            if (sira == null) continue;
+            let pts = siraPoints[sira] != null ? siraPoints[sira] : (sira <= 8 ? 0 : -3);
+            const delta = Math.round(pts * recency * 10) / 10;
+            total += delta;
+            const note = dim.abbrev(dimVal) + ' ' + sira + '.';
+            parts.push({ tarih: k.tarih, sira, recency, delta, note });
+            races.push({ tarih: k.tarih, sira, recency, delta });
+        }
+
+        return { total: Math.round(total * 10) / 10, parts, races };
+    },
+
+    computeLastRaceMatchAdj(calcKosular, dimKey, hedef, opts) {
+        const empty = {
+            delta: 0, lastVal: null, lastTarih: null, inTarget: null,
+            display: '—', tooltip: 'Son koşu bilgisi yok'
+        };
+        const FSE = typeof FieldSizeStatsEngine !== 'undefined' ? FieldSizeStatsEngine : null;
+        const dim = this.getDim(dimKey);
+        if (!FSE || !dim || !this.hasValue(hedef)) return empty;
+
+        const bonus = (opts && opts.lastMatchBonus != null) ? opts.lastMatchBonus : 8;
+        const penalty = (opts && opts.lastMatchPenalty != null) ? opts.lastMatchPenalty : -10;
+
+        const recent = FSE.recentSlice(calcKosular || [], 1);
+        const last = recent[0];
+        if (!last) return empty;
+        const dimVal = dimKey === 'siklet' ? (last?.siklet || '') : dim.getKosuValue(last);
+        if (!this.hasValue(dimVal)) return empty;
+
+        const inTarget = this._raceMatchesDim(last, dimKey, hedef);
+        const delta = inTarget ? bonus : penalty;
+
+        return {
+            delta,
+            lastVal: dimVal,
+            lastTarih: last.tarih || null,
+            inTarget,
+            display: (delta >= 0 ? '+' : '') + delta,
+            tooltip: inTarget
+                ? ('Son koşu ' + (last.tarih || '?') + ' ' + dim.abbrev(dimVal)
+                    + ' = hedef ' + dim.abbrev(hedef) + ' → süreklilik ödülü +' + bonus)
+                : ('Son koşu ' + (last.tarih || '?') + ' ' + dim.abbrev(dimVal)
+                    + ' ≠ hedef ' + dim.abbrev(hedef) + ' → değişim cezası ' + penalty)
+        };
+    },
+
+    computeAdjustedDimScore(matchPct, formTrend, calcKosular, dimKey, hedef, opts) {
+        const dim = this.getDim(dimKey);
+        const base = matchPct != null ? matchPct : 0;
+        const formScale = (opts && opts.formScale != null) ? opts.formScale : 0.35;
+        const missingFormRatio = (opts && opts.missingFormRatio != null) ? opts.missingFormRatio : 0.18;
+        const missingFormMin = (opts && opts.missingFormMin != null) ? opts.missingFormMin : 8;
+        const maxPct = (opts && opts.maxPct != null) ? opts.maxPct : 130;
+        const scoreLabel = (opts && opts.scoreLabel) || (dim?.adjLabel || 'DIM+');
+        const baseLabel = (opts && opts.baseLabel) || (dim?.pctLabel || 'MATCH%');
+        const formLabel = (opts && opts.formLabel) || (dim?.formLabel || 'FORM');
+        const placeScope = (opts && opts.placeScope) || 'matched';
+        const placeOpts = Object.assign({}, opts, {
+            allScope: placeScope === 'all',
+            placeScope
+        });
+
+        let formAdj = 0;
+        const tipLines = [scoreLabel + ' = ' + baseLabel + ' + form + son koşu + S5 derece'];
+        tipLines.push('Taban ' + baseLabel + ': %' + base);
+
+        const formPct = formTrend?.pct;
+        if (formPct == null) {
+            formAdj = -Math.round(Math.max(missingFormMin, base * missingFormRatio));
+            tipLines.push(formLabel + ' yok → ceza: ' + formAdj + ' puan');
+        } else {
+            formAdj = Math.round((formPct - 50) * formScale);
+            tipLines.push(formLabel + ' %' + formPct + ' → ' + (formAdj >= 0 ? '+' : '') + formAdj);
+        }
+
+        const lastMatch = this.computeLastRaceMatchAdj(calcKosular, dimKey, hedef, opts);
+        const lastMatchAdj = lastMatch.delta || 0;
+        if (lastMatch.inTarget != null) {
+            tipLines.push('Son koşu: ' + (lastMatchAdj >= 0 ? '+' : '') + lastMatchAdj
+                + ' (' + lastMatch.tooltip + ')');
+        }
+
+        const place = this.computeRecencyPlacementBonus(calcKosular, dimKey, hedef, placeOpts);
+        const placeAdj = Math.round(place.total);
+        const scopeLabel = placeScope === 'all' ? 'tüm geçerli koşular' : 'hedef boyut';
+        if (place.races.length) {
+            tipLines.push('S5 derece (' + scopeLabel + '): ' + (placeAdj >= 0 ? '+' : '') + placeAdj);
+        }
+
+        const raw = base + formAdj + lastMatchAdj + placeAdj;
+        const pct = Math.round(Math.min(maxPct, Math.max(0, raw)));
+
+        tipLines.push('Toplam: %' + pct);
+
+        return {
+            pct,
+            display: '%' + pct,
+            base,
+            formAdj,
+            lastMatchAdj,
+            lastMatch,
+            placeAdj,
+            totalAdj: formAdj + lastMatchAdj + placeAdj,
+            boosted: pct > base + 2,
+            penalized: pct < base - 2,
+            tooltip: tipLines.join('\n')
+        };
+    },
+
+    computeGeneralBasePct(calcKosular, dimKey) {
+        const races = this.validRaces(calcKosular, dimKey);
+        if (!races.length) return null;
+        const FSE = typeof FieldSizeStatsEngine !== 'undefined' ? FieldSizeStatsEngine : null;
+        let sum = 0;
+        let n = 0;
+        for (let i = 0; i < races.length; i++) {
+            const sira = FSE ? FSE.parseSira(races[i].sira) : null;
+            const sc = this._placementScore(sira);
+            if (sc != null) { sum += sc; n++; }
+        }
+        return n ? Math.round(sum / n) : null;
+    },
+
+    _computeGeneralBlock(calcKosular, dimKey, hedef) {
+        const FSE = typeof FieldSizeStatsEngine !== 'undefined' ? FieldSizeStatsEngine : null;
+        const genRaces = this.validRaces(calcKosular, dimKey);
+        const genPlacement = FSE
+            ? FSE._computeStatsCore(genRaces)
+            : { cnt1: 0, cnt2: 0, cnt3: 0, cnt4: 0, kosuSayisi: 0 };
+        const genBasePct = this.computeGeneralBasePct(calcKosular, dimKey);
+        const genForm = this.computeRecentFormTrend(calcKosular, dimKey, hedef, { allScope: true });
+        const genAdj = this.computeAdjustedDimScore(genBasePct, genForm, calcKosular, dimKey, hedef, {
+            scoreLabel: 'GEN+',
+            baseLabel: 'GEN%',
+            formLabel: 'G-FORM',
+            placeScope: 'all',
+            missingFormMin: 6
+        });
+        return {
+            genBasePct,
+            genCnt1: genPlacement.cnt1,
+            genCnt2: genPlacement.cnt2,
+            genCnt3: genPlacement.cnt3,
+            genCnt4: genPlacement.cnt4,
+            genForm,
+            genAdj
+        };
+    },
+
+    computeBasSuccessScore(st) {
+        const empty = {
+            pct: null, display: '—', matchTrust: 0,
+            matchBlock: null, genBlock: null, tooltip: 'Geçmiş koşu yok'
+        };
+        const total = st?.kosuSayisi || 0;
+        const matched = st?.matchCount || 0;
+        if (!total) return empty;
+
+        const windowCap = Math.min(6, total);
+        const matchTrust = matched === 0
+            ? 0
+            : Math.round(Math.min(1, 0.12 + 0.88 * (matched / windowCap)) * 1000) / 1000;
+
+        const matchPlace = this._avgPlacementFromCounts(st.cnt1, st.cnt2, st.cnt3, st.cnt4, matched);
+        const genPlace = this._avgPlacementFromCounts(
+            st.genCnt1, st.genCnt2, st.genCnt3, st.genCnt4, total);
+
+        const dimPlus = st.dimAdj?.pct ?? st.matchPct ?? 0;
+        const genPlus = st.genAdj?.pct ?? st.genBasePct ?? 0;
+        const matchPct = st.matchPct ?? 0;
+        const genPct = st.genBasePct ?? 0;
+        const dimForm = this._effectiveFormPct(st.formTrend, matchPct, 8);
+        const genForm = this._effectiveFormPct(st.genForm, genPct, 6);
+
+        const W = { plus: 0.55, place: 0.20, base: 0.10, form: 0.15 };
+        const matchBlock = dimPlus * W.plus + matchPlace * W.place + matchPct * W.base + dimForm * W.form;
+        const genBlock = genPlus * W.plus + genPlace * W.place + genPct * W.base + genForm * W.form;
+        const raw = matchTrust * matchBlock + (1 - matchTrust) * genBlock;
+        const pct = Math.round(Math.min(130, Math.max(0, raw)));
+
+        const tipLines = [
+            'BAŞ+ = hedef boyut + genel blok karışımı',
+            'Boyut güveni %' + Math.round(matchTrust * 100) + ' (' + matched + '/' + windowCap + ' eşleşen, max 6)',
+            'Boyut blok → ' + Math.round(matchBlock) + ' · Genel blok → ' + Math.round(genBlock),
+            'Sonuç: %' + pct
+        ];
+
+        return {
+            pct,
+            display: '%' + pct,
+            matchTrust,
+            matchBlock: Math.round(matchBlock),
+            genBlock: Math.round(genBlock),
+            boosted: pct >= 85,
+            penalized: pct <= 25,
+            tooltip: tipLines.join('\n')
+        };
     },
 
     /**

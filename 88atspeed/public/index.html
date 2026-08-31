@@ -109,6 +109,19 @@
             background: linear-gradient(135deg, #ede7f6, #e1bee7);
             color: #4a148c; font-weight: 800; min-width: 52px;
         }
+        .dimtest-table .col-hedef {
+            min-width: 56px; text-align: center; font-weight: 800;
+            color: #1565c0; background: #e3f2fd; font-size: 11px;
+        }
+        .dimtest-table .col-stat-dim-match {
+            background: #e3f2fd; color: #0d47a1; font-weight: 700;
+        }
+        .dimtest-table .col-stat-gen { background: #fff3e0; color: #e65100; font-weight: 700; }
+        .dimtest-table .col-stat-gen-adj { background: #ffe0b2; color: #bf360c; font-weight: 700; }
+        .dimtest-table .col-stat-bas {
+            background: linear-gradient(135deg, #ede7f6, #e1bee7);
+            color: #4a148c; font-weight: 800; min-width: 52px;
+        }
         .sehirtest-table .col-gecmis-match { color: #1565c0; }
         .astest-note {
             font-size: 11px; color: #78909c; margin: 0 0 10px 2px;
@@ -259,7 +272,7 @@
     <script src="js/at-meta-fields.js?v=20260831a"></script>
     <script src="js/field-size-stats-engine.js?v=20260831e"></script>
     <script src="js/sehir-stats-engine.js?v=20260831g"></script>
-    <script src="js/kosu-dimension-stats-engine.js?v=20260831e"></script>
+    <script src="js/kosu-dimension-stats-engine.js?v=20260831h"></script>
     <script>
         const RECENT_WINDOWS = FieldSizeStatsEngine.RECENT_WINDOWS;
 
@@ -336,6 +349,24 @@
                 html += '<td class="col-stat col-stat-window col-stat-cnt">' + (ws.cnt4 ?? 0) + '</td>';
             }
             return html;
+        }
+
+        function astestDimFormCell(st) {
+            const ft = st.formTrend || {};
+            let cls = 'col-stat col-stat-dim-match col-stat-rise';
+            if (ft.rising) cls += ' col-stat-rise-up';
+            else if (ft.falling) cls += ' col-stat-rise-down';
+            return '<td class="' + cls + '" title="' + escapeHtml(ft.tooltip || '') + '">'
+                + escapeHtml(ft.display || '—') + '</td>';
+        }
+
+        function astestDimAdjCell(st) {
+            const adj = st.dimAdj || {};
+            let cls = 'col-stat col-stat-dim-match col-stat-dim-adj';
+            if (adj.boosted) cls += ' col-stat-rise-up';
+            else if (adj.penalized) cls += ' col-stat-rise-down';
+            return '<td class="' + cls + '" title="' + escapeHtml(adj.tooltip || '') + '">'
+                + escapeHtml(adj.display || KosuDimensionStatsEngine.formatPct(st.matchPct)) + '</td>';
         }
 
         function astestMaxSuccessAvgHeader(dimKey) {
@@ -1202,15 +1233,16 @@
             }
             let html = '<div class="son-test-wrap">';
             html += '<p class="astest-note">' + escapeHtml(dim.note) + ' GETİR ile diğer test sekmeleriyle '
-                + '<strong>aynı anda</strong> dolar. MAX-* yalnızca eşleşen ve <strong>at_sayisi</strong> bilgili koşularda; '
-                + '1./1-2/… <strong>sira</strong> ile hesaplanır (at_sayisi yoksa MAX — kalır). '
-                + '<strong>S5–S1</strong> son 5/4/3/2/1 koşu penceresidir.'
-                + ' Program günü koşusu geçmiş MAX/KOŞU hesabından hariç tutulur.'
+                + '<strong>aynı anda</strong> dolar. '
+                + '<strong>BAŞ+</strong> (HEDEF sonrası) = boyut + genel blok karışımı (max 6 koşu). '
+                + '<strong>' + escapeHtml(dim.formLabel) + '</strong> = son 5 koşuda hedef boyutta momentum (%50 nötr). '
+                + '<strong>' + escapeHtml(dim.adjLabel) + '</strong> = ' + escapeHtml(dim.pctLabel)
+                + ' + form + son koşu eşleşmesi + S5 derece. '
+                + '<strong>GEN+ / G1–G4</strong> = tüm geçerli koşularda genel başarı. '
+                + '<strong>1. / 1-2 / …</strong> = hedef boyutta tam 1./2./3./4. adet (kümülatif değil). '
+                + ' Program günü koşusu geçmişten hariç tutulur.'
                 + (dimKey === 'siklet'
-                    ? ' Sıklet: TJK 58,5→59 gösterim · ±0,5 kg eşleşme (59,5–60,5→60). Eski kayıtta at_sayisi eksikse GETİR/repair.'
-                        + ' <strong>SK↑S5</strong> = son 5 koşu SK% − TÜM SK% (≥5 puan artış, SK-KOŞU≥2).'
-                        + ' <strong>MAX%Ø</strong> = MAX-1/12/123/1234 % ortalaması.'
-                        + ' <strong>MAX%</strong> = ayrıntılı 1·12·123·1234 (%100 tavan).'
+                    ? ' TJK 58,5→59 kg · ±0,5 kg eşleşme (59,5–60,5→60).'
                     : '') + '</p>';
             const programTarih = meta?.tarih || null;
             for (let i = 0; i < races.length; i++) {
@@ -1233,76 +1265,61 @@
                 html += '<th class="col-no">#</th>';
                 html += '<th class="col-name">AT İSMİ</th>';
                 html += '<th class="col-hedef" title="Hedef ' + escapeHtml(dim.label) + '">HEDEF</th>';
-                html += '<th class="col-stat" title="Geçmiş koşu (' + escapeHtml(dim.label) + ' bilgili)">KOŞU</th>';
-                html += '<th class="col-stat col-stat-dim" title="Eşleşme oranı">' + escapeHtml(dim.pctLabel) + '</th>';
-                html += '<th class="col-stat col-stat-dim" title="Eşleşen koşu sayısı">' + escapeHtml(dim.matchLabel) + '</th>';
-                html += astestDimensionRiseHeader(dimKey, dim.pctLabel);
-                html += astestMaxSuccessAvgHeader(dimKey);
-                html += astestMaxSuccessHeader(dimKey);
-                html += '<th class="col-stat col-stat-max" title="Eşleşen koşularda en fazla kaç atlı koşuda 1.">MAX-1</th>';
-                html += '<th class="col-stat col-stat-max">MAX-12</th>';
-                html += '<th class="col-stat col-stat-max">MAX-123</th>';
-                html += '<th class="col-stat col-stat-max">MAX-1234</th>';
-                html += '<th class="col-stat col-stat-cnt">1.</th>';
-                html += '<th class="col-stat col-stat-cnt">1-2</th>';
-                html += '<th class="col-stat col-stat-cnt">1-2-3</th>';
-                html += '<th class="col-stat col-stat-cnt col-stat-all-hdr">1-2-3-4</th>';
-                html += '<th class="col-gecmis col-gecmis-match col-stat-all-hdr" title="Hedef eşleşmesi (✓)">EŞLEŞME</th>';
-                html += '<th class="col-gecmis col-stat-all-hdr" title="Geçmiş ' + escapeHtml(dim.label) + ' değerleri">GEÇMİŞ</th>';
-                html += astestWindowStatHeaders('dimension', dim.pctLabel, dim.matchLabel);
+                html += '<th class="col-stat col-stat-bas" title="Birleşik başarı: ' + escapeHtml(dim.adjLabel)
+                    + ' + GEN+ karışımı">BAŞ+</th>';
+                html += '<th class="col-stat" title="Geçmiş koşu (' + escapeHtml(dim.label) + ' bilgili)">TÜM KOŞU</th>';
+                html += '<th class="col-stat col-stat-dim-match" title="Hedef boyutta koşu sayısı">'
+                    + escapeHtml(dim.matchLabel) + '</th>';
+                html += '<th class="col-stat col-stat-dim-match" title="Eşleşme oranı">'
+                    + escapeHtml(dim.pctLabel) + '</th>';
+                html += '<th class="col-stat col-stat-dim-match col-stat-rise" title="Son 5 koşuda hedef boyutta momentum">'
+                    + escapeHtml(dim.formLabel) + '</th>';
+                html += '<th class="col-stat col-stat-dim-match col-stat-dim-adj" title="Düzeltilmiş boyut skoru">'
+                    + escapeHtml(dim.adjLabel) + '</th>';
+                html += '<th class="col-stat col-stat-cnt" title="Hedef boyutta 1. olma adedi">1.</th>';
+                html += '<th class="col-stat col-stat-cnt" title="Hedef boyutta 2. olma adedi">1-2</th>';
+                html += '<th class="col-stat col-stat-cnt" title="Hedef boyutta 3. olma adedi">1-2-3</th>';
+                html += '<th class="col-stat col-stat-cnt col-stat-all-hdr" title="Hedef boyutta 4. olma adedi">1-2-3-4</th>';
+                html += '<th class="col-stat col-stat-gen col-stat-gen-adj" title="Genel başarı (tüm geçerli koşular)">GEN+</th>';
+                html += '<th class="col-stat col-stat-gen" title="Tüm koşularda 1. olma adedi">G1.</th>';
+                html += '<th class="col-stat col-stat-gen" title="Tüm koşularda 2. olma adedi">G1-2</th>';
+                html += '<th class="col-stat col-stat-gen" title="Tüm koşularda 3. olma adedi">G1-3</th>';
+                html += '<th class="col-stat col-stat-gen col-stat-all-hdr" title="Tüm koşularda 4. olma adedi">G1-4</th>';
                 html += '</tr></thead><tbody>';
-                const dimBaseCols = dimKey === 'siklet' ? 19 : 16;
                 if (!horses.length) {
-                    html += '<tr><td colspan="' + (dimBaseCols + ASTEST_WINDOW_COLS.dimension) + '" class="col-name">At yok</td></tr>';
+                    html += '<tr><td colspan="18" class="col-name">At yok</td></tr>';
                 } else {
-                    let raceFsWarn = 0;
-                    let raceAtSayisiMiss = 0;
                     for (let j = 0; j < horses.length; j++) {
                         const h = horses[j];
                         const kosular = veriCache[h.atId] || h.kosular || [];
                         const horseCtx = Object.assign({}, h, { kosular: kosular });
                         const hedef = dim.getTarget(horseCtx, race);
                         const st = KosuDimensionStatsEngine.computeStats(kosular, dimKey, hedef, programTarih);
-                        if (st.fieldSizeMissingOnMatch > 0) raceFsWarn++;
-                        if (st.atSayisiMissing > 0 && st.kosuSayisi > 0) raceAtSayisiMiss++;
-                        const maxTitle = st.fieldSizeMissingOnMatch > 0
-                            ? ' title="Eşleşen ' + st.fieldSizeMissingOnMatch
-                                + ' koşuda at_sayisi yok — GETİR ile yenile"'
-                            : '';
                         html += '<tr>';
                         html += '<td class="col-no">' + escapeHtml(String(h.no ?? (j + 1))) + '</td>';
                         html += '<td class="col-name">' + escapeHtml(h.name || '—') + '</td>';
                         html += '<td class="col-hedef" title="' + escapeHtml(String(hedef || '—')) + '">'
                             + escapeHtml(st.hedefAbbrev || '—') + '</td>';
+                        html += astestBasSuccessCell(st);
                         html += '<td class="col-stat">' + KosuDimensionStatsEngine.formatCell(st.kosuSayisi) + '</td>';
-                        html += '<td class="col-stat col-stat-dim">' + KosuDimensionStatsEngine.formatPct(st.matchPct) + '</td>';
-                        html += '<td class="col-stat col-stat-dim">' + st.matchCount + '</td>';
-                        html += astestDimensionRiseCell(st, dimKey);
-                        html += astestMaxSuccessAvgCell(st, dimKey, race);
-                        html += astestMaxSuccessCell(st, dimKey, race);
-                        html += '<td class="col-stat col-stat-max"' + maxTitle + '>' + KosuDimensionStatsEngine.formatCell(st.max1) + '</td>';
-                        html += '<td class="col-stat col-stat-max"' + maxTitle + '>' + KosuDimensionStatsEngine.formatCell(st.max12) + '</td>';
-                        html += '<td class="col-stat col-stat-max"' + maxTitle + '>' + KosuDimensionStatsEngine.formatCell(st.max123) + '</td>';
-                        html += '<td class="col-stat col-stat-max"' + maxTitle + '>' + KosuDimensionStatsEngine.formatCell(st.max1234) + '</td>';
+                        html += '<td class="col-stat col-stat-dim-match">' + st.matchCount + '</td>';
+                        html += '<td class="col-stat col-stat-dim-match">'
+                            + KosuDimensionStatsEngine.formatPct(st.matchPct) + '</td>';
+                        html += astestDimFormCell(st);
+                        html += astestDimAdjCell(st);
                         html += '<td class="col-stat col-stat-cnt">' + st.cnt1 + '</td>';
-                        html += '<td class="col-stat col-stat-cnt">' + st.cnt12 + '</td>';
-                        html += '<td class="col-stat col-stat-cnt">' + st.cnt123 + '</td>';
-                        html += '<td class="col-stat col-stat-cnt col-stat-all-hdr">' + st.cnt1234 + '</td>';
-                        html += '<td class="col-gecmis col-gecmis-match col-stat-all-hdr">' + escapeHtml(st.gecmisMatchStr) + '</td>';
-                        html += '<td class="col-gecmis col-stat-all-hdr">' + escapeHtml(st.gecmisValStr) + '</td>';
-                        html += astestWindowDimensionCells(st);
+                        html += '<td class="col-stat col-stat-cnt">' + (st.cnt2 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-cnt">' + (st.cnt3 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-cnt col-stat-all-hdr">' + (st.cnt4 ?? 0) + '</td>';
+                        html += astestGenAdjCell(st);
+                        html += '<td class="col-stat col-stat-gen">' + (st.genCnt1 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-gen">' + (st.genCnt2 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-gen">' + (st.genCnt3 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-gen col-stat-all-hdr">' + (st.genCnt4 ?? 0) + '</td>';
                         html += '</tr>';
-                    }
-                    if (raceFsWarn > 0 || raceAtSayisiMiss > 0) {
-                        html += '<tr class="astest-warn-row"><td colspan="' + (dimBaseCols + ASTEST_WINDOW_COLS.dimension)
-                            + '" class="col-name" style="color:#b45309;font-size:11px">⚠ '
-                            + (raceFsWarn ? raceFsWarn + ' at: eşleşen koşuda at_sayisi eksik (MAX-* boş). ' : '')
-                            + (raceAtSayisiMiss ? 'Geçmiş koşularda at_sayisi tamamlanmamış — GETİR yenile veya repair çalıştır.' : '')
-                            + '</td></tr>';
                     }
                 }
                 html += '</tbody></table></div>';
-                html += astestWindowLeaderSummary(horses, race, dimKey, dim, programTarih);
                 html += '</div>';
             }
             html += '</div>';

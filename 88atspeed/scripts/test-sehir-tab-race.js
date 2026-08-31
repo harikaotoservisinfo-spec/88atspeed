@@ -36,6 +36,8 @@ function loadEngines() {
         + '\n; global.FieldSizeStatsEngine = FieldSizeStatsEngine;');
     eval(fs.readFileSync(path.join(ROOT, 'public/js/sehir-stats-engine.js'), 'utf8')
         + '\n; global.SehirStatsEngine = SehirStatsEngine;');
+    eval(fs.readFileSync(path.join(ROOT, 'public/js/kosu-dimension-stats-engine.js'), 'utf8')
+        + '\n; global.KosuDimensionStatsEngine = KosuDimensionStatsEngine;');
 }
 
 function normName(s) {
@@ -287,6 +289,30 @@ function runBasSuccessFixture() {
     if (!ok) process.exit(1);
 }
 
+function runDimScoringFixture() {
+    const kosular = [
+        { tarih: '01.08.2026', siklet: '59', sira: '2', at_sayisi: 10 },
+        { tarih: '02.07.2026', siklet: '59', sira: '3', at_sayisi: 12 },
+        { tarih: '03.06.2026', siklet: '57', sira: '5', at_sayisi: 11 },
+        { tarih: '04.05.2026', siklet: '59', sira: '1', at_sayisi: 9 },
+        { tarih: '05.04.2026', siklet: '58', sira: '4', at_sayisi: 10 },
+        { tarih: '06.03.2026', siklet: '59', sira: '2', at_sayisi: 8 }
+    ];
+    const st = KosuDimensionStatsEngine.computeStats(kosular, 'siklet', '59', null);
+    console.log('SİKLET scoring fixture (hedef 59 kg):');
+    console.log('  SK%=' + st.matchPct + ' SK-KOŞU=' + st.matchCount
+        + ' SK-FORM=' + (st.formTrend?.display || '—')
+        + ' SK+=' + (st.dimAdj?.display || '—')
+        + ' BAŞ+=' + (st.basSuccess?.display || '—'));
+    console.log('  cnt1-4=' + [st.cnt1, st.cnt2, st.cnt3, st.cnt4].join('/')
+        + ' GEN+=' + (st.genAdj?.display || '—'));
+    const ok = st.matchCount === 4 && st.cnt1 === 1 && st.cnt2 === 2
+        && st.dimAdj?.pct != null && st.basSuccess?.pct != null
+        && st.formTrend?.pct != null;
+    console.log('  ' + (ok ? 'OK' : 'HATA'));
+    if (!ok) process.exit(1);
+}
+
 function runGerardFixture() {
     const gerardKosular = [
         { tarih: '29.08.2026', sehir: 'İzmir', mesafe: '2000', sira: '5', at_sayisi: 9 },
@@ -332,6 +358,10 @@ function runFormTrendFixture() {
 
 async function main() {
     loadEngines();
+    if (args.includes('--fixture-dim-siklet')) {
+        runDimScoringFixture();
+        return;
+    }
     if (args.includes('--fixture-bas')) {
         runBasSuccessFixture();
         return;
