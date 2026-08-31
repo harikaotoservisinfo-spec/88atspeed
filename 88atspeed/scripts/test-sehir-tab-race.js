@@ -97,6 +97,7 @@ function printRace(kayit, race, programTarih) {
             + pad(String(a.inCity), 6)
             + pad(a.sehirPct != null ? a.sehirPct + '%' : '—', 6)
             + pad((a.st.formTrend && a.st.formTrend.display) || '—', 8)
+            + pad((a.st.sehirAdj && a.st.sehirAdj.display) || '—', 7)
             + pad(String(a.st.cnt1), 4)
             + pad(String(a.st.cnt2 ?? 0), 4)
             + pad(String(a.st.cnt3 ?? 0), 4)
@@ -127,6 +128,58 @@ function printRace(kayit, race, programTarih) {
     }
 
     console.log('\n  Sütunlar: 1.=1.lik · 1-2=2.lik · 1-3=3.lük · 1-4=4.lük adet (hedef şehirde, kümülatif değil)');
+}
+
+function runSehirAdjFixture() {
+    const cases = [
+        {
+            name: 'BY MUTLU tipi (ŞEH67 FORM98)',
+            kosular: [
+                { tarih: '01.08.2026', sehir: 'İzmir', sira: '2' },
+                { tarih: '02.07.2026', sehir: 'İzmir', sira: '3' },
+                { tarih: '03.06.2026', sehir: 'Ankara', sira: '5' },
+                { tarih: '04.05.2026', sehir: 'İzmir', sira: '2' },
+                { tarih: '05.04.2026', sehir: 'İzmir', sira: '4' },
+                { tarih: '06.03.2026', sehir: 'Bursa', sira: '6' }
+            ],
+            expect: st => st.sehirPct === 67 && st.formTrend?.pct > 55 && st.sehirAdj?.pct > st.sehirPct
+        },
+        {
+            name: 'BRAVE tipi (ŞEH100 FORM6)',
+            kosular: [
+                { tarih: '01.08.2026', sehir: 'İzmir', sira: '8' },
+                { tarih: '02.07.2026', sehir: 'İzmir', sira: '4' },
+                { tarih: '03.06.2026', sehir: 'İzmir', sira: '1' },
+                { tarih: '04.05.2026', sehir: 'İzmir', sira: '2' },
+                { tarih: '05.04.2026', sehir: 'İzmir', sira: '2' },
+                { tarih: '06.03.2026', sehir: 'İzmir', sira: '1' }
+            ],
+            expect: st => st.sehirPct === 100 && st.formTrend?.pct < 20 && st.sehirAdj?.pct < st.sehirPct
+        },
+        {
+            name: 'FORM yok ceza (ŞEH17)',
+            kosular: [
+                { tarih: '01.08.2026', sehir: 'Ankara', sira: '5' },
+                { tarih: '02.07.2026', sehir: 'Bursa', sira: '6' },
+                { tarih: '03.06.2026', sehir: 'Ankara', sira: '7' },
+                { tarih: '04.05.2026', sehir: 'Bursa', sira: '8' },
+                { tarih: '05.04.2026', sehir: 'İzmir', sira: '1' },
+                { tarih: '06.03.2026', sehir: 'Ankara', sira: '9' }
+            ],
+            expect: st => st.sehirPct === 17 && st.formTrend?.pct == null && st.sehirAdj?.pct < st.sehirPct
+        }
+    ];
+
+    console.log('ŞEH+ fixture:');
+    let ok = true;
+    for (const c of cases) {
+        const st = SehirStatsEngine.computeStats(c.kosular, 'İzmir', null);
+        const pass = c.expect(st);
+        console.log('  ' + c.name + ': ŞEH%=' + st.sehirPct + ' FORM=' + (st.formTrend?.display || '—')
+            + ' ŞEH+=' + (st.sehirAdj?.display || '—') + ' · ' + (pass ? 'OK' : 'HATA'));
+        if (!pass) ok = false;
+    }
+    if (!ok) process.exit(1);
 }
 
 function runGerardFixture() {
@@ -180,6 +233,10 @@ async function main() {
     }
     if (args.includes('--fixture-form')) {
         runFormTrendFixture();
+        return;
+    }
+    if (args.includes('--fixture-sehir-adj')) {
+        runSehirAdjFixture();
         return;
     }
     const db = openDb(cli.dbPath);

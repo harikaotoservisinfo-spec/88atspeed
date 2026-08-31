@@ -252,7 +252,7 @@
     <script src="js/utils.js?v=20260831a"></script>
     <script src="js/at-meta-fields.js?v=20260831a"></script>
     <script src="js/field-size-stats-engine.js?v=20260831e"></script>
-    <script src="js/sehir-stats-engine.js?v=20260831c"></script>
+    <script src="js/sehir-stats-engine.js?v=20260831d"></script>
     <script src="js/kosu-dimension-stats-engine.js?v=20260831e"></script>
     <script>
         const RECENT_WINDOWS = FieldSizeStatsEngine.RECENT_WINDOWS;
@@ -443,6 +443,15 @@
                 + escapeHtml(ft.display || '—') + '</td>';
         }
 
+        function astestSehirAdjCell(st) {
+            const adj = st.sehirAdj || {};
+            let cls = 'col-stat col-stat-sehir col-stat-sehir-adj';
+            if (adj.boosted) cls += ' col-stat-rise-up';
+            else if (adj.penalized) cls += ' col-stat-rise-down';
+            return '<td class="' + cls + '" title="' + escapeHtml(adj.tooltip || '') + '">'
+                + escapeHtml(adj.display || SehirStatsEngine.formatPct(st.sehirPct)) + '</td>';
+        }
+
         function astestWindowLeaderSummary(horses, race, kind, dimOrSehir, programTarih) {
             const ladder = [null].concat(RECENT_WINDOWS);
             const rows = horses.map(function(h) {
@@ -457,13 +466,17 @@
             });
             function scoreFor(row, metric, w) {
                 const src = w == null ? row.st : (row.st.windows?.[w] || {});
+                if (metric === 'sehirAdj') {
+                    const v = row.st.sehirAdj?.pct;
+                    return v != null ? Number(v) : null;
+                }
                 const v = src[metric];
                 return v != null && v !== '' ? Number(v) : null;
             }
             const metrics = kind === 'fieldSize'
                 ? [{ key: 'cnt123', label: '1-2-3' }, { key: 'kosuSayisi', label: 'KOŞU' }]
                 : kind === 'sehir'
-                    ? [{ key: 'sehirPct', label: 'ŞEH%' }, { key: 'cnt123', label: '1-2-3' }]
+                    ? [{ key: 'sehirAdj', label: 'ŞEH+' }, { key: 'sehirPct', label: 'ŞEH%' }]
                     : [{ key: 'matchPct', label: dimOrSehir.pctLabel }, { key: 'cnt123', label: '1-2-3' }];
             let html = '<div class="astest-window-summary">';
             html += '<div class="astest-window-summary-title">Pencere lider özeti (TÜM → S1 · sekme içi)</div>';
@@ -1064,7 +1077,8 @@
             html += '<p class="astest-note">Şehir verisi kosular[].sehir alanından gelir — GETİR ile at sayısı sekmesiyle '
                 + '<strong>aynı anda</strong> dolar. Hedef hipodrom: <strong>'
                 + escapeHtml(hedefSehir || '—') + '</strong>. '
-                + 'ŞEH% sonrası <strong>Ş-FORM</strong> = son 5 koşuda hedef şehirde performans momentumu (%50 nötr, yüksek=iyileşme). '
+                + 'ŞEH% sonrası <strong>Ş-FORM</strong> = son 5 koşuda hedef şehirde performans momentumu (%50 nötr). '
+                + '<strong>ŞEH+</strong> = ŞEH% + Ş-FORM ödül/ceza + S5 derece katkısı (1–4. yakın koşuda daha ağır; %100+ olabilir). '
                 + '<strong>1. / 1-2 / 1-2-3 / 1-2-3-4</strong> = hedef şehirde tam olarak 1./2./3./4. olma adedi (kümülatif değil). '
                 + '<strong>S5–S1</strong> son 5/4/3/2/1 koşu penceresidir.'
                 + ' Program günü koşusu geçmişten hariç tutulur.</p>';
@@ -1093,6 +1107,7 @@
                 html += '<th class="col-stat col-stat-sehir" title="Hedef şehirdeki koşu sayısı (' + escapeHtml(hedefAbbrev) + ')">' + escapeHtml(hedefAbbrev) + ' KOŞU</th>';
                 html += '<th class="col-stat col-stat-sehir" title="Hedef şehirde koşma oranı (TÜM KOŞU içinde)">ŞEH%</th>';
                 html += '<th class="col-stat col-stat-sehir col-stat-rise" title="Son 5 koşuda hedef şehirde performans momentumu (%50=nötr, yüksek=son koşulara doğru iyileşme)">Ş-FORM</th>';
+                html += '<th class="col-stat col-stat-sehir col-stat-sehir-adj" title="Düzeltilmiş şehir skoru: ŞEH% + form + S5 derece (yakın koşu ağırlıklı)">ŞEH+</th>';
                 html += '<th class="col-stat col-stat-cnt" title="Hedef şehirde kaç kez 1. oldu">1.</th>';
                 html += '<th class="col-stat col-stat-cnt" title="Hedef şehirde kaç kez 2. oldu">1-2</th>';
                 html += '<th class="col-stat col-stat-cnt" title="Hedef şehirde kaç kez 3. oldu">1-2-3</th>';
@@ -1100,7 +1115,7 @@
                 html += astestWindowStatHeaders('sehir');
                 html += '</tr></thead><tbody>';
                 if (!horses.length) {
-                    html += '<tr><td colspan="' + (11 + ASTEST_WINDOW_COLS.sehir) + '" class="col-name">At yok</td></tr>';
+                    html += '<tr><td colspan="' + (12 + ASTEST_WINDOW_COLS.sehir) + '" class="col-name">At yok</td></tr>';
                 } else {
                     for (let j = 0; j < horses.length; j++) {
                         const h = horses[j];
@@ -1114,6 +1129,7 @@
                         html += '<td class="col-stat col-stat-sehir">' + st.inCityCount + '</td>';
                         html += '<td class="col-stat col-stat-sehir">' + SehirStatsEngine.formatPct(st.sehirPct) + '</td>';
                         html += astestSehirFormCell(st);
+                        html += astestSehirAdjCell(st);
                         html += '<td class="col-stat col-stat-cnt">' + st.cnt1 + '</td>';
                         html += '<td class="col-stat col-stat-cnt">' + (st.cnt2 ?? 0) + '</td>';
                         html += '<td class="col-stat col-stat-cnt">' + (st.cnt3 ?? 0) + '</td>';

@@ -93,7 +93,8 @@ const SehirStatsEngine = {
             windows[w] = this._computeStatsCore(sliced, hedefSehir);
         }
         const formTrend = this.computeRecentFormTrend(calcKosular, hedefSehir);
-        return Object.assign(base, { windows, formTrend });
+        const sehirAdj = this.computeAdjustedSehirScore(base.sehirPct, formTrend, calcKosular, hedefSehir);
+        return Object.assign(base, { windows, formTrend, sehirAdj });
     },
 
     formatCell(v) {
@@ -245,7 +246,111 @@ const SehirStatsEngine = {
             rising: pct >= 58,
             falling: pct <= 42,
             tooltip: tipLines.join('\n'),
-            inCitySamples: samples.length
+            inCitySamples: samples.length,
+            samples
+        };
+    },
+
+    /** Son 5 koşuda hedef şehirde dereceye göre yakınlık ağırlıklı puan (1.=en yüksek). */
+    computeRecencyPlacementBonus(calcKosular, hedefSehir, opts) {
+        const empty = { total: 0, parts: [], races: [] };
+        const FSE = typeof FieldSizeStatsEngine !== 'undefined' ? FieldSizeStatsEngine : null;
+        if (!FSE || !hedefSehir) return empty;
+
+        const windowSize = (opts && opts.windowSize != null) ? opts.windowSize : 5;
+        const siraPoints = { 1: 10, 2: 6, 3: 4, 4: 2 };
+        const recent = FSE.recentSlice(calcKosular || [], windowSize);
+        if (!recent.length) return empty;
+
+        const chronological = [...recent].reverse();
+        const n = chronological.length;
+        let total = 0;
+        const parts = [];
+        const races = [];
+
+        for (let i = 0; i < n; i++) {
+            const k = chronological[i];
+            const recency = n <= 1 ? 1 : 0.35 + 0.65 * (i / (n - 1));
+            if (!this.sehirMatch(k.sehir, hedefSehir)) {
+                const pen = -Math.round(2 * recency);
+                total += pen;
+                parts.push({ tarih: k.tarih, sira: null, recency, delta: pen, note: 'hedef dışı' });
+                races.push({ tarih: k.tarih, sira: null, recency, delta: pen });
+                continue;
+            }
+            const sira = FSE.parseSira(k.sira);
+            if (sira == null) continue;
+            let pts = 0;
+            if (siraPoints[sira] != null) pts = siraPoints[sira];
+            else if (sira <= 8) pts = 0;
+            else pts = -3;
+            const delta = Math.round(pts * recency * 10) / 10;
+            total += delta;
+            parts.push({ tarih: k.tarih, sira, recency, delta, note: sira + '.' });
+            races.push({ tarih: k.tarih, sira, recency, delta });
+        }
+
+        return { total: Math.round(total * 10) / 10, parts, races };
+    },
+
+    /**
+     * ŞEH% + Ş-FORM düzeltmesi + son 5 koşu derece ödülü/cezası.
+     * %100 üstü mümkün; FORM yoksa ŞEH%'den oransal ceza.
+     */
+    computeAdjustedSehirScore(sehirPct, formTrend, calcKosular, hedefSehir, opts) {
+        const base = sehirPct != null ? sehirPct : 0;
+        const formScale = (opts && opts.formScale != null) ? opts.formScale : 0.35;
+        const missingFormRatio = (opts && opts.missingFormRatio != null) ? opts.missingFormRatio : 0.18;
+        const missingFormMin = (opts && opts.missingFormMin != null) ? opts.missingFormMin : 8;
+        const maxPct = (opts && opts.maxPct != null) ? opts.maxPct : 130;
+
+        let formAdj = 0;
+        const tipLines = ['ŞEH+ = ŞEH% + form düzeltmesi + S5 derece (yakın koşu ağırlıklı)'];
+        tipLines.push('Taban ŞEH%: %' + base);
+
+        const formPct = formTrend?.pct;
+        if (formPct == null) {
+            formAdj = -Math.round(Math.max(missingFormMin, base * missingFormRatio));
+            tipLines.push('Ş-FORM yok → ceza: ' + formAdj + ' puan'
+                + (base > 0 ? ' (tabanın %' + Math.round(missingFormRatio * 100) + '\'i, min ' + missingFormMin + ')' : ''));
+        } else {
+            formAdj = Math.round((formPct - 50) * formScale);
+            tipLines.push('Ş-FORM %' + formPct + ' → ' + (formAdj >= 0 ? '+' : '') + formAdj
+                + ' (50=nötr, ölçek×' + formScale + ')');
+        }
+
+        const place = this.computeRecencyPlacementBonus(calcKosular, hedefSehir);
+        const placeAdj = Math.round(place.total);
+        if (place.races.length) {
+            tipLines.push('S5 derece katkısı: ' + (placeAdj >= 0 ? '+' : '') + placeAdj);
+            for (let i = 0; i < place.parts.length; i++) {
+                const p = place.parts[i];
+                const rc = Math.round(p.recency * 100);
+                tipLines.push('  ' + (p.tarih || '?') + ' · ' + (p.note || '?')
+                    + ' · yakınlık %' + rc + ' → ' + (p.delta >= 0 ? '+' : '') + p.delta);
+            }
+        } else {
+            tipLines.push('S5 derece katkısı: 0 (hedef şehirde derece yok)');
+        }
+
+        const raw = base + formAdj + placeAdj;
+        const pct = Math.round(Math.min(maxPct, Math.max(0, raw)));
+        const boosted = pct > base + 2;
+        const penalized = pct < base - 2;
+
+        tipLines.push('Toplam: %' + base + ' ' + (formAdj >= 0 ? '+' : '') + formAdj
+            + ' ' + (placeAdj >= 0 ? '+' : '') + placeAdj + ' = %' + pct);
+
+        return {
+            pct,
+            display: '%' + pct,
+            base,
+            formAdj,
+            placeAdj,
+            totalAdj: formAdj + placeAdj,
+            boosted,
+            penalized,
+            tooltip: tipLines.join('\n')
         };
     }
 };
