@@ -41,7 +41,7 @@ const rowSonOnly = {
     son8001Depths: [{ gapPct: 0, gosterim: {} }]
 };
 const bSon = B.computeFromIstatRow(rowSonOnly, 1);
-assert(approx(bSon.basePts, 10), 'SON Δ=0 taban ~10, got ' + bSon.basePts);
+assert(approx(bSon.basePts, 11), 'SON Δ=0 taban ~11 (+10%), got ' + bSon.basePts);
 
 const rowAllZero = {
     son8001Depths: [
@@ -51,10 +51,10 @@ const rowAllZero = {
     ]
 };
 const bAll = B.computeFromIstatRow(rowAllZero, 3);
-assert(approx(bAll.basePts, 10), '3 derinlik Δ=0 toplam taban ~10, got ' + bAll.basePts);
-assert(bAll.basePts > bSon.basePts * 0.99, 'çoklu derinlik ek katkı yok (toplam sabit)');
+assert(approx(bAll.basePts, 10.5), '3 derinlik Δ=0 taban ~10.5 (SON +10%), got ' + bAll.basePts);
+assert(bAll.basePts > bSon.basePts * 0.95, 'çoklu derinlik SON boost ile biraz daha yüksek');
 
-// bonus: kırmızı + mavi + yeşil aynı SON hücrede
+// bonus: kırmızı + mavi + yeşil aynı SON hücrede (+10% SON)
 const rowBonus = {
     son8001Depths: [{
         gapPct: 0,
@@ -62,7 +62,9 @@ const rowBonus = {
     }]
 };
 const bBonus = B.computeFromIstatRow(rowBonus, 1);
-assert(approx(bBonus.bonusPts, 5 + 3 + 15), 'bonus toplam 23, got ' + bBonus.bonusPts);
+assert(approx(bBonus.bonusPts, (5 + 3 + 15) * 1.1), 'bonus toplam ~25.3, got ' + bBonus.bonusPts);
+assert(B.sonZeroMultiplier(0, 0) === 1.1, 'SON×0 çarpanı');
+assert(B.sonZeroMultiplier(1, 0) === 1, '1 ÖNCE çarpanı yok');
 
 // eski derinlik bonusu düşük
 const rowOldBonus = {
@@ -83,7 +85,7 @@ const st = {
     basSuccess: { pct: 55, display: '%55', tooltip: 'taban' }
 };
 const out = B.applyToStats(st, rowBonus, 1);
-assert(out.basSuccess.pct === 88, '55 + 33 = 88, got ' + out.basSuccess.pct);
+assert(out.basSuccess.pct === 91, '55 + 36.3 ≈ 91, got ' + out.basSuccess.pct);
 assert(out.basSuccess.deltaBoost != null, 'deltaBoost kaydı');
 
 console.log('\nSikletBasDeltaBoost: ' + passed + ' passed, ' + failed + ' failed');

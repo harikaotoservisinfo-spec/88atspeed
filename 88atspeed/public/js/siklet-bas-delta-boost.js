@@ -7,6 +7,8 @@
  */
 const SikletBasDeltaBoost = (function () {
     const MAX_BASE_PTS = 10;
+    /** SON·Δ=0 iken mevcut katkıya ek +%10 */
+    const SON_ZERO_EXTRA = 1.10;
     const BONUS = {
         kirmiziKenar: 5,
         maviKenar: 3,
@@ -46,6 +48,11 @@ const SikletBasDeltaBoost = (function () {
         return !!(g?.yesilSatir || g?.gucluUyari);
     }
 
+    /** SON derinlikte gapPct=0 → +%10 ek çarpan */
+    function sonZeroMultiplier(d, gapPct) {
+        return d === 0 && gapPct === 0 ? SON_ZERO_EXTRA : 1;
+    }
+
     function computeFromIstatRow(istatRow, maxDepth) {
         const depths = istatRow?.son8001Depths || [];
         const md = maxDepth || depths.length || 0;
@@ -64,27 +71,31 @@ const SikletBasDeltaBoost = (function () {
             const w = weights[d] || 0;
             const rf = recencyFactor(weights, d);
             const g = cell.gosterim || {};
+            const sonMul = sonZeroMultiplier(d, cell.gapPct);
 
-            const slice = MAX_BASE_PTS * w * prox;
+            const slice = MAX_BASE_PTS * w * prox * sonMul;
             if (slice > 0) {
                 basePts += slice;
-                parts.push(dl + '·Δ %' + cell.gapPct + ' → +' + slice.toFixed(1) + ' (ağırlık×' + prox.toFixed(2) + ')');
+                let note = dl + '·Δ %' + cell.gapPct + ' → +' + slice.toFixed(1) + ' (ağırlık×' + prox.toFixed(2);
+                if (sonMul > 1) note += ' · SON×' + sonMul.toFixed(2);
+                note += ')';
+                parts.push(note);
             }
 
             if (cell.gapPct !== 0) continue;
 
             if (g.kirmiziKenar) {
-                const b = BONUS.kirmiziKenar * rf;
+                const b = BONUS.kirmiziKenar * rf * sonMul;
                 bonusPts += b;
                 parts.push(dl + '·Δ ★ kırmızı kenar → +' + b.toFixed(1));
             }
             if (g.maviKenar) {
-                const b = BONUS.maviKenar * rf;
+                const b = BONUS.maviKenar * rf * sonMul;
                 bonusPts += b;
                 parts.push(dl + '·Δ ★ mavi kenar → +' + b.toFixed(1));
             }
             if (isYesilFosfor(g)) {
-                const b = BONUS.yesilFosfor * rf;
+                const b = BONUS.yesilFosfor * rf * sonMul;
                 bonusPts += b;
                 parts.push(dl + '·Δ ★ yeşil/fosfor → +' + b.toFixed(1));
             }
@@ -131,11 +142,13 @@ const SikletBasDeltaBoost = (function () {
 
     return {
         MAX_BASE_PTS,
+        SON_ZERO_EXTRA,
         BONUS,
         depthLabel,
         recencyWeights,
         recencyFactor,
         gapProximity,
+        sonZeroMultiplier,
         computeFromIstatRow,
         applyToStats
     };
