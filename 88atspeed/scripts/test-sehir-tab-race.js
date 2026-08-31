@@ -130,6 +130,32 @@ function printRace(kayit, race, programTarih) {
     console.log('\n  Sütunlar: 1.=1.lik · 1-2=2.lik · 1-3=3.lük · 1-4=4.lük adet (hedef şehirde, kümülatif değil)');
 }
 
+function runKafkasFixture() {
+    const kafkas = [
+        { tarih: '29.08.2026', sehir: 'İzmir', sira: '1' },
+        { tarih: '16.08.2026', sehir: 'İstanbul', sira: '3' },
+        { tarih: '07.08.2026', sehir: 'İstanbul', sira: '8' },
+        { tarih: '26.07.2026', sehir: 'İstanbul', sira: '2' },
+        { tarih: '17.07.2026', sehir: 'İstanbul', sira: '5' },
+        { tarih: '13.05.2026', sehir: 'İstanbul', sira: '8' },
+        { tarih: '26.04.2026', sehir: 'İstanbul', sira: '6' }
+    ];
+    const st = SehirStatsEngine.computeStats(kafkas, 'İzmir', '29/08/2026');
+    console.log('KAFKAS YÜREKLİ fixture (program günü hariç, hedef İzmir):');
+    console.log('  ŞEH: inCity=' + st.inCityCount + ' cnt1-4='
+        + [st.cnt1, st.cnt2, st.cnt3, st.cnt4].join('/') + ' ŞEH+=' + (st.sehirAdj?.display || '—'));
+    console.log('  GEN: genBase=' + st.genBasePct + '% gen1-4='
+        + [st.genCnt1, st.genCnt2, st.genCnt3, st.genCnt4].join('/')
+        + ' GEN+=' + (st.genAdj?.display || '—') + ' G-FORM=' + (st.genForm?.display || '—'));
+    const ok = st.inCityCount === 0
+        && st.cnt1 === 0 && st.cnt2 === 0 && st.cnt3 === 0 && st.cnt4 === 0
+        && st.genCnt2 >= 1 && st.genCnt3 >= 1
+        && st.genBasePct != null && st.genBasePct > 40
+        && st.genAdj?.pct != null && st.genAdj.pct > 0;
+    console.log('  ' + (ok ? 'OK' : 'HATA'));
+    if (!ok) process.exit(1);
+}
+
 function runSehirAdjFixture() {
     const cases = [
         {
@@ -275,6 +301,10 @@ async function main() {
     }
     if (args.includes('--fixture-form')) {
         runFormTrendFixture();
+        return;
+    }
+    if (args.includes('--fixture-kafkas')) {
+        runKafkasFixture();
         return;
     }
     if (args.includes('--fixture-sehir-adj')) {

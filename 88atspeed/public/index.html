@@ -103,6 +103,8 @@
             color: #2e7d32; background: #e8f5e9; font-size: 11px;
         }
         .sehirtest-table .col-stat-sehir { background: #e8f5e9; color: #1b5e20; font-weight: 700; }
+        .sehirtest-table .col-stat-gen { background: #fff3e0; color: #e65100; font-weight: 700; }
+        .sehirtest-table .col-stat-gen-adj { background: #ffe0b2; color: #bf360c; font-weight: 700; }
         .sehirtest-table .col-gecmis-match { color: #1565c0; }
         .astest-note {
             font-size: 11px; color: #78909c; margin: 0 0 10px 2px;
@@ -252,7 +254,7 @@
     <script src="js/utils.js?v=20260831a"></script>
     <script src="js/at-meta-fields.js?v=20260831a"></script>
     <script src="js/field-size-stats-engine.js?v=20260831e"></script>
-    <script src="js/sehir-stats-engine.js?v=20260831e"></script>
+    <script src="js/sehir-stats-engine.js?v=20260831f"></script>
     <script src="js/kosu-dimension-stats-engine.js?v=20260831e"></script>
     <script>
         const RECENT_WINDOWS = FieldSizeStatsEngine.RECENT_WINDOWS;
@@ -452,6 +454,16 @@
                 + escapeHtml(adj.display || SehirStatsEngine.formatPct(st.sehirPct)) + '</td>';
         }
 
+        function astestGenAdjCell(st) {
+            const adj = st.genAdj || {};
+            let cls = 'col-stat col-stat-gen col-stat-gen-adj';
+            if (adj.boosted) cls += ' col-stat-rise-up';
+            else if (adj.penalized) cls += ' col-stat-rise-down';
+            const disp = adj.display || (st.genBasePct != null ? ('%' + st.genBasePct) : '—');
+            return '<td class="' + cls + '" title="' + escapeHtml(adj.tooltip || '') + '">'
+                + escapeHtml(disp) + '</td>';
+        }
+
         function astestWindowLeaderSummary(horses, race, kind, dimOrSehir, programTarih) {
             const ladder = [null].concat(RECENT_WINDOWS);
             const rows = horses.map(function(h) {
@@ -470,13 +482,17 @@
                     const v = row.st.sehirAdj?.pct;
                     return v != null ? Number(v) : null;
                 }
+                if (metric === 'genAdj') {
+                    const v = row.st.genAdj?.pct;
+                    return v != null ? Number(v) : null;
+                }
                 const v = src[metric];
                 return v != null && v !== '' ? Number(v) : null;
             }
             const metrics = kind === 'fieldSize'
                 ? [{ key: 'cnt123', label: '1-2-3' }, { key: 'kosuSayisi', label: 'KOŞU' }]
                 : kind === 'sehir'
-                    ? [{ key: 'sehirAdj', label: 'ŞEH+' }, { key: 'sehirPct', label: 'ŞEH%' }]
+                    ? [{ key: 'sehirAdj', label: 'ŞEH+' }, { key: 'genAdj', label: 'GEN+' }]
                     : [{ key: 'matchPct', label: dimOrSehir.pctLabel }, { key: 'cnt123', label: '1-2-3' }];
             let html = '<div class="astest-window-summary">';
             html += '<div class="astest-window-summary-title">Pencere lider özeti (TÜM → S1 · sekme içi)</div>';
@@ -1078,7 +1094,8 @@
                 + '<strong>aynı anda</strong> dolar. Hedef hipodrom: <strong>'
                 + escapeHtml(hedefSehir || '—') + '</strong>. '
                 + 'ŞEH% sonrası <strong>Ş-FORM</strong> = son 5 koşuda hedef şehirde performans momentumu (%50 nötr). '
-                + '<strong>ŞEH+</strong> = ŞEH% + Ş-FORM + <strong>son koşu şehri</strong> (hedef=+8, değişim=−10) + S5 derece (%100+ olabilir). '
+                + '<strong>ŞEH+</strong> = ŞEH% + Ş-FORM + son koşu şehri + S5 derece (hedef). '
+                + '<strong>GEN+ / G1–G4</strong> = tüm şehirlerde genel başarı (GEN% ortalama bitiş puanı + G-FORM + S5). '
                 + '<strong>1. / 1-2 / 1-2-3 / 1-2-3-4</strong> = hedef şehirde tam olarak 1./2./3./4. olma adedi (kümülatif değil). '
                 + '<strong>S5–S1</strong> son 5/4/3/2/1 koşu penceresidir.'
                 + ' Program günü koşusu geçmişten hariç tutulur.</p>';
@@ -1112,10 +1129,15 @@
                 html += '<th class="col-stat col-stat-cnt" title="Hedef şehirde kaç kez 2. oldu">1-2</th>';
                 html += '<th class="col-stat col-stat-cnt" title="Hedef şehirde kaç kez 3. oldu">1-2-3</th>';
                 html += '<th class="col-stat col-stat-cnt col-stat-all-hdr" title="Hedef şehirde kaç kez 4. oldu">1-2-3-4</th>';
+                html += '<th class="col-stat col-stat-gen col-stat-gen-adj" title="Genel başarı skoru: GEN% + G-FORM + son koşu/ hedef + S5 (tüm şehirler)">GEN+</th>';
+                html += '<th class="col-stat col-stat-gen" title="Tüm şehirlerde 1. olma adedi">G1.</th>';
+                html += '<th class="col-stat col-stat-gen" title="Tüm şehirlerde 2. olma adedi">G1-2</th>';
+                html += '<th class="col-stat col-stat-gen" title="Tüm şehirlerde 3. olma adedi">G1-3</th>';
+                html += '<th class="col-stat col-stat-gen col-stat-all-hdr" title="Tüm şehirlerde 4. olma adedi">G1-4</th>';
                 html += astestWindowStatHeaders('sehir');
                 html += '</tr></thead><tbody>';
                 if (!horses.length) {
-                    html += '<tr><td colspan="' + (12 + ASTEST_WINDOW_COLS.sehir) + '" class="col-name">At yok</td></tr>';
+                    html += '<tr><td colspan="' + (17 + ASTEST_WINDOW_COLS.sehir) + '" class="col-name">At yok</td></tr>';
                 } else {
                     for (let j = 0; j < horses.length; j++) {
                         const h = horses[j];
@@ -1134,6 +1156,11 @@
                         html += '<td class="col-stat col-stat-cnt">' + (st.cnt2 ?? 0) + '</td>';
                         html += '<td class="col-stat col-stat-cnt">' + (st.cnt3 ?? 0) + '</td>';
                         html += '<td class="col-stat col-stat-cnt col-stat-all-hdr">' + (st.cnt4 ?? 0) + '</td>';
+                        html += astestGenAdjCell(st);
+                        html += '<td class="col-stat col-stat-gen">' + (st.genCnt1 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-gen">' + (st.genCnt2 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-gen">' + (st.genCnt3 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-gen col-stat-all-hdr">' + (st.genCnt4 ?? 0) + '</td>';
                         html += astestWindowSehirCells(st);
                         html += '</tr>';
                     }
