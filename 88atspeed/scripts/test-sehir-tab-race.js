@@ -289,6 +289,29 @@ function runBasSuccessFixture() {
     if (!ok) process.exit(1);
 }
 
+function runFieldSizeFixture() {
+    const kosular = [
+        { tarih: '01.08.2026', at_sayisi: 10, sira: '2' },
+        { tarih: '02.07.2026', at_sayisi: 10, sira: '3' },
+        { tarih: '03.06.2026', at_sayisi: 8, sira: '5' },
+        { tarih: '04.05.2026', at_sayisi: 10, sira: '1' },
+        { tarih: '05.04.2026', at_sayisi: 12, sira: '4' },
+        { tarih: '06.03.2026', at_sayisi: 10, sira: '2' }
+    ];
+    const st = FieldSizeStatsEngine.computeStats(kosular, null, 10);
+    console.log('KOŞU AT SAYISI scoring fixture (hedef 10 at):');
+    console.log('  AS%=' + st.matchPct + ' AS-KOŞU=' + st.matchCount
+        + ' AS-FORM=' + (st.formTrend?.display || '—')
+        + ' AS+=' + (st.asAdj?.display || '—')
+        + ' BAŞ+=' + (st.basSuccess?.display || '—'));
+    console.log('  cnt1-4=' + [st.cnt1, st.cnt2, st.cnt3, st.cnt4].join('/')
+        + ' GEN+=' + (st.genAdj?.display || '—'));
+    const ok = st.matchCount === 4 && st.cnt1 === 1 && st.cnt2 === 2
+        && st.asAdj?.pct != null && st.basSuccess?.pct != null;
+    console.log('  ' + (ok ? 'OK' : 'HATA'));
+    if (!ok) process.exit(1);
+}
+
 function runDimScoringFixture() {
     const kosular = [
         { tarih: '01.08.2026', siklet: '59', sira: '2', at_sayisi: 10 },
@@ -358,6 +381,10 @@ function runFormTrendFixture() {
 
 async function main() {
     loadEngines();
+    if (args.includes('--fixture-field-size')) {
+        runFieldSizeFixture();
+        return;
+    }
     if (args.includes('--fixture-dim-siklet')) {
         runDimScoringFixture();
         return;

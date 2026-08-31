@@ -122,6 +122,19 @@
             background: linear-gradient(135deg, #ede7f6, #e1bee7);
             color: #4a148c; font-weight: 800; min-width: 52px;
         }
+        .fstest-table .col-hedef {
+            min-width: 56px; text-align: center; font-weight: 800;
+            color: #6a1b9a; background: #f3e5f5; font-size: 11px;
+        }
+        .fstest-table .col-stat-fs-match {
+            background: #f3e5f5; color: #4a148c; font-weight: 700;
+        }
+        .fstest-table .col-stat-gen { background: #fff3e0; color: #e65100; font-weight: 700; }
+        .fstest-table .col-stat-gen-adj { background: #ffe0b2; color: #bf360c; font-weight: 700; }
+        .fstest-table .col-stat-bas {
+            background: linear-gradient(135deg, #ede7f6, #e1bee7);
+            color: #4a148c; font-weight: 800; min-width: 52px;
+        }
         .sehirtest-table .col-gecmis-match { color: #1565c0; }
         .astest-note {
             font-size: 11px; color: #78909c; margin: 0 0 10px 2px;
@@ -270,7 +283,7 @@
 
     <script src="js/utils.js?v=20260831a"></script>
     <script src="js/at-meta-fields.js?v=20260831a"></script>
-    <script src="js/field-size-stats-engine.js?v=20260831e"></script>
+    <script src="js/field-size-stats-engine.js?v=20260831i"></script>
     <script src="js/sehir-stats-engine.js?v=20260831g"></script>
     <script src="js/kosu-dimension-stats-engine.js?v=20260831h"></script>
     <script>
@@ -349,6 +362,24 @@
                 html += '<td class="col-stat col-stat-window col-stat-cnt">' + (ws.cnt4 ?? 0) + '</td>';
             }
             return html;
+        }
+
+        function astestAsFormCell(st) {
+            const ft = st.formTrend || {};
+            let cls = 'col-stat col-stat-fs-match col-stat-rise';
+            if (ft.rising) cls += ' col-stat-rise-up';
+            else if (ft.falling) cls += ' col-stat-rise-down';
+            return '<td class="' + cls + '" title="' + escapeHtml(ft.tooltip || '') + '">'
+                + escapeHtml(ft.display || '—') + '</td>';
+        }
+
+        function astestAsAdjCell(st) {
+            const adj = st.asAdj || {};
+            let cls = 'col-stat col-stat-fs-match col-stat-fs-adj';
+            if (adj.boosted) cls += ' col-stat-rise-up';
+            else if (adj.penalized) cls += ' col-stat-rise-down';
+            return '<td class="' + cls + '" title="' + escapeHtml(adj.tooltip || '') + '">'
+                + escapeHtml(adj.display || FieldSizeStatsEngine.formatPct(st.matchPct)) + '</td>';
         }
 
         function astestDimFormCell(st) {
@@ -1051,15 +1082,20 @@
             if (!el) return;
             if (meta) testTabsSetMeta(formatTestTabsMeta(meta));
             const programTarih = meta?.tarih || null;
+            const L = FieldSizeStatsEngine.FS_LABELS;
             if (!races || !races.length) {
                 el.innerHTML = '<div class="info-box">📋 Veri bulunamadı</div>';
                 return;
             }
             let html = '<div class="son-test-wrap">';
             html += '<p class="astest-note">Geçmiş koşulardaki at sayıları TJK sonuç tablosundan (koşmaz/çekildi hariç). '
-                + 'GETİR sonrası ilk 7 koşu tam detay + kalan koşular alan sayısı olarak çekilir. '
-                + '<strong>S5–S1</strong> sütunları son 5/4/3/2/1 koşuya göre aynı metrikleri gösterir (tarih yeniden→eskiye). '
-                + '1./1-2/… sıra sayıları <strong>sira</strong> ile; MAX-* yalnızca <strong>at_sayisi</strong> bilgili koşularda dolar.'
+                + 'GETİR ile diğer test sekmeleriyle <strong>aynı anda</strong> dolar. '
+                + 'Hedef alan = bugünkü koşudaki at sayısı. '
+                + '<strong>BAŞ+</strong> = ' + escapeHtml(L.adjLabel) + ' + GEN+ karışımı (max 6 koşu). '
+                + '<strong>' + escapeHtml(L.formLabel) + '</strong> = son 5 koşuda aynı alanda momentum. '
+                + '<strong>' + escapeHtml(L.adjLabel) + '</strong> = ' + escapeHtml(L.pctLabel)
+                + ' + form + son koşu alanı + S5 derece. '
+                + '<strong>1. / 1-2 / …</strong> = hedef alanda tam 1./2./3./4. adet. '
                 + ' Program günü koşusu geçmişten hariç tutulur.</p>';
             for (let i = 0; i < races.length; i++) {
                 const race = races[i];
@@ -1077,50 +1113,63 @@
                 html += '<div class="race-header"><h3>🏁 ' + race.raceNo + '. KOŞU · '
                     + horses.length + ' at · ' + escapeHtml(header) + '</h3></div>';
                 html += '<div class="son-test-table-wrap">';
-                html += '<table class="son-test-table astest-table">';
+                html += '<table class="son-test-table astest-table fstest-table">';
                 html += '<thead><tr>';
                 html += '<th class="col-no">#</th>';
                 html += '<th class="col-name">AT İSMİ</th>';
-                html += '<th class="col-k1">K1</th>';
-                html += '<th class="col-stat" title="Geçmiş koşu sayısı (at_sayisi bilgili)">KOŞU</th>';
-                html += '<th class="col-stat col-stat-max" title="En fazla kaç atlı koşuda 1.">MAX-1</th>';
-                html += '<th class="col-stat col-stat-max" title="En fazla kaç atlı koşuda 1-2">MAX-12</th>';
-                html += '<th class="col-stat col-stat-max" title="En fazla kaç atlı koşuda 1-2-3">MAX-123</th>';
-                html += '<th class="col-stat col-stat-max" title="En fazla kaç atlı koşuda 1-2-3-4">MAX-1234</th>';
-                html += '<th class="col-stat col-stat-cnt">1.</th>';
-                html += '<th class="col-stat col-stat-cnt">1-2</th>';
-                html += '<th class="col-stat col-stat-cnt">1-2-3</th>';
-                html += '<th class="col-stat col-stat-cnt col-stat-all-hdr">1-2-3-4</th>';
-                html += '<th class="col-gecmis col-stat-all-hdr">GEÇMİŞ AT SAYILARI</th>';
-                html += astestWindowStatHeaders('fieldSize');
+                html += '<th class="col-hedef" title="Bugünkü koşu alanı (at sayısı)">HEDEF</th>';
+                html += '<th class="col-stat col-stat-bas" title="Birleşik başarı: ' + escapeHtml(L.adjLabel)
+                    + ' + GEN+ karışımı">BAŞ+</th>';
+                html += '<th class="col-stat" title="Geçmiş koşu (at_sayisi bilgili)">TÜM KOŞU</th>';
+                html += '<th class="col-stat col-stat-fs-match" title="Aynı alanda koşu sayısı">'
+                    + escapeHtml(L.matchLabel) + '</th>';
+                html += '<th class="col-stat col-stat-fs-match" title="Aynı alanda koşma oranı">'
+                    + escapeHtml(L.pctLabel) + '</th>';
+                html += '<th class="col-stat col-stat-fs-match col-stat-rise" title="Son 5 koşuda hedef alanda momentum">'
+                    + escapeHtml(L.formLabel) + '</th>';
+                html += '<th class="col-stat col-stat-fs-match col-stat-fs-adj" title="Düzeltilmiş alan skoru">'
+                    + escapeHtml(L.adjLabel) + '</th>';
+                html += '<th class="col-stat col-stat-cnt" title="Hedef alanda 1. olma adedi">1.</th>';
+                html += '<th class="col-stat col-stat-cnt" title="Hedef alanda 2. olma adedi">1-2</th>';
+                html += '<th class="col-stat col-stat-cnt" title="Hedef alanda 3. olma adedi">1-2-3</th>';
+                html += '<th class="col-stat col-stat-cnt col-stat-all-hdr" title="Hedef alanda 4. olma adedi">1-2-3-4</th>';
+                html += '<th class="col-stat col-stat-gen col-stat-gen-adj" title="Genel başarı (tüm geçerli koşular)">GEN+</th>';
+                html += '<th class="col-stat col-stat-gen" title="Tüm koşularda 1. olma adedi">G1.</th>';
+                html += '<th class="col-stat col-stat-gen" title="Tüm koşularda 2. olma adedi">G1-2</th>';
+                html += '<th class="col-stat col-stat-gen" title="Tüm koşularda 3. olma adedi">G1-3</th>';
+                html += '<th class="col-stat col-stat-gen col-stat-all-hdr" title="Tüm koşularda 4. olma adedi">G1-4</th>';
                 html += '</tr></thead><tbody>';
                 if (!horses.length) {
-                    html += '<tr><td colspan="' + (13 + ASTEST_WINDOW_COLS.fieldSize) + '" class="col-name">At yok</td></tr>';
+                    html += '<tr><td colspan="18" class="col-name">At yok</td></tr>';
                 } else {
                     for (let j = 0; j < horses.length; j++) {
                         const h = horses[j];
                         const kosular = veriCache[h.atId] || h.kosular || [];
-                        const st = FieldSizeStatsEngine.computeStats(kosular, programTarih);
+                        const st = FieldSizeStatsEngine.computeStats(kosular, programTarih, raceK1);
                         html += '<tr>';
                         html += '<td class="col-no">' + escapeHtml(String(h.no ?? (j + 1))) + '</td>';
                         html += '<td class="col-name">' + escapeHtml(h.name || '—') + '</td>';
-                        html += '<td class="col-k1">' + raceK1 + '</td>';
+                        html += '<td class="col-hedef">' + raceK1 + '</td>';
+                        html += astestBasSuccessCell(st);
                         html += '<td class="col-stat">' + FieldSizeStatsEngine.formatCell(st.kosuSayisi) + '</td>';
-                        html += '<td class="col-stat col-stat-max">' + FieldSizeStatsEngine.formatCell(st.max1) + '</td>';
-                        html += '<td class="col-stat col-stat-max">' + FieldSizeStatsEngine.formatCell(st.max12) + '</td>';
-                        html += '<td class="col-stat col-stat-max">' + FieldSizeStatsEngine.formatCell(st.max123) + '</td>';
-                        html += '<td class="col-stat col-stat-max">' + FieldSizeStatsEngine.formatCell(st.max1234) + '</td>';
+                        html += '<td class="col-stat col-stat-fs-match">' + (st.matchCount ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-fs-match">'
+                            + FieldSizeStatsEngine.formatPct(st.matchPct) + '</td>';
+                        html += astestAsFormCell(st);
+                        html += astestAsAdjCell(st);
                         html += '<td class="col-stat col-stat-cnt">' + st.cnt1 + '</td>';
-                        html += '<td class="col-stat col-stat-cnt">' + st.cnt12 + '</td>';
-                        html += '<td class="col-stat col-stat-cnt">' + st.cnt123 + '</td>';
-                        html += '<td class="col-stat col-stat-cnt col-stat-all-hdr">' + st.cnt1234 + '</td>';
-                        html += '<td class="col-gecmis col-stat-all-hdr">' + escapeHtml(st.gecmisStr || '—') + '</td>';
-                        html += astestWindowFieldSizeCells(st);
+                        html += '<td class="col-stat col-stat-cnt">' + (st.cnt2 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-cnt">' + (st.cnt3 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-cnt col-stat-all-hdr">' + (st.cnt4 ?? 0) + '</td>';
+                        html += astestGenAdjCell(st);
+                        html += '<td class="col-stat col-stat-gen">' + (st.genCnt1 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-gen">' + (st.genCnt2 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-gen">' + (st.genCnt3 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-gen col-stat-all-hdr">' + (st.genCnt4 ?? 0) + '</td>';
                         html += '</tr>';
                     }
                 }
                 html += '</tbody></table></div>';
-                html += astestWindowLeaderSummary(horses, race, 'fieldSize', null, programTarih);
                 html += '</div>';
             }
             html += '</div>';
