@@ -317,7 +317,7 @@
     <script src="js/at-meta-fields.js?v=20260831a"></script>
     <script src="js/formula-engine.js?v=20260831c"></script>
     <script src="js/istatistik-engine.js?v=20260831c"></script>
-    <script src="js/son800-depth-ui.js?v=20260831c"></script>
+    <script src="js/son800-depth-ui.js?v=20260831d"></script>
     <script src="js/field-size-stats-engine.js?v=20260831i"></script>
     <script src="js/sehir-stats-engine.js?v=20260831g"></script>
     <script src="js/kosu-dimension-stats-engine.js?v=20260831h"></script>
@@ -1356,6 +1356,7 @@
                     const pkg = IstatistikEngine.buildRaceIstatistikPackage(
                         raceForIstat, hedefSehir, programTarih
                     );
+                    IstatistikEngine.applyRacePctScales(pkg);
                     maxD1 = pkg.maxDepth1 || 0;
                     for (const row of pkg.rows || []) {
                         istatRowByKey.set(String(row.no), row);
