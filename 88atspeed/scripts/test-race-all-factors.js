@@ -49,9 +49,9 @@ const NUMERIC_KEYS = [
     { key: 'cnt1234', col: '1-2-3-4', higher: true }
 ];
 
-/** Kayıt #148 K1 — kullanıcı tablosundan (program günü filtresi sonrası UI) */
-const FIXTURE_K148_R1 = {
-    label: 'Kayıt #148 · K1 · SİKLET (UI tablosu)',
+/** Örnek tablo — kullanıcının paylaştığı UI verisi (gerçek kayıt #148 DEĞİL) */
+const FIXTURE_LITTLE_JOE_K1 = {
+    label: 'FIXTURE · LITTLE JOE K1 demo (8 at — kayıt #148 DB ile aynı koşu DEĞİL)',
     fieldSize: 8,
     horses: [
         { no: 1, name: 'LITTLE JOE', bitis: 1, tum: { kosuSayisi: 6, max1: 6, max12: 9, max123: 9, max1234: 9, cnt1: 11, cnt12: 3, cnt123: 3, cnt1234: 3 },
@@ -182,16 +182,62 @@ function buildFactorList(includePct) {
     return factors;
 }
 
+function summarizeDataQuality(horses, factors) {
+    let evalCount = 0, tieSkip = 0, nullSkip = 0;
+    for (const f of factors) {
+        const vals = horses.map(h => f.get(h)).filter(v => v != null);
+        if (vals.length < 2) { nullSkip++; continue; }
+        const pick = pickLeader(horses, f.get);
+        if (!pick || pick.tie) tieSkip++;
+        else evalCount++;
+    }
+    const sk1 = horses.filter(h => {
+        const mc = getVal(h, 'matchCount', null) ?? getVal(h, 'kosuSayisi', null);
+        return mc === 1;
+    }).length;
+    return { evalCount, tieSkip, nullSkip, total: factors.length, sk1, field: horses.length };
+}
+
+function printHorseGrid(horses) {
+    console.log('  ' + pad('At', 22) + pad('SK-KOŞU', 8) + pad('SK%', 6)
+        + pad('MAX123', 7) + pad('cnt123', 7) + pad('cnt1', 5) + 'BİT');
+    for (const h of horses) {
+        const mc = getVal(h, 'matchCount', null);
+        const pct = getVal(h, 'matchPct', null);
+        console.log('  ' + pad(h.name.slice(0, 20), 22)
+            + pad(mc != null ? String(mc) : '—', 8)
+            + pad(pct != null ? pct + '%' : '—', 6)
+            + pad(fmtVal(getVal(h, 'max123', null)), 7)
+            + pad(fmtVal(getVal(h, 'cnt123', null)), 7)
+            + pad(fmtVal(getVal(h, 'cnt1', null)), 5)
+            + bitisMark(h.bitis) + (h.bitis ?? '?'));
+    }
+}
+
 function analyzeRace(ctx) {
     const horses = ctx.horses;
     const fieldSize = ctx.fieldSize || horses.length;
     const factors = buildFactorList(!!ctx.hasPct);
+    const quality = summarizeDataQuality(horses, factors);
 
     console.log('╔══════════════════════════════════════════════════════════════════╗');
     console.log('║  Tüm faktörler — tek koşu birleşik değerlendirme                  ║');
     console.log('╚══════════════════════════════════════════════════════════════════╝');
     console.log(ctx.label);
-    console.log('Alan: ' + fieldSize + ' at · Faktör sayısı: ' + factors.length + '\n');
+    console.log('Alan: ' + fieldSize + ' at · Faktör sayısı: ' + factors.length);
+    console.log('Değerlendirilebilir: ' + quality.evalCount + '/' + quality.total
+        + ' (berab=' + quality.tieSkip + ', veri yok=' + quality.nullSkip + ')');
+    if (quality.sk1 >= quality.field * 0.6) {
+        console.log('⚠ SK-KOŞU=1 olan ' + quality.sk1 + '/' + quality.field
+            + ' at — tek eşleşme; MAX/cnt metrikleri zayıf ayırt eder');
+    }
+    if (quality.evalCount < quality.total * 0.25) {
+        console.log('⚠ Seyrek veri — oy sayacı güvenilmez; rank fusion daha anlamlı');
+    }
+    console.log('');
+
+    console.log('── AT BAŞINA ÖZET (TÜM pencere) ──');
+    printHorseGrid(horses);
 
     console.log('── GERÇEK BİTİŞ ──');
     const byBitis = [...horses].sort((a, b) => (a.bitis ?? 99) - (b.bitis ?? 99));
@@ -319,19 +365,21 @@ async function loadFromDb() {
 }
 
 function loadFixture() {
-    if (cli.fixture === 'k148-r1-siklet') return FIXTURE_K148_R1;
+    if (cli.fixture === 'little-joe-k1-demo' || cli.fixture === 'k148-r1-siklet') return FIXTURE_LITTLE_JOE_K1;
     return null;
 }
 
 async function main() {
     let ctx = cli.fixture ? loadFixture() : null;
     if (!ctx && cli.kayitId) ctx = await loadFromDb();
+    if (!ctx && !cli.fixture && !cli.kayitId) {
+        cli.kayitId = 148;
+        ctx = await loadFromDb();
+    }
+    if (!ctx && !cli.fixture) ctx = FIXTURE_LITTLE_JOE_K1;
     if (!ctx) {
-        if (!cli.fixture && !cli.kayitId) ctx = FIXTURE_K148_R1;
-        else {
-            console.error('Veri bulunamadı. --kayit ID --race N veya --fixture k148-r1-siklet');
-            process.exit(1);
-        }
+        console.error('Veri bulunamadı. --kayit ID --race N veya --fixture little-joe-k1-demo');
+        process.exit(1);
     }
     analyzeRace(ctx);
 }
