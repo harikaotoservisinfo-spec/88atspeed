@@ -105,6 +105,38 @@ const getBrowserHeaders = () => ({
     'Sec-Fetch-Site': 'same-origin'
 });
 
+function resolveChromeExecutable() {
+    const fs = require('fs');
+    const isLinux = process.platform === 'linux';
+    const candidates = [
+        process.env.CHROME_PATH,
+        '/usr/bin/google-chrome-stable',
+        '/usr/bin/google-chrome',
+        '/usr/bin/chromium-browser',
+        '/usr/bin/chromium'
+    ].filter(Boolean);
+    if (!isLinux) {
+        candidates.push('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome');
+    }
+    for (const p of candidates) {
+        if (isLinux && p.includes('/Applications/')) continue;
+        try {
+            if (fs.existsSync(p)) return p;
+        } catch (_) { /* yoksay */ }
+    }
+    return null;
+}
+
+function buildLaunchOptions() {
+    const launchOptions = {
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--lang=tr-TR']
+    };
+    const chromePath = resolveChromeExecutable();
+    if (chromePath) launchOptions.executablePath = chromePath;
+    return launchOptions;
+}
+
 async function getBrowserInstance() {
     if (browser) {
         try {
@@ -114,7 +146,7 @@ async function getBrowserInstance() {
         }
     }
     if (browser) return browser;
-    const launchOptions = tjkScrape.buildLaunchOptions();
+    const launchOptions = buildLaunchOptions();
     try {
         browser = await puppeteer.launch(launchOptions);
     } catch (err) {
