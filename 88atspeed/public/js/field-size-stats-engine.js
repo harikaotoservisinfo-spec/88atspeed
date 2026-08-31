@@ -150,7 +150,10 @@ const FieldSizeStatsEngine = {
             parts.push({ label: d.label, max: max, pct: pct });
         }
         const display = parts.map(function(p) { return p.pct + '%'; }).join('·');
-        return { display: display, tooltip: tipLines.join('\n'), parts: parts };
+        const avg = parts.length
+            ? Math.round(parts.reduce(function(a, p) { return a + p.pct; }, 0) / parts.length * 10) / 10
+            : null;
+        return { display: display, avg: avg, tooltip: tipLines.join('\n'), parts: parts };
     }
 };
 
