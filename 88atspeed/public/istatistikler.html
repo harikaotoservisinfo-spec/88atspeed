@@ -411,6 +411,21 @@
             color: #1b1b1b !important;
             box-shadow: inset 0 0 0 2px #b8d600, 0 0 10px rgba(232, 255, 0, 0.65);
         }
+        .istatistik-table td.istat-tahmin-near,
+        .istat-tahmin-half.istat-tahmin-near {
+            background: #e8f5e9 !important;
+            color: #1b5e20 !important;
+            box-shadow: inset 0 0 0 2px #81c784;
+        }
+        .istat-tahmin-half.istat-tahmin-near .istat-tahmin-half-label {
+            opacity: 1;
+            color: #2e7d32;
+            font-weight: 700;
+        }
+        .istatistik-table tbody tr:hover td.istat-tahmin-near,
+        .istatistik-table tbody tr:hover .istat-tahmin-half.istat-tahmin-near {
+            background: #c8e6c9 !important;
+        }
         .istat-tahmin-half.istat-tahmin-match .istat-tahmin-half-label {
             opacity: 1;
             color: #33691e;
@@ -1036,7 +1051,7 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260830c"></script>
+<script src="js/utils.js?v=20260831b"></script>
 <script src="js/formula-engine.js?v=20260830c"></script>
 <script src="js/istatistik-engine.js?v=20260830c"></script>
 <script src="js/istatistik-grids-extra.js?v=20260830c"></script>
@@ -1050,12 +1065,12 @@
 <script src="js/field-size-stats-engine.js?v=20260831a"></script>
 <script src="js/sehir-stats-engine.js?v=20260831a"></script>
 <script src="js/kosu-dimension-stats-engine.js?v=20260831a"></script>
-<script src="js/dimension-tahmin-boost-engine.js?v=20260831a"></script>
-<script src="js/hybrid-tahmin-scoring-engine.js?v=20260831a"></script>
+<script src="js/dimension-tahmin-boost-engine.js?v=20260831b"></script>
+<script src="js/hybrid-tahmin-scoring-engine.js?v=20260831b"></script>
 <script src="js/ptest-field-factor-engine.js?v=20260830c"></script>
 <script src="js/ptest-field-adaptive-engine.js?v=20260830c"></script>
 <script>
-const ISTAT_BUILD = '20260831a';
+const ISTAT_BUILD = '20260831b';
 const TAHMIN_METRIC_ALL = '__hepsi__';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
@@ -1128,8 +1143,9 @@ function refreshBitisCells() {
             const cell = card.querySelector('[data-tahmin-cell][data-horse-no="' + row.no + '"]');
             if (!cell) continue;
             const bitisVal = getIstatBitisValue(currentKayitId, entry.raceNo, row.no, row.name);
-            const matched = isTahminBitisMatch(row.tahmin, bitisVal);
-            cell.classList.toggle('istat-tahmin-match', matched);
+            const matchKind = AtSpeedUtils.tahminBitisMatchKind(row.tahmin, bitisVal);
+            cell.classList.toggle('istat-tahmin-match', matchKind === 'exact');
+            cell.classList.toggle('istat-tahmin-near', matchKind === 'near');
             cell.innerHTML = formatTahminCell(row.tahmin, entry.horseCount, bitisVal);
         }
     });
@@ -1142,8 +1158,11 @@ function gercekSkorRankClass(bitisVal) {
 }
 
 function isTahminBitisMatch(tahmin, bitisVal) {
-    if (bitisVal == null || !tahmin || tahmin.rank == null) return false;
-    return Number(tahmin.rank) === Number(bitisVal);
+    return AtSpeedUtils.tahminBitisMatchKind(tahmin, bitisVal) === 'exact';
+}
+
+function tahminBitisMatchCls(tahmin, bitisVal) {
+    return AtSpeedUtils.tahminBitisMatchClass(tahmin, bitisVal);
 }
 
 function notifyParentResize() {
@@ -1203,7 +1222,7 @@ function formatTahminCell(tahmin, horseCount, bitisVal) {
     const predCls = tahminRankClass(tahmin?.rank, horseCount);
     const bitisCls = gercekSkorRankClass(bitisVal);
     const matched = isTahminBitisMatch(tahmin, bitisVal);
-    const matchCls = matched ? ' istat-tahmin-match' : '';
+    const matchCls = tahminBitisMatchCls(tahmin, bitisVal);
     let h = '<div class="istat-tahmin-split">';
     h += '<div class="istat-tahmin-half istat-tahmin-pred ' + predCls + matchCls + '">';
     h += '<span class="istat-tahmin-half-label">Tahmin</span>';
@@ -1220,7 +1239,10 @@ function formatTahminCell(tahmin, horseCount, bitisVal) {
 function renderTahminCell(tahmin, horseCount, horseNo, raceNo, kayitId, horseName) {
     const bitisVal = getIstatBitisValue(kayitId ?? currentKayitId, raceNo, horseNo, horseName);
     const matched = isTahminBitisMatch(tahmin, bitisVal);
-    const cls = 'istat-tahmin istat-sticky-tahmin' + (matched ? ' istat-tahmin-match' : '');
+    const matchKind = AtSpeedUtils.tahminBitisMatchKind(tahmin, bitisVal);
+    const cls = 'istat-tahmin istat-sticky-tahmin'
+        + (matchKind === 'exact' ? ' istat-tahmin-match' : '')
+        + (matchKind === 'near' ? ' istat-tahmin-near' : '');
     const inner = formatTahminCell(tahmin, horseCount, bitisVal);
     const attrs = ' data-tahmin-cell data-horse-no="' + (horseNo != null ? horseNo : '') + '"'
         + ' data-race-no="' + (raceNo != null ? raceNo : '') + '"'
@@ -1249,7 +1271,7 @@ function renderTahminCell(tahmin, horseCount, horseNo, raceNo, kayitId, horseNam
         title += ' | BAŞ+ taban ' + tahmin.hybridBaseScore + ' → ' + (tahmin.score ?? '?');
     }
     if (bitisVal != null) title += ' | BİTİŞ (PUANLAMA TEST): ' + bitisVal + '. sıra';
-    if (matched) title += ' | ✓ Tahmin = BİTİŞ eşleşmesi';
+    title += AtSpeedUtils.tahminBitisTitleSuffix(tahmin, bitisVal);
     return '<td class="' + cls + '"' + attrs + ' title="' + title.replace(/"/g, '&quot;') + '">' + inner + '</td>';
 }
 
@@ -1792,8 +1814,10 @@ function patchTahminCellEl(cell, tahmin, horseCount, raceNo, kayitId) {
     const horseNo = cell.dataset.horseNo;
     const horseName = cell.dataset.horseName;
     const bitisVal = getIstatBitisValue(kayitId ?? currentKayitId, raceNo ?? cell.dataset.raceNo, horseNo, horseName);
-    const matched = isTahminBitisMatch(tahmin, bitisVal);
-    cell.className = 'istat-tahmin istat-sticky-tahmin' + (matched ? ' istat-tahmin-match' : '');
+    const matchKind = AtSpeedUtils.tahminBitisMatchKind(tahmin, bitisVal);
+    cell.className = 'istat-tahmin istat-sticky-tahmin'
+        + (matchKind === 'exact' ? ' istat-tahmin-match' : '')
+        + (matchKind === 'near' ? ' istat-tahmin-near' : '');
     cell.innerHTML = formatTahminCell(tahmin, horseCount, bitisVal);
     if (tahmin && tahmin.rank != null) {
         let title = 'TAHMİN · ' + tahmin.rank + '. sıra | Skor ' + (tahmin.score ?? '?');
@@ -1813,7 +1837,7 @@ function patchTahminCellEl(cell, tahmin, horseCount, raceNo, kayitId) {
             title += tahmin.topTerms.slice(0, 6).map(t => (t.label || t.ruleLabel) + ' +' + t.points).join(' · ');
         }
         if (bitisVal != null) title += ' | BİTİŞ (PUANLAMA TEST): ' + bitisVal + '. sıra';
-        if (matched) title += ' | ✓ Tahmin = BİTİŞ eşleşmesi';
+        title += AtSpeedUtils.tahminBitisTitleSuffix(tahmin, bitisVal);
         cell.title = title;
     } else if (bitisVal != null) {
         cell.title = 'BİTİŞ (PUANLAMA TEST): ' + bitisVal + '. sıra';

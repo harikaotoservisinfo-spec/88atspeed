@@ -4,7 +4,7 @@
  */
 const HybridTahminScoringEngine = (function () {
     const STORAGE_KEY = 'hybridTahminCalibration';
-    const PROFILE_VERSION = 3;
+    const PROFILE_VERSION = 4;
     const MIN_RACES_FOR_MODE = 10;
     const MIN_RACES_FOR_CURATED_ONLY = 15;
     const SUCCESS_BLEND = { b1: 0.80, b12: 0.12, b123: 0.08 };
@@ -748,6 +748,12 @@ const HybridTahminScoringEngine = (function () {
                 && parsed.dimensionBlend.routesVersion !== DimensionTahminBoostEngine.ROUTES_VERSION) {
                 return null;
             }
+            if (typeof DimensionTahminBoostEngine !== 'undefined'
+                && parsed.dimensionBlend?.objectiveVersion != null
+                && parsed.dimensionBlend.objectiveVersion
+                    < (DimensionTahminBoostEngine.CALIB_OBJECTIVE_VERSION ?? 1)) {
+                return null;
+            }
             calibration = parsed;
             gostergeProfiles = parsed.gostergeProfiles || null;
             if (gostergeProfiles) GostergeScoringEngine.setFieldAdaptiveProfiles?.(gostergeProfiles);
@@ -799,7 +805,13 @@ const HybridTahminScoringEngine = (function () {
             dimLine = '<br><span style="color:#2e7d32;font-size:11px">Boyut blend: %'
                 + db.dimPct + ' boyut · %' + (db.hybridPct ?? (100 - db.dimPct)) + ' hybrid';
             if (db.leaderBlended != null) {
-                dimLine += ' · karışık ' + pct(db.leaderBlended);
+                dimLine += ' · lider ' + pct(db.leaderBlended);
+                if (db.proximityBlended != null) {
+                    dimLine += ' · yakınlık ' + pct(db.proximityBlended);
+                }
+                if (db.nearRate != null) {
+                    dimLine += ' · ±1 ' + pct(db.nearRate);
+                }
                 if (db.gainVsBaseline != null && db.gainVsBaseline > 0) {
                     dimLine += ' (+' + pct(db.gainVsBaseline) + ' vs saf hybrid)';
                 }

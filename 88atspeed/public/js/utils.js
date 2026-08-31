@@ -392,6 +392,39 @@ const AtSpeedUtils = {
         if (aPos) return -1;
         if (bPos) return 1;
         return AtSpeedUtils.compareTahminTieBreak(rowA, rowB);
+    },
+
+    /** BİTİŞ − tahmin sırası; null = karşılaştırılamaz */
+    tahminBitisDelta(tahmin, bitisVal) {
+        if (bitisVal == null || bitisVal < 1 || !tahmin || tahmin.rank == null) return null;
+        return Number(bitisVal) - Number(tahmin.rank);
+    },
+
+    tahminBitisMatchKind(tahmin, bitisVal) {
+        const delta = this.tahminBitisDelta(tahmin, bitisVal);
+        if (delta == null) return null;
+        const ad = Math.abs(delta);
+        if (ad === 0) return 'exact';
+        if (ad === 1) return 'near';
+        if (ad === 2) return 'pm2';
+        return 'miss';
+    },
+
+    tahminBitisMatchClass(tahmin, bitisVal, prefix) {
+        prefix = prefix || 'istat-tahmin';
+        const kind = this.tahminBitisMatchKind(tahmin, bitisVal);
+        if (kind === 'exact') return ' ' + prefix + '-match';
+        if (kind === 'near') return ' ' + prefix + '-near';
+        return '';
+    },
+
+    tahminBitisTitleSuffix(tahmin, bitisVal) {
+        const kind = this.tahminBitisMatchKind(tahmin, bitisVal);
+        if (kind === 'exact') return ' | ✓ Tahmin = BİTİŞ eşleşmesi';
+        if (kind === 'near') {
+            return ' | ≈ ±1 yakın (T' + tahmin.rank + ' → B' + bitisVal + ')';
+        }
+        return '';
     }
 };
 

@@ -4,8 +4,12 @@
  */
 const DimensionTahminBoostEngine = (function () {
     const ROUTES_VERSION = 2;
+    const CALIB_OBJECTIVE_VERSION = 1;
     const DEFAULT_DIM_WEIGHT = 0.12;
     const SUCCESS_BLEND = { b1: 0.80, b12: 0.12, b123: 0.08 };
+    /** Tüm atlar — tam / ±1 / ±2 yakınlık (3↔4 gibi durumlar) */
+    const PROXIMITY_BLEND = { exact: 0.55, pm1: 0.30, pm2: 0.15 };
+    const CALIB_OBJECTIVE = { leader: 0.60, proximity: 0.40 };
     let hybridWeight = 1 - DEFAULT_DIM_WEIGHT;
     let dimWeight = DEFAULT_DIM_WEIGHT;
     let enabled = true;
@@ -333,6 +337,38 @@ const DimensionTahminBoostEngine = (function () {
         return scored[0];
     }
 
+    function evaluateProximitySuccess(raceGroups, bitisValueForSort) {
+        let total = 0, exact = 0, pm1 = 0, pm2 = 0;
+        for (const entries of raceGroups) {
+            for (const e of entries) {
+                const bitis = bitisValueForSort(e);
+                const pred = e.row?.tahmin?.rank;
+                if (bitis == null || bitis < 1 || pred == null) continue;
+                total++;
+                const ad = Math.abs(bitis - pred);
+                if (ad === 0) exact++;
+                else if (ad === 1) pm1++;
+                else if (ad === 2) pm2++;
+            }
+        }
+        const proximityBlended = total
+            ? PROXIMITY_BLEND.exact * (exact / total)
+                + PROXIMITY_BLEND.pm1 * (pm1 / total)
+                + PROXIMITY_BLEND.pm2 * (pm2 / total)
+            : 0;
+        return {
+            total, exact, pm1, pm2,
+            proximityBlended,
+            nearRate: total ? (exact + pm1) / total : 0,
+            exactRate: total ? exact / total : 0
+        };
+    }
+
+    function blendCalibrationObjective(leaderStats, proximityStats) {
+        return CALIB_OBJECTIVE.leader * (leaderStats?.leaderBlended ?? 0)
+            + CALIB_OBJECTIVE.proximity * (proximityStats?.proximityBlended ?? 0);
+    }
+
     function evaluateLeaderSuccess(raceGroups, bitisValueForSort) {
         let leaderTotal = 0, b1 = 0, b12 = 0, b123 = 0;
         for (const entries of raceGroups) {
@@ -447,11 +483,24 @@ const DimensionTahminBoostEngine = (function () {
             clearRaceTahminState(raceGroups);
             attachTahminForDimPct(raceGroups, dimPct);
             const stats = evaluateLeaderSuccess(raceGroups, bitisValueForSort);
-            const row = Object.assign({ dimPct, hybridPct: 100 - dimPct }, stats);
+            const prox = evaluateProximitySuccess(raceGroups, bitisValueForSort);
+            const objectiveBlended = blendCalibrationObjective(stats, prox);
+            const row = Object.assign({
+                dimPct,
+                hybridPct: 100 - dimPct,
+                objectiveBlended,
+                proximityBlended: prox.proximityBlended,
+                nearRate: prox.nearRate,
+                proximityExact: prox.exact,
+                proximityPm1: prox.pm1,
+                proximityTotal: prox.total
+            }, stats);
             if (dimPct === 0) baseline = row;
             if (!best
-                || row.leaderBlended > best.leaderBlended
-                || (row.leaderBlended === best.leaderBlended && row.exactRate > best.exactRate)) {
+                || row.objectiveBlended > best.objectiveBlended
+                || (row.objectiveBlended === best.objectiveBlended && row.leaderBlended > best.leaderBlended)
+                || (row.objectiveBlended === best.objectiveBlended
+                    && row.leaderBlended === best.leaderBlended && row.nearRate > best.nearRate)) {
                 best = row;
             }
         }
@@ -469,19 +518,26 @@ const DimensionTahminBoostEngine = (function () {
             exactRate: best.exactRate,
             top3Rate: best.top3Rate,
             leaderTotal: best.leaderTotal,
+            objectiveBlended: best.objectiveBlended,
+            proximityBlended: best.proximityBlended,
+            nearRate: best.nearRate,
+            proximityTotal: best.proximityTotal,
             baselineBlended: baseline?.leaderBlended ?? null,
-            gainVsBaseline: baseline ? best.leaderBlended - baseline.leaderBlended : null,
+            baselineObjective: baseline?.objectiveBlended ?? null,
+            gainVsBaseline: baseline ? best.objectiveBlended - baseline.objectiveBlended : null,
             raceCount: raceGroups.length,
             bitisRows: withBitis.length,
             lowSample: raceGroups.length < 15,
             routesVersion: ROUTES_VERSION,
+            objectiveVersion: CALIB_OBJECTIVE_VERSION,
             routeIds: ROUTES.map(r => r.id),
-            source: 'calibrated-sweep-bas'
+            source: 'calibrated-sweep-bas-prox'
         };
     }
 
     return {
         ROUTES_VERSION,
+        CALIB_OBJECTIVE_VERSION,
         get ROUTES() { return getRoutes(); },
         DEFAULT_DIM_WEIGHT,
         get HYBRID_WEIGHT() { return hybridWeight; },
@@ -501,7 +557,9 @@ const DimensionTahminBoostEngine = (function () {
         resetBoostState,
         calibrateBlendFromFlatEntries,
         attachTahminForDimPct,
-        evaluateLeaderSuccess
+        evaluateLeaderSuccess,
+        evaluateProximitySuccess,
+        blendCalibrationObjective
     };
 })();
 

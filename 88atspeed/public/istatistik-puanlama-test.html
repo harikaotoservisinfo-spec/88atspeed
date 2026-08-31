@@ -1055,7 +1055,12 @@
             background: #e8ff00 !important; color: #1b1b1b !important;
             box-shadow: inset 0 0 0 2px #b8d600, 0 0 8px rgba(232, 255, 0, 0.55);
         }
+        .ptest-tahmin-half.ptest-tahmin-near {
+            background: #e8f5e9 !important; color: #1b5e20 !important;
+            box-shadow: inset 0 0 0 2px #81c784;
+        }
         .ptest-tahmin-half.ptest-tahmin-match .ptest-tahmin-half-label { opacity: 1; color: #33691e; font-weight: 800; }
+        .ptest-tahmin-half.ptest-tahmin-near .ptest-tahmin-half-label { opacity: 1; color: #2e7d32; font-weight: 700; }
         .ptest-tahmin-rank-sm { font-size: 13px; font-weight: 800; line-height: 1.1; }
         .ptest-tahmin-pct-sm { font-size: 9px; font-weight: 600; opacity: 0.9; }
         .ptest-tahmin-bitis-val { font-size: 13px; font-weight: 800; }
@@ -1315,7 +1320,7 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=20260830z"></script>
+<script src="js/utils.js?v=20260831b"></script>
 <script src="js/at-meta-fields.js?v=20260831a"></script>
 <script src="js/istatistik-engine.js?v=20260831a"></script>
 <script src="js/istatistik-grids-extra.js?v=20260830z"></script>
@@ -1994,8 +1999,11 @@ function openColorScoringBenchTab(andRun) {
 }
 
 function ptestTahminBitisMatch(tahmin, bitisVal) {
-    if (bitisVal == null || bitisVal < 1 || !tahmin || tahmin.rank == null) return false;
-    return Number(tahmin.rank) === Number(bitisVal);
+    return AtSpeedUtils.tahminBitisMatchKind(tahmin, bitisVal) === 'exact';
+}
+
+function ptestTahminBitisMatchCls(tahmin, bitisVal) {
+    return AtSpeedUtils.tahminBitisMatchClass(tahmin, bitisVal, 'ptest-tahmin');
 }
 
 function ptestTahminRankClass(rank, total) {
@@ -2015,7 +2023,7 @@ function ptestFormatTahminBitisCell(tahmin, horseCount, bitisVal) {
     const predCls = ptestTahminRankClass(tahmin?.rank, horseCount);
     const bitisCls = ptestGercekSkorRankClass(bitisVal);
     const matched = ptestTahminBitisMatch(tahmin, bitisVal);
-    const matchCls = matched ? ' ptest-tahmin-match' : '';
+    const matchCls = ptestTahminBitisMatchCls(tahmin, bitisVal);
     let predInner = '<span class="ptest-pct ptest-pct-none">—</span>';
     if (tahmin && tahmin.rank != null && tahmin.pct != null) {
         predInner = '<span class="ptest-tahmin-rank-sm">' + tahmin.rank + '.</span>'
