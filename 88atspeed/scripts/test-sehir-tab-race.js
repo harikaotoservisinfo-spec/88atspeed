@@ -79,7 +79,7 @@ function printRace(kayit, race, programTarih) {
         + horses.length + ' at · hedef: ' + hedefSehir + ' ──');
     console.log('  Program: ' + programTarih + ' · hesap geçmişi: program günü hariç');
     console.log('  ' + pad('#', 4) + pad('AT İSMİ', 22) + pad('HEDEF', 8)
-        + pad('TÜM', 5) + pad(hedefAbbrev, 6) + pad('ŞEH%', 6)
+        + pad('TÜM', 5) + pad(hedefAbbrev, 6) + pad('ŞEH%', 6) + pad('Ş-FORM', 8)
         + pad('1.', 4) + pad('1-2', 4) + pad('1-3', 4) + pad('1-4', 4)
         + pad('ham[]', 6) + 'GEÇMİŞ ŞEHİR');
     console.log('  ' + '-'.repeat(88));
@@ -96,6 +96,7 @@ function printRace(kayit, race, programTarih) {
             + pad(String(a.validSehir), 5)
             + pad(String(a.inCity), 6)
             + pad(a.sehirPct != null ? a.sehirPct + '%' : '—', 6)
+            + pad((a.st.formTrend && a.st.formTrend.display) || '—', 8)
             + pad(String(a.st.cnt1), 4)
             + pad(String(a.st.cnt2 ?? 0), 4)
             + pad(String(a.st.cnt3 ?? 0), 4)
@@ -141,7 +142,33 @@ function runGerardFixture() {
     const ok = st.cnt1 === 0 && st.cnt2 === 0 && st.cnt3 === 0 && st.cnt4 === 1 && st.inCityCount === 5;
     console.log('GERARD fixture (TJK İzmir, program günü hariç):');
     console.log('  cnt1=' + st.cnt1 + ' cnt2=' + st.cnt2 + ' cnt3=' + st.cnt3 + ' cnt4=' + st.cnt4
-        + ' · inCity=' + st.inCityCount + ' · ' + (ok ? 'OK' : 'HATA'));
+        + ' · inCity=' + st.inCityCount + ' · Ş-FORM=' + (st.formTrend?.display || '—')
+        + ' · ' + (ok ? 'OK' : 'HATA'));
+    if (!ok) process.exit(1);
+}
+
+function runFormTrendFixture() {
+    const improving = [
+        { tarih: '05.08.2026', sehir: 'İzmir', sira: '2' },
+        { tarih: '04.07.2026', sehir: 'İzmir', sira: '4' },
+        { tarih: '03.06.2026', sehir: 'Ankara', sira: '6' },
+        { tarih: '02.05.2026', sehir: 'İzmir', sira: '7' },
+        { tarih: '01.04.2026', sehir: 'İzmir', sira: '8' }
+    ];
+    const declining = [
+        { tarih: '05.08.2026', sehir: 'İzmir', sira: '8' },
+        { tarih: '04.07.2026', sehir: 'İzmir', sira: '9' },
+        { tarih: '03.06.2026', sehir: 'İzmir', sira: '1' },
+        { tarih: '02.05.2026', sehir: 'İzmir', sira: '1' },
+        { tarih: '01.04.2026', sehir: 'İzmir', sira: '2' }
+    ];
+    const imp = SehirStatsEngine.computeStats(improving, 'İzmir', null).formTrend;
+    const dec = SehirStatsEngine.computeStats(declining, 'İzmir', null).formTrend;
+    console.log('Form trend fixture:');
+    console.log('  4→2 iyileşen: ' + (imp?.display || '—') + ' (>' + (dec?.pct ?? 0) + ' olmalı)');
+    console.log('  2→1→1→9→8 düşen: ' + (dec?.display || '—'));
+    const ok = imp?.pct != null && dec?.pct != null && imp.pct > dec.pct && imp.pct > 50 && dec.pct < 50;
+    console.log('  ' + (ok ? 'OK' : 'HATA'));
     if (!ok) process.exit(1);
 }
 
@@ -149,6 +176,10 @@ async function main() {
     loadEngines();
     if (args.includes('--fixture-gerard')) {
         runGerardFixture();
+        return;
+    }
+    if (args.includes('--fixture-form')) {
+        runFormTrendFixture();
         return;
     }
     const db = openDb(cli.dbPath);
