@@ -122,38 +122,109 @@
             background: linear-gradient(135deg, #ede7f6, #e1bee7);
             color: #4a148c; font-weight: 800; min-width: 52px;
         }
-        /* SİKLET · SON800-1 */
+        /* SİKLET · SON800-1 — İstatistikler ile aynı renklendirme */
         .siklet-son800-table { min-width: 2400px !important; }
-        .siklet-son800-table th.sk-son800-grp {
-            background: #e8eaf6; color: #1a237e; text-align: center;
-            border-left: 3px solid #5c6bc0; font-size: 11px; vertical-align: bottom;
+        .siklet-son800-table th.istat-grp-son8001,
+        .siklet-son800-table td.istat-grp-son8001 { background: #e0f7fa; text-align: center; padding: 6px 4px; }
+        .siklet-son800-table th.istat-grp-son8001 { color: #006064; }
+        .siklet-son800-table th.istat-grp-start,
+        .siklet-son800-table td.istat-grp-start {
+            border-left: 4px solid currentColor;
+            box-shadow: -1px 0 0 rgba(0, 0, 0, 0.04) inset;
         }
-        .siklet-son800-table th.sk-son800-grp small {
-            display: block; font-weight: 500; font-size: 9px; color: #3949ab; margin-top: 2px;
-        }
-        .siklet-son800-table th.sk-son800-th {
-            background: #e8eaf6; color: #283593; font-size: 10px; text-align: center;
-            padding: 6px 4px; white-space: nowrap;
-        }
-        .siklet-son800-table th.sk-son800-start { border-left: 3px solid #5c6bc0; }
-        .siklet-son800-table th.sk-son800-end,
-        .siklet-son800-table td.sk-son800-end { border-right: 3px solid #5c6bc0; }
-        .siklet-son800-table td.sk-son8001 { background: #fafafa; text-align: center; padding: 6px 4px; }
-        .siklet-son800-table td.sk-son800-start { border-left: 3px solid #c5cae9; }
-        .siklet-son800-table td.sk-son800-avg { background: #fff8e1; }
-        .siklet-son800-table td.sk-gap-twin-zero { background: #ffe0b2 !important; }
-        .siklet-son800-table td.sk-gap-low-neon { background: #b9f6ca !important; }
-        .sk-pct {
+        .siklet-son800-table th.istat-grp-son8001.istat-grp-start { border-left-color: #00acc1; }
+        .siklet-son800-table td.istat-grp-son8001.istat-grp-start { border-left-color: #80deea; }
+        .siklet-son800-table th.istat-grp-end,
+        .siklet-son800-table td.istat-grp-end { border-right: 2px solid rgba(0, 0, 0, 0.1); }
+        .siklet-son800-table th.istat-th-metric { min-width: 58px; white-space: nowrap; font-size: 10px; padding: 6px 4px; }
+        .siklet-son800-table th.istat-th-son800-depth,
+        .siklet-son800-table td.istat-son800-depth { min-width: 58px; max-width: 72px; font-size: 11px; }
+        .siklet-son800-table th.istat-th-son800-avg,
+        .siklet-son800-table td.istat-son800-avg { min-width: 64px; max-width: 78px; font-size: 11px; font-weight: 800; }
+        .siklet-son800-table th.istat-th-self-depth,
+        .siklet-son800-table td.istat-self-depth { background: rgba(255, 255, 255, 0.45); box-shadow: inset 1px 0 0 rgba(0, 0, 0, 0.06); }
+        .siklet-son800-table tbody tr:hover td.istat-self-depth { background: rgba(255, 255, 255, 0.65); }
+        .siklet-son800-table th.istat-th-best-depth,
+        .siklet-son800-table td.istat-best-depth { background: rgba(255, 255, 255, 0.3); box-shadow: inset 1px 0 0 rgba(0, 0, 0, 0.05); font-weight: 700; font-variant-numeric: tabular-nums; }
+        .siklet-son800-table tbody tr:hover td.istat-best-depth { background: rgba(255, 255, 255, 0.45); }
+        .siklet-son800-table th.istat-th-success-depth,
+        .siklet-son800-table td.istat-success-depth { background: rgba(255, 248, 220, 0.55); box-shadow: inset 2px 0 0 rgba(255, 193, 7, 0.35); }
+        .siklet-son800-table tbody tr:hover td.istat-success-depth { background: rgba(255, 248, 220, 0.75); }
+        .siklet-son800-table th.istat-th-gap-depth,
+        .siklet-son800-table td.istat-gap-depth { background: rgba(0, 0, 0, 0.04); box-shadow: inset 1px 0 0 rgba(0, 0, 0, 0.08); }
+        .siklet-son800-table tbody tr:hover td.istat-gap-depth { background: rgba(0, 0, 0, 0.07); }
+        .siklet-son800-table tbody tr:hover td.istat-grp-son8001 { background: #d4f4f7; }
+        .siklet-son800-table .istat-col-label { font-size: 9px; font-weight: 700; line-height: 1.15; white-space: nowrap; }
+        .siklet-son800-table .istat-grp-head { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .siklet-son800-table .istat-grp-label { line-height: 1.2; font-size: 11px; font-weight: 800; }
+        .siklet-son800-table .istat-grp-label small { display: block; font-weight: 500; opacity: 0.85; margin-top: 2px; font-size: 9px; }
+        .siklet-son800-table .istat-pct {
             display: inline-block; min-width: 44px; padding: 3px 6px;
             border-radius: 4px; font-weight: 800; font-size: 11px;
         }
-        .sk-pct-none { background: #f5f5f5; color: #9e9e9e; }
-        .sk-pct-low { background: #ffebee; color: #c62828; }
-        .sk-pct-mid { background: #fff8e1; color: #f57f17; }
-        .sk-pct-good { background: #e8f5e9; color: #1b5e20; }
-        .sk-pct-high { background: #a5d6a7; color: #0d3d0d; }
-        .sk-pct-gap-zero { animation: sk-gap-blink 1.2s ease-in-out infinite; }
-        @keyframes sk-gap-blink { 50% { opacity: 0.65; } }
+        .siklet-son800-table .istat-pct-none { background: #f5f5f5; color: #9e9e9e; }
+        .siklet-son800-table .istat-pct-low { background: #ffebee; color: #c62828; }
+        .siklet-son800-table .istat-pct-mid { background: #fff8e1; color: #f57f17; }
+        .siklet-son800-table .istat-pct-good { background: #e8f5e9; color: #1b5e20; }
+        .siklet-son800-table .istat-pct-high { background: #a5d6a7; color: #0d3d0d; }
+        @keyframes istat-gap-zero-blink {
+            0%, 100% { color: #b71c1c; text-shadow: 0 0 6px rgba(244, 67, 54, 0.85); opacity: 1; }
+            50% { color: #ff5252; text-shadow: none; opacity: 0.3; }
+        }
+        .siklet-son800-table .istat-pct-gap-zero-blink {
+            color: #c62828 !important; font-weight: 900 !important;
+            animation: istat-gap-zero-blink 0.85s ease-in-out infinite;
+        }
+        .siklet-son800-table tbody tr:hover .istat-pct-gap-zero-blink {
+            animation: istat-gap-zero-blink 0.85s ease-in-out infinite;
+        }
+        .siklet-son800-table td.istat-gap-son8001-t1dr-twin-zero {
+            background: #ff9800 !important; box-shadow: inset 0 0 0 2px #ef6c00;
+        }
+        .siklet-son800-table tbody tr:hover td.istat-gap-son8001-t1dr-twin-zero { background: #fb8c00 !important; }
+        .siklet-son800-table td.istat-gap-son8001-t1dr-twin-zero .istat-pct { background: rgba(255, 152, 0, 0.35) !important; }
+        .siklet-son800-table td.istat-gap-son8001-t1dr-low-neon {
+            background: #76ff03 !important;
+            box-shadow: inset 0 0 0 2px #33691e, 0 0 12px rgba(118, 255, 3, 0.75);
+        }
+        .siklet-son800-table td.istat-gap-son8001-t1dr-low-neon .istat-pct {
+            background: #76ff03 !important; color: #1b5e20 !important;
+            box-shadow: 0 0 10px rgba(118, 255, 3, 0.9);
+        }
+        .siklet-son800-table tbody tr:hover td.istat-gap-son8001-t1dr-low-neon { background: #b2ff59 !important; }
+        .siklet-son800-table tbody tr:hover td.istat-gap-son8001-t1dr-low-neon .istat-pct { background: #b2ff59 !important; }
+        /* GÖSTERİM renklendirme */
+        .siklet-son800-table td[class*="istat-gos-"] .istat-pct { background: transparent !important; }
+        .siklet-son800-table td.istat-gos-kirmizi-kenar { box-shadow: inset 0 0 0 2px #d50000, 0 0 8px rgba(255, 23, 68, 0.35); }
+        .siklet-son800-table td.istat-gos-mavi-kenar { box-shadow: inset 0 0 0 2px #0d47a1, 0 0 8px rgba(13, 71, 161, 0.35); }
+        .siklet-son800-table td.istat-gos-yesil-satir { background: #e8ff9e !important; }
+        .siklet-son800-table td.istat-gos-yesil-satir .istat-pct { color: #1b5e20 !important; font-weight: 900; }
+        .siklet-son800-table td.istat-gos-guclu-uyari {
+            background: linear-gradient(135deg, #0a2e12 0%, #1b5e20 100%) !important; color: #e8f5e9 !important;
+        }
+        .siklet-son800-table td.istat-gos-guclu-uyari .istat-pct {
+            color: #e8f5e9 !important; font-weight: 900; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+        }
+        .siklet-son800-table td.istat-gos-mavi-fosfor { background: rgba(0, 188, 212, 0.14) !important; }
+        .siklet-son800-table td.istat-gos-mavi-fosfor .istat-pct { color: #01579b !important; font-weight: 900; }
+        .siklet-son800-table td.istat-gos-pembe-satir { background: #fce4ec !important; }
+        .siklet-son800-table td.istat-gos-pembe-satir .istat-pct { color: #880e4f !important; font-weight: 900; }
+        .siklet-son800-table td.istat-gos-sari .istat-pct { color: #b8860b !important; font-weight: 900; }
+        .siklet-son800-table td.istat-gos-kirmizi-test .istat-pct { color: #b71c1c !important; font-weight: 900; }
+        .siklet-son800-table td.istat-gos-eslesme {
+            background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%) !important;
+        }
+        .siklet-son800-table td.istat-gos-eslesme .istat-pct {
+            color: #f1f8e9 !important; font-weight: 900; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+        .siklet-son800-table td.istat-gos-kirmizi-kenar .istat-pct,
+        .siklet-son800-table td.istat-gos-mavi-kenar .istat-pct { color: #0d3d0d !important; font-weight: 900; }
+        .siklet-son800-table td.istat-gos-kirmizi-kenar.istat-gos-eslesme .istat-pct,
+        .siklet-son800-table td.istat-gos-mavi-kenar.istat-gos-eslesme .istat-pct,
+        .siklet-son800-table td.istat-gos-kirmizi-kenar.istat-gos-guclu-uyari .istat-pct,
+        .siklet-son800-table td.istat-gos-mavi-kenar.istat-gos-guclu-uyari .istat-pct {
+            color: #f1f8e9 !important; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
         .fstest-table .col-hedef {
             min-width: 56px; text-align: center; font-weight: 800;
             color: #6a1b9a; background: #f3e5f5; font-size: 11px;
@@ -317,7 +388,9 @@
     <script src="js/at-meta-fields.js?v=20260831a"></script>
     <script src="js/formula-engine.js?v=20260831c"></script>
     <script src="js/istatistik-engine.js?v=20260831c"></script>
-    <script src="js/son800-depth-ui.js?v=20260831d"></script>
+    <script src="js/istatistik-grids-extra.js?v=20260831e"></script>
+    <script src="js/istatistik-gosterim-flags.js?v=20260831e"></script>
+    <script src="js/son800-depth-ui.js?v=20260831e"></script>
     <script src="js/field-size-stats-engine.js?v=20260831i"></script>
     <script src="js/sehir-stats-engine.js?v=20260831g"></script>
     <script src="js/kosu-dimension-stats-engine.js?v=20260831h"></script>
