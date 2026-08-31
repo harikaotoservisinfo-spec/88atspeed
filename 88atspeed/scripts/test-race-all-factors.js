@@ -29,8 +29,11 @@ const cli = {
     kayitId: argVal('--kayit') ? Number(argVal('--kayit')) : null,
     raceNo: argVal('--race') ? Number(argVal('--race')) : 1,
     dim: argVal('--dim') || 'siklet',
-    fixture: argVal('--fixture') || null
+    fixture: argVal('--fixture') || null,
+    verbose: args.includes('--verbose') || args.includes('-v')
 };
+
+const MIN_SK_HISTORY_FOR_FUSION = 3;
 
 const WINDOWS = [null, 5, 4, 3, 2, 1];
 const WIN_LABEL = { null: 'TÜM', 5: 'S5', 4: 'S4', 3: 'S3', 2: 'S2', 1: 'S1' };
@@ -139,10 +142,18 @@ function hasSikletHistory(horse, w) {
 function getFactorScore(horse, key, w) {
     const v = getVal(horse, key, w);
     if (v == null) return null;
+    if (key === 'matchCount' || key === 'kosuSayisi') return v > 0 ? v : null;
+    if (key === 'matchPct') {
+        if (!hasSikletHistory(horse, w) || v <= 0) return null;
+        return v;
+    }
     const placement = key.startsWith('cnt') || key.startsWith('max');
-    const pct = key === 'matchPct';
-    if ((placement || pct) && !hasSikletHistory(horse, w)) return null;
+    if (placement && !hasSikletHistory(horse, w)) return null;
     return v;
+}
+
+function countWithHistory(horses, w) {
+    return horses.filter(h => hasSikletHistory(h, w)).length;
 }
 
 function factorIsDiscriminative(horses, getScore) {
@@ -260,7 +271,13 @@ function analyzeRace(ctx) {
             + ' at — tek eşleşme; MAX/cnt metrikleri zayıf ayırt eder');
     }
     if (quality.evalCount < quality.total * 0.25) {
-        console.log('⚠ Seyrek veri — oy sayacı güvenilmez; rank fusion daha anlamlı');
+        console.log('⚠ Seyrek veri — oy sayacı güvenilmez');
+    }
+    const histCount = countWithHistory(horses, null);
+    const fusionUnreliable = histCount < MIN_SK_HISTORY_FOR_FUSION;
+    if (fusionUnreliable) {
+        console.log('⚠ SK geçmişi olan ' + histCount + '/' + quality.field
+            + ' at — birleşik SİKLET tahmini GÜVENİLMEZ (min ' + MIN_SK_HISTORY_FOR_FUSION + ')');
     }
     console.log('');
 
@@ -294,14 +311,28 @@ function analyzeRace(ctx) {
             + pad(fmtVal(l.score, f.pct), 8) + bitisMark(bitis) + (bitis ?? '?'));
     }
 
-    const fusionFactors = factors.filter(f => factorIsDiscriminative(horses, f.get));
+    const fusionPool = fusionUnreliable
+        ? horses.filter(h => hasSikletHistory(h, null))
+        : horses;
+    const fusionFactors = factors.filter(f => factorIsDiscriminative(fusionPool, f.get));
     const fusionGetters = fusionFactors.map(f => f.get);
-    const fusion = fusionGetters.length ? buildRankFusion(horses, fusionGetters) : () => null;
-    const fusionPick = fusionGetters.length ? pickLeader(horses, fusion) : null;
+    const fusion = (fusionGetters.length && fusionPool.length >= 2)
+        ? buildRankFusion(fusionPool, fusionGetters)
+        : () => null;
+    const fusionPick = (fusionGetters.length && fusionPool.length >= 2)
+        ? pickLeader(fusionPool, fusion)
+        : null;
 
     if (fusionFactors.length < factors.length) {
         console.log('\n  Rank fusion: ' + fusionFactors.length + '/' + factors.length
-            + ' ayırt edici faktör kullanıldı');
+            + ' ayırt edici faktör · havuz: ' + fusionPool.length + ' at');
+    }
+    if (cli.verbose && fusionFactors.length) {
+        console.log('  Fusion faktörleri: ' + fusionFactors.map(f => f.id).join(', '));
+    }
+    if (fusionUnreliable && fusionPool.length >= 2) {
+        console.log('  (sıralama yalnızca SK geçmişi olanlar: '
+            + fusionPool.map(h => h.name).join(', ') + ')');
     }
 
     console.log('\n── OY SAYACI (kaç faktörde lider?) ──');
@@ -313,10 +344,14 @@ function analyzeRace(ctx) {
     }
 
     console.log('\n── RANK FUSION (ayırt edici faktörler birleşik) ──');
-    const fusionScored = horses.map(h => ({ h, score: fusion(h) })).filter(x => x.score != null);
+    if (fusionUnreliable) {
+        console.log('  — Güvenilir birleşik tahmin için en az ' + MIN_SK_HISTORY_FOR_FUSION
+            + ' atın SK geçmişi gerekli (GETİR / repair)');
+    }
+    const fusionScored = fusionPool.map(h => ({ h, score: fusion(h) })).filter(x => x.score != null);
     fusionScored.sort((a, b) => b.score - a.score || a.h.no - b.h.no);
     if (!fusionScored.length) {
-        console.log('  — Yeterli ayırt edici faktör yok (GETİR / kosular[] repair gerekli)');
+        console.log('  — Yeterli ayırt edici faktör yok');
     }
     for (let i = 0; i < fusionScored.length; i++) {
         const x = fusionScored[i];
@@ -324,9 +359,12 @@ function analyzeRace(ctx) {
             + bitisMark(x.h.bitis) + ' BİT=' + (x.h.bitis ?? '?'));
     }
 
-    if (fusionPick && !fusionPick.tie) {
+    if (fusionPick && !fusionPick.tie && !fusionUnreliable) {
         const top = fusionPick.leader.h;
         console.log('\n  → Birleşik 1. tahmin: ' + top.name + ' (BİTİŞ=' + (top.bitis ?? '?') + ')');
+    } else if (fusionUnreliable && fusionScored.length) {
+        console.log('\n  → SK geçmişi olanlar arası en iyi: ' + fusionScored[0].h.name
+            + ' (BİTİŞ=' + (fusionScored[0].h.bitis ?? '?') + ') — koşu geneli için güvenilmez');
     }
 
     console.log('\n── PENCERE ÖZETİ (cnt123 + MAX-123 liderleri) ──');
@@ -345,12 +383,16 @@ function analyzeRace(ctx) {
     }
 
     console.log('\n── İLK 3 TAHMİN (birleşik skor) ──');
-    const top3pred = fusionScored.slice(0, 3).map(x => x.h.name + '(' + (x.h.bitis ?? '?') + ')');
-    const actualTop3 = byBitis.filter(h => h.bitis <= 3).map(h => h.name + '(' + h.bitis + ')');
-    console.log('  Tahmin : ' + top3pred.join(', '));
-    console.log('  Gerçek : ' + actualTop3.join(', '));
-    const hits = fusionScored.slice(0, 3).filter(x => x.h.bitis != null && x.h.bitis <= 3).length;
-    console.log('  İsabet : ' + hits + '/3 at gerçek ilk 3\'te');
+    if (fusionUnreliable) {
+        console.log('  Tahmin : — (SK geçmişi yetersiz, birleşik ilk-3 üretilmedi)');
+    } else {
+        const top3pred = fusionScored.slice(0, 3).map(x => x.h.name + '(' + (x.h.bitis ?? '?') + ')');
+        const actualTop3 = byBitis.filter(h => h.bitis <= 3).map(h => h.name + '(' + h.bitis + ')');
+        console.log('  Tahmin : ' + (top3pred.length ? top3pred.join(', ') : '—'));
+        console.log('  Gerçek : ' + actualTop3.join(', '));
+        const hits = fusionScored.slice(0, 3).filter(x => x.h.bitis != null && x.h.bitis <= 3).length;
+        console.log('  İsabet : ' + hits + '/3 at gerçek ilk 3\'te');
+    }
     console.log('');
 }
 
