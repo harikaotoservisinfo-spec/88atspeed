@@ -80,7 +80,8 @@ function printRace(kayit, race, programTarih) {
     console.log('  Program: ' + programTarih + ' · hesap geçmişi: program günü hariç');
     console.log('  ' + pad('#', 4) + pad('AT İSMİ', 22) + pad('HEDEF', 8)
         + pad('TÜM', 5) + pad(hedefAbbrev, 6) + pad('ŞEH%', 6)
-        + pad('ham[]', 6) + pad('eksik', 6) + 'GEÇMİŞ ŞEHİR (son→eski)');
+        + pad('1.', 4) + pad('1-2', 4) + pad('1-3', 4) + pad('1-4', 4)
+        + pad('ham[]', 6) + 'GEÇMİŞ ŞEHİR');
     console.log('  ' + '-'.repeat(88));
 
     for (const h of horses) {
@@ -95,9 +96,12 @@ function printRace(kayit, race, programTarih) {
             + pad(String(a.validSehir), 5)
             + pad(String(a.inCity), 6)
             + pad(a.sehirPct != null ? a.sehirPct + '%' : '—', 6)
+            + pad(String(a.st.cnt1), 4)
+            + pad(String(a.st.cnt12), 4)
+            + pad(String(a.st.cnt123), 4)
+            + pad(String(a.st.cnt1234), 4)
             + pad(String(a.rawLen), 6)
-            + pad(String(a.missingSehir), 6)
-            + (a.gecmisSehir || '—').slice(0, 36)
+            + (a.gecmisSehir || '—').slice(0, 28)
             + ' ' + bitMark + (bitis ?? ''));
 
         if (cli.verbose) {
@@ -121,8 +125,7 @@ function printRace(kayit, race, programTarih) {
         }
     }
 
-    console.log('\n  Sütunlar: TÜM = şehir bilgili geçmiş koşu · '
-        + hedefAbbrev + ' = hedef hipodromda koşu · ham[] = kosular[] uzunluğu');
+    console.log('\n  Sütunlar: 1.=1.lik adet · 1-2=1.+2. adet · 1-3=ilk3 adet (hedef şehirde)');
 }
 
 async function main() {
