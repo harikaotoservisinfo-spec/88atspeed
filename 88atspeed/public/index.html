@@ -66,6 +66,7 @@
         .astest-table .col-stat-window.col-stat-sehir { background: #e8eaf6; color: #283593; }
         .astest-table .col-stat-rise { background: #f3e5f5; color: #6a1b9a; font-weight: 600; }
         .astest-table .col-stat-rise-up { background: #e8f5e9; color: #1b5e20; font-weight: 700; }
+        .astest-table .col-stat-max-pct { background: #fff8e1; color: #e65100; font-size: 10px; font-weight: 600; white-space: nowrap; }
         .astest-table .col-stat-all-hdr { border-right: 2px solid #ce93d8; }
         .astest-table .col-stat-window-hdr {
             background: #bbdefb; color: #0d47a1; text-align: center;
@@ -248,7 +249,7 @@
 
     <script src="js/utils.js?v=20260831a"></script>
     <script src="js/at-meta-fields.js?v=20260831a"></script>
-    <script src="js/field-size-stats-engine.js?v=20260830b"></script>
+    <script src="js/field-size-stats-engine.js?v=20260831c"></script>
     <script src="js/sehir-stats-engine.js?v=20260830a"></script>
     <script src="js/kosu-dimension-stats-engine.js?v=20260831e"></script>
     <script>
@@ -321,6 +322,24 @@
                 html += '<td class="col-stat col-stat-window col-stat-cnt">' + (ws.cnt1234 ?? 0) + '</td>';
             }
             return html;
+        }
+
+        function astestMaxSuccessHeader(dimKey) {
+            if (dimKey !== 'siklet') return '';
+            return '<th class="col-stat col-stat-max col-stat-max-pct" title="MAX başarı % — eşleşen koşuda kanıtlanan en geniş alan / bugünkü alan. Sıra: 1·12·123·1234 (tavan %100)">MAX%</th>';
+        }
+
+        function astestMaxSuccessCell(st, dimKey, race) {
+            if (dimKey !== 'siklet') return '';
+            const fs = FieldSizeStatsEngine.raceFieldSize(race);
+            const r = FieldSizeStatsEngine.computeMaxSuccessPct(st, fs);
+            let cls = 'col-stat col-stat-max col-stat-max-pct';
+            if (r.parts && r.parts.length) {
+                const avg = r.parts.reduce(function(a, p) { return a + p.pct; }, 0) / r.parts.length;
+                if (avg >= 80) cls += ' col-stat-rise-up';
+            }
+            return '<td class="' + cls + '" title="' + escapeHtml(r.tooltip) + '">'
+                + escapeHtml(r.display) + '</td>';
         }
 
         function astestDimensionRiseHeader(dimKey, pctLabel) {
@@ -1105,6 +1124,7 @@
                 + (dimKey === 'siklet'
                     ? ' Sıklet: TJK 58,5→59 gösterim · ±0,5 kg eşleşme (59,5–60,5→60). Eski kayıtta at_sayisi eksikse GETİR/repair.'
                         + ' <strong>SK↑S5</strong> = son 5 koşu SK% − TÜM SK% (≥5 puan artış, SK-KOŞU≥2).'
+                        + ' <strong>SK↑S5</strong> = son 5 koşu SK% − TÜM SK% (≥5 puan artış, SK-KOŞU≥2).'
                     : '') + '</p>';
             for (let i = 0; i < races.length; i++) {
                 const race = races[i];
@@ -1130,6 +1150,7 @@
                 html += '<th class="col-stat col-stat-dim" title="Eşleşme oranı">' + escapeHtml(dim.pctLabel) + '</th>';
                 html += '<th class="col-stat col-stat-dim" title="Eşleşen koşu sayısı">' + escapeHtml(dim.matchLabel) + '</th>';
                 html += astestDimensionRiseHeader(dimKey, dim.pctLabel);
+                html += astestMaxSuccessHeader(dimKey);
                 html += '<th class="col-stat col-stat-max" title="Eşleşen koşularda en fazla kaç atlı koşuda 1.">MAX-1</th>';
                 html += '<th class="col-stat col-stat-max">MAX-12</th>';
                 html += '<th class="col-stat col-stat-max">MAX-123</th>';
@@ -1142,7 +1163,7 @@
                 html += '<th class="col-gecmis col-stat-all-hdr" title="Geçmiş ' + escapeHtml(dim.label) + ' değerleri">GEÇMİŞ</th>';
                 html += astestWindowStatHeaders('dimension', dim.pctLabel, dim.matchLabel);
                 html += '</tr></thead><tbody>';
-                const dimBaseCols = dimKey === 'siklet' ? 17 : 16;
+                const dimBaseCols = dimKey === 'siklet' ? 18 : 16;
                 if (!horses.length) {
                     html += '<tr><td colspan="' + (dimBaseCols + ASTEST_WINDOW_COLS.dimension) + '" class="col-name">At yok</td></tr>';
                 } else {
@@ -1169,6 +1190,7 @@
                         html += '<td class="col-stat col-stat-dim">' + KosuDimensionStatsEngine.formatPct(st.matchPct) + '</td>';
                         html += '<td class="col-stat col-stat-dim">' + st.matchCount + '</td>';
                         html += astestDimensionRiseCell(st, dimKey);
+                        html += astestMaxSuccessCell(st, dimKey, race);
                         html += '<td class="col-stat col-stat-max"' + maxTitle + '>' + KosuDimensionStatsEngine.formatCell(st.max1) + '</td>';
                         html += '<td class="col-stat col-stat-max"' + maxTitle + '>' + KosuDimensionStatsEngine.formatCell(st.max12) + '</td>';
                         html += '<td class="col-stat col-stat-max"' + maxTitle + '>' + KosuDimensionStatsEngine.formatCell(st.max123) + '</td>';

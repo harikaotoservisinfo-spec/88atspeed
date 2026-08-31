@@ -113,6 +113,44 @@ const FieldSizeStatsEngine = {
 
     formatCell(v) {
         return v != null && v !== '' ? String(v) : '—';
+    },
+
+    /**
+     * MAX-* değerlerini bugünkü koşu alanına göre başarı % dilimine çevirir.
+     * MAX-N = eşleşen koşularda N derecesine kadar ulaşılan en geniş alan (at sayısı).
+     * % = min(100, MAX / bugünküAlan × 100) — bugünkü kalabalığa göre kanıtlanmış üst sınır.
+     */
+    computeMaxSuccessPct(st, todayFieldSize) {
+        const defs = [
+            { key: 'max1', label: 'MAX-1', desc: '1. olunan en geniş alan' },
+            { key: 'max12', label: 'MAX-12', desc: '1-2 olunan en geniş alan' },
+            { key: 'max123', label: 'MAX-123', desc: '1-2-3 olunan en geniş alan' },
+            { key: 'max1234', label: 'MAX-1234', desc: '1-2-3-4 olunan en geniş alan' }
+        ];
+        if (!st || !todayFieldSize || todayFieldSize < 1) {
+            return { display: '—', tooltip: '', parts: [] };
+        }
+        const hasMatch = (st.matchCount > 0) || (st.matchKosuSayisi > 0);
+        if (!hasMatch) {
+            return { display: '—', tooltip: 'Eşleşen sıklet koşusu yok', parts: [] };
+        }
+        const parts = [];
+        const tipLines = ['Bugünkü alan: ' + todayFieldSize + ' at'];
+        for (let i = 0; i < defs.length; i++) {
+            const d = defs[i];
+            const max = st[d.key];
+            let pct = null;
+            if (max != null && max > 0) {
+                pct = Math.min(100, Math.round(max / todayFieldSize * 100));
+                tipLines.push(d.label + ': ' + max + ' at → %' + pct + ' (' + d.desc + ')');
+            } else {
+                pct = 0;
+                tipLines.push(d.label + ': hiç yok → %0');
+            }
+            parts.push({ label: d.label, max: max, pct: pct });
+        }
+        const display = parts.map(function(p) { return p.pct + '%'; }).join('·');
+        return { display: display, tooltip: tipLines.join('\n'), parts: parts };
     }
 };
 
