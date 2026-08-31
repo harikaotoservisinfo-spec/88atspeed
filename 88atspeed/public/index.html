@@ -1116,7 +1116,6 @@
                 + '<strong>BAŞ+</strong> (HEDEF sonrası) = tüm sütunların birleşik test skoru: hedef şehir deneyimine göre '
                 + 'ŞEH+ ve GEN+ karışımı + yerleşim adetleri + FORM (max 6 koşu). '
                 + '<strong>1. / 1-2 / 1-2-3 / 1-2-3-4</strong> = hedef şehirde tam olarak 1./2./3./4. olma adedi (kümülatif değil). '
-                + '<strong>S5–S1</strong> son 5/4/3/2/1 koşu penceresidir.'
                 + ' Program günü koşusu geçmişten hariç tutulur.</p>';
             for (let i = 0; i < races.length; i++) {
                 const race = races[i];
@@ -1154,10 +1153,9 @@
                 html += '<th class="col-stat col-stat-gen" title="Tüm şehirlerde 2. olma adedi">G1-2</th>';
                 html += '<th class="col-stat col-stat-gen" title="Tüm şehirlerde 3. olma adedi">G1-3</th>';
                 html += '<th class="col-stat col-stat-gen col-stat-all-hdr" title="Tüm şehirlerde 4. olma adedi">G1-4</th>';
-                html += astestWindowStatHeaders('sehir');
                 html += '</tr></thead><tbody>';
                 if (!horses.length) {
-                    html += '<tr><td colspan="' + (18 + ASTEST_WINDOW_COLS.sehir) + '" class="col-name">At yok</td></tr>';
+                    html += '<tr><td colspan="18" class="col-name">At yok</td></tr>';
                 } else {
                     for (let j = 0; j < horses.length; j++) {
                         const h = horses[j];
@@ -1182,12 +1180,10 @@
                         html += '<td class="col-stat col-stat-gen">' + (st.genCnt2 ?? 0) + '</td>';
                         html += '<td class="col-stat col-stat-gen">' + (st.genCnt3 ?? 0) + '</td>';
                         html += '<td class="col-stat col-stat-gen col-stat-all-hdr">' + (st.genCnt4 ?? 0) + '</td>';
-                        html += astestWindowSehirCells(st);
                         html += '</tr>';
                     }
                 }
                 html += '</tbody></table></div>';
-                html += astestWindowLeaderSummary(horses, race, 'sehir', hedefSehir, programTarih);
                 html += '</div>';
             }
             html += '</div>';
