@@ -3,7 +3,7 @@
 set -euo pipefail
 
 APP_DIR="/var/www/88atspeed"
-BRANCH="${1:-cursor/gosterge-metric-tabs-b004}"
+BRANCH="${1:-cursor/siklet-parse-fix-b004}"
 REPO="https://github.com/harikaotoservisinfo-spec/88atspeed.git"
 TMP="/tmp/88atspeed-deploy-$$"
 
@@ -58,4 +58,6 @@ echo "  cd $APP_DIR && node scripts/purge-kosmaz-horses.js --db $APP_DIR/atlar.d
 echo "  cd $APP_DIR && node scripts/test-dimension-finish-correlation.js --db $APP_DIR/atlar.db"
 echo "  cd $APP_DIR && npm run test:dimension-finish"
 echo "  cd $APP_DIR && npm run test:tahmin-buckets"
+echo "  cd $APP_DIR && npm run test:kayit-basari"
+echo "  cd $APP_DIR && node scripts/test-kayit-basari-report.js --db $APP_DIR/atlar.db --kayit 148"
 echo "  cd $APP_DIR && node scripts/test-tahmin-position-buckets.js --db $APP_DIR/atlar.db --kayit 148 --sweep"
