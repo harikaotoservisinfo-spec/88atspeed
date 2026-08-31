@@ -101,8 +101,10 @@ const SehirStatsEngine = {
         });
 
         const genBlock = this._computeGeneralBlock(calcKosular, hedefSehir);
+        const full = Object.assign(base, { windows, formTrend, sehirAdj }, genBlock);
+        full.basSuccess = this.computeBasSuccessScore(full);
 
-        return Object.assign(base, { windows, formTrend, sehirAdj }, genBlock);
+        return full;
     },
 
     _computeGeneralBlock(calcKosular, hedefSehir) {
@@ -128,6 +130,93 @@ const SehirStatsEngine = {
             genCnt4: genPlacement.cnt4,
             genForm,
             genAdj
+        };
+    },
+
+    /** 1./1-2/1-2-3/1-2-3-4 exclusive sayılarından ortalama bitiş puanı (0–100). */
+    _avgPlacementFromCounts(c1, c2, c3, c4, n) {
+        const total = Number(n) || 0;
+        if (!total) return 0;
+        const pts = (Number(c1) || 0) * 100
+            + (Number(c2) || 0) * 88
+            + (Number(c3) || 0) * 76
+            + (Number(c4) || 0) * 64;
+        return Math.round(pts / total);
+    },
+
+    _effectiveFormPct(formTrend, basePct, missingMin) {
+        if (formTrend?.pct != null) return formTrend.pct;
+        const base = basePct != null ? basePct : 0;
+        return Math.max(0, 50 - Math.round(Math.max(missingMin, base * 0.18)));
+    },
+
+    /**
+     * BAŞ+ — ŞEHİR sekmesi birleşik başarı şansı (test geliştirme skoru).
+     * ŞEH+/GEN+, yerleşim adetleri, Ş-FORM/G-FORM ve ŞEH%/GEN% bir arada;
+     * hedef şehir deneyimi azsa GEN ağırlığı artar (max 6 koşu penceresi).
+     */
+    computeBasSuccessScore(st) {
+        const empty = {
+            pct: null,
+            display: '—',
+            cityTrust: 0,
+            cityBlock: null,
+            genBlock: null,
+            tooltip: 'Geçmiş koşu yok'
+        };
+        const total = st?.kosuSayisi || 0;
+        const inCity = st?.inCityCount || 0;
+        if (!total) return empty;
+
+        const windowCap = Math.min(6, total);
+        const cityTrust = inCity === 0
+            ? 0
+            : Math.round(Math.min(1, 0.12 + 0.88 * (inCity / windowCap)) * 1000) / 1000;
+
+        const cityPlace = this._avgPlacementFromCounts(st.cnt1, st.cnt2, st.cnt3, st.cnt4, inCity);
+        const genPlace = this._avgPlacementFromCounts(
+            st.genCnt1, st.genCnt2, st.genCnt3, st.genCnt4, total);
+
+        const sehirPlus = st.sehirAdj?.pct ?? st.sehirPct ?? 0;
+        const genPlus = st.genAdj?.pct ?? st.genBasePct ?? 0;
+        const sehirPct = st.sehirPct ?? 0;
+        const genPct = st.genBasePct ?? 0;
+        const sehirForm = this._effectiveFormPct(st.formTrend, sehirPct, 8);
+        const genForm = this._effectiveFormPct(st.genForm, genPct, 6);
+
+        const W = { plus: 0.55, place: 0.20, base: 0.10, form: 0.15 };
+        const cityBlock = sehirPlus * W.plus + cityPlace * W.place + sehirPct * W.base + sehirForm * W.form;
+        const genBlock = genPlus * W.plus + genPlace * W.place + genPct * W.base + genForm * W.form;
+        const raw = cityTrust * cityBlock + (1 - cityTrust) * genBlock;
+        const pct = Math.round(Math.min(130, Math.max(0, raw)));
+
+        const tipLines = [
+            'BAŞ+ = hedef şehir + genel blok karışımı (test başarı şansı)',
+            'Ağırlıklar: ŞEH+/GEN+ %55 · 1./1-2/… ort. %20 · ŞEH%/GEN% %10 · FORM %15',
+            'Şehir güveni %' + Math.round(cityTrust * 100) + ' (' + inCity + '/' + windowCap + ' hedef koşu, max 6)'
+        ];
+        tipLines.push('Şehir blok: ŞEH+=' + sehirPlus + ' · yer=' + cityPlace
+            + ' · ŞEH%=' + sehirPct + ' · Ş-FORM=' + sehirForm
+            + ' → ' + Math.round(cityBlock));
+        tipLines.push('Genel blok: GEN+=' + genPlus + ' · yer=' + genPlace
+            + ' · GEN%=' + (genPct ?? '—') + ' · G-FORM=' + genForm
+            + ' → ' + Math.round(genBlock));
+        tipLines.push('Karışım: %' + Math.round(cityTrust * 100) + '×şehir + %'
+            + Math.round((1 - cityTrust) * 100) + '×genel = %' + pct);
+
+        return {
+            pct,
+            display: '%' + pct,
+            cityTrust,
+            cityBlock: Math.round(cityBlock),
+            genBlock: Math.round(genBlock),
+            cityPlace,
+            genPlace,
+            sehirForm,
+            genForm,
+            boosted: pct >= 85,
+            penalized: pct <= 25,
+            tooltip: tipLines.join('\n')
         };
     },
 

@@ -78,7 +78,7 @@ function printRace(kayit, race, programTarih) {
     console.log('\n── K' + race.raceNo + ' · ' + (race.mesafe || '?') + ' · '
         + horses.length + ' at · hedef: ' + hedefSehir + ' ──');
     console.log('  Program: ' + programTarih + ' · hesap geçmişi: program günü hariç');
-    console.log('  ' + pad('#', 4) + pad('AT İSMİ', 22) + pad('HEDEF', 8)
+    console.log('  ' + pad('#', 4) + pad('AT İSMİ', 22) + pad('HEDEF', 8) + pad('BAŞ+', 7)
         + pad('TÜM', 5) + pad(hedefAbbrev, 6) + pad('ŞEH%', 6) + pad('Ş-FORM', 8) + pad('ŞEH+', 7)
         + pad('1.', 4) + pad('1-2', 4) + pad('1-3', 4) + pad('1-4', 4)
         + pad('ham[]', 6) + 'GEÇMİŞ ŞEHİR');
@@ -93,6 +93,7 @@ function printRace(kayit, race, programTarih) {
 
         console.log('  ' + pad(String(h.no), 4) + pad((h.name || '').replace(/\(\d+\)/, '').trim().slice(0, 20), 22)
             + pad(a.hedefAbbrev, 8)
+            + pad((a.st.basSuccess && a.st.basSuccess.display) || '—', 7)
             + pad(String(a.validSehir), 5)
             + pad(String(a.inCity), 6)
             + pad(a.sehirPct != null ? a.sehirPct + '%' : '—', 6)
@@ -147,11 +148,15 @@ function runKafkasFixture() {
     console.log('  GEN: genBase=' + st.genBasePct + '% gen1-4='
         + [st.genCnt1, st.genCnt2, st.genCnt3, st.genCnt4].join('/')
         + ' GEN+=' + (st.genAdj?.display || '—') + ' G-FORM=' + (st.genForm?.display || '—'));
+    console.log('  BAŞ+: ' + (st.basSuccess?.display || '—')
+        + ' (güven %' + Math.round((st.basSuccess?.cityTrust || 0) * 100) + ')');
     const ok = st.inCityCount === 0
         && st.cnt1 === 0 && st.cnt2 === 0 && st.cnt3 === 0 && st.cnt4 === 0
         && st.genCnt2 >= 1 && st.genCnt3 >= 1
         && st.genBasePct != null && st.genBasePct > 40
-        && st.genAdj?.pct != null && st.genAdj.pct > 0;
+        && st.genAdj?.pct != null && st.genAdj.pct > 0
+        && st.basSuccess?.pct != null && st.basSuccess.pct > 40
+        && st.basSuccess.cityTrust === 0;
     console.log('  ' + (ok ? 'OK' : 'HATA'));
     if (!ok) process.exit(1);
 }
@@ -250,6 +255,38 @@ function runSehirAdjFixture() {
     if (!ok) process.exit(1);
 }
 
+function runBasSuccessFixture() {
+    const kafkas = [
+        { tarih: '29.08.2026', sehir: 'İzmir', sira: '1' },
+        { tarih: '16.08.2026', sehir: 'İstanbul', sira: '3' },
+        { tarih: '07.08.2026', sehir: 'İstanbul', sira: '8' },
+        { tarih: '26.07.2026', sehir: 'İstanbul', sira: '2' },
+        { tarih: '17.07.2026', sehir: 'İstanbul', sira: '5' },
+        { tarih: '13.05.2026', sehir: 'İstanbul', sira: '8' }
+    ];
+    const izmirVeteran = [
+        { tarih: '01.08.2026', sehir: 'İzmir', sira: '2' },
+        { tarih: '02.07.2026', sehir: 'İzmir', sira: '3' },
+        { tarih: '03.06.2026', sehir: 'İzmir', sira: '4' },
+        { tarih: '04.05.2026', sehir: 'İzmir', sira: '2' },
+        { tarih: '05.04.2026', sehir: 'İzmir', sira: '1' },
+        { tarih: '06.03.2026', sehir: 'İzmir', sira: '2' }
+    ];
+    const stK = SehirStatsEngine.computeStats(kafkas, 'İzmir', '29/08/2026');
+    const stV = SehirStatsEngine.computeStats(izmirVeteran, 'İzmir', null);
+    console.log('BAŞ+ fixture:');
+    console.log('  KAFKAS (0 İzmir, genel form): BAŞ+=' + (stK.basSuccess?.display || '—')
+        + ' · güven %' + Math.round((stK.basSuccess?.cityTrust || 0) * 100));
+    console.log('  İzmir veteran (6/6): BAŞ+=' + (stV.basSuccess?.display || '—')
+        + ' · güven %' + Math.round((stV.basSuccess?.cityTrust || 0) * 100));
+    const ok = stK.basSuccess?.pct != null && stV.basSuccess?.pct != null
+        && stK.basSuccess.cityTrust === 0
+        && stV.basSuccess.cityTrust >= 0.9
+        && stV.basSuccess.pct > stK.basSuccess.pct;
+    console.log('  ' + (ok ? 'OK' : 'HATA'));
+    if (!ok) process.exit(1);
+}
+
 function runGerardFixture() {
     const gerardKosular = [
         { tarih: '29.08.2026', sehir: 'İzmir', mesafe: '2000', sira: '5', at_sayisi: 9 },
@@ -295,6 +332,10 @@ function runFormTrendFixture() {
 
 async function main() {
     loadEngines();
+    if (args.includes('--fixture-bas')) {
+        runBasSuccessFixture();
+        return;
+    }
     if (args.includes('--fixture-gerard')) {
         runGerardFixture();
         return;

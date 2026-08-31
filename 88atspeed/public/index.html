@@ -105,6 +105,10 @@
         .sehirtest-table .col-stat-sehir { background: #e8f5e9; color: #1b5e20; font-weight: 700; }
         .sehirtest-table .col-stat-gen { background: #fff3e0; color: #e65100; font-weight: 700; }
         .sehirtest-table .col-stat-gen-adj { background: #ffe0b2; color: #bf360c; font-weight: 700; }
+        .sehirtest-table .col-stat-bas {
+            background: linear-gradient(135deg, #ede7f6, #e1bee7);
+            color: #4a148c; font-weight: 800; min-width: 52px;
+        }
         .sehirtest-table .col-gecmis-match { color: #1565c0; }
         .astest-note {
             font-size: 11px; color: #78909c; margin: 0 0 10px 2px;
@@ -254,7 +258,7 @@
     <script src="js/utils.js?v=20260831a"></script>
     <script src="js/at-meta-fields.js?v=20260831a"></script>
     <script src="js/field-size-stats-engine.js?v=20260831e"></script>
-    <script src="js/sehir-stats-engine.js?v=20260831f"></script>
+    <script src="js/sehir-stats-engine.js?v=20260831g"></script>
     <script src="js/kosu-dimension-stats-engine.js?v=20260831e"></script>
     <script>
         const RECENT_WINDOWS = FieldSizeStatsEngine.RECENT_WINDOWS;
@@ -454,6 +458,15 @@
                 + escapeHtml(adj.display || SehirStatsEngine.formatPct(st.sehirPct)) + '</td>';
         }
 
+        function astestBasSuccessCell(st) {
+            const bs = st.basSuccess || {};
+            let cls = 'col-stat col-stat-bas';
+            if (bs.boosted) cls += ' col-stat-rise-up';
+            else if (bs.penalized) cls += ' col-stat-rise-down';
+            return '<td class="' + cls + '" title="' + escapeHtml(bs.tooltip || '') + '">'
+                + escapeHtml(bs.display || '—') + '</td>';
+        }
+
         function astestGenAdjCell(st) {
             const adj = st.genAdj || {};
             let cls = 'col-stat col-stat-gen col-stat-gen-adj';
@@ -486,13 +499,17 @@
                     const v = row.st.genAdj?.pct;
                     return v != null ? Number(v) : null;
                 }
+                if (metric === 'basSuccess') {
+                    const v = row.st.basSuccess?.pct;
+                    return v != null ? Number(v) : null;
+                }
                 const v = src[metric];
                 return v != null && v !== '' ? Number(v) : null;
             }
             const metrics = kind === 'fieldSize'
                 ? [{ key: 'cnt123', label: '1-2-3' }, { key: 'kosuSayisi', label: 'KOŞU' }]
                 : kind === 'sehir'
-                    ? [{ key: 'sehirAdj', label: 'ŞEH+' }, { key: 'genAdj', label: 'GEN+' }]
+                    ? [{ key: 'basSuccess', label: 'BAŞ+' }, { key: 'sehirAdj', label: 'ŞEH+' }, { key: 'genAdj', label: 'GEN+' }]
                     : [{ key: 'matchPct', label: dimOrSehir.pctLabel }, { key: 'cnt123', label: '1-2-3' }];
             let html = '<div class="astest-window-summary">';
             html += '<div class="astest-window-summary-title">Pencere lider özeti (TÜM → S1 · sekme içi)</div>';
@@ -1096,6 +1113,8 @@
                 + 'ŞEH% sonrası <strong>Ş-FORM</strong> = son 5 koşuda hedef şehirde performans momentumu (%50 nötr). '
                 + '<strong>ŞEH+</strong> = ŞEH% + Ş-FORM + son koşu şehri + S5 derece (hedef). '
                 + '<strong>GEN+ / G1–G4</strong> = tüm şehirlerde genel başarı (GEN% ortalama bitiş puanı + G-FORM + S5). '
+                + '<strong>BAŞ+</strong> (HEDEF sonrası) = tüm sütunların birleşik test skoru: hedef şehir deneyimine göre '
+                + 'ŞEH+ ve GEN+ karışımı + yerleşim adetleri + FORM (max 6 koşu). '
                 + '<strong>1. / 1-2 / 1-2-3 / 1-2-3-4</strong> = hedef şehirde tam olarak 1./2./3./4. olma adedi (kümülatif değil). '
                 + '<strong>S5–S1</strong> son 5/4/3/2/1 koşu penceresidir.'
                 + ' Program günü koşusu geçmişten hariç tutulur.</p>';
@@ -1120,6 +1139,7 @@
                 html += '<th class="col-no">#</th>';
                 html += '<th class="col-name">AT İSMİ</th>';
                 html += '<th class="col-hedef" title="Hedef hipodrom">HEDEF</th>';
+                html += '<th class="col-stat col-stat-bas" title="Birleşik başarı şansı: ŞEH+/GEN+ + yerleşim + FORM (hedef deneyimine göre karışım)">BAŞ+</th>';
                 html += '<th class="col-stat" title="Geçmiş koşu (kosular[] içinde şehir bilgili)">TÜM KOŞU</th>';
                 html += '<th class="col-stat col-stat-sehir" title="Hedef şehirdeki koşu sayısı (' + escapeHtml(hedefAbbrev) + ')">' + escapeHtml(hedefAbbrev) + ' KOŞU</th>';
                 html += '<th class="col-stat col-stat-sehir" title="Hedef şehirde koşma oranı (TÜM KOŞU içinde)">ŞEH%</th>';
@@ -1137,7 +1157,7 @@
                 html += astestWindowStatHeaders('sehir');
                 html += '</tr></thead><tbody>';
                 if (!horses.length) {
-                    html += '<tr><td colspan="' + (17 + ASTEST_WINDOW_COLS.sehir) + '" class="col-name">At yok</td></tr>';
+                    html += '<tr><td colspan="' + (18 + ASTEST_WINDOW_COLS.sehir) + '" class="col-name">At yok</td></tr>';
                 } else {
                     for (let j = 0; j < horses.length; j++) {
                         const h = horses[j];
@@ -1147,6 +1167,7 @@
                         html += '<td class="col-no">' + escapeHtml(String(h.no ?? (j + 1))) + '</td>';
                         html += '<td class="col-name">' + escapeHtml(h.name || '—') + '</td>';
                         html += '<td class="col-hedef">' + escapeHtml(hedefAbbrev) + '</td>';
+                        html += astestBasSuccessCell(st);
                         html += '<td class="col-stat">' + SehirStatsEngine.formatCell(st.kosuSayisi) + '</td>';
                         html += '<td class="col-stat col-stat-sehir">' + st.inCityCount + '</td>';
                         html += '<td class="col-stat col-stat-sehir">' + SehirStatsEngine.formatPct(st.sehirPct) + '</td>';
