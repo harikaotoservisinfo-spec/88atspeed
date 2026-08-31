@@ -129,9 +129,34 @@ function getVal(horse, key, w) {
     return parseNum(src[key]);
 }
 
+function hasSikletHistory(horse, w) {
+    const mc = getVal(horse, 'matchCount', w);
+    if (mc != null) return mc > 0;
+    const ks = getVal(horse, 'kosuSayisi', w);
+    return ks != null && ks > 0;
+}
+
+function getFactorScore(horse, key, w) {
+    const v = getVal(horse, key, w);
+    if (v == null) return null;
+    const placement = key.startsWith('cnt') || key.startsWith('max');
+    const pct = key === 'matchPct';
+    if ((placement || pct) && !hasSikletHistory(horse, w)) return null;
+    return v;
+}
+
+function factorIsDiscriminative(horses, getScore) {
+    const vals = horses.map(h => getScore(h)).filter(v => v != null);
+    if (vals.length < 2) return false;
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    return max > min;
+}
+
 function pickLeader(horses, getScore) {
     const scored = horses.map(h => ({ h, score: getScore(h) })).filter(x => x.score != null);
     if (scored.length < 2) return null;
+    if (!factorIsDiscriminative(horses, getScore)) return { tie: true, flat: true };
     scored.sort((a, b) => b.score - a.score || a.h.no - b.h.no);
     if (scored[0].score === scored[1].score) return { tie: true, leaders: scored.filter(x => x.score === scored[0].score) };
     return { tie: false, leader: scored[0] };
@@ -175,7 +200,7 @@ function buildFactorList(includePct) {
             factors.push({
                 id: (WIN_LABEL[w] || 'TÜM') + '.' + k.col,
                 w, ...k,
-                get: h => getVal(h, k.key, w)
+                get: h => getFactorScore(h, k.key, w)
             });
         }
     }
@@ -183,19 +208,18 @@ function buildFactorList(includePct) {
 }
 
 function summarizeDataQuality(horses, factors) {
-    let evalCount = 0, tieSkip = 0, nullSkip = 0;
+    let evalCount = 0, tieSkip = 0, nullSkip = 0, flatSkip = 0;
     for (const f of factors) {
         const vals = horses.map(h => f.get(h)).filter(v => v != null);
         if (vals.length < 2) { nullSkip++; continue; }
+        if (!factorIsDiscriminative(horses, f.get)) { flatSkip++; continue; }
         const pick = pickLeader(horses, f.get);
         if (!pick || pick.tie) tieSkip++;
         else evalCount++;
     }
-    const sk1 = horses.filter(h => {
-        const mc = getVal(h, 'matchCount', null) ?? getVal(h, 'kosuSayisi', null);
-        return mc === 1;
-    }).length;
-    return { evalCount, tieSkip, nullSkip, total: factors.length, sk1, field: horses.length };
+    const noHist = horses.filter(h => !hasSikletHistory(h, null)).length;
+    const sk1 = horses.filter(h => getVal(h, 'matchCount', null) === 1).length;
+    return { evalCount, tieSkip, nullSkip, flatSkip, total: factors.length, sk1, noHist, field: horses.length };
 }
 
 function printHorseGrid(horses) {
@@ -226,7 +250,11 @@ function analyzeRace(ctx) {
     console.log(ctx.label);
     console.log('Alan: ' + fieldSize + ' at · Faktör sayısı: ' + factors.length);
     console.log('Değerlendirilebilir: ' + quality.evalCount + '/' + quality.total
-        + ' (berab=' + quality.tieSkip + ', veri yok=' + quality.nullSkip + ')');
+        + ' (berab=' + quality.tieSkip + ', düz=' + quality.flatSkip + ', veri yok=' + quality.nullSkip + ')');
+    if (quality.noHist > 0) {
+        console.log('⚠ SK geçmişi yok: ' + quality.noHist + '/' + quality.field
+            + ' at (cnt/MAX sıfırları fusion\'a dahil edilmez)');
+    }
     if (quality.sk1 >= quality.field * 0.6) {
         console.log('⚠ SK-KOŞU=1 olan ' + quality.sk1 + '/' + quality.field
             + ' at — tek eşleşme; MAX/cnt metrikleri zayıf ayırt eder');
@@ -266,9 +294,15 @@ function analyzeRace(ctx) {
             + pad(fmtVal(l.score, f.pct), 8) + bitisMark(bitis) + (bitis ?? '?'));
     }
 
-    const fusionGetters = factors.map(f => f.get);
-    const fusion = buildRankFusion(horses, fusionGetters);
-    const fusionPick = pickLeader(horses, fusion);
+    const fusionFactors = factors.filter(f => factorIsDiscriminative(horses, f.get));
+    const fusionGetters = fusionFactors.map(f => f.get);
+    const fusion = fusionGetters.length ? buildRankFusion(horses, fusionGetters) : () => null;
+    const fusionPick = fusionGetters.length ? pickLeader(horses, fusion) : null;
+
+    if (fusionFactors.length < factors.length) {
+        console.log('\n  Rank fusion: ' + fusionFactors.length + '/' + factors.length
+            + ' ayırt edici faktör kullanıldı');
+    }
 
     console.log('\n── OY SAYACI (kaç faktörde lider?) ──');
     const ranked = [...votes.values()].sort((a, b) => b.wins - a.wins || a.h.no - b.h.no);
@@ -278,9 +312,12 @@ function analyzeRace(ctx) {
             + (r.wins ? ' · ' + r.factors.slice(0, 5).join(', ') + (r.factors.length > 5 ? '…' : '') : ''));
     }
 
-    console.log('\n── RANK FUSION (tüm faktörler birleşik) ──');
+    console.log('\n── RANK FUSION (ayırt edici faktörler birleşik) ──');
     const fusionScored = horses.map(h => ({ h, score: fusion(h) })).filter(x => x.score != null);
     fusionScored.sort((a, b) => b.score - a.score || a.h.no - b.h.no);
+    if (!fusionScored.length) {
+        console.log('  — Yeterli ayırt edici faktör yok (GETİR / kosular[] repair gerekli)');
+    }
     for (let i = 0; i < fusionScored.length; i++) {
         const x = fusionScored[i];
         console.log('  ' + (i + 1) + '. ' + pad(x.h.name, 22) + pad(x.score.toFixed(1), 8)
@@ -297,8 +334,8 @@ function analyzeRace(ctx) {
         + pad('MAX-123 lider', 20) + pad('max', 5) + 'BİT');
     for (const w of WINDOWS) {
         const lbl = WIN_LABEL[w];
-        const cPick = pickLeader(horses, h => getVal(h, 'cnt123', w));
-        const mPick = pickLeader(horses, h => getVal(h, 'max123', w));
+        const cPick = pickLeader(horses, h => getFactorScore(h, 'cnt123', w));
+        const mPick = pickLeader(horses, h => getFactorScore(h, 'max123', w));
         const cName = cPick && !cPick.tie ? cPick.leader.h.name.slice(0, 18) : '—';
         const mName = mPick && !mPick.tie ? mPick.leader.h.name.slice(0, 18) : '—';
         const cBit = cPick && !cPick.tie ? cPick.leader.h.bitis : null;
