@@ -77,6 +77,45 @@ function parseRaceHeaderLine(line) {
     return out;
 }
 
+/** TJK: "56 +1" → "57"; geçmiş kayıtlarda "561" → "57" */
+function normalizeSikletStr(raw) {
+    if (raw == null || raw === '' || raw === '-' || raw === '—') return '';
+    const s = String(raw).replace(/\s+/g, ' ').trim();
+    const plus = s.match(/^(\d+(?:[.,]\d+)?)\s*\+\s*(\d+(?:[.,]\d+)?)$/);
+    if (plus) {
+        const base = parseFloat(plus[1].replace(',', '.'));
+        const adj = parseFloat(plus[2].replace(',', '.'));
+        if (!isNaN(base) && !isNaN(adj)) return String(Math.round(base + adj));
+    }
+    const plain = s.match(/^(\d+(?:[.,]\d+)?)$/);
+    if (plain) {
+        let n = parseFloat(plain[1].replace(',', '.'));
+        if (!isNaN(n)) {
+            if (Number.isInteger(n) && n >= 520 && n < 700) {
+                const base = Math.floor(n / 10);
+                const adj = n % 10;
+                if (base >= 48 && base <= 66 && adj <= 4) return String(base + adj);
+            }
+            return String(Math.round(n));
+        }
+    }
+    const first = s.match(/(\d+(?:[.,]\d+)?)/);
+    if (first) {
+        const n = parseFloat(first[1].replace(',', '.'));
+        if (!isNaN(n)) return String(Math.round(n));
+    }
+    return s;
+}
+
+async function readFieldSizeFromPage(page) {
+    let fieldSize = await page.evaluate(countFieldSizePageEval());
+    if (!(Number(fieldSize?.at_sayisi) > 0)) {
+        await new Promise(r => setTimeout(r, 1500));
+        fieldSize = await page.evaluate(countFieldSizePageEval());
+    }
+    return fieldSize;
+}
+
 function parseRaceHeaderFromBody(bodyText, raceNo) {
     if (!bodyText) return parseRaceHeaderLine('');
     const re = new RegExp(raceNo + '\\.\\s*Koşu\\s+\\d+\\.\\d+\\s*\\n([^\\n]+(?:Kum|Çim|Sentetik)[^\\n]*)', 'i');
@@ -416,7 +455,7 @@ function buildKosuKayit(ana, detay, raceMeta) {
         birinci_derece: birinciDerece,
         son800_bir: son800Bir,
         son800_iki: son800Iki,
-        siklet: ana.siklet || '',
+        siklet: normalizeSikletStr(ana.siklet || ''),
         grup: ana.grup || '',
         kcins: ana.kcins || '',
         hp: detay?.hp || ana.hp || '',
@@ -533,7 +572,7 @@ async function fetchAtKosularFromPage(page, atId, atAdi, opts = {}) {
                 const ana = anaKosular[i];
                 await gotoKosuSonucSayfasi(page, ana.tarihLink, ana.sehir);
                 let detay = await page.evaluate(parseKosuDetayEval(), atIsmi);
-                const fieldSize = await page.evaluate(countFieldSizePageEval());
+                const fieldSize = await readFieldSizeFromPage(page);
                 detay = mergeDetayFieldSize(detay, fieldSize);
                 if (!detay.son800) {
                     const extraSon800 = await page.evaluate(() => {
@@ -552,7 +591,12 @@ async function fetchAtKosularFromPage(page, atId, atAdi, opts = {}) {
                 kayit._fetch = { attempt: attempts, ok: true };
             } catch (err) {
                 lastErr = err.message;
-                kayit = buildKosuKayit(anaKosular[i], {}, {});
+                let detay = {};
+                try {
+                    const fieldSize = await readFieldSizeFromPage(page);
+                    detay = mergeDetayFieldSize({}, fieldSize);
+                } catch (_) { /* at_sayisi yedek denemesi */ }
+                kayit = buildKosuKayit(anaKosular[i], detay, {});
                 kayit._fetch = { attempt: attempts, ok: false, error: lastErr };
             }
 
@@ -581,7 +625,7 @@ async function fetchAtKosularFromPage(page, atId, atAdi, opts = {}) {
             if (keys.has(key)) continue;
             try {
                 await gotoKosuSonucSayfasi(page, ana.tarihLink, ana.sehir);
-                const fieldSize = await page.evaluate(countFieldSizePageEval());
+                const fieldSize = await readFieldSizeFromPage(page);
                 let detay = await page.evaluate(parseKosuDetayEval(), atIsmi);
                 detay = mergeDetayFieldSize(detay, fieldSize);
                 const raceHeaderLine = detay.raceHeaderLine || await page.evaluate(() => {

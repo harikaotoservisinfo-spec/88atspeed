@@ -121,10 +121,13 @@ const KosuDimensionStatsEngine = {
                 const hm = typeof AtMetaFields !== 'undefined'
                     ? AtMetaFields.extractHorseMeta(horse)
                     : horse || {};
-                return hm.siklet && hm.siklet !== '—' ? hm.siklet : (horse?.siklet || '');
+                const raw = hm.siklet && hm.siklet !== '—' ? hm.siklet : (horse?.siklet || '');
+                const n = KosuDimensionStatsEngine.parseSiklet(raw);
+                return n != null ? String(Math.round(n)) : raw;
             },
             getKosuValue(k) {
-                return k?.siklet || '';
+                const n = KosuDimensionStatsEngine.parseSiklet(k?.siklet);
+                return n != null ? String(Math.round(n)) : (k?.siklet || '');
             },
             match(a, b) {
                 return KosuDimensionStatsEngine.sikletMatch(a, b);
@@ -234,7 +237,9 @@ const KosuDimensionStatsEngine = {
             matchKosuSayisi: 0,
             gecmisMatchStr: '—',
             gecmisValStr: '—',
-            missing: 0
+            missing: 0,
+            atSayisiMissing: 0,
+            fieldSizeMissingOnMatch: 0
         };
         if (!dim) return empty;
 
@@ -257,6 +262,15 @@ const KosuDimensionStatsEngine = {
                 kosuSayisi: 0, max1: null, max12: null, max123: null, max1234: null,
                 cnt1: 0, cnt12: 0, cnt123: 0, cnt1234: 0
             };
+        const parseSira = typeof FieldSizeStatsEngine !== 'undefined'
+            ? k => FieldSizeStatsEngine.parseSira(k.sira)
+            : k => {
+                const n = parseInt(String(k?.sira || '').replace(/[^\d]/g, ''), 10);
+                return isNaN(n) || n < 1 ? null : n;
+            };
+        const matchedWithSira = matched.filter(k => parseSira(k) != null);
+        const matchedWithFs = matched.filter(k => Number(k.at_sayisi) > 0 && parseSira(k) != null);
+        const atSayisiMissing = races.filter(k => !(Number(k.at_sayisi) > 0)).length;
         return {
             hedef: hedef || '—',
             hedefAbbrev: dim.abbrev(hedef),
@@ -274,7 +288,9 @@ const KosuDimensionStatsEngine = {
             matchKosuSayisi: placement.kosuSayisi,
             gecmisMatchStr: gecmisMatch.length ? gecmisMatch.join('→') : '—',
             gecmisValStr: gecmisVal.length ? gecmisVal.join('→') : '—',
-            missing: all.length - races.length
+            missing: all.length - races.length,
+            atSayisiMissing,
+            fieldSizeMissingOnMatch: Math.max(0, matchedWithSira.length - matchedWithFs.length)
         };
     },
 

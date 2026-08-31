@@ -248,7 +248,7 @@
     <script src="js/at-meta-fields.js?v=20260831a"></script>
     <script src="js/field-size-stats-engine.js?v=20260830b"></script>
     <script src="js/sehir-stats-engine.js?v=20260830a"></script>
-    <script src="js/kosu-dimension-stats-engine.js?v=20260831b"></script>
+    <script src="js/kosu-dimension-stats-engine.js?v=20260831c"></script>
     <script>
         const RECENT_WINDOWS = FieldSizeStatsEngine.RECENT_WINDOWS;
 
@@ -1070,8 +1070,11 @@
             let html = '<div class="son-test-wrap">';
             html += '<p class="astest-note">' + escapeHtml(dim.note) + ' GETİR ile diğer test sekmeleriyle '
                 + '<strong>aynı anda</strong> dolar. MAX-* yalnızca eşleşen ve <strong>at_sayisi</strong> bilgili koşularda; '
-                + '1./1-2/… <strong>sira</strong> ile hesaplanır. '
-                + '<strong>S5–S1</strong> son 5/4/3/2/1 koşu penceresidir.</p>';
+                + '1./1-2/… <strong>sira</strong> ile hesaplanır (at_sayisi yoksa MAX — kalır). '
+                + '<strong>S5–S1</strong> son 5/4/3/2/1 koşu penceresidir.'
+                + (dimKey === 'siklet'
+                    ? ' Sıklet eşleşmesi <strong>tam kg</strong> (56+1→57). Eski kayıtta at_sayisi eksikse GETİR yenile.'
+                    : '') + '</p>';
             for (let i = 0; i < races.length; i++) {
                 const race = races[i];
                 const header = typeof AtMetaFields !== 'undefined'
@@ -1110,12 +1113,20 @@
                 if (!horses.length) {
                     html += '<tr><td colspan="' + (16 + ASTEST_WINDOW_COLS.dimension) + '" class="col-name">At yok</td></tr>';
                 } else {
+                    let raceFsWarn = 0;
+                    let raceAtSayisiMiss = 0;
                     for (let j = 0; j < horses.length; j++) {
                         const h = horses[j];
                         const kosular = veriCache[h.atId] || h.kosular || [];
                         const horseCtx = Object.assign({}, h, { kosular: kosular });
                         const hedef = dim.getTarget(horseCtx, race);
                         const st = KosuDimensionStatsEngine.computeStats(kosular, dimKey, hedef);
+                        if (st.fieldSizeMissingOnMatch > 0) raceFsWarn++;
+                        if (st.atSayisiMissing > 0 && st.kosuSayisi > 0) raceAtSayisiMiss++;
+                        const maxTitle = st.fieldSizeMissingOnMatch > 0
+                            ? ' title="Eşleşen ' + st.fieldSizeMissingOnMatch
+                                + ' koşuda at_sayisi yok — GETİR ile yenile"'
+                            : '';
                         html += '<tr>';
                         html += '<td class="col-no">' + escapeHtml(String(h.no ?? (j + 1))) + '</td>';
                         html += '<td class="col-name">' + escapeHtml(h.name || '—') + '</td>';
@@ -1124,10 +1135,10 @@
                         html += '<td class="col-stat">' + KosuDimensionStatsEngine.formatCell(st.kosuSayisi) + '</td>';
                         html += '<td class="col-stat col-stat-dim">' + KosuDimensionStatsEngine.formatPct(st.matchPct) + '</td>';
                         html += '<td class="col-stat col-stat-dim">' + st.matchCount + '</td>';
-                        html += '<td class="col-stat col-stat-max">' + KosuDimensionStatsEngine.formatCell(st.max1) + '</td>';
-                        html += '<td class="col-stat col-stat-max">' + KosuDimensionStatsEngine.formatCell(st.max12) + '</td>';
-                        html += '<td class="col-stat col-stat-max">' + KosuDimensionStatsEngine.formatCell(st.max123) + '</td>';
-                        html += '<td class="col-stat col-stat-max">' + KosuDimensionStatsEngine.formatCell(st.max1234) + '</td>';
+                        html += '<td class="col-stat col-stat-max"' + maxTitle + '>' + KosuDimensionStatsEngine.formatCell(st.max1) + '</td>';
+                        html += '<td class="col-stat col-stat-max"' + maxTitle + '>' + KosuDimensionStatsEngine.formatCell(st.max12) + '</td>';
+                        html += '<td class="col-stat col-stat-max"' + maxTitle + '>' + KosuDimensionStatsEngine.formatCell(st.max123) + '</td>';
+                        html += '<td class="col-stat col-stat-max"' + maxTitle + '>' + KosuDimensionStatsEngine.formatCell(st.max1234) + '</td>';
                         html += '<td class="col-stat col-stat-cnt">' + st.cnt1 + '</td>';
                         html += '<td class="col-stat col-stat-cnt">' + st.cnt12 + '</td>';
                         html += '<td class="col-stat col-stat-cnt">' + st.cnt123 + '</td>';
@@ -1136,6 +1147,13 @@
                         html += '<td class="col-gecmis col-stat-all-hdr">' + escapeHtml(st.gecmisValStr) + '</td>';
                         html += astestWindowDimensionCells(st);
                         html += '</tr>';
+                    }
+                    if (raceFsWarn > 0 || raceAtSayisiMiss > 0) {
+                        html += '<tr class="astest-warn-row"><td colspan="' + (16 + ASTEST_WINDOW_COLS.dimension)
+                            + '" class="col-name" style="color:#b45309;font-size:11px">⚠ '
+                            + (raceFsWarn ? raceFsWarn + ' at: eşleşen koşuda at_sayisi eksik (MAX-* boş). ' : '')
+                            + (raceAtSayisiMiss ? 'Geçmiş koşularda at_sayisi tamamlanmamış — GETİR yenile veya repair çalıştır.' : '')
+                            + '</td></tr>';
                     }
                 }
                 html += '</tbody></table></div>';
