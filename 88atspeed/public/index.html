@@ -800,9 +800,21 @@
                 const race = races[i];
                 for (let j = 0; j < (race.horses || []).length; j++) {
                     const horse = race.horses[j];
-                    if (horse.atId && horse.kosular) veriCache[horse.atId] = horse.kosular;
+                    if (horse.atId && horse.kosular?.length) {
+                        veriCache[String(horse.atId)] = horse.kosular;
+                    }
                 }
             }
+        }
+
+        /** veriCache veya at nesnesindeki kosular[] — Kaydet sırasında TJK'ya gitmez */
+        function resolveHorseKosular(horse) {
+            if (!horse) return [];
+            const id = horse.atId != null ? String(horse.atId) : '';
+            const cached = id ? veriCache[id] : null;
+            if (cached?.length) return cached;
+            if (horse.kosular?.length) return horse.kosular;
+            return cached || horse.kosular || [];
         }
 
         function testTabsSetMeta(text) {
@@ -948,15 +960,16 @@
         }
         
         async function getAtTumVeriler(atId, atAdi, retryCount) {
-            if (veriCache[atId]?.length) return veriCache[atId];
-            if (!atId) return [];
+            const key = atId != null ? String(atId) : '';
+            if (!key) return [];
+            if (veriCache[key]?.length) return veriCache[key];
             const retries = retryCount != null ? retryCount : 2;
             for (let attempt = 0; attempt <= retries; attempt++) {
                 try {
-                    let res = await fetch('/api/at-tum-veriler?id=' + atId + '&adi=' + encodeURIComponent(atAdi || ''));
+                    let res = await fetch('/api/at-tum-veriler?id=' + key + '&adi=' + encodeURIComponent(atAdi || ''));
                     let data = await res.json();
                     if (data.success && data.kosular?.length) {
-                        veriCache[atId] = data.kosular;
+                        veriCache[key] = data.kosular;
                         return data.kosular;
                     }
                     if (attempt < retries) await new Promise(r => setTimeout(r, 400 * (attempt + 1)));
@@ -965,8 +978,8 @@
                     if (attempt < retries) await new Promise(r => setTimeout(r, 400 * (attempt + 1)));
                 }
             }
-            veriCache[atId] = veriCache[atId] || [];
-            return veriCache[atId];
+            veriCache[key] = veriCache[key] || [];
+            return veriCache[key];
         }
         
         function escapeHtml(s) {
@@ -1676,26 +1689,16 @@
                 let race = currentRaces[i];
                 for (let j = 0; j < race.horses.length; j++) {
                     let horse = race.horses[j];
-                    if (horse.atId && !(veriCache[horse.atId]?.length)) {
+                    if (horse.atId && !resolveHorseKosular(horse).length) {
                         eksikKosular.push({ atId: horse.atId, name: horse.name, raceNo: race.raceNo, no: horse.no });
                     }
                 }
             }
             if (eksikKosular.length) {
-                statusDiv.innerHTML = '<div class="status status-loading">⏳ '
-                    + eksikKosular.length + ' at için kosular yeniden çekiliyor...</div>';
-                for (let i = 0; i < eksikKosular.length; i++) {
-                    let h = eksikKosular[i];
-                    await getAtTumVeriler(h.atId, h.name, 2);
-                }
-            }
-
-            eksikKosular = eksikKosular.filter(h => !(veriCache[h.atId]?.length));
-            if (eksikKosular.length) {
                 let msg = eksikKosular.slice(0, 5).map(h => 'K' + h.raceNo + ' #' + h.no + ' ' + (h.name || h.atId)).join(', ');
                 if (eksikKosular.length > 5) msg += ' +' + (eksikKosular.length - 5);
                 statusDiv.innerHTML = '<div class="status status-error">⚠️ '
-                    + eksikKosular.length + ' atın kosular[] hâlâ boş (' + msg + '). Kayıt yine de devam ediyor.</div>';
+                    + eksikKosular.length + ' atın kosular[] boş (' + msg + ') — GETİR ile çekin. Kayıt mevcut veriyle devam ediyor.</div>';
             }
 
             let kosmazSkipped = 0;
@@ -1719,7 +1722,7 @@
                         kosmazSkipped++;
                         continue;
                     }
-                    let kosular = veriCache[horse.atId] || [];
+                    let kosular = resolveHorseKosular(horse);
                     raceData.horses.push({
                         no: horse.no,
                         name: horse.name,
