@@ -122,6 +122,60 @@
             background: linear-gradient(135deg, #ede7f6, #e1bee7);
             color: #4a148c; font-weight: 800; min-width: 52px;
         }
+        /* BAŞ+ top-4 tahmin — satır geneli mor gradyan (1=koyu → 4=açık) */
+        .dimtest-table tbody tr.bas-pick-1 > td {
+            background: #ce93d8 !important;
+            color: #311b92;
+        }
+        .dimtest-table tbody tr.bas-pick-1 > td.col-stat-bas {
+            background: linear-gradient(135deg, #ab47bc, #8e24aa) !important;
+            color: #fff !important;
+            font-weight: 900;
+        }
+        .dimtest-table tbody tr.bas-pick-1 > td.col-name { font-weight: 800; color: #4a148c; }
+        .dimtest-table tbody tr.bas-pick-2 > td {
+            background: #e1bee7 !important;
+            color: #4a148c;
+        }
+        .dimtest-table tbody tr.bas-pick-2 > td.col-stat-bas {
+            background: linear-gradient(135deg, #ba68c8, #ab47bc) !important;
+            color: #fff !important;
+            font-weight: 900;
+        }
+        .dimtest-table tbody tr.bas-pick-2 > td.col-name { font-weight: 800; }
+        .dimtest-table tbody tr.bas-pick-3 > td {
+            background: #ede7f6 !important;
+            color: #4a148c;
+        }
+        .dimtest-table tbody tr.bas-pick-3 > td.col-stat-bas {
+            background: linear-gradient(135deg, #ce93d8, #ba68c8) !important;
+            color: #fff !important;
+            font-weight: 900;
+        }
+        .dimtest-table tbody tr.bas-pick-4 > td {
+            background: #f3e5f5 !important;
+            color: #6a1b9a;
+        }
+        .dimtest-table tbody tr.bas-pick-4 > td.col-stat-bas {
+            background: linear-gradient(135deg, #e1bee7, #ce93d8) !important;
+            color: #4a148c !important;
+            font-weight: 900;
+        }
+        .dimtest-table tbody tr[class*="bas-pick-"] > td.col-hedef,
+        .dimtest-table tbody tr[class*="bas-pick-"] > td.col-stat-dim-match {
+            background: inherit !important;
+            color: inherit;
+        }
+        .dimtest-table tbody tr[class*="bas-pick-"] > td.col-stat-gen,
+        .dimtest-table tbody tr[class*="bas-pick-"] > td.col-stat-gen-adj {
+            background: rgba(255, 243, 224, 0.55) !important;
+        }
+        .siklet-son800-table tbody tr.bas-pick-1:hover td,
+        .siklet-son800-table tbody tr.bas-pick-2:hover td,
+        .siklet-son800-table tbody tr.bas-pick-3:hover td,
+        .siklet-son800-table tbody tr.bas-pick-4:hover td {
+            filter: brightness(0.97);
+        }
         /* SİKLET · SON800-1 — İstatistikler ile aynı renklendirme */
         .siklet-son800-table { min-width: 2400px !important; }
         .siklet-son800-table th.istat-grp-son8001,
@@ -620,6 +674,34 @@
                 }
             }
             return best;
+        }
+
+        /** BAŞ+ top-4 tahmin sırası → at no/atId → 1..4 */
+        function astestBasPickRankMap(horseRows) {
+            const rankMap = new Map();
+            const sorted = horseRows.slice().sort(function(a, b) {
+                const pa = a.st?.basSuccess?.pct;
+                const pb = b.st?.basSuccess?.pct;
+                if (pa == null && pb == null) return 0;
+                if (pa == null) return 1;
+                if (pb == null) return -1;
+                if (pb !== pa) return pb - pa;
+                const na = parseInt(a.h?.no, 10);
+                const nb = parseInt(b.h?.no, 10);
+                if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
+                return String(a.h?.name || '').localeCompare(String(b.h?.name || ''), 'tr');
+            });
+            for (let r = 0; r < Math.min(4, sorted.length); r++) {
+                const h = sorted[r].h;
+                if (h?.no != null) rankMap.set(String(h.no), r + 1);
+                if (h?.atId != null) rankMap.set(String(h.atId), r + 1);
+            }
+            return rankMap;
+        }
+
+        function astestBasPickRowClass(h, rankMap) {
+            const rank = rankMap.get(String(h?.no)) || rankMap.get(String(h?.atId));
+            return rank ? ' bas-pick-' + rank : '';
         }
 
         function astestSehirFormCell(st) {
@@ -1507,8 +1589,7 @@
                 if (!horses.length) {
                     html += '<tr><td colspan="' + totalCols + '" class="col-name">At yok</td></tr>';
                 } else {
-                    for (let j = 0; j < horses.length; j++) {
-                        const h = horses[j];
+                    const horseRows = horses.map(function(h) {
                         const kosular = veriCache[h.atId] || h.kosular || [];
                         const horseCtx = Object.assign({}, h, { kosular: kosular });
                         const hedef = dim.getTarget(horseCtx, race);
@@ -1519,7 +1600,15 @@
                                 || {};
                             SikletBasDeltaBoost.applyToStats(st, irowBoost, maxD1);
                         }
-                        html += '<tr>';
+                        return { h: h, st: st, hedef: hedef };
+                    });
+                    const basRankMap = astestBasPickRankMap(horseRows);
+                    for (let j = 0; j < horseRows.length; j++) {
+                        const row = horseRows[j];
+                        const h = row.h;
+                        const st = row.st;
+                        const hedef = row.hedef;
+                        html += '<tr class="' + astestBasPickRowClass(h, basRankMap).trim() + '">';
                         html += '<td class="col-no">' + escapeHtml(String(h.no ?? (j + 1))) + '</td>';
                         html += '<td class="col-name">' + escapeHtml(h.name || '—') + '</td>';
                         html += '<td class="col-hedef" title="' + escapeHtml(String(hedef || '—')) + '">'
