@@ -97,9 +97,10 @@ const DimensionTahminBoostEngine = (function () {
         const horse = horseFromRow(row);
         const race = raceFromRow(row);
         const hedefSehir = pkg?.hedefSehir || '';
+        const programTarih = pkg?.programTarih || null;
         const out = {
-            fieldSize: FieldSizeStatsEngine.computeStats(kosular),
-            sehir: SehirStatsEngine.computeStats(kosular, hedefSehir)
+            fieldSize: FieldSizeStatsEngine.computeStats(kosular, programTarih),
+            sehir: SehirStatsEngine.computeStats(kosular, hedefSehir, programTarih)
         };
         for (const key of Object.keys(KosuDimensionStatsEngine.DIMENSIONS)) {
             const dim = KosuDimensionStatsEngine.DIMENSIONS[key];

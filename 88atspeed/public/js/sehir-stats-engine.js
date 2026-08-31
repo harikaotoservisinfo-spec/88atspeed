@@ -74,16 +74,19 @@ const SehirStatsEngine = {
         };
     },
 
-    computeStats(kosular, hedefSehir) {
-        const base = this._computeStatsCore(kosular, hedefSehir);
+    computeStats(kosular, hedefSehir, programTarih) {
+        const calcKosular = typeof FieldSizeStatsEngine !== 'undefined' && programTarih
+            ? FieldSizeStatsEngine.filterKosularForCalc(kosular, programTarih)
+            : (kosular || []);
+        const base = this._computeStatsCore(calcKosular, hedefSehir);
         const windows = {};
         const recentWindows = typeof FieldSizeStatsEngine !== 'undefined'
             ? FieldSizeStatsEngine.RECENT_WINDOWS
             : [5, 4, 3, 2, 1];
         for (const w of recentWindows) {
             const sliced = typeof FieldSizeStatsEngine !== 'undefined'
-                ? FieldSizeStatsEngine.recentSlice(kosular, w)
-                : (kosular || []).slice(0, w);
+                ? FieldSizeStatsEngine.recentSlice(calcKosular, w)
+                : calcKosular.slice(0, w);
             windows[w] = this._computeStatsCore(sliced, hedefSehir);
         }
         return Object.assign(base, { windows });

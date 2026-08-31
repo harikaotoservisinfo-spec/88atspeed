@@ -125,26 +125,27 @@ function explainMax(st, label) {
     return parts.length ? parts.join(' · ') : 'OK';
 }
 
-function printTabStats(kosular, horse, race, hipodrom) {
+function printTabStats(kosular, horse, race, hipodrom, programTarih) {
     const horseCtx = Object.assign({}, horse, { kosular });
     const hm = AtMetaFields.extractHorseMeta(horseCtx);
     const rm = AtMetaFields.extractRaceMeta(race);
 
     console.log('\n── Program HEDEF meta ──');
     console.log('  hipodrom   : ' + (hipodrom || '—'));
+    if (programTarih) console.log('  program    : ' + programTarih + ' (MAX geçmişten hariç)');
     console.log('  race pist  : ' + rm.pist + ' · kcins: ' + rm.kcins_kosu);
     console.log('  horse taki : ' + hm.taki + ' · hp: ' + hm.hp + ' · siklet: ' + hm.siklet);
 
     const tabs = [
         {
             label: 'AT SAYISI',
-            st: FieldSizeStatsEngine.computeStats(kosular),
+            st: FieldSizeStatsEngine.computeStats(kosular, programTarih),
             hedef: '—',
             dim: null
         },
         {
             label: 'ŞEHİR',
-            st: SehirStatsEngine.computeStats(kosular, hipodrom),
+            st: SehirStatsEngine.computeStats(kosular, hipodrom, programTarih),
             hedef: hipodrom,
             dim: null
         }
@@ -153,7 +154,8 @@ function printTabStats(kosular, horse, race, hipodrom) {
         const dim = KosuDimensionStatsEngine.DIMENSIONS[key];
         tabs.push({
             label: dim.label,
-            st: KosuDimensionStatsEngine.computeStats(kosular, key, dim.getTarget(horseCtx, race)),
+            st: KosuDimensionStatsEngine.computeStats(
+                kosular, key, dim.getTarget(horseCtx, race), programTarih),
             hedef: dim.getTarget(horseCtx, race),
             dim: key
         });
@@ -176,7 +178,7 @@ function printTabStats(kosular, horse, race, hipodrom) {
     }
 
     console.log('\n── Son 5 koşu pencere (S5) — TAKİ örneği ──');
-    const takiSt = KosuDimensionStatsEngine.computeStats(kosular, 'taki', hm.taki);
+    const takiSt = KosuDimensionStatsEngine.computeStats(kosular, 'taki', hm.taki, programTarih);
     const w5 = takiSt.windows?.[5];
     if (w5) {
         console.log('  TK-KOŞU=' + w5.matchCount + ' · MAX-1=' + (w5.max1 ?? '—')
@@ -240,7 +242,7 @@ async function main() {
         }
     }
 
-    printTabStats(dbKosular, horse, race, hipodrom);
+    printTabStats(dbKosular, horse, race, hipodrom, tarih);
 
     console.log('\n── Özet ──');
     const fsOk = dbKosular.filter(k => Number(k.at_sayisi) > 0).length;

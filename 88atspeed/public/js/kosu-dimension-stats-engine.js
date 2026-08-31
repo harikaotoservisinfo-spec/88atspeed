@@ -218,14 +218,19 @@ const KosuDimensionStatsEngine = {
         return true;
     },
 
-    /** Kayıt/program tarihi ile kosular[].tarih aynı formata (29.08.2026) */
+    /** Kayıt/program tarihi — FieldSizeStatsEngine ile paylaşımlı normalizasyon */
     normalizeProgramTarih(tarih) {
+        if (typeof FieldSizeStatsEngine !== 'undefined' && FieldSizeStatsEngine.normalizeProgramTarih) {
+            return FieldSizeStatsEngine.normalizeProgramTarih(tarih);
+        }
         if (!tarih) return '';
         return String(tarih).trim().replace(/\//g, '.');
     },
 
-    /** Program günü koşusunu geçmiş istatistikten çıkar (bugünkü sonuç sızıntısı) */
     filterKosularForCalc(kosular, programTarih) {
+        if (typeof FieldSizeStatsEngine !== 'undefined' && FieldSizeStatsEngine.filterKosularForCalc) {
+            return FieldSizeStatsEngine.filterKosularForCalc(kosular, programTarih);
+        }
         if (!programTarih || !kosular?.length) return kosular || [];
         const programNorm = this.normalizeProgramTarih(programTarih);
         if (!programNorm) return kosular || [];

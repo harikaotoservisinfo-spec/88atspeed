@@ -138,13 +138,15 @@ async function loadRawHorseLookup(db) {
 function computeDimensionBundle(raw) {
     const kosular = raw?.horse?.kosular || [];
     const horseCtx = Object.assign({}, raw.horse, { kosular });
+    const programTarih = raw?.tarih || null;
     const out = {
-        fieldSize: FieldSizeStatsEngine.computeStats(kosular),
-        sehir: SehirStatsEngine.computeStats(kosular, raw.hipodrom)
+        fieldSize: FieldSizeStatsEngine.computeStats(kosular, programTarih),
+        sehir: SehirStatsEngine.computeStats(kosular, raw.hipodrom, programTarih)
     };
     for (const key of Object.keys(KosuDimensionStatsEngine.DIMENSIONS)) {
         const dim = KosuDimensionStatsEngine.DIMENSIONS[key];
-        out[key] = KosuDimensionStatsEngine.computeStats(kosular, key, dim.getTarget(horseCtx, raw.race));
+        out[key] = KosuDimensionStatsEngine.computeStats(
+            kosular, key, dim.getTarget(horseCtx, raw.race), programTarih);
     }
     return out;
 }

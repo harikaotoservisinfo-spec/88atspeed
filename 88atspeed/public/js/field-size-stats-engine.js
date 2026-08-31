@@ -4,6 +4,19 @@
 const FieldSizeStatsEngine = {
     RECENT_WINDOWS: [5, 4, 3, 2, 1],
 
+    normalizeProgramTarih(tarih) {
+        if (!tarih) return '';
+        return String(tarih).trim().replace(/\//g, '.');
+    },
+
+    /** Program günü koşusunu geçmiş MAX/KOŞU istatistiklerinden çıkar */
+    filterKosularForCalc(kosular, programTarih) {
+        if (!programTarih || !kosular?.length) return kosular || [];
+        const programNorm = this.normalizeProgramTarih(programTarih);
+        if (!programNorm) return kosular || [];
+        return kosular.filter(k => this.normalizeProgramTarih(k.tarih) !== programNorm);
+    },
+
     parseSira(raw) {
         if (raw == null || raw === '' || raw === '-') return null;
         const s = String(raw).trim();
@@ -102,11 +115,14 @@ const FieldSizeStatsEngine = {
         };
     },
 
-    computeStats(kosular) {
-        const base = this._computeStatsCore(kosular);
+    computeStats(kosular, programTarih) {
+        const calcKosular = programTarih
+            ? this.filterKosularForCalc(kosular, programTarih)
+            : (kosular || []);
+        const base = this._computeStatsCore(calcKosular);
         const windows = {};
         for (const w of this.RECENT_WINDOWS) {
-            windows[w] = this._computeStatsCore(this.recentSlice(kosular, w));
+            windows[w] = this._computeStatsCore(this.recentSlice(calcKosular, w));
         }
         return Object.assign(base, { windows });
     },

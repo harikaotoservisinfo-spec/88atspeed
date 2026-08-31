@@ -888,14 +888,15 @@ function computeDimensionBundle(raw) {
     const race = raw?.race || {};
     const hipodrom = raw?.hipodrom || '';
     const horseCtx = Object.assign({}, horse, { kosular });
+    const programTarih = raw?.tarih || null;
     const out = {
-        fieldSize: FieldSizeStatsEngine.computeStats(kosular),
-        sehir: SehirStatsEngine.computeStats(kosular, hipodrom)
+        fieldSize: FieldSizeStatsEngine.computeStats(kosular, programTarih),
+        sehir: SehirStatsEngine.computeStats(kosular, hipodrom, programTarih)
     };
     for (const key of Object.keys(KosuDimensionStatsEngine.DIMENSIONS)) {
         const dim = KosuDimensionStatsEngine.DIMENSIONS[key];
         out[key] = KosuDimensionStatsEngine.computeStats(
-            kosular, key, dim.getTarget(horseCtx, race), raw?.tarih || null
+            kosular, key, dim.getTarget(horseCtx, race), programTarih
         );
     }
     return out;
