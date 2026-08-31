@@ -19,19 +19,49 @@ function getBrowserHeaders() {
     };
 }
 
-async function launchBrowser() {
+function resolveChromeExecutable() {
+    const fs = require('fs');
+    const isLinux = process.platform === 'linux';
+    const candidates = [
+        process.env.CHROME_PATH,
+        '/usr/bin/google-chrome-stable',
+        '/usr/bin/google-chrome',
+        '/usr/bin/chromium-browser',
+        '/usr/bin/chromium'
+    ].filter(Boolean);
+    if (!isLinux) {
+        candidates.push('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome');
+    }
+    for (const p of candidates) {
+        if (isLinux && p.includes('/Applications/')) continue;
+        try {
+            if (fs.existsSync(p)) return p;
+        } catch (_) { /* yoksay */ }
+    }
+    return null;
+}
+
+function buildLaunchOptions() {
     const launchOptions = {
         headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--lang=tr-TR']
     };
-    const fs = require('fs');
-    for (const p of [process.env.CHROME_PATH, '/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium-browser', '/usr/bin/chromium']) {
-        if (p && fs.existsSync(p)) {
-            launchOptions.executablePath = p;
-            break;
+    const chromePath = resolveChromeExecutable();
+    if (chromePath) launchOptions.executablePath = chromePath;
+    return launchOptions;
+}
+
+async function launchBrowser() {
+    const launchOptions = buildLaunchOptions();
+    try {
+        return await puppeteer.launch(launchOptions);
+    } catch (err) {
+        if (launchOptions.executablePath) {
+            delete launchOptions.executablePath;
+            return puppeteer.launch(launchOptions);
         }
+        throw err;
     }
-    return puppeteer.launch(launchOptions);
 }
 
 async function gotoWithHeaders(page, url) {

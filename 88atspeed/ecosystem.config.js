@@ -10,7 +10,8 @@ module.exports = {
     env: {
       NODE_ENV: 'production',
       PORT: 3023,
-      HOST: '127.0.0.1'
+      HOST: '127.0.0.1',
+      CHROME_PATH: '/usr/bin/google-chrome-stable'
     }
   }]
 };

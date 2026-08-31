@@ -106,29 +106,26 @@ const getBrowserHeaders = () => ({
 });
 
 async function getBrowserInstance() {
-    if (browser) return browser;
-    const launchOptions = {
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--lang=tr-TR']
-    };
-    const chromePaths = [
-        process.env.CHROME_PATH,
-        '/usr/bin/google-chrome',
-        '/usr/bin/google-chrome-stable',
-        '/usr/bin/chromium-browser',
-        '/usr/bin/chromium',
-        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-    ].filter(Boolean);
-    for (const chromePath of chromePaths) {
+    if (browser) {
         try {
-            const fs = require('fs');
-            if (fs.existsSync(chromePath)) {
-                launchOptions.executablePath = chromePath;
-                break;
-            }
-        } catch (_) {}
+            if (!browser.isConnected()) browser = null;
+        } catch (_) {
+            browser = null;
+        }
     }
-    browser = await puppeteer.launch(launchOptions);
+    if (browser) return browser;
+    const launchOptions = tjkScrape.buildLaunchOptions();
+    try {
+        browser = await puppeteer.launch(launchOptions);
+    } catch (err) {
+        browser = null;
+        if (launchOptions.executablePath) {
+            delete launchOptions.executablePath;
+            browser = await puppeteer.launch(launchOptions);
+        } else {
+            throw err;
+        }
+    }
     return browser;
 }
 
@@ -562,9 +559,10 @@ app.get('/api/at-tum-veriler', async (req, res) => {
         return res.json({ success: false, error: 'At ID gerekli' });
     }
     
+    let page;
     try {
         const browserInstance = await getBrowserInstance();
-        const page = await browserInstance.newPage();
+        page = await browserInstance.newPage();
         await page.setViewport({ width: 1920, height: 1080 });
         
         const result = await tjkScrape.fetchAtKosularFromPage(page, atId, adiParam, {
