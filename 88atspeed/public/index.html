@@ -139,8 +139,19 @@
         .siklet-son800-table th.istat-th-metric { min-width: 58px; white-space: nowrap; font-size: 10px; padding: 6px 4px; }
         .siklet-son800-table th.istat-th-son800-depth,
         .siklet-son800-table td.istat-son800-depth { min-width: 58px; max-width: 72px; font-size: 11px; }
-        .siklet-son800-table th.istat-th-son800-avg,
-        .siklet-son800-table td.istat-son800-avg { min-width: 64px; max-width: 78px; font-size: 11px; font-weight: 800; }
+        .siklet-son800-table th.istat-son800-metric-hdr {
+            text-align: center; font-weight: 800; font-size: 11px;
+            border-bottom: 2px solid rgba(0, 105, 112, 0.25);
+        }
+        .siklet-son800-table .istat-son800-metric-label { font-size: 11px; font-weight: 900; letter-spacing: 0.02em; }
+        .siklet-son800-table th.istat-son800-strip-start,
+        .siklet-son800-table td.istat-son800-strip-start {
+            border-left: 2px solid rgba(0, 105, 112, 0.35);
+        }
+        .siklet-son800-table th.istat-son800-strip-end,
+        .siklet-son800-table td.istat-son800-strip-end {
+            border-right: 1px solid rgba(0, 105, 112, 0.2);
+        }
         .siklet-son800-table th.istat-th-self-depth,
         .siklet-son800-table td.istat-self-depth { background: rgba(255, 255, 255, 0.45); box-shadow: inset 1px 0 0 rgba(0, 0, 0, 0.06); }
         .siklet-son800-table tbody tr:hover td.istat-self-depth { background: rgba(255, 255, 255, 0.65); }
@@ -390,7 +401,7 @@
     <script src="js/istatistik-engine.js?v=20260831c"></script>
     <script src="js/istatistik-grids-extra.js?v=20260831e"></script>
     <script src="js/istatistik-gosterim-flags.js?v=20260831e"></script>
-    <script src="js/son800-depth-ui.js?v=20260831e"></script>
+    <script src="js/son800-depth-ui.js?v=20260831f"></script>
     <script src="js/field-size-stats-engine.js?v=20260831i"></script>
     <script src="js/sehir-stats-engine.js?v=20260831g"></script>
     <script src="js/kosu-dimension-stats-engine.js?v=20260831h"></script>
@@ -1400,7 +1411,7 @@
                 + ' Program günü koşusu geçmişten hariç tutulur.'
                 + (dimKey === 'siklet'
                     ? ' TJK 58,5→59 kg · ±0,5 kg eşleşme (59,5–60,5→60).'
-                        + ' <strong>SON800-1</strong> (SON·Eİ/İÇ/Δ/BS + AĞ. ORT.) bu sekmede.'
+                        + ' <strong>SON800-1</strong> (SON/Eİ/İÇ/Δ/BS × derinlik yan yana) bu sekmede.'
                     : '') + '</p>';
             const programTarih = meta?.tarih || null;
             const hedefSehir = meta?.hipodrom || currentHipodrom || '';
@@ -1451,7 +1462,7 @@
                     + (withSon800 ? ' siklet-son800-table' : '') + '">';
                 html += '<thead>';
                 html += '<tr>';
-                const thRs = withSon800 ? ' rowspan="2"' : '';
+                const thRs = withSon800 ? (' rowspan="' + Son800DepthUi.headerRowspan() + '"') : '';
                 html += '<th class="col-no"' + thRs + '>#</th>';
                 html += '<th class="col-name"' + thRs + '>AT İSMİ</th>';
                 html += '<th class="col-hedef"' + thRs + ' title="Hedef ' + escapeHtml(dim.label) + '">HEDEF</th>';
@@ -1485,6 +1496,7 @@
                 }
                 html += '</tr>';
                 if (withSon800) {
+                    html += '<tr>' + Son800DepthUi.appendMetricGroupHeaderRow(maxD1) + '</tr>';
                     html += '<tr>' + Son800DepthUi.appendSubHeaderCells(maxD1) + '</tr>';
                 }
                 html += '</thead><tbody>';

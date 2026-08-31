@@ -1,9 +1,18 @@
 /**
- * SON800 derinlik sütunları — İstatistikler ile aynı HTML/CSS (SİKLET sekmesi).
+ * SON800 derinlik sütunları — SİKLET sekmesi (metrik satırı × derinlik yan yana).
+ * SON | 1 ÖNCE | … · Eİ | … · İÇ · Δ · BS — AĞ. ORT. sütunları yok.
  */
 const Son800DepthUi = (function () {
     const GRP = 'istat-grp-son8001';
     const GROUP_LABEL = 'SON800-1';
+
+    const METRIC_STRIPS = [
+        { id: 'son', label: 'SON', tdClass: 'istat-son800-depth', thClass: 'istat-th-son800-depth' },
+        { id: 'ei', label: 'Eİ', tdClass: 'istat-best-depth', thClass: 'istat-th-best-depth' },
+        { id: 'ic', label: 'İÇ', tdClass: 'istat-self-depth', thClass: 'istat-th-self-depth' },
+        { id: 'delta', label: 'Δ', tdClass: 'istat-gap-depth', thClass: 'istat-th-gap-depth' },
+        { id: 'bs', label: 'BS', tdClass: 'istat-success-depth', thClass: 'istat-th-success-depth' }
+    ];
 
     const GOSTERIM_FLAG_LABELS = {
         kirmiziKenar: 'Kırmızı kenar',
@@ -42,7 +51,11 @@ const Son800DepthUi = (function () {
     function son8001Colspan(maxDepth) {
         const d = maxDepth || 0;
         if (!d) return 0;
-        return d * 5 + 4;
+        return d * METRIC_STRIPS.length;
+    }
+
+    function headerRowspan() {
+        return 3;
     }
 
     function gosterimTdExtraClasses(cell) {
@@ -184,56 +197,36 @@ const Son800DepthUi = (function () {
             + title.replace(/"/g, '&quot;') + '">%' + cell.successPct + '</span>';
     }
 
-    function formatAgirlikli(stat, groupLabel) {
-        if (!stat || stat.pct === null) return '<span class="istat-pct istat-pct-none">—</span>';
-        let title = groupLabel + ' · Ağırlıklı ortalama (' + stat.depthCount + '/' + stat.maxDepth + ' derinlik)';
-        title += ' | Ağırlık: SON=' + stat.maxDepth;
-        if (stat.maxDepth > 1) title += ' … 1 ÖNCE=' + (stat.maxDepth - 1);
-        for (const p of stat.parts || []) {
-            const lbl = p.depth === 0 ? 'SON' : p.depth + ' ÖNCE';
-            title += ' | ' + lbl + ': %' + p.pct + ' × ' + p.weight;
-            if (p.tarih) title += ' (' + p.tarih + ')';
-        }
-        title += ' → %' + stat.pct;
-        return '<span class="istat-pct ' + pctClass(stat.pct) + '" title="'
-            + title.replace(/"/g, '&quot;') + '">%' + stat.pct + '</span>';
-    }
-
-    function formatSonNOrt(stat, groupLabel, label, windowDesc) {
-        if (!stat || stat.pct === null) return '<span class="istat-pct istat-pct-none">—</span>';
-        let title = groupLabel + ' · ' + label + ' (' + windowDesc + ', ' + stat.depthCount + ' derinlik)';
-        for (const p of stat.parts || []) {
-            const lbl = p.depth === 0 ? 'SON' : p.depth + ' ÖNCE';
-            title += ' | ' + lbl + ': %' + p.pct;
-            if (p.tarih) title += ' (' + p.tarih + ')';
-        }
-        title += ' → %' + stat.pct;
-        return '<span class="istat-pct ' + pctClass(stat.pct) + '" title="'
-            + title.replace(/"/g, '&quot;') + '">%' + stat.pct + '</span>';
-    }
-
-    function formatOrt3(stat, groupLabel) {
-        if (!stat || stat.pct === null) return '<span class="istat-pct istat-pct-none">—</span>';
-        let title = groupLabel + ' · AĞ. ORT.3 (ağırlıklı: ORT.2×4 + ORT.1×2 + ORT.×1)';
-        if (stat.parts) {
-            for (const p of stat.parts) {
-                title += ' | ' + p.label + ': %' + p.pct + ' × ' + p.weight;
+    function formatStripCell(stripId, cell, row, depthIndex, groupLabel, dl) {
+        switch (stripId) {
+            case 'son':
+                return formatRacePct(cell, groupLabel, dl);
+            case 'ei':
+                return formatHorseBest(cell, groupLabel, dl);
+            case 'ic':
+                return formatSelf(cell, groupLabel, dl);
+            case 'delta': {
+                const gapHi = gapHighlight(row, depthIndex, cell);
+                return formatGap(cell, groupLabel, dl, {
+                    twinZeroHighlight: gapHi.twinZero,
+                    t1drLowGray: gapHi.t1drLowGray
+                });
             }
+            case 'bs':
+                return formatSuccess(cell, groupLabel, dl);
+            default:
+                return '<span class="istat-pct istat-pct-none">—</span>';
         }
-        title += ' → %' + stat.pct;
-        return '<span class="istat-pct ' + pctClass(stat.pct) + '" title="'
-            + title.replace(/"/g, '&quot;') + '">%' + stat.pct + '</span>';
     }
 
-    function appendOrtCells(h, ortOzeti, groupLabel, isEnd) {
-        const oz = ortOzeti || {};
-        h += '<td class="' + GRP + ' istat-son800-avg">' + formatAgirlikli(oz.agirlikli, groupLabel) + '</td>';
-        h += '<td class="' + GRP + ' istat-son800-avg">' + formatSonNOrt(oz.ort1, groupLabel, 'AĞ. ORT.1', 'SON+1+2 ÖNCE') + '</td>';
-        h += '<td class="' + GRP + ' istat-son800-avg">' + formatSonNOrt(oz.ort2, groupLabel, 'AĞ. ORT.2', 'SON+1 ÖNCE') + '</td>';
-        let endCls = GRP + ' istat-son800-avg';
-        if (isEnd) endCls += ' istat-grp-end';
-        h += '<td class="' + endCls + '">' + formatOrt3(oz.ort3, groupLabel) + '</td>';
-        return h;
+    function stripTdClasses(strip, depthIndex, maxDepth, gapHi) {
+        let cls = GRP + ' ' + strip.tdClass;
+        if (depthIndex === 0) cls += ' istat-son800-strip-start';
+        if (depthIndex === maxDepth - 1) cls += ' istat-son800-strip-end';
+        if (strip.id === 'son' && depthIndex === 0) cls += ' istat-grp-start';
+        if (strip.id === 'bs' && depthIndex === maxDepth - 1) cls += ' istat-grp-end';
+        if (strip.id === 'delta' && gapHi?.tdExtra) cls += gapHi.tdExtra;
+        return cls;
     }
 
     function renderRowCells(row, maxDepth, groupLabel) {
@@ -244,51 +237,47 @@ const Son800DepthUi = (function () {
         }
         let h = '';
         const depths = row?.son8001Depths || [];
-        const ortOzeti = row?.son8001OrtOzeti;
-        for (let d = 0; d < maxDepth; d++) {
-            const cell = depths[d] || null;
-            const dl = depthLabel(d);
-            let cls = GRP + ' istat-son800-depth';
-            if (d === 0) cls += ' istat-grp-start';
-            h += '<td class="' + depthTdClass(cls, cell) + '">'
-                + wrapDepthCellInner(formatRacePct(cell, groupLabel, dl), cell) + '</td>';
-            const bestCls = GRP + ' istat-best-depth';
-            h += '<td class="' + depthTdClass(bestCls, cell) + '">'
-                + wrapDepthCellInner(formatHorseBest(cell, groupLabel, dl), cell) + '</td>';
-            const selfCls = GRP + ' istat-self-depth';
-            h += '<td class="' + depthTdClass(selfCls, cell) + '">'
-                + wrapDepthCellInner(formatSelf(cell, groupLabel, dl), cell) + '</td>';
-            const gapHi = gapHighlight(row, d, cell);
-            const gapCls = GRP + ' istat-gap-depth' + gapHi.tdExtra;
-            h += '<td class="' + depthTdClass(gapCls, cell) + '">'
-                + wrapDepthCellInner(formatGap(cell, groupLabel, dl, {
-                    twinZeroHighlight: gapHi.twinZero,
-                    t1drLowGray: gapHi.t1drLowGray
-                }), cell) + '</td>';
-            const successCls = GRP + ' istat-success-depth';
-            h += '<td class="' + depthTdClass(successCls, cell) + '">'
-                + wrapDepthCellInner(formatSuccess(cell, groupLabel, dl), cell) + '</td>';
+        for (let si = 0; si < METRIC_STRIPS.length; si++) {
+            const strip = METRIC_STRIPS[si];
+            for (let d = 0; d < maxDepth; d++) {
+                const cell = depths[d] || null;
+                const dl = depthLabel(d);
+                const gapHi = strip.id === 'delta' ? gapHighlight(row, d, cell) : null;
+                const cls = stripTdClasses(strip, d, maxDepth, gapHi);
+                const inner = formatStripCell(strip.id, cell, row, d, groupLabel, dl);
+                h += '<td class="' + depthTdClass(cls, cell) + '">'
+                    + wrapDepthCellInner(inner, cell) + '</td>';
+            }
         }
-        return appendOrtCells(h, ortOzeti, groupLabel, true);
+        return h;
+    }
+
+    function appendMetricGroupHeaderRow(maxDepth) {
+        let h = '';
+        for (let si = 0; si < METRIC_STRIPS.length; si++) {
+            const strip = METRIC_STRIPS[si];
+            let cls = 'istat-th-metric istat-son800-metric-hdr ' + GRP + ' ' + strip.thClass;
+            if (si === 0) cls += ' istat-grp-start';
+            if (si === METRIC_STRIPS.length - 1) cls += ' istat-grp-end';
+            h += '<th colspan="' + maxDepth + '" class="' + cls + '">'
+                + '<div class="istat-col-label istat-son800-metric-label">' + strip.label + '</div></th>';
+        }
+        return h;
     }
 
     function appendSubHeaderCells(maxDepth) {
         let h = '';
-        for (let d = 0; d < maxDepth; d++) {
-            const dl = depthLabel(d);
-            let cls = 'istat-th-metric istat-th-son800-depth ' + GRP;
-            if (d === 0) cls += ' istat-grp-start';
-            h += '<th class="' + cls + '"><div class="istat-col-label">' + dl + '</div></th>';
-            h += '<th class="' + cls + ' istat-th-best-depth"><div class="istat-col-label">' + dl + '·Eİ</div></th>';
-            h += '<th class="' + cls + ' istat-th-self-depth"><div class="istat-col-label">' + dl + '·İÇ</div></th>';
-            h += '<th class="' + cls + ' istat-th-gap-depth"><div class="istat-col-label">' + dl + '·Δ</div></th>';
-            h += '<th class="' + cls + ' istat-th-success-depth"><div class="istat-col-label">' + dl + '·BS</div></th>';
-        }
-        const avgCols = ['AĞ. ORT.', 'AĞ. ORT.1', 'AĞ. ORT.2', 'AĞ. ORT.3'];
-        for (let i = 0; i < avgCols.length; i++) {
-            let cls = 'istat-th-metric istat-th-son800-avg ' + GRP;
-            if (i === avgCols.length - 1) cls += ' istat-grp-end';
-            h += '<th class="' + cls + '"><div class="istat-col-label">' + avgCols[i] + '</div></th>';
+        for (let si = 0; si < METRIC_STRIPS.length; si++) {
+            const strip = METRIC_STRIPS[si];
+            for (let d = 0; d < maxDepth; d++) {
+                const dl = depthLabel(d);
+                let cls = 'istat-th-metric istat-th-son800-depth ' + GRP + ' ' + strip.thClass;
+                if (d === 0) cls += ' istat-son800-strip-start';
+                if (d === maxDepth - 1) cls += ' istat-son800-strip-end';
+                if (si === 0 && d === 0) cls += ' istat-grp-start';
+                if (si === METRIC_STRIPS.length - 1 && d === maxDepth - 1) cls += ' istat-grp-end';
+                h += '<th class="' + cls + '"><div class="istat-col-label">' + dl + '</div></th>';
+            }
         }
         return h;
     }
@@ -298,16 +287,19 @@ const Son800DepthUi = (function () {
         if (!n) return '';
         return '<th colspan="' + n + '" class="istat-th-grp ' + GRP + ' istat-grp-start istat-grp-end">'
             + '<div class="istat-grp-head">'
-            + '<div class="istat-grp-label">SON800-1<small>Derinlik bazlı rakip kıyası + ağ. ort.</small></div>'
+            + '<div class="istat-grp-label">SON800-1<small>Derinlik bazlı rakip kıyası</small></div>'
             + '</div></th>';
     }
 
     return {
         GRP,
+        METRIC_STRIPS,
         pctClass,
         depthLabel,
         son8001Colspan,
+        headerRowspan,
         renderRowCells,
+        appendMetricGroupHeaderRow,
         appendSubHeaderCells,
         groupHeaderColspan
     };
