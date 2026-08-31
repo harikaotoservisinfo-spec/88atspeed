@@ -122,6 +122,38 @@
             background: linear-gradient(135deg, #ede7f6, #e1bee7);
             color: #4a148c; font-weight: 800; min-width: 52px;
         }
+        /* SİKLET · SON800-1 */
+        .siklet-son800-table { min-width: 2400px !important; }
+        .siklet-son800-table th.sk-son800-grp {
+            background: #e8eaf6; color: #1a237e; text-align: center;
+            border-left: 3px solid #5c6bc0; font-size: 11px; vertical-align: bottom;
+        }
+        .siklet-son800-table th.sk-son800-grp small {
+            display: block; font-weight: 500; font-size: 9px; color: #3949ab; margin-top: 2px;
+        }
+        .siklet-son800-table th.sk-son800-th {
+            background: #e8eaf6; color: #283593; font-size: 10px; text-align: center;
+            padding: 6px 4px; white-space: nowrap;
+        }
+        .siklet-son800-table th.sk-son800-start { border-left: 3px solid #5c6bc0; }
+        .siklet-son800-table th.sk-son800-end,
+        .siklet-son800-table td.sk-son800-end { border-right: 3px solid #5c6bc0; }
+        .siklet-son800-table td.sk-son8001 { background: #fafafa; text-align: center; padding: 6px 4px; }
+        .siklet-son800-table td.sk-son800-start { border-left: 3px solid #c5cae9; }
+        .siklet-son800-table td.sk-son800-avg { background: #fff8e1; }
+        .siklet-son800-table td.sk-gap-twin-zero { background: #ffe0b2 !important; }
+        .siklet-son800-table td.sk-gap-low-neon { background: #b9f6ca !important; }
+        .sk-pct {
+            display: inline-block; min-width: 44px; padding: 3px 6px;
+            border-radius: 4px; font-weight: 800; font-size: 11px;
+        }
+        .sk-pct-none { background: #f5f5f5; color: #9e9e9e; }
+        .sk-pct-low { background: #ffebee; color: #c62828; }
+        .sk-pct-mid { background: #fff8e1; color: #f57f17; }
+        .sk-pct-good { background: #e8f5e9; color: #1b5e20; }
+        .sk-pct-high { background: #a5d6a7; color: #0d3d0d; }
+        .sk-pct-gap-zero { animation: sk-gap-blink 1.2s ease-in-out infinite; }
+        @keyframes sk-gap-blink { 50% { opacity: 0.65; } }
         .fstest-table .col-hedef {
             min-width: 56px; text-align: center; font-weight: 800;
             color: #6a1b9a; background: #f3e5f5; font-size: 11px;
@@ -283,6 +315,9 @@
 
     <script src="js/utils.js?v=20260831a"></script>
     <script src="js/at-meta-fields.js?v=20260831a"></script>
+    <script src="js/formula-engine.js?v=20260831c"></script>
+    <script src="js/istatistik-engine.js?v=20260831c"></script>
+    <script src="js/son800-depth-ui.js?v=20260831c"></script>
     <script src="js/field-size-stats-engine.js?v=20260831i"></script>
     <script src="js/sehir-stats-engine.js?v=20260831g"></script>
     <script src="js/kosu-dimension-stats-engine.js?v=20260831h"></script>
@@ -1292,8 +1327,13 @@
                 + ' Program günü koşusu geçmişten hariç tutulur.'
                 + (dimKey === 'siklet'
                     ? ' TJK 58,5→59 kg · ±0,5 kg eşleşme (59,5–60,5→60).'
+                        + ' <strong>SON800-1</strong> (SON·Eİ/İÇ/Δ/BS + AĞ. ORT.) bu sekmede.'
                     : '') + '</p>';
             const programTarih = meta?.tarih || null;
+            const hedefSehir = meta?.hipodrom || currentHipodrom || '';
+            const isSikletSon800 = dimKey === 'siklet'
+                && typeof IstatistikEngine !== 'undefined'
+                && typeof Son800DepthUi !== 'undefined';
             for (let i = 0; i < races.length; i++) {
                 const race = races[i];
                 const header = typeof AtMetaFields !== 'undefined'
@@ -1305,38 +1345,77 @@
                     if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
                     return String(a.name || '').localeCompare(String(b.name || ''), 'tr');
                 });
+                let istatRowByKey = new Map();
+                let maxD1 = 0;
+                if (isSikletSon800) {
+                    const raceForIstat = Object.assign({}, race, {
+                        horses: horses.map(h => Object.assign({}, h, {
+                            kosular: veriCache[h.atId] || h.kosular || []
+                        }))
+                    });
+                    const pkg = IstatistikEngine.buildRaceIstatistikPackage(
+                        raceForIstat, hedefSehir, programTarih
+                    );
+                    maxD1 = pkg.maxDepth1 || 0;
+                    for (const row of pkg.rows || []) {
+                        istatRowByKey.set(String(row.no), row);
+                        if (row.atId != null) istatRowByKey.set(String(row.atId), row);
+                    }
+                }
+                const withSon800 = isSikletSon800 && maxD1 > 0;
+                const son800Cols = withSon800 ? Son800DepthUi.son8001Colspan(maxD1) : 0;
+                const totalCols = 18 + son800Cols;
                 html += '<div class="son-test-race race-card">';
                 html += '<div class="race-header"><h3>🏁 ' + race.raceNo + '. KOŞU · '
-                    + horses.length + ' at · ' + escapeHtml(header) + '</h3></div>';
+                    + horses.length + ' at · ' + escapeHtml(header);
+                if (withSon800) {
+                    html += ' · SON800-1 derinlik: ' + maxD1;
+                }
+                html += '</h3></div>';
                 html += '<div class="son-test-table-wrap">';
-                html += '<table class="son-test-table astest-table dimtest-table">';
-                html += '<thead><tr>';
-                html += '<th class="col-no">#</th>';
-                html += '<th class="col-name">AT İSMİ</th>';
-                html += '<th class="col-hedef" title="Hedef ' + escapeHtml(dim.label) + '">HEDEF</th>';
-                html += '<th class="col-stat col-stat-bas" title="Birleşik başarı: ' + escapeHtml(dim.adjLabel)
-                    + ' + GEN+ karışımı">BAŞ+</th>';
-                html += '<th class="col-stat" title="Geçmiş koşu (' + escapeHtml(dim.label) + ' bilgili)">TÜM KOŞU</th>';
-                html += '<th class="col-stat col-stat-dim-match" title="Hedef boyutta koşu sayısı">'
+                html += '<table class="son-test-table astest-table dimtest-table'
+                    + (withSon800 ? ' siklet-son800-table' : '') + '">';
+                html += '<thead>';
+                html += '<tr>';
+                const thRs = withSon800 ? ' rowspan="2"' : '';
+                html += '<th class="col-no"' + thRs + '>#</th>';
+                html += '<th class="col-name"' + thRs + '>AT İSMİ</th>';
+                html += '<th class="col-hedef"' + thRs + ' title="Hedef ' + escapeHtml(dim.label) + '">HEDEF</th>';
+                html += '<th class="col-stat col-stat-bas"' + thRs + ' title="Birleşik başarı: '
+                    + escapeHtml(dim.adjLabel) + ' + GEN+ karışımı">BAŞ+</th>';
+                html += '<th class="col-stat"' + thRs + ' title="Geçmiş koşu (' + escapeHtml(dim.label) + ' bilgili)">TÜM KOŞU</th>';
+                html += '<th class="col-stat col-stat-dim-match"' + thRs + ' title="Hedef boyutta koşu sayısı">'
                     + escapeHtml(dim.matchLabel) + '</th>';
-                html += '<th class="col-stat col-stat-dim-match" title="Eşleşme oranı">'
+                html += '<th class="col-stat col-stat-dim-match"' + thRs + ' title="Eşleşme oranı">'
                     + escapeHtml(dim.pctLabel) + '</th>';
-                html += '<th class="col-stat col-stat-dim-match col-stat-rise" title="Son 5 koşuda hedef boyutta momentum">'
+                html += '<th class="col-stat col-stat-dim-match col-stat-rise"' + thRs
+                    + ' title="Son 5 koşuda hedef boyutta momentum">'
                     + escapeHtml(dim.formLabel) + '</th>';
-                html += '<th class="col-stat col-stat-dim-match col-stat-dim-adj" title="Düzeltilmiş boyut skoru">'
+                html += '<th class="col-stat col-stat-dim-match col-stat-dim-adj"' + thRs
+                    + ' title="Düzeltilmiş boyut skoru">'
                     + escapeHtml(dim.adjLabel) + '</th>';
-                html += '<th class="col-stat col-stat-cnt" title="Hedef boyutta 1. olma adedi">1.</th>';
-                html += '<th class="col-stat col-stat-cnt" title="Hedef boyutta 2. olma adedi">1-2</th>';
-                html += '<th class="col-stat col-stat-cnt" title="Hedef boyutta 3. olma adedi">1-2-3</th>';
-                html += '<th class="col-stat col-stat-cnt col-stat-all-hdr" title="Hedef boyutta 4. olma adedi">1-2-3-4</th>';
-                html += '<th class="col-stat col-stat-gen col-stat-gen-adj" title="Genel başarı (tüm geçerli koşular)">GEN+</th>';
-                html += '<th class="col-stat col-stat-gen" title="Tüm koşularda 1. olma adedi">G1.</th>';
-                html += '<th class="col-stat col-stat-gen" title="Tüm koşularda 2. olma adedi">G1-2</th>';
-                html += '<th class="col-stat col-stat-gen" title="Tüm koşularda 3. olma adedi">G1-3</th>';
-                html += '<th class="col-stat col-stat-gen col-stat-all-hdr" title="Tüm koşularda 4. olma adedi">G1-4</th>';
-                html += '</tr></thead><tbody>';
+                html += '<th class="col-stat col-stat-cnt"' + thRs + ' title="Hedef boyutta 1. olma adedi">1.</th>';
+                html += '<th class="col-stat col-stat-cnt"' + thRs + ' title="Hedef boyutta 2. olma adedi">1-2</th>';
+                html += '<th class="col-stat col-stat-cnt"' + thRs + ' title="Hedef boyutta 3. olma adedi">1-2-3</th>';
+                html += '<th class="col-stat col-stat-cnt col-stat-all-hdr"' + thRs
+                    + ' title="Hedef boyutta 4. olma adedi">1-2-3-4</th>';
+                html += '<th class="col-stat col-stat-gen col-stat-gen-adj"' + thRs
+                    + ' title="Genel başarı (tüm geçerli koşular)">GEN+</th>';
+                html += '<th class="col-stat col-stat-gen"' + thRs + ' title="Tüm koşularda 1. olma adedi">G1.</th>';
+                html += '<th class="col-stat col-stat-gen"' + thRs + ' title="Tüm koşularda 2. olma adedi">G1-2</th>';
+                html += '<th class="col-stat col-stat-gen"' + thRs + ' title="Tüm koşularda 3. olma adedi">G1-3</th>';
+                html += '<th class="col-stat col-stat-gen col-stat-all-hdr"' + thRs
+                    + ' title="Tüm koşularda 4. olma adedi">G1-4</th>';
+                if (withSon800) {
+                    html += Son800DepthUi.groupHeaderColspan(maxD1);
+                }
+                html += '</tr>';
+                if (withSon800) {
+                    html += '<tr>' + Son800DepthUi.appendSubHeaderCells(maxD1) + '</tr>';
+                }
+                html += '</thead><tbody>';
                 if (!horses.length) {
-                    html += '<tr><td colspan="18" class="col-name">At yok</td></tr>';
+                    html += '<tr><td colspan="' + totalCols + '" class="col-name">At yok</td></tr>';
                 } else {
                     for (let j = 0; j < horses.length; j++) {
                         const h = horses[j];
@@ -1365,6 +1444,12 @@
                         html += '<td class="col-stat col-stat-gen">' + (st.genCnt2 ?? 0) + '</td>';
                         html += '<td class="col-stat col-stat-gen">' + (st.genCnt3 ?? 0) + '</td>';
                         html += '<td class="col-stat col-stat-gen col-stat-all-hdr">' + (st.genCnt4 ?? 0) + '</td>';
+                        if (withSon800) {
+                            const irow = istatRowByKey.get(String(h.no))
+                                || istatRowByKey.get(String(h.atId))
+                                || {};
+                            html += Son800DepthUi.renderRowCells(irow, maxD1, 'SON800-1');
+                        }
                         html += '</tr>';
                     }
                 }

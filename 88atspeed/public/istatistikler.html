@@ -1023,10 +1023,11 @@
     <div class="istatistik-hint">
         <strong>Şehir deneyimi:</strong> Bilinen koşular içinde program hipodromunda
         (<span id="istatistikSehirHint">—</span>) koşma oranı.<br>
-        <strong>SON800-1 / SON800-2 / 800-1 ORAN / 800-2 ORAN / 800Δ·7 / FFΔ / T8Δ / SON800·DR / TEST1–3 / TEST·SIRA / T1×DR:</strong>
+        <strong>SON800-2 / 800-1 ORAN / 800-2 ORAN / 800Δ·7 / FFΔ / T8Δ / SON800·DR / TEST1–3 / TEST·SIRA / T1×DR:</strong>
         Derinlik sütunlarının sonunda <strong>AĞ. ORT.</strong> ağırlıklı;
         <strong>AĞ. ORT.1</strong> son 3 derinlik; <strong>AĞ. ORT.2</strong> son 2 derinlik;
         <strong>AĞ. ORT.3</strong> ağırlıklı özet (ORT.2×4 + ORT.1×2 + ORT.×1, eksik derinlik 0 sayılmaz).<br>
+        <strong>SON800-1</strong> (SON·Eİ/İÇ/Δ/BS + AĞ. ORT.) → ana sayfa <strong>⚖️ SİKLET</strong> sekmesinde.<br>
         <strong>TEST1:</strong> En iyi TEST1 = %100 derinlik kıyası + AĞ. ORT.; TAHMİN'de varsayılan sütun etkisi diğer grupların <strong>20 katı</strong> (%20).<br>
         <strong>TEST·SIRA:</strong> T3≥T2≥T1 kural skoru — koşuda en yüksek skor %100, en düşük skor %0; arada doğrusal ölçek
         derinlik kıyası + AĞ. ORT.<br>
@@ -1070,7 +1071,7 @@
 <script src="js/ptest-field-factor-engine.js?v=20260830c"></script>
 <script src="js/ptest-field-adaptive-engine.js?v=20260830c"></script>
 <script>
-const ISTAT_BUILD = '20260831b';
+const ISTAT_BUILD = '20260831c';
 const TAHMIN_METRIC_ALL = '__hepsi__';
 let selectedTahminMetric = null;
 let istatRaceCache = [];
@@ -2994,18 +2995,6 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
     h += '<th class="istat-th-grp istat-grp-sehir istat-grp-start istat-grp-end">';
     h += 'ŞEHİR DENEYİMİ<small>Program hipodromunda koşma oranı</small></th>';
 
-    if (d1 > 0) {
-        h = appendMetricGroupThColspan(h, {
-            colspan: depthGroupColspan('son8001', d1), grpClass: 'istat-grp-son8001',
-            label: 'SON800-1', subtitle: 'Derinlik bazlı rakip kıyası + ağ. ort.',
-            metricId: 'son8001', maxDepth: d1
-        });
-    } else {
-        h = appendMetricGroupThRowspan(h, {
-            grpClass: 'istat-grp-son8001',
-            label: 'SON800-1', subtitle: 'Veri yok'
-        });
-    }
     if (d2 > 0) {
         h = appendMetricGroupThColspan(h, {
             colspan: depthGroupColspan('son8002', d2), grpClass: 'istat-grp-son8002',
@@ -3203,10 +3192,6 @@ function renderIstatistikTableHead(maxDepth1, maxDepth2, oranMaxDepth1, oranMaxD
     h += '</tr><tr>';
     h += activeMetricHead.row2;
     h = appendSimpleGroupHeaderCols(h, IstatistikTahminEngine.SIMPLE_COLUMN_GROUPS[0].grpClass, IstatistikTahminEngine.SIMPLE_COLUMN_GROUPS[0], false);
-    if (d1 > 0) {
-        h = appendDepthHeaderColsWithSelf(h, 'istat-grp-son8001', 'son8001', getVisibleDepth('son8001', d1));
-        h = appendOrtOzetiHeaderCols(h, 'istat-grp-son8001', 'son8001', true);
-    }
     if (d2 > 0) {
         h = appendDepthHeaderColsWithSelf(h, 'istat-grp-son8002', 'son8002', getVisibleDepth('son8002', d2));
         h = appendOrtOzetiHeaderCols(h, 'istat-grp-son8002', 'son8002', true);
@@ -3407,7 +3392,6 @@ function buildIstatistikGrid(data, hedefSehir, programTarih) {
             html += renderTahminCell(row.tahmin, rows.length, row.no, raceNo, currentKayitId, row.name);
             html += renderTahminActiveMetricCells(row, metricDesc, pkg);
             html += '<td class="istat-grp-sehir istat-grp-start istat-grp-end">' + formatSehirPctCell(row.sehir) + '</td>';
-            html += renderSon800DepthCells(row.son8001Depths, getVisibleDepth('son8001', maxDepth1), 'istat-grp-son8001', 'SON800-1', row.son8001OrtOzeti, row);
             html += renderSon800DepthCells(row.son8002Depths, getVisibleDepth('son8002', maxDepth2), 'istat-grp-son8002', 'SON800-2', row.son8002OrtOzeti);
             html += renderSon800OranCells(row.oran1Depths, getVisibleDepth('oran1', oranMaxDepth1), 'istat-grp-son800oran1', '800-1 ORAN', pkg.oranAnaDerece1, row.oran1OrtOzeti, true);
             html += renderSon800OranCells(row.oran2Depths, getVisibleDepth('oran2', oranMaxDepth2), 'istat-grp-son800oran2', '800-2 ORAN', pkg.oranAnaDerece2, row.oran2OrtOzeti, false);
