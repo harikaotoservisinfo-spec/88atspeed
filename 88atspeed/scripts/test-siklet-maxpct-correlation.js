@@ -39,10 +39,6 @@ const cli = {
     listOnly: args.includes('--list')
 };
 
-function normName(s) {
-    return String(s || '').replace(/\s*\(\d+\)\s*$/, '').trim().toLocaleUpperCase('tr-TR');
-}
-
 function loadEngines() {
     eval(fs.readFileSync(path.join(ROOT, 'public/js/at-meta-fields.js'), 'utf8')
         + '\n; global.AtMetaFields = AtMetaFields;');
