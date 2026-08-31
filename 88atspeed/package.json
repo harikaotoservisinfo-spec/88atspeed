@@ -41,6 +41,7 @@
     "test:siklet-horse": "node scripts/test-dimension-tab-horse.js --db atlar.db --kayit 148 --race 7 --horse PATARA --dim siklet",
     "test:kayit-basari": "node scripts/test-kayit-basari-report.js --kayit 148",
     "test:top3-tabs": "node scripts/test-top3-tab-success.js --all-kayitlar",
+    "test:race-factors": "node scripts/test-race-all-factors.js --fixture k148-r1-siklet",
     "test:dimension-finish": "node scripts/test-dimension-finish-correlation.js --db atlar.db",
     "test:dimension-per-race": "node scripts/test-dimension-finish-correlation.js --db atlar.db --all-races",
     "test:dimension-context": "node scripts/test-dimension-finish-correlation.js --db atlar.db --context",
