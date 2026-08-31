@@ -610,7 +610,7 @@ async function main() {
 
         console.log('\nOK · ' + horses.length + ' at · ' + skEmpty + ' boş · '
             + withSkData.length + ' dolu · ' + raceGroups.length + ' koşu · '
-            + ' · anlamlı=' + meaningfulPool.length + ' · yükselen=' + rising.length
+            + 'anlamlı=' + meaningfulPool.length + ' · yükselen=' + rising.length
             + ' · artefakt=' + singleSkArtifacts.length);
     } finally {
         db.close();
