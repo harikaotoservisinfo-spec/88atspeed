@@ -1,0 +1,4 @@
+branch=cursor/son-test-bas-cols-b004
+commit=pending
+message=SON TEST: 7 test sekmesi BAŞ+ yan yana
+deployed=
