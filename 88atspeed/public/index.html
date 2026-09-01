@@ -139,6 +139,28 @@
             background: linear-gradient(135deg, #c8e6c9, #66bb6a) !important;
             color: #1b5e20 !important;
         }
+        .son-test-table.sontest-bas-table .col-renk-scenario {
+            min-width: 46px; max-width: 52px; text-align: center; font-weight: 700;
+            background: #f1f8e9; color: #33691e; font-size: 10px;
+            padding: 4px 2px;
+        }
+        .son-test-table.sontest-bas-table th.col-renk-scenario-hdr {
+            background: #c5e1a5; color: #33691e; font-size: 9px;
+            text-align: center; min-width: 46px; max-width: 52px;
+            padding: 4px 2px; line-height: 1.15;
+        }
+        .son-test-table.sontest-bas-table th.col-renk-scenario-hdr.col-renk-scenario-first,
+        .son-test-table.sontest-bas-table .col-renk-scenario.col-renk-scenario-first {
+            border-left: 2px solid #66bb6a;
+            min-width: 52px;
+        }
+        .son-test-table.sontest-bas-table .son-test-renk-scenario-wrap {
+            overflow-x: auto;
+            max-width: 100%;
+        }
+        .son-test-table.sontest-bas-table.sontest-renk-wide {
+            min-width: 1680px !important;
+        }
         .son-test-table .col-no {
             width: 52px; text-align: center; font-weight: 800;
             color: #7b1fa2; background: #fafafa;
@@ -574,7 +596,7 @@
     <script src="js/ptest-gosterge-depth-engine.js?v=20260831z"></script>
     <script src="js/ptest-color-gosterge-export.js?v=20260831z"></script>
     <script src="js/gosterge-scoring-engine.js?v=20260901c"></script>
-    <script src="js/astest-son-renk-tahmin.js?v=20260901a"></script>
+    <script src="js/astest-son-renk-tahmin.js?v=20260901b"></script>
     <script>
         const RECENT_WINDOWS = FieldSizeStatsEngine.RECENT_WINDOWS;
 
@@ -829,24 +851,23 @@
             return rank ? ' bas-pick-' + rank : '';
         }
 
-        function astestSonTestRenkCell(tahmin, calibrated) {
+        function astestSonTestRenkScenarioCell(tahmin, calibrated, isFirst) {
+            const cls = 'col-renk-scenario' + (isFirst ? ' col-renk-scenario-first' : '');
             if (!calibrated) {
-                return '<td class="col-renk" title="Renk Puanlama — PUANLAMA TEST kayıtları + bitiş ile kalibrasyon gerekli">—</td>';
+                return '<td class="' + cls + '" title="Renk Puanlama — kalibrasyon gerekli">—</td>';
             }
             if (!tahmin || tahmin.rank == null || tahmin.pct == null) {
-                return '<td class="col-renk">—</td>';
+                return '<td class="' + cls + '">—</td>';
             }
-            let title = 'RENK · ' + (tahmin.scenarioLabel || 'Renk Puanlama')
-                + ' · ' + tahmin.rank + '. sıra · skor ' + (tahmin.score ?? '?');
-            if (tahmin.bindingBucket) title += ' · belirleyici: ' + tahmin.bindingBucket;
-            if (tahmin.topTerms?.length) {
-                title += '\n' + tahmin.topTerms.slice(0, 5).map(function(t) {
-                    return t.label + ' +' + t.points;
-                }).join('\n');
-            }
-            return '<td class="col-renk" title="' + escapeHtml(title) + '">'
+            let title = (tahmin.scenarioLabel || 'Renk') + ' · ' + tahmin.rank + '. · %' + tahmin.pct;
+            if (tahmin.bindingBucket) title += ' · ' + tahmin.bindingBucket;
+            return '<td class="' + cls + '" title="' + escapeHtml(title) + '">'
                 + '<span class="son-test-tahmin-rank">' + tahmin.rank + '.</span>'
                 + '<span class="son-test-tahmin-pct">%' + tahmin.pct + '</span></td>';
+        }
+
+        function astestSonTestRenkCell(tahmin, calibrated) {
+            return astestSonTestRenkScenarioCell(tahmin, calibrated, true);
         }
 
         function astestSonTestTahminCell(tahmin) {
@@ -1470,9 +1491,12 @@
                 el.innerHTML = '<div class="info-box">🎨 Renk puanlama kalibrasyonu yükleniyor…</div>';
             }
             let renkCalibrated = false;
+            let renkScenarioCols = [];
             if (typeof AtestSonRenkTahmin !== 'undefined') {
                 renkCalibrated = await AtestSonRenkTahmin.ensureCalibration();
+                renkScenarioCols = AtestSonRenkTahmin.getScenarioColumns();
             }
+            const renkColCount = renkScenarioCols.length || 1;
             const programTarih = meta?.tarih || null;
             const hedefSehir = meta?.hipodrom || currentHipodrom || '';
             let html = '<div class="son-test-wrap">';
@@ -1480,8 +1504,9 @@
                 + '👥 KOŞU AT SAYISI, 🏟️ ŞEHİR, 🏇 KOŞU CİNSİ, 🎽 TAKİ, 🌿 PİST, 📊 HP, ⚖️ SİKLET. '
                 + 'Her sütun ilgili sekmedeki BAŞ+ ile aynı hesap (SON800-1 · Δ boost dahil). '
                 + '<strong>TAHMİN</strong> = 7 BAŞ+ boyut karışımı. '
-                + '<strong>RENK</strong> = Renk Puanlama Test · benchmark #1 (7 sabit renk kuralı · gösterge motoru). '
-                + (renkCalibrated ? '' : '<span style="color:#c62828"> RENK için PUANLAMA TEST kayıtları + bitiş gerekli.</span> ')
+                + '<strong>RENK + R2–R' + renkColCount + '</strong> = Renk Puanlama Test · '
+                + renkColCount + ' benchmark senaryosu (7 sabit kural + Top-50/80/100 kombinasyonları). '
+                + (renkCalibrated ? '' : '<span style="color:#c62828"> Renk sütunları için PUANLAMA TEST kayıtları + bitiş gerekli.</span> ')
                 + 'Mor/turuncu/yeşil satır = TAHMİN skoruna göre top-4.</p>';
             for (let i = 0; i < races.length; i++) {
                 const race = races[i];
@@ -1501,8 +1526,8 @@
                 html += '<div class="son-test-race race-card">';
                 html += '<div class="race-header"><h3>🏁 ' + race.raceNo + '. KOŞU · '
                     + horses.length + ' at · ' + escapeHtml(header) + '</h3></div>';
-                html += '<div class="son-test-table-wrap">';
-                html += '<table class="son-test-table astest-table sontest-bas-table">';
+                html += '<div class="son-test-table-wrap son-test-renk-scenario-wrap">';
+                html += '<table class="son-test-table astest-table sontest-bas-table sontest-renk-wide">';
                 html += '<thead><tr>';
                 html += '<th class="col-no">#</th>';
                 html += '<th class="col-name">AT İSMİ</th>';
@@ -1514,16 +1539,21 @@
                         + escapeHtml(src.label) + '</th>';
                 }
                 html += '<th class="col-tahmin-hdr" title="7 BAŞ+ boyut karışımı · dimension-tahmin motoru">TAHMİN</th>';
-                html += '<th class="col-renk-hdr" title="Renk Puanlama Test · 7 sabit renk kuralı (benchmark #1)">RENK</th>';
+                for (let ri = 0; ri < renkScenarioCols.length; ri++) {
+                    const sc = renkScenarioCols[ri];
+                    const edge = ri === 0 ? ' col-renk-scenario-first' : '';
+                    html += '<th class="col-renk-scenario-hdr' + edge + '" title="' + escapeHtml(sc.title) + '">'
+                        + escapeHtml(sc.shortLabel) + '</th>';
+                }
                 html += '</tr></thead><tbody>';
-                const totalCols = 5 + SON_TEST_BAS_SOURCES.length;
+                const totalCols = 4 + SON_TEST_BAS_SOURCES.length + renkScenarioCols.length;
                 if (!horses.length) {
                     html += '<tr><td colspan="' + totalCols + '" class="col-name">At yok</td></tr>';
                 } else {
-                    let renkByKey = new Map();
+                    let renkAllScenarios = {};
                     if (renkCalibrated && typeof AtestSonRenkTahmin !== 'undefined') {
-                        renkByKey = AtestSonRenkTahmin.scoreRace(
-                            race, meta, resolveHorseKosular, AtestSonRenkTahmin.getDefaultScenario());
+                        renkAllScenarios = AtestSonRenkTahmin.scoreRaceAllScenarios(
+                            race, meta, resolveHorseKosular);
                     }
                     const horseRows = horses.map(function(h) {
                         const basBySource = {};
@@ -1538,14 +1568,27 @@
                         const avgPct = pcts.length
                             ? Math.round(pcts.reduce(function(a, b) { return a + b; }, 0) / pcts.length)
                             : null;
-                        return { h: h, basBySource: basBySource, st: { basSuccess: { pct: avgPct } }, tahmin: null, renkTahmin: null };
+                        return {
+                            h: h,
+                            basBySource: basBySource,
+                            st: { basSuccess: { pct: avgPct } },
+                            tahmin: null,
+                            renkByScenario: {}
+                        };
                     });
                     if (typeof DimensionTahminBoostEngine !== 'undefined') {
                         DimensionTahminBoostEngine.computeDimensionOnlyFromBasBySource(horseRows);
                     }
                     for (let j = 0; j < horseRows.length; j++) {
                         const rk = astestHorseRankKey(horseRows[j].h);
-                        if (rk) horseRows[j].renkTahmin = renkByKey.get(rk) || null;
+                        if (!rk) continue;
+                        const bySc = {};
+                        for (let ri = 0; ri < renkScenarioCols.length; ri++) {
+                            const sc = renkScenarioCols[ri];
+                            const map = renkAllScenarios[sc.id];
+                            bySc[sc.id] = map ? (map.get(rk) || null) : null;
+                        }
+                        horseRows[j].renkByScenario = bySc;
                     }
                     const basRankMap = astestBasPickRankMap(horseRows, function(row) {
                         return row.tahmin?.score ?? row.st?.basSuccess?.pct;
@@ -1563,7 +1606,11 @@
                             html += astestSonTestBasCell(row.basBySource[src.key], edge.trim());
                         }
                         html += astestSonTestTahminCell(row.tahmin);
-                        html += astestSonTestRenkCell(row.renkTahmin, renkCalibrated);
+                        for (let ri = 0; ri < renkScenarioCols.length; ri++) {
+                            const sc = renkScenarioCols[ri];
+                            html += astestSonTestRenkScenarioCell(
+                                row.renkByScenario?.[sc.id], renkCalibrated, ri === 0);
+                        }
                         html += '</tr>';
                     }
                 }
