@@ -1457,6 +1457,32 @@ const GostergeScoringEngine = (function () {
         return lookupFieldProfileBySize(profiles, pkg.rows.length);
     }
 
+    function attachRaceTahminWithOptions(pkg, scoringOptions, profileBySizeOverride) {
+        if (!calibration || !pkg?.rows) return pkg;
+
+        const profile = resolveRaceFieldProfile(pkg, profileBySizeOverride);
+        const saved = getScoreShareSplit();
+        if (profile?.shareSplit) {
+            setScoreShareSplit(
+                profile.shareSplit.t9v,
+                profile.shareSplit.colors,
+                profile.shareSplit.metrics,
+                profile.shareSplit.rest
+            );
+        }
+
+        const scoringOpts = Object.assign({}, scoringOptions || getDefaultColorScoringOptions(), {
+            fieldProfile: profile || (scoringOptions && scoringOptions.fieldProfile) || null
+        });
+        const entries = pkg.rows.map(row => ({ row }));
+        rankRaceEntriesWithOptions(entries, scoringOpts);
+
+        if (profile?.shareSplit) {
+            setScoreShareSplit(saved.t9v, saved.colors, saved.metrics, saved.rest);
+        }
+        return pkg;
+    }
+
     function attachRaceTahmin(pkg, profileBySizeOverride) {
         if (!calibration || !pkg?.rows) return pkg;
 
@@ -1850,6 +1876,7 @@ const GostergeScoringEngine = (function () {
     return {
         calibrate,
         attachRaceTahmin,
+        attachRaceTahminWithOptions,
         setFieldAdaptiveProfiles,
         getFieldAdaptiveProfiles,
         lookupFieldProfileBySize,

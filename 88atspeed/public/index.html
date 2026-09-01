@@ -112,6 +112,33 @@
         }
         .son-test-tahmin-rank { font-weight: 900; margin-right: 2px; }
         .son-test-tahmin-pct { font-weight: 700; font-size: 11px; }
+        .son-test-table.sontest-bas-table .col-renk {
+            min-width: 72px; text-align: center; font-weight: 800;
+            background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+            color: #1b5e20; font-size: 12px;
+            border-left: 2px solid #66bb6a;
+        }
+        .son-test-table.sontest-bas-table th.col-renk-hdr {
+            background: #a5d6a7; color: #1b5e20; font-size: 10px;
+            text-align: center; min-width: 72px;
+            border-left: 2px solid #66bb6a;
+        }
+        .son-test-table.sontest-bas-table tbody tr.bas-pick-1 > td.col-renk {
+            background: linear-gradient(135deg, #2e7d32, #1b5e20) !important;
+            color: #fff !important;
+        }
+        .son-test-table.sontest-bas-table tbody tr.bas-pick-2 > td.col-renk {
+            background: linear-gradient(135deg, #43a047, #2e7d32) !important;
+            color: #fff !important;
+        }
+        .son-test-table.sontest-bas-table tbody tr.bas-pick-3 > td.col-renk {
+            background: linear-gradient(135deg, #66bb6a, #43a047) !important;
+            color: #fff !important;
+        }
+        .son-test-table.sontest-bas-table tbody tr.bas-pick-4 > td.col-renk {
+            background: linear-gradient(135deg, #c8e6c9, #66bb6a) !important;
+            color: #1b5e20 !important;
+        }
         .son-test-table .col-no {
             width: 52px; text-align: center; font-weight: 800;
             color: #7b1fa2; background: #fafafa;
@@ -542,6 +569,12 @@
     <script src="js/sehir-stats-engine.js?v=20260831g"></script>
     <script src="js/kosu-dimension-stats-engine.js?v=20260831h"></script>
     <script src="js/dimension-tahmin-boost-engine.js?v=20260901b"></script>
+    <script src="js/istatistik-tahmin-engine.js?v=20260831z"></script>
+    <script src="js/ptest-gosterge-engine.js?v=20260831z"></script>
+    <script src="js/ptest-gosterge-depth-engine.js?v=20260831z"></script>
+    <script src="js/ptest-color-gosterge-export.js?v=20260831z"></script>
+    <script src="js/gosterge-scoring-engine.js?v=20260901c"></script>
+    <script src="js/astest-son-renk-tahmin.js?v=20260901a"></script>
     <script>
         const RECENT_WINDOWS = FieldSizeStatsEngine.RECENT_WINDOWS;
 
@@ -794,6 +827,26 @@
             const key = astestHorseRankKey(h);
             const rank = key ? rankMap.get(key) : null;
             return rank ? ' bas-pick-' + rank : '';
+        }
+
+        function astestSonTestRenkCell(tahmin, calibrated) {
+            if (!calibrated) {
+                return '<td class="col-renk" title="Renk Puanlama — PUANLAMA TEST kayıtları + bitiş ile kalibrasyon gerekli">—</td>';
+            }
+            if (!tahmin || tahmin.rank == null || tahmin.pct == null) {
+                return '<td class="col-renk">—</td>';
+            }
+            let title = 'RENK · ' + (tahmin.scenarioLabel || 'Renk Puanlama')
+                + ' · ' + tahmin.rank + '. sıra · skor ' + (tahmin.score ?? '?');
+            if (tahmin.bindingBucket) title += ' · belirleyici: ' + tahmin.bindingBucket;
+            if (tahmin.topTerms?.length) {
+                title += '\n' + tahmin.topTerms.slice(0, 5).map(function(t) {
+                    return t.label + ' +' + t.points;
+                }).join('\n');
+            }
+            return '<td class="col-renk" title="' + escapeHtml(title) + '">'
+                + '<span class="son-test-tahmin-rank">' + tahmin.rank + '.</span>'
+                + '<span class="son-test-tahmin-pct">%' + tahmin.pct + '</span></td>';
         }
 
         function astestSonTestTahminCell(tahmin) {
@@ -1384,9 +1437,9 @@
             document.getElementById('tab-hesaplama').innerHTML = genelHtml;
         }
 
-        function refreshTestTabs(races, meta) {
+        async function refreshTestTabs(races, meta) {
             if (meta?.hipodrom) currentHipodrom = meta.hipodrom;
-            sonTestGoster(races, meta);
+            await sonTestGoster(races, meta);
             atSayisiTestGoster(races, meta);
             sehirTestGoster(races, meta);
             for (const cfg of DIMENSION_TEST_TABS) {
@@ -1405,7 +1458,7 @@
             return parts.join(' · ') || '—';
         }
 
-        function sonTestGoster(races, meta) {
+        async function sonTestGoster(races, meta) {
             const el = document.getElementById('sonTestContent');
             if (!el) return;
             if (meta) testTabsSetMeta(formatTestTabsMeta(meta));
@@ -1413,14 +1466,23 @@
                 el.innerHTML = '<div class="info-box">📋 Veri bulunamadı</div>';
                 return;
             }
+            if (typeof AtestSonRenkTahmin !== 'undefined') {
+                el.innerHTML = '<div class="info-box">🎨 Renk puanlama kalibrasyonu yükleniyor…</div>';
+            }
+            let renkCalibrated = false;
+            if (typeof AtestSonRenkTahmin !== 'undefined') {
+                renkCalibrated = await AtestSonRenkTahmin.ensureCalibration();
+            }
             const programTarih = meta?.tarih || null;
             const hedefSehir = meta?.hipodrom || currentHipodrom || '';
             let html = '<div class="son-test-wrap">';
             html += '<p class="astest-note">Tüm test sekmelerindeki <strong>BAŞ+</strong> skorları yan yana — '
                 + '👥 KOŞU AT SAYISI, 🏟️ ŞEHİR, 🏇 KOŞU CİNSİ, 🎽 TAKİ, 🌿 PİST, 📊 HP, ⚖️ SİKLET. '
                 + 'Her sütun ilgili sekmedeki BAŞ+ ile aynı hesap (SON800-1 · Δ boost dahil). '
-                + '<strong>TAHMİN</strong> = 7 BAŞ+ sinyalinin boyut ağırlıklı karışımı (AS 22% · SH 20% · SK 16% · TK 14% · PS 12% · HP 13% · KC 6%). '
-                + 'Mor/turuncu satır = TAHMİN skoruna göre top-4.</p>';
+                + '<strong>TAHMİN</strong> = 7 BAŞ+ boyut karışımı. '
+                + '<strong>RENK</strong> = Renk Puanlama Test · benchmark #1 (7 sabit renk kuralı · gösterge motoru). '
+                + (renkCalibrated ? '' : '<span style="color:#c62828"> RENK için PUANLAMA TEST kayıtları + bitiş gerekli.</span> ')
+                + 'Mor/turuncu/yeşil satır = TAHMİN skoruna göre top-4.</p>';
             for (let i = 0; i < races.length; i++) {
                 const race = races[i];
                 const raceK1 = FieldSizeStatsEngine.raceFieldSize(race);
@@ -1452,11 +1514,17 @@
                         + escapeHtml(src.label) + '</th>';
                 }
                 html += '<th class="col-tahmin-hdr" title="7 BAŞ+ boyut karışımı · dimension-tahmin motoru">TAHMİN</th>';
+                html += '<th class="col-renk-hdr" title="Renk Puanlama Test · 7 sabit renk kuralı (benchmark #1)">RENK</th>';
                 html += '</tr></thead><tbody>';
-                const totalCols = 4 + SON_TEST_BAS_SOURCES.length;
+                const totalCols = 5 + SON_TEST_BAS_SOURCES.length;
                 if (!horses.length) {
                     html += '<tr><td colspan="' + totalCols + '" class="col-name">At yok</td></tr>';
                 } else {
+                    let renkByKey = new Map();
+                    if (renkCalibrated && typeof AtestSonRenkTahmin !== 'undefined') {
+                        renkByKey = AtestSonRenkTahmin.scoreRace(
+                            race, meta, resolveHorseKosular, AtestSonRenkTahmin.getDefaultScenario());
+                    }
                     const horseRows = horses.map(function(h) {
                         const basBySource = {};
                         for (let si = 0; si < SON_TEST_BAS_SOURCES.length; si++) {
@@ -1470,10 +1538,14 @@
                         const avgPct = pcts.length
                             ? Math.round(pcts.reduce(function(a, b) { return a + b; }, 0) / pcts.length)
                             : null;
-                        return { h: h, basBySource: basBySource, st: { basSuccess: { pct: avgPct } }, tahmin: null };
+                        return { h: h, basBySource: basBySource, st: { basSuccess: { pct: avgPct } }, tahmin: null, renkTahmin: null };
                     });
                     if (typeof DimensionTahminBoostEngine !== 'undefined') {
                         DimensionTahminBoostEngine.computeDimensionOnlyFromBasBySource(horseRows);
+                    }
+                    for (let j = 0; j < horseRows.length; j++) {
+                        const rk = astestHorseRankKey(horseRows[j].h);
+                        if (rk) horseRows[j].renkTahmin = renkByKey.get(rk) || null;
                     }
                     const basRankMap = astestBasPickRankMap(horseRows, function(row) {
                         return row.tahmin?.score ?? row.st?.basSuccess?.pct;
@@ -1491,6 +1563,7 @@
                             html += astestSonTestBasCell(row.basBySource[src.key], edge.trim());
                         }
                         html += astestSonTestTahminCell(row.tahmin);
+                        html += astestSonTestRenkCell(row.renkTahmin, renkCalibrated);
                         html += '</tr>';
                     }
                 }
