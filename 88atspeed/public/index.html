@@ -3,182 +3,333 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>88ATSPEED | 7 Sekmeli Analiz Platformu</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>88ATSPEED | 16 Sekmeli Analiz Platformu</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="css/theme.css?v=20260822a" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #0f0c29 0%, #1a1a3e 50%, #24243e 100%);
-            min-height: 100vh;
-            color: #fff;
+        .table-wrapper { padding: 0; }
+        table { min-width: 5200px; }
+        .tjk-meta-th { background: #00838f !important; color: #fff; font-size: 10px; }
+        .tjk-horse-th { background: #00695c !important; color: #fff; font-size: 10px; }
+        .tjk-meta-cell { background: #e0f7fa; font-size: 11px; }
+        .tjk-horse-cell { background: #e8f5e9; font-size: 11px; }
+        .son-test-wrap { padding: 8px 0 24px; }
+        .son-test-race { margin-bottom: 20px; }
+        .son-test-table-wrap {
+            overflow-x: auto; background: #fff;
+            border: 1px solid #e0e0e0; border-top: none;
+            border-radius: 0 0 10px 10px;
         }
-        .container { max-width: 1600px; margin: 0 auto; padding: 20px; }
-        .header {
-            text-align: center;
-            background: linear-gradient(135deg, rgba(255,152,0,0.1), rgba(76,175,80,0.1));
-            backdrop-filter: blur(10px);
-            border-radius: 24px;
-            padding: 25px;
-            margin-bottom: 25px;
-            border: 1px solid rgba(255,152,0,0.3);
+        .son-test-table {
+            min-width: 320px !important; width: 100%;
+            border-collapse: collapse; font-size: 13px;
         }
-        .logo {
-            display: flex;
-            justify-content: center;
-            gap: 5px;
-            font-size: 48px;
-            font-weight: 800;
+        .son-test-table thead th {
+            position: sticky; top: 0; z-index: 1;
+            background: #ede7f6; padding: 8px 12px;
+            text-align: left; font-size: 11px; font-weight: 700;
+            color: #4a148c; border-bottom: 2px solid #ce93d8;
+            white-space: nowrap;
         }
-        .logo-88 { color: #ff9800; text-shadow: 0 0 20px rgba(255,152,0,0.5); }
-        .logo-at { color: #4CAF50; text-shadow: 0 0 20px rgba(76,175,80,0.5); }
-        .logo-speed { color: #2196F3; text-shadow: 0 0 20px rgba(33,150,243,0.5); }
-        .subtitle { color: rgba(255,255,255,0.6); margin-top: 8px; font-size: 13px; letter-spacing: 2px; }
-        
-        /* Kontrol Paneli */
-        .global-controls {
-            background: rgba(30, 30, 60, 0.7);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 20px 25px;
-            margin-bottom: 25px;
-            display: flex;
-            justify-content: center;
-            align-items: flex-end;
-            gap: 15px;
-            flex-wrap: wrap;
-            border: 1px solid rgba(255,152,0,0.3);
+        .son-test-table tbody td {
+            padding: 8px 12px; border-bottom: 1px solid #eceff1;
+            vertical-align: middle;
         }
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+        .son-test-table tbody tr:hover { background: #f3e5f5; }
+        .son-test-table tbody tr:last-child td { border-bottom: none; }
+        .son-test-table .col-no {
+            width: 52px; text-align: center; font-weight: 800;
+            color: #7b1fa2; background: #fafafa;
         }
-        .control-label {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            font-weight: 700;
-            color: #ff9800;
-            text-align: center;
+        .son-test-table .col-name {
+            min-width: 240px; font-weight: 600; text-align: left; color: #263238;
         }
-        .global-select, .global-date, .global-btn {
-            padding: 12px 20px;
-            font-size: 14px;
-            font-weight: 600;
-            border-radius: 12px;
-            border: 1px solid rgba(255,152,0,0.3);
-            cursor: pointer;
-            font-family: 'Inter', sans-serif;
-            height: 48px;
-            min-width: 160px;
+        .son-test-table .col-slot {
+            min-width: 72px; text-align: center; color: #90a4ae;
         }
-        .global-select, .global-date {
-            background: rgba(0,0,0,0.5);
-            color: white;
+        .son-test-table .col-k1 {
+            min-width: 48px; text-align: center; font-weight: 800;
+            color: #1565c0; background: #e3f2fd;
         }
-        .global-select option { text-align: center; }
-        .global-btn {
-            background: linear-gradient(135deg, #ff9800, #f44336);
-            border: none;
-            color: white;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+        .astest-table .col-stat {
+            min-width: 52px; text-align: center; font-size: 12px;
         }
-        .global-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(255,152,0,0.4); }
-        .save-btn { background: linear-gradient(135deg, #2196F3, #1976D2); }
-        
-        /* Sekmeler */
-        .tabs {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 25px;
+        .astest-table .col-stat-max { background: #fff8e1; font-weight: 700; color: #f57f17; }
+        .astest-table .col-stat-cnt { background: #f1f8e9; color: #33691e; }
+        .astest-table .col-stat-window { background: #e3f2fd; color: #0d47a1; font-size: 11px; }
+        .astest-table .col-stat-window.col-stat-max { background: #fff3e0; color: #e65100; }
+        .astest-table .col-stat-window.col-stat-cnt { background: #e8f5e9; color: #2e7d32; }
+        .astest-table .col-stat-window.col-stat-dim,
+        .astest-table .col-stat-window.col-stat-sehir { background: #e8eaf6; color: #283593; }
+        .astest-table .col-stat-rise { background: #f3e5f5; color: #6a1b9a; font-weight: 600; }
+        .astest-table .col-stat-rise-up { background: #e8f5e9; color: #1b5e20; font-weight: 700; }
+        .astest-table .col-stat-rise-down { background: #ffebee; color: #b71c1c; font-weight: 600; }
+        .astest-table .col-stat-max-pct { background: #fff8e1; color: #e65100; font-size: 10px; font-weight: 600; white-space: nowrap; }
+        .astest-table .col-stat-max-avg { background: #ffe082; color: #bf360c; font-weight: 700; font-size: 12px; }
+        .astest-table .col-stat-all-hdr { border-right: 2px solid #ce93d8; }
+        .astest-table .col-stat-window-hdr {
+            background: #bbdefb; color: #0d47a1; text-align: center;
+            border-left: 2px solid #64b5f6;
         }
-        .tab-btn {
-            padding: 12px 22px;
-            font-size: 13px;
-            font-weight: 600;
-            border-radius: 40px;
-            cursor: pointer;
-            transition: all 0.3s;
-            background: rgba(30, 30, 60, 0.5);
-            border: 1px solid rgba(255,255,255,0.1);
-            font-family: 'Inter', sans-serif;
-            text-align: center;
-            min-width: 110px;
+        .astest-window-summary {
+            margin: 8px 12px 0; padding: 10px 12px;
+            background: #f5f5f5; border-radius: 8px; border: 1px solid #e0e0e0;
         }
-        .tab-btn:hover { background: rgba(255,152,0,0.2); transform: translateY(-2px); }
-        .tab-btn.active { background: linear-gradient(135deg, #ff9800, #f44336); border-color: transparent; box-shadow: 0 5px 20px rgba(255,152,0,0.4); }
-        
-        /* İçerik Alanları */
-        .tab-content {
-            display: none;
-            animation: fadeIn 0.4s ease;
-            background: rgba(30, 30, 60, 0.4);
-            border-radius: 20px;
-            padding: 20px;
-            min-height: 500px;
+        .astest-window-summary-title {
+            font-size: 11px; font-weight: 700; color: #37474f; margin: 0 0 8px;
         }
-        .tab-content.active { display: block; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        .astest-window-summary-table {
+            min-width: 480px !important; width: 100%; font-size: 11px;
+            border-collapse: collapse;
         }
-        
-        .status {
-            padding: 12px;
-            border-radius: 12px;
-            margin-bottom: 15px;
-            text-align: center;
+        .astest-window-summary-table th,
+        .astest-window-summary-table td {
+            padding: 4px 8px; border: 1px solid #eceff1; text-align: center;
         }
-        .status-loading { background: rgba(255,152,0,0.2); color: #ff9800; }
-        .status-success { background: rgba(76,175,80,0.2); color: #4CAF50; }
-        .status-error { background: rgba(244,67,54,0.2); color: #f44336; }
-        .info-box { text-align: center; padding: 60px; color: rgba(255,255,255,0.5); }
-        
-        .race-card {
-            background: rgba(30, 30, 60, 0.6);
-            border-radius: 16px;
-            margin-bottom: 20px;
-            overflow-x: auto;
-            border: 1px solid rgba(255,255,255,0.1);
+        .astest-window-summary-table th { background: #eceff1; color: #455a64; }
+        .astest-window-summary-table td:first-child { text-align: left; font-weight: 600; }
+        .astest-window-summary-note {
+            font-size: 10px; color: #78909c; margin: 6px 0 0;
         }
-        .race-header {
-            background: linear-gradient(135deg, rgba(255,152,0,0.2), rgba(76,175,80,0.1));
-            padding: 15px 20px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+        .astest-table .col-gecmis {
+            min-width: 140px; text-align: left; font-size: 11px;
+            color: #546e7a; max-width: 320px; white-space: normal;
         }
-        .race-header h3 { font-size: 17px; font-weight: 700; }
-        .race-badge {
-            background: #ff9800;
-            width: 28px;
-            height: 28px;
-            border-radius: 8px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 10px;
-            font-size: 14px;
+        .sehirtest-table .col-hedef {
+            min-width: 56px; text-align: center; font-weight: 800;
+            color: #2e7d32; background: #e8f5e9; font-size: 11px;
         }
-        .table-wrapper { padding: 15px; overflow-x: auto; }
-        table { border-collapse: collapse; font-size: 11px; width: 100%; min-width: 2800px; }
-        th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); border-right: 1px solid rgba(255,255,255,0.05); }
-        th { background: rgba(0,0,0,0.4); color: #ff9800; font-weight: 600; position: sticky; top: 0; }
-        .horse-no { font-weight: 800; color: #ff9800; text-align: center; background: rgba(0,0,0,0.3); }
-        .son800-badge {
-            background: linear-gradient(135deg, #ff9800, #f44336);
-            padding: 3px 8px;
-            border-radius: 15px;
-            font-size: 10px;
-            font-weight: 700;
-            display: inline-block;
+        .sehirtest-table .col-stat-sehir { background: #e8f5e9; color: #1b5e20; font-weight: 700; }
+        .sehirtest-table .col-stat-gen { background: #fff3e0; color: #e65100; font-weight: 700; }
+        .sehirtest-table .col-stat-gen-adj { background: #ffe0b2; color: #bf360c; font-weight: 700; }
+        .sehirtest-table .col-stat-bas {
+            background: linear-gradient(135deg, #ede7f6, #e1bee7);
+            color: #4a148c; font-weight: 800; min-width: 52px;
         }
-        .sticky-col { position: sticky; left: 0; background: #1a1a3e; z-index: 1; }
-        .sticky-col2 { position: sticky; left: 50px; background: #1a1a3e; z-index: 1; }
-        .sticky-col3 { position: sticky; left: 180px; background: #1a1a3e; z-index: 1; }
+        .dimtest-table .col-hedef {
+            min-width: 56px; text-align: center; font-weight: 800;
+            color: #1565c0; background: #e3f2fd; font-size: 11px;
+        }
+        .dimtest-table .col-stat-dim-match {
+            background: #e3f2fd; color: #0d47a1; font-weight: 700;
+        }
+        .dimtest-table .col-stat-gen { background: #fff3e0; color: #e65100; font-weight: 700; }
+        .dimtest-table .col-stat-gen-adj { background: #ffe0b2; color: #bf360c; font-weight: 700; }
+        .dimtest-table .col-stat-bas {
+            background: linear-gradient(135deg, #ede7f6, #e1bee7);
+            color: #4a148c; font-weight: 800; min-width: 52px;
+        }
+        /* BAŞ+ top-4 tahmin — satır geneli mor gradyan (1=koyu → 4=açık) — tüm astest sekmeleri */
+        .astest-table tbody tr.bas-pick-1 > td:not([class*="istat-"]) {
+            background: #ce93d8 !important;
+            color: #311b92;
+        }
+        .astest-table tbody tr.bas-pick-1 > td.col-stat-bas {
+            background: linear-gradient(135deg, #ab47bc, #8e24aa) !important;
+            color: #fff !important;
+            font-weight: 900;
+        }
+        .astest-table tbody tr.bas-pick-1 > td.col-name { font-weight: 800; color: #4a148c; }
+        .astest-table tbody tr.bas-pick-2 > td:not([class*="istat-"]) {
+            background: #e1bee7 !important;
+            color: #4a148c;
+        }
+        .astest-table tbody tr.bas-pick-2 > td.col-stat-bas {
+            background: linear-gradient(135deg, #ba68c8, #ab47bc) !important;
+            color: #fff !important;
+            font-weight: 900;
+        }
+        .astest-table tbody tr.bas-pick-2 > td.col-name { font-weight: 800; }
+        .astest-table tbody tr.bas-pick-3 > td:not([class*="istat-"]) {
+            background: #ede7f6 !important;
+            color: #4a148c;
+        }
+        .astest-table tbody tr.bas-pick-3 > td.col-stat-bas {
+            background: linear-gradient(135deg, #ce93d8, #ba68c8) !important;
+            color: #fff !important;
+            font-weight: 900;
+        }
+        .astest-table tbody tr.bas-pick-4 > td:not([class*="istat-"]) {
+            background: #f3e5f5 !important;
+            color: #6a1b9a;
+        }
+        .astest-table tbody tr.bas-pick-4 > td.col-stat-bas {
+            background: linear-gradient(135deg, #e1bee7, #ce93d8) !important;
+            color: #4a148c !important;
+            font-weight: 900;
+        }
+        .astest-table tbody tr[class*="bas-pick-"] > td.col-hedef,
+        .astest-table tbody tr[class*="bas-pick-"] > td.col-stat-dim-match,
+        .astest-table tbody tr[class*="bas-pick-"] > td.col-stat-sehir,
+        .astest-table tbody tr[class*="bas-pick-"] > td.col-stat-fs-match {
+            background: inherit !important;
+            color: inherit;
+        }
+        .astest-table tbody tr[class*="bas-pick-"] > td.col-stat-gen,
+        .astest-table tbody tr[class*="bas-pick-"] > td.col-stat-gen-adj {
+            background: rgba(255, 243, 224, 0.55) !important;
+        }
+        .siklet-son800-table tbody tr.bas-pick-1 > td[class*="istat-"] {
+            box-shadow: inset 0 0 0 9999px rgba(142, 36, 170, 0.14);
+        }
+        .siklet-son800-table tbody tr.bas-pick-2 > td[class*="istat-"] {
+            box-shadow: inset 0 0 0 9999px rgba(171, 71, 188, 0.10);
+        }
+        .siklet-son800-table tbody tr.bas-pick-3 > td[class*="istat-"] {
+            box-shadow: inset 0 0 0 9999px rgba(186, 104, 200, 0.08);
+        }
+        .siklet-son800-table tbody tr.bas-pick-4 > td[class*="istat-"] {
+            box-shadow: inset 0 0 0 9999px rgba(206, 147, 216, 0.06);
+        }
+        /* SİKLET · SON800-1 — İstatistikler ile aynı renklendirme */
+        .siklet-son800-table { min-width: 2400px !important; }
+        .siklet-son800-table th.istat-grp-son8001,
+        .siklet-son800-table td.istat-grp-son8001 { background: #e0f7fa; text-align: center; padding: 6px 4px; }
+        .siklet-son800-table th.istat-grp-son8001 { color: #006064; }
+        .siklet-son800-table th.istat-grp-start,
+        .siklet-son800-table td.istat-grp-start {
+            border-left: 4px solid currentColor;
+            box-shadow: -1px 0 0 rgba(0, 0, 0, 0.04) inset;
+        }
+        .siklet-son800-table th.istat-grp-son8001.istat-grp-start { border-left-color: #00acc1; }
+        .siklet-son800-table td.istat-grp-son8001.istat-grp-start { border-left-color: #80deea; }
+        .siklet-son800-table th.istat-grp-end,
+        .siklet-son800-table td.istat-grp-end { border-right: 2px solid rgba(0, 0, 0, 0.1); }
+        .siklet-son800-table th.istat-th-metric { min-width: 58px; white-space: nowrap; font-size: 10px; padding: 6px 4px; }
+        .siklet-son800-table th.istat-th-son800-depth,
+        .siklet-son800-table td.istat-son800-depth { min-width: 58px; max-width: 72px; font-size: 11px; }
+        .siklet-son800-table th.istat-son800-metric-hdr {
+            text-align: center; font-weight: 800; font-size: 11px;
+            border-bottom: 2px solid rgba(0, 105, 112, 0.25);
+        }
+        .siklet-son800-table .istat-son800-metric-label { font-size: 11px; font-weight: 900; letter-spacing: 0.02em; }
+        .siklet-son800-table th.istat-son800-strip-start,
+        .siklet-son800-table td.istat-son800-strip-start {
+            border-left: 2px solid rgba(0, 105, 112, 0.35);
+        }
+        .siklet-son800-table th.istat-son800-strip-end,
+        .siklet-son800-table td.istat-son800-strip-end {
+            border-right: 1px solid rgba(0, 105, 112, 0.2);
+        }
+        .siklet-son800-table th.istat-th-self-depth,
+        .siklet-son800-table td.istat-self-depth { background: rgba(255, 255, 255, 0.45); box-shadow: inset 1px 0 0 rgba(0, 0, 0, 0.06); }
+        .siklet-son800-table tbody tr:hover td.istat-self-depth { background: rgba(255, 255, 255, 0.65); }
+        .siklet-son800-table th.istat-th-best-depth,
+        .siklet-son800-table td.istat-best-depth { background: rgba(255, 255, 255, 0.3); box-shadow: inset 1px 0 0 rgba(0, 0, 0, 0.05); font-weight: 700; font-variant-numeric: tabular-nums; }
+        .siklet-son800-table tbody tr:hover td.istat-best-depth { background: rgba(255, 255, 255, 0.45); }
+        .siklet-son800-table th.istat-th-success-depth,
+        .siklet-son800-table td.istat-success-depth { background: rgba(255, 248, 220, 0.55); box-shadow: inset 2px 0 0 rgba(255, 193, 7, 0.35); }
+        .siklet-son800-table tbody tr:hover td.istat-success-depth { background: rgba(255, 248, 220, 0.75); }
+        .siklet-son800-table th.istat-th-gap-depth,
+        .siklet-son800-table td.istat-gap-depth { background: rgba(0, 0, 0, 0.04); box-shadow: inset 1px 0 0 rgba(0, 0, 0, 0.08); }
+        .siklet-son800-table tbody tr:hover td.istat-gap-depth { background: rgba(0, 0, 0, 0.07); }
+        .siklet-son800-table tbody tr:hover td.istat-grp-son8001 { background: #d4f4f7; }
+        .siklet-son800-table .istat-col-label { font-size: 9px; font-weight: 700; line-height: 1.15; white-space: nowrap; }
+        .siklet-son800-table .istat-grp-head { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .siklet-son800-table .istat-grp-label { line-height: 1.2; font-size: 11px; font-weight: 800; }
+        .siklet-son800-table .istat-grp-label small { display: block; font-weight: 500; opacity: 0.85; margin-top: 2px; font-size: 9px; }
+        .siklet-son800-table .istat-pct {
+            display: inline-block; min-width: 44px; padding: 3px 6px;
+            border-radius: 4px; font-weight: 800; font-size: 11px;
+        }
+        .siklet-son800-table .istat-pct-none { background: #f5f5f5; color: #9e9e9e; }
+        .siklet-son800-table .istat-pct-low { background: #ffebee; color: #c62828; }
+        .siklet-son800-table .istat-pct-mid { background: #fff8e1; color: #f57f17; }
+        .siklet-son800-table .istat-pct-good { background: #e8f5e9; color: #1b5e20; }
+        .siklet-son800-table .istat-pct-high { background: #a5d6a7; color: #0d3d0d; }
+        @keyframes istat-gap-zero-blink {
+            0%, 100% { color: #b71c1c; text-shadow: 0 0 6px rgba(244, 67, 54, 0.85); opacity: 1; }
+            50% { color: #ff5252; text-shadow: none; opacity: 0.3; }
+        }
+        .siklet-son800-table .istat-pct-gap-zero-blink {
+            color: #c62828 !important; font-weight: 900 !important;
+            animation: istat-gap-zero-blink 0.85s ease-in-out infinite;
+        }
+        .siklet-son800-table tbody tr:hover .istat-pct-gap-zero-blink {
+            animation: istat-gap-zero-blink 0.85s ease-in-out infinite;
+        }
+        .siklet-son800-table td.istat-gap-son8001-t1dr-twin-zero {
+            background: #ff9800 !important; box-shadow: inset 0 0 0 2px #ef6c00;
+        }
+        .siklet-son800-table tbody tr:hover td.istat-gap-son8001-t1dr-twin-zero { background: #fb8c00 !important; }
+        .siklet-son800-table td.istat-gap-son8001-t1dr-twin-zero .istat-pct { background: rgba(255, 152, 0, 0.35) !important; }
+        .siklet-son800-table td.istat-gap-son8001-t1dr-low-neon {
+            background: #76ff03 !important;
+            box-shadow: inset 0 0 0 2px #33691e, 0 0 12px rgba(118, 255, 3, 0.75);
+        }
+        .siklet-son800-table td.istat-gap-son8001-t1dr-low-neon .istat-pct {
+            background: #76ff03 !important; color: #1b5e20 !important;
+            box-shadow: 0 0 10px rgba(118, 255, 3, 0.9);
+        }
+        .siklet-son800-table tbody tr:hover td.istat-gap-son8001-t1dr-low-neon { background: #b2ff59 !important; }
+        .siklet-son800-table tbody tr:hover td.istat-gap-son8001-t1dr-low-neon .istat-pct { background: #b2ff59 !important; }
+        /* GÖSTERİM renklendirme */
+        .siklet-son800-table td[class*="istat-gos-"] .istat-pct { background: transparent !important; }
+        .siklet-son800-table td.istat-gos-kirmizi-kenar { box-shadow: inset 0 0 0 2px #d50000, 0 0 8px rgba(255, 23, 68, 0.35); }
+        .siklet-son800-table td.istat-gos-mavi-kenar { box-shadow: inset 0 0 0 2px #0d47a1, 0 0 8px rgba(13, 71, 161, 0.35); }
+        .siklet-son800-table td.istat-gos-yesil-satir { background: #e8ff9e !important; }
+        .siklet-son800-table td.istat-gos-yesil-satir .istat-pct { color: #1b5e20 !important; font-weight: 900; }
+        .siklet-son800-table td.istat-gos-guclu-uyari {
+            background: linear-gradient(135deg, #0a2e12 0%, #1b5e20 100%) !important; color: #e8f5e9 !important;
+        }
+        .siklet-son800-table td.istat-gos-guclu-uyari .istat-pct {
+            color: #e8f5e9 !important; font-weight: 900; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+        }
+        .siklet-son800-table td.istat-gos-mavi-fosfor { background: rgba(0, 188, 212, 0.14) !important; }
+        .siklet-son800-table td.istat-gos-mavi-fosfor .istat-pct { color: #01579b !important; font-weight: 900; }
+        .siklet-son800-table td.istat-gos-pembe-satir { background: #fce4ec !important; }
+        .siklet-son800-table td.istat-gos-pembe-satir .istat-pct { color: #880e4f !important; font-weight: 900; }
+        .siklet-son800-table td.istat-gos-sari .istat-pct { color: #b8860b !important; font-weight: 900; }
+        .siklet-son800-table td.istat-gos-kirmizi-test .istat-pct { color: #b71c1c !important; font-weight: 900; }
+        .siklet-son800-table td.istat-gos-eslesme {
+            background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%) !important;
+        }
+        .siklet-son800-table td.istat-gos-eslesme .istat-pct {
+            color: #f1f8e9 !important; font-weight: 900; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+        .siklet-son800-table td.istat-gos-kirmizi-kenar .istat-pct,
+        .siklet-son800-table td.istat-gos-mavi-kenar .istat-pct { color: #0d3d0d !important; font-weight: 900; }
+        .siklet-son800-table td.istat-gos-kirmizi-kenar.istat-gos-eslesme .istat-pct,
+        .siklet-son800-table td.istat-gos-mavi-kenar.istat-gos-eslesme .istat-pct,
+        .siklet-son800-table td.istat-gos-kirmizi-kenar.istat-gos-guclu-uyari .istat-pct,
+        .siklet-son800-table td.istat-gos-mavi-kenar.istat-gos-guclu-uyari .istat-pct {
+            color: #f1f8e9 !important; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+        .fstest-table .col-hedef {
+            min-width: 56px; text-align: center; font-weight: 800;
+            color: #6a1b9a; background: #f3e5f5; font-size: 11px;
+        }
+        .fstest-table .col-stat-fs-match {
+            background: #f3e5f5; color: #4a148c; font-weight: 700;
+        }
+        .fstest-table .col-stat-gen { background: #fff3e0; color: #e65100; font-weight: 700; }
+        .fstest-table .col-stat-gen-adj { background: #ffe0b2; color: #bf360c; font-weight: 700; }
+        .fstest-table .col-stat-bas {
+            background: linear-gradient(135deg, #ede7f6, #e1bee7);
+            color: #4a148c; font-weight: 800; min-width: 52px;
+        }
+        .sehirtest-table .col-gecmis-match { color: #1565c0; }
+        .astest-note {
+            font-size: 11px; color: #78909c; margin: 0 0 10px 2px;
+        }
+        .son-test-toolbar {
+            display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+            margin-bottom: 14px; padding: 12px 14px;
+            background: #fff; border-radius: 8px; border: 1px solid #e0e0e0;
+        }
+        .son-test-btn {
+            padding: 8px 16px; border: none; border-radius: 6px;
+            background: linear-gradient(135deg, #7b1fa2, #4a148c);
+            color: #fff; font-weight: 700; cursor: pointer; font-size: 13px;
+        }
+        .son-test-btn-outline {
+            background: #fff; color: #6a1b9a; border: 1px solid #ce93d8;
+        }
+        .son-test-meta { font-size: 12px; color: #546e7a; font-weight: 600; }
+        #sonTestKayitListesi { margin-bottom: 14px; }
     </style>
 </head>
 <body>
@@ -189,7 +340,7 @@
                 <span class="logo-at">AT</span>
                 <span class="logo-speed">SPEED</span>
             </div>
-            <div class="subtitle">7 SEKMELİ PROFESYONEL ANALİZ PLATFORMU</div>
+            <div class="subtitle">11 SEKMELİ PROFESYONEL ANALİZ PLATFORMU <span id="appVersion" style="font-size:11px;opacity:0.7;margin-left:8px"></span></div>
         </div>
         
         <div class="global-controls">
@@ -220,18 +371,459 @@
             <div class="tab-btn" data-tab="yonetim">⚙️ YÖNETİM</div>
             <div class="tab-btn" data-tab="karsilastirma">🆚 KARŞILAŞTIRMA</div>
             <div class="tab-btn" data-tab="gosterim">👁️ GÖSTERİM</div>
+            <div class="tab-btn" data-tab="tahminim">🎯 TAHMİNİM</div>
+            <div class="tab-btn" data-tab="istatistikler">📈 İSTATİSTİKLER</div>
+            <div class="tab-btn" data-tab="puanlama-test">🧪 PUANLAMA TEST</div>
+            <div class="tab-btn" data-tab="son-test">🏁 SON TEST</div>
+            <div class="tab-btn" data-tab="at-sayisi-test">👥 KOŞU AT SAYISI</div>
+            <div class="tab-btn" data-tab="sehir-test">🏟️ ŞEHİR DURUMU</div>
+            <div class="tab-btn" data-tab="kcins-test">🏇 KOŞU CİNSİ</div>
+            <div class="tab-btn" data-tab="taki-test">🎽 TAKİ</div>
+            <div class="tab-btn" data-tab="pist-test">🌿 PİST</div>
+            <div class="tab-btn" data-tab="hp-test">📊 HP</div>
+            <div class="tab-btn" data-tab="siklet-test">⚖️ SİKLET</div>
         </div>
         
         <div id="tab-hesaplama" class="tab-content active"><div class="info-box">📊 HESAPLAMA - GETİR butonuna tıklayın</div></div>
-        <div id="tab-yonetim" class="tab-content"><iframe src="yonetim.html" style="width:100%; min-height:600px; border:none; background:transparent;"></iframe></div>
-        <div id="tab-karsilastirma" class="tab-content"><iframe src="karsilastirma.html" style="width:100%; min-height:600px; border:none; background:transparent;"></iframe></div>
-        <div id="tab-gosterim" class="tab-content"><iframe src="gosterim_full.html" style="width:100%; min-height:600px; border:none; background:transparent;"></iframe></div>
+        <div id="tab-yonetim" class="tab-content tab-content-iframe"><iframe id="yonetimFrame" src="yonetim.html?v=20260821c" title="Yönetim"></iframe></div>
+        <div id="tab-karsilastirma" class="tab-content tab-content-iframe"><iframe id="karsilastirmaFrame" src="karsilastirma.html?v=20260821c" title="Karşılaştırma"></iframe></div>
+        <div id="tab-gosterim" class="tab-content tab-content-gosterim"><iframe id="gosterimFrame" src="gosterim_full.html?v=20260831s" title="Gösterim"></iframe></div>
+        <div id="tab-tahminim" class="tab-content tab-content-tahminim"><iframe id="tahminimFrame" src="tahminim.html?v=20260824n" title="Tahminim"></iframe></div>
+        <div id="tab-istatistikler" class="tab-content tab-content-istatistikler"><iframe id="istatistiklerFrame" src="istatistikler.html?v=20260830e" title="İstatistikler"></iframe></div>
+        <div id="tab-puanlama-test" class="tab-content tab-content-istatistikler"><iframe id="puanlamaTestFrame" src="istatistik-puanlama-test.html?v=20260831s" title="Puanlama Test"></iframe></div>
+        <div id="tab-son-test" class="tab-content">
+            <div class="son-test-toolbar">
+                <button type="button" id="sonTestKayitBtn" class="son-test-btn">📋 Kayıtlardan Seç</button>
+                <span id="sonTestMeta" class="son-test-meta">GETİR ile canlı program veya kayıtlardan yükleme</span>
+            </div>
+            <div id="sonTestKayitListesi" class="kayit-listesi" style="display:none"></div>
+            <div id="sonTestContent"><div class="info-box">🏁 SON TEST — GETİR veya kayıtlardan seçin</div></div>
+        </div>
+        <div id="tab-at-sayisi-test" class="tab-content">
+            <div class="son-test-toolbar">
+                <button type="button" id="atSayisiKayitBtn" class="son-test-btn">📋 Kayıtlardan Seç</button>
+                <span id="atSayisiMeta" class="son-test-meta">Geçmiş koşulardaki at sayısı istatistikleri (çıkan/koşmaz hariç)</span>
+            </div>
+            <div id="atSayisiKayitListesi" class="kayit-listesi" style="display:none"></div>
+            <div id="atSayisiContent"><div class="info-box">👥 KOŞU AT SAYISI — GETİR veya kayıtlardan seçin</div></div>
+        </div>
+        <div id="tab-sehir-test" class="tab-content">
+            <div class="son-test-toolbar">
+                <button type="button" id="sehirKayitBtn" class="son-test-btn">📋 Kayıtlardan Seç</button>
+                <span id="sehirMeta" class="son-test-meta">Hedef hipodromda geçmiş koşu deneyimi (tüm kosular[])</span>
+            </div>
+            <div id="sehirKayitListesi" class="kayit-listesi" style="display:none"></div>
+            <div id="sehirContent"><div class="info-box">🏟️ ŞEHİR DURUMU — GETİR veya kayıtlardan seçin</div></div>
+        </div>
+        <div id="tab-kcins-test" class="tab-content">
+            <div class="son-test-toolbar">
+                <button type="button" id="kcinsKayitBtn" class="son-test-btn">📋 Kayıtlardan Seç</button>
+                <span id="kcinsMeta" class="son-test-meta">Hedef koşu cinsi (kcins_kosu) geçmiş deneyimi</span>
+            </div>
+            <div id="kcinsKayitListesi" class="kayit-listesi" style="display:none"></div>
+            <div id="kcinsContent"><div class="info-box">🏇 KOŞU CİNSİ — GETİR veya kayıtlardan seçin</div></div>
+        </div>
+        <div id="tab-taki-test" class="tab-content">
+            <div class="son-test-toolbar">
+                <button type="button" id="takiKayitBtn" class="son-test-btn">📋 Kayıtlardan Seç</button>
+                <span id="takiMeta" class="son-test-meta">Hedef takı (KG DB SK GKR vb.) geçmiş deneyimi</span>
+            </div>
+            <div id="takiKayitListesi" class="kayit-listesi" style="display:none"></div>
+            <div id="takiContent"><div class="info-box">🎽 TAKİ — GETİR veya kayıtlardan seçin</div></div>
+        </div>
+        <div id="tab-pist-test" class="tab-content">
+            <div class="son-test-toolbar">
+                <button type="button" id="pistKayitBtn" class="son-test-btn">📋 Kayıtlardan Seç</button>
+                <span id="pistMeta" class="son-test-meta">Hedef pist (Kum/Çim) geçmiş deneyimi</span>
+            </div>
+            <div id="pistKayitListesi" class="kayit-listesi" style="display:none"></div>
+            <div id="pistContent"><div class="info-box">🌿 PİST — GETİR veya kayıtlardan seçin</div></div>
+        </div>
+        <div id="tab-hp-test" class="tab-content">
+            <div class="son-test-toolbar">
+                <button type="button" id="hpKayitBtn" class="son-test-btn">📋 Kayıtlardan Seç</button>
+                <span id="hpMeta" class="son-test-meta">Hedef handikap puanı geçmiş deneyimi</span>
+            </div>
+            <div id="hpKayitListesi" class="kayit-listesi" style="display:none"></div>
+            <div id="hpContent"><div class="info-box">📊 HP — GETİR veya kayıtlardan seçin</div></div>
+        </div>
+        <div id="tab-siklet-test" class="tab-content">
+            <div class="son-test-toolbar">
+                <button type="button" id="sikletKayitBtn" class="son-test-btn">📋 Kayıtlardan Seç</button>
+                <span id="sikletMeta" class="son-test-meta">Hedef sıklet geçmiş deneyimi</span>
+            </div>
+            <div id="sikletKayitListesi" class="kayit-listesi" style="display:none"></div>
+            <div id="sikletContent"><div class="info-box">⚖️ SİKLET — GETİR veya kayıtlardan seçin</div></div>
+        </div>
     </div>
 
+    <script src="js/utils.js?v=20260831a"></script>
+    <script src="js/at-meta-fields.js?v=20260831a"></script>
+    <script src="js/formula-engine.js?v=20260831c"></script>
+    <script src="js/istatistik-engine.js?v=20260831c"></script>
+    <script src="js/istatistik-grids-extra.js?v=20260831e"></script>
+    <script src="js/istatistik-gosterim-flags.js?v=20260831e"></script>
+    <script src="js/son800-depth-ui.js?v=20260831f"></script>
+    <script src="js/siklet-bas-delta-boost.js?v=20260831h"></script>
+    <script src="js/astest-son800-shared.js?v=20260831i"></script>
+    <script src="js/field-size-stats-engine.js?v=20260831i"></script>
+    <script src="js/sehir-stats-engine.js?v=20260831g"></script>
+    <script src="js/kosu-dimension-stats-engine.js?v=20260831h"></script>
     <script>
+        const RECENT_WINDOWS = FieldSizeStatsEngine.RECENT_WINDOWS;
+
+        function astestWindowStatHeaders(kind, pctLabel, matchLabel) {
+            let html = '';
+            for (let wi = 0; wi < RECENT_WINDOWS.length; wi++) {
+                const w = RECENT_WINDOWS[wi];
+                const tag = 'S' + w;
+                const edge = wi === 0 ? ' col-stat-window-hdr' : '';
+                html += '<th class="col-stat col-stat-window' + edge + '" title="Son ' + w + ' koşu · geçmiş koşu sayısı">' + tag + '·KOŞU</th>';
+                if (kind === 'sehir') {
+                    html += '<th class="col-stat col-stat-window col-stat-sehir' + edge + '" title="Son ' + w + ' koşu · hedef şehir oranı">' + tag + '·ŞEH%</th>';
+                    html += '<th class="col-stat col-stat-window col-stat-sehir' + edge + '" title="Son ' + w + ' koşu · hedef şehirde koşu">' + tag + '·Ş-KOŞU</th>';
+                } else if (kind === 'dimension') {
+                    html += '<th class="col-stat col-stat-window col-stat-dim' + edge + '" title="Son ' + w + ' koşu · eşleşme oranı">' + tag + '·' + escapeHtml(pctLabel) + '</th>';
+                    html += '<th class="col-stat col-stat-window col-stat-dim' + edge + '" title="Son ' + w + ' koşu · eşleşen koşu">' + tag + '·' + escapeHtml(matchLabel) + '</th>';
+                }
+                if (kind !== 'sehir') {
+                    html += '<th class="col-stat col-stat-window col-stat-max' + edge + '">' + tag + '·MAX-1</th>';
+                    html += '<th class="col-stat col-stat-window col-stat-max">' + tag + '·MAX-12</th>';
+                    html += '<th class="col-stat col-stat-window col-stat-max">' + tag + '·MAX-123</th>';
+                    html += '<th class="col-stat col-stat-window col-stat-max">' + tag + '·MAX-1234</th>';
+                }
+                const cntTitle = kind === 'sehir' ? ' · hedef şehirde' : '';
+                if (kind === 'sehir') {
+                    html += '<th class="col-stat col-stat-window col-stat-cnt' + edge + '" title="Son ' + w + ' koşu' + cntTitle + ' · 1.lik adet">' + tag + '·1.</th>';
+                    html += '<th class="col-stat col-stat-window col-stat-cnt" title="Son ' + w + ' koşu' + cntTitle + ' · 2.lik adet">' + tag + '·1-2</th>';
+                    html += '<th class="col-stat col-stat-window col-stat-cnt" title="Son ' + w + ' koşu' + cntTitle + ' · 3.lük adet">' + tag + '·1-2-3</th>';
+                    html += '<th class="col-stat col-stat-window col-stat-cnt" title="Son ' + w + ' koşu' + cntTitle + ' · 4.lük adet">' + tag + '·1-2-3-4</th>';
+                } else {
+                    html += '<th class="col-stat col-stat-window col-stat-cnt' + edge + '" title="Son ' + w + ' koşu' + cntTitle + ' · 1. sayısı">' + tag + '·1.</th>';
+                    html += '<th class="col-stat col-stat-window col-stat-cnt" title="Son ' + w + ' koşu' + cntTitle + ' · 1-2 sayısı">' + tag + '·1-2</th>';
+                    html += '<th class="col-stat col-stat-window col-stat-cnt" title="Son ' + w + ' koşu' + cntTitle + ' · 1-2-3 sayısı">' + tag + '·1-2-3</th>';
+                    html += '<th class="col-stat col-stat-window col-stat-cnt" title="Son ' + w + ' koşu' + cntTitle + ' · 1-2-3-4 sayısı">' + tag + '·1-2-3-4</th>';
+                }
+            }
+            return html;
+        }
+
+        function astestWindowFieldSizeCells(st) {
+            let html = '';
+            const fmt = FieldSizeStatsEngine.formatCell.bind(FieldSizeStatsEngine);
+            for (let wi = 0; wi < RECENT_WINDOWS.length; wi++) {
+                const w = RECENT_WINDOWS[wi];
+                const ws = st.windows?.[w] || {};
+                const edge = wi === 0 ? ' col-stat-window-hdr' : '';
+                html += '<td class="col-stat col-stat-window' + edge + '">' + fmt(ws.kosuSayisi) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-max' + edge + '">' + fmt(ws.max1) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-max">' + fmt(ws.max12) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-max">' + fmt(ws.max123) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-max">' + fmt(ws.max1234) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-cnt' + edge + '">' + (ws.cnt1 ?? 0) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-cnt">' + (ws.cnt12 ?? 0) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-cnt">' + (ws.cnt123 ?? 0) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-cnt">' + (ws.cnt1234 ?? 0) + '</td>';
+            }
+            return html;
+        }
+
+        function astestWindowSehirCells(st) {
+            let html = '';
+            const fmt = SehirStatsEngine.formatCell.bind(SehirStatsEngine);
+            const fmtPct = SehirStatsEngine.formatPct.bind(SehirStatsEngine);
+            for (let wi = 0; wi < RECENT_WINDOWS.length; wi++) {
+                const w = RECENT_WINDOWS[wi];
+                const ws = st.windows?.[w] || {};
+                const edge = wi === 0 ? ' col-stat-window-hdr' : '';
+                html += '<td class="col-stat col-stat-window' + edge + '">' + fmt(ws.kosuSayisi) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-sehir' + edge + '">' + fmtPct(ws.sehirPct) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-sehir">' + (ws.inCityCount ?? 0) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-cnt' + edge + '">' + (ws.cnt1 ?? 0) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-cnt">' + (ws.cnt2 ?? 0) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-cnt">' + (ws.cnt3 ?? 0) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-cnt">' + (ws.cnt4 ?? 0) + '</td>';
+            }
+            return html;
+        }
+
+        function astestAsFormCell(st) {
+            const ft = st.formTrend || {};
+            let cls = 'col-stat col-stat-fs-match col-stat-rise';
+            if (ft.rising) cls += ' col-stat-rise-up';
+            else if (ft.falling) cls += ' col-stat-rise-down';
+            return '<td class="' + cls + '" title="' + escapeHtml(ft.tooltip || '') + '">'
+                + escapeHtml(ft.display || '—') + '</td>';
+        }
+
+        function astestAsAdjCell(st) {
+            const adj = st.asAdj || {};
+            let cls = 'col-stat col-stat-fs-match col-stat-fs-adj';
+            if (adj.boosted) cls += ' col-stat-rise-up';
+            else if (adj.penalized) cls += ' col-stat-rise-down';
+            return '<td class="' + cls + '" title="' + escapeHtml(adj.tooltip || '') + '">'
+                + escapeHtml(adj.display || FieldSizeStatsEngine.formatPct(st.matchPct)) + '</td>';
+        }
+
+        function astestDimFormCell(st) {
+            const ft = st.formTrend || {};
+            let cls = 'col-stat col-stat-dim-match col-stat-rise';
+            if (ft.rising) cls += ' col-stat-rise-up';
+            else if (ft.falling) cls += ' col-stat-rise-down';
+            return '<td class="' + cls + '" title="' + escapeHtml(ft.tooltip || '') + '">'
+                + escapeHtml(ft.display || '—') + '</td>';
+        }
+
+        function astestDimAdjCell(st) {
+            const adj = st.dimAdj || {};
+            let cls = 'col-stat col-stat-dim-match col-stat-dim-adj';
+            if (adj.boosted) cls += ' col-stat-rise-up';
+            else if (adj.penalized) cls += ' col-stat-rise-down';
+            return '<td class="' + cls + '" title="' + escapeHtml(adj.tooltip || '') + '">'
+                + escapeHtml(adj.display || KosuDimensionStatsEngine.formatPct(st.matchPct)) + '</td>';
+        }
+
+        function astestMaxSuccessAvgHeader(dimKey) {
+            if (dimKey !== 'siklet') return '';
+            return '<th class="col-stat col-stat-max col-stat-max-avg" title="MAX-1/12/123/1234 başarı % ortalaması (bugünkü alana göre)">MAX%Ø</th>';
+        }
+
+        function astestMaxSuccessAvgCell(st, dimKey, race) {
+            if (dimKey !== 'siklet') return '';
+            const fs = FieldSizeStatsEngine.raceFieldSize(race);
+            const r = FieldSizeStatsEngine.computeMaxSuccessPct(st, fs);
+            let cls = 'col-stat col-stat-max col-stat-max-avg';
+            if (r.avg != null && r.avg >= 50) cls += ' col-stat-rise-up';
+            const disp = r.avg != null ? ('%' + r.avg) : '—';
+            const tip = (r.tooltip || '') + (r.avg != null ? '\nOrtalama: %' + r.avg : '');
+            return '<td class="' + cls + '" title="' + escapeHtml(tip) + '">' + escapeHtml(disp) + '</td>';
+        }
+
+        function astestMaxSuccessHeader(dimKey) {
+            if (dimKey !== 'siklet') return '';
+            return '<th class="col-stat col-stat-max col-stat-max-pct" title="MAX başarı % — eşleşen koşuda kanıtlanan en geniş alan / bugünkü alan. Sıra: 1·12·123·1234 (tavan %100)">MAX%</th>';
+        }
+
+        function astestMaxSuccessCell(st, dimKey, race) {
+            if (dimKey !== 'siklet') return '';
+            const fs = FieldSizeStatsEngine.raceFieldSize(race);
+            const r = FieldSizeStatsEngine.computeMaxSuccessPct(st, fs);
+            let cls = 'col-stat col-stat-max col-stat-max-pct';
+            return '<td class="' + cls + '" title="' + escapeHtml(r.tooltip) + '">'
+                + escapeHtml(r.display) + '</td>';
+        }
+
+        function astestDimensionRiseHeader(dimKey, pctLabel) {
+            if (dimKey !== 'siklet') return '';
+            return '<th class="col-stat col-stat-dim col-stat-rise" title="Son 5 koşu '
+                + escapeHtml(pctLabel) + ' − TÜM ' + escapeHtml(pctLabel)
+                + '. ≥5 puan artış (SK-KOŞU≥2).">SK↑S5</th>';
+        }
+
+        function astestDimensionRiseCell(st, dimKey) {
+            if (dimKey !== 'siklet') return '';
+            const rise = KosuDimensionStatsEngine.computeWindowRise(st, 5);
+            let cls = 'col-stat col-stat-dim col-stat-rise';
+            if (rise.rising) cls += ' col-stat-rise-up';
+            let title = '';
+            if (rise.rising) {
+                title = 'TÜM ' + KosuDimensionStatsEngine.formatPct(rise.tumPct)
+                    + ' → S5 ' + KosuDimensionStatsEngine.formatPct(rise.windowPct)
+                    + ' · Δ+' + rise.delta + ' puan';
+            } else if (rise.artifact) {
+                title = 'SK-KOŞU=1 — tek eşleşme artefaktı, yükseliş gösterilmez';
+            } else if (rise.delta != null && rise.delta > 0) {
+                title = 'Artış var (+' + rise.delta + ') ama eşik altında (<5)';
+            } else {
+                title = 'Son 5 koşuda TÜM\'e göre anlamlı artış yok';
+            }
+            return '<td class="' + cls + '" title="' + escapeHtml(title) + '">'
+                + escapeHtml(rise.display) + '</td>';
+        }
+
+        function astestWindowDimensionCells(st) {
+            let html = '';
+            const fmt = KosuDimensionStatsEngine.formatCell.bind(KosuDimensionStatsEngine);
+            const fmtPct = KosuDimensionStatsEngine.formatPct.bind(KosuDimensionStatsEngine);
+            for (let wi = 0; wi < RECENT_WINDOWS.length; wi++) {
+                const w = RECENT_WINDOWS[wi];
+                const ws = st.windows?.[w] || {};
+                const edge = wi === 0 ? ' col-stat-window-hdr' : '';
+                html += '<td class="col-stat col-stat-window' + edge + '">' + fmt(ws.kosuSayisi) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-dim' + edge + '">' + fmtPct(ws.matchPct) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-dim">' + (ws.matchCount ?? 0) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-max' + edge + '">' + fmt(ws.max1) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-max">' + fmt(ws.max12) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-max">' + fmt(ws.max123) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-max">' + fmt(ws.max1234) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-cnt' + edge + '">' + (ws.cnt1 ?? 0) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-cnt">' + (ws.cnt12 ?? 0) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-cnt">' + (ws.cnt123 ?? 0) + '</td>';
+                html += '<td class="col-stat col-stat-window col-stat-cnt">' + (ws.cnt1234 ?? 0) + '</td>';
+            }
+            return html;
+        }
+
+        const ASTEST_WINDOW_COLS = {
+            fieldSize: RECENT_WINDOWS.length * 9,
+            sehir: RECENT_WINDOWS.length * 7,
+            dimension: RECENT_WINDOWS.length * 11
+        };
+
+        function astestPickLeader(entries, getScore) {
+            let best = null;
+            for (let i = 0; i < entries.length; i++) {
+                const e = entries[i];
+                const s = getScore(e);
+                if (s == null || !Number.isFinite(Number(s))) continue;
+                const no = parseInt(e.h?.no, 10);
+                if (!best || s > best.score || (s === best.score && no < best.no)) {
+                    const nm = (e.h?.name || '').replace(/\(\d+\)/, '').trim();
+                    best = { name: nm, no: isNaN(no) ? 99 : no, score: s };
+                }
+            }
+            return best;
+        }
+
+        /** BAŞ+ top-4 tahmin sırası → at no/atId → 1..4 */
+        function astestBasPickRankMap(horseRows) {
+            const rankMap = new Map();
+            const sorted = horseRows.slice().sort(function(a, b) {
+                const pa = a.st?.basSuccess?.pct;
+                const pb = b.st?.basSuccess?.pct;
+                if (pa == null && pb == null) return 0;
+                if (pa == null) return 1;
+                if (pb == null) return -1;
+                if (pb !== pa) return pb - pa;
+                const na = parseInt(a.h?.no, 10);
+                const nb = parseInt(b.h?.no, 10);
+                if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
+                return String(a.h?.name || '').localeCompare(String(b.h?.name || ''), 'tr');
+            });
+            for (let r = 0; r < Math.min(4, sorted.length); r++) {
+                const h = sorted[r].h;
+                if (h?.no != null) rankMap.set(String(h.no), r + 1);
+                if (h?.atId != null) rankMap.set(String(h.atId), r + 1);
+            }
+            return rankMap;
+        }
+
+        function astestBasPickRowClass(h, rankMap) {
+            const rank = rankMap.get(String(h?.no)) || rankMap.get(String(h?.atId));
+            return rank ? ' bas-pick-' + rank : '';
+        }
+
+        function astestSehirFormCell(st) {
+            const ft = st.formTrend || {};
+            let cls = 'col-stat col-stat-sehir col-stat-rise';
+            if (ft.rising) cls += ' col-stat-rise-up';
+            else if (ft.falling) cls += ' col-stat-rise-down';
+            return '<td class="' + cls + '" title="' + escapeHtml(ft.tooltip || '') + '">'
+                + escapeHtml(ft.display || '—') + '</td>';
+        }
+
+        function astestSehirAdjCell(st) {
+            const adj = st.sehirAdj || {};
+            let cls = 'col-stat col-stat-sehir col-stat-sehir-adj';
+            if (adj.boosted) cls += ' col-stat-rise-up';
+            else if (adj.penalized) cls += ' col-stat-rise-down';
+            return '<td class="' + cls + '" title="' + escapeHtml(adj.tooltip || '') + '">'
+                + escapeHtml(adj.display || SehirStatsEngine.formatPct(st.sehirPct)) + '</td>';
+        }
+
+        function astestBasSuccessCell(st) {
+            const bs = st.basSuccess || {};
+            let cls = 'col-stat col-stat-bas';
+            if (bs.boosted) cls += ' col-stat-rise-up';
+            else if (bs.penalized) cls += ' col-stat-rise-down';
+            return '<td class="' + cls + '" title="' + escapeHtml(bs.tooltip || '') + '">'
+                + escapeHtml(bs.display || '—') + '</td>';
+        }
+
+        function astestGenAdjCell(st) {
+            const adj = st.genAdj || {};
+            let cls = 'col-stat col-stat-gen col-stat-gen-adj';
+            if (adj.boosted) cls += ' col-stat-rise-up';
+            else if (adj.penalized) cls += ' col-stat-rise-down';
+            const disp = adj.display || (st.genBasePct != null ? ('%' + st.genBasePct) : '—');
+            return '<td class="' + cls + '" title="' + escapeHtml(adj.tooltip || '') + '">'
+                + escapeHtml(disp) + '</td>';
+        }
+
+        function astestWindowLeaderSummary(horses, race, kind, dimOrSehir, programTarih) {
+            const ladder = [null].concat(RECENT_WINDOWS);
+            const rows = horses.map(function(h) {
+                const kosular = veriCache[h.atId] || h.kosular || [];
+                const horseCtx = Object.assign({}, h, { kosular: kosular });
+                let st;
+                if (kind === 'fieldSize') st = FieldSizeStatsEngine.computeStats(kosular, programTarih);
+                else if (kind === 'sehir') st = SehirStatsEngine.computeStats(kosular, dimOrSehir, programTarih);
+                else st = KosuDimensionStatsEngine.computeStats(
+                    kosular, kind, dimOrSehir.getTarget(horseCtx, race), programTarih);
+                return { h: h, st: st };
+            });
+            function scoreFor(row, metric, w) {
+                const src = w == null ? row.st : (row.st.windows?.[w] || {});
+                if (metric === 'sehirAdj') {
+                    const v = row.st.sehirAdj?.pct;
+                    return v != null ? Number(v) : null;
+                }
+                if (metric === 'genAdj') {
+                    const v = row.st.genAdj?.pct;
+                    return v != null ? Number(v) : null;
+                }
+                if (metric === 'basSuccess') {
+                    const v = row.st.basSuccess?.pct;
+                    return v != null ? Number(v) : null;
+                }
+                const v = src[metric];
+                return v != null && v !== '' ? Number(v) : null;
+            }
+            const metrics = kind === 'fieldSize'
+                ? [{ key: 'cnt123', label: '1-2-3' }, { key: 'kosuSayisi', label: 'KOŞU' }]
+                : kind === 'sehir'
+                    ? [{ key: 'basSuccess', label: 'BAŞ+' }, { key: 'sehirAdj', label: 'ŞEH+' }, { key: 'genAdj', label: 'GEN+' }]
+                    : [{ key: 'matchPct', label: dimOrSehir.pctLabel }, { key: 'cnt123', label: '1-2-3' }];
+            let html = '<div class="astest-window-summary">';
+            html += '<div class="astest-window-summary-title">Pencere lider özeti (TÜM → S1 · sekme içi)</div>';
+            html += '<table class="astest-window-summary-table"><thead><tr>';
+            html += '<th>Metrik</th><th>TÜM</th>';
+            for (let wi = 0; wi < RECENT_WINDOWS.length; wi++) {
+                html += '<th>S' + RECENT_WINDOWS[wi] + '</th>';
+            }
+            html += '</tr></thead><tbody>';
+            for (let mi = 0; mi < metrics.length; mi++) {
+                const m = metrics[mi];
+                html += '<tr><td>' + escapeHtml(m.label) + '</td>';
+                for (let li = 0; li < ladder.length; li++) {
+                    const w = ladder[li];
+                    const leader = astestPickLeader(rows, function(r) { return scoreFor(r, m.key, w); });
+                    html += '<td title="' + escapeHtml(leader ? String(leader.score) : '') + '">'
+                        + escapeHtml(leader ? leader.name.slice(0, 20) : '—') + '</td>';
+                }
+                html += '</tr>';
+            }
+            html += '</tbody></table>';
+            html += '<p class="astest-window-summary-note">BİTİŞ korelasyonu için terminal: '
+                + '<code>npm run test:dimension-windows -- --kayit ID</code></p>';
+            html += '</div>';
+            return html;
+        }
+
+        const DIMENSION_TEST_TABS = [
+            { key: 'kcins_kosu', tabId: 'kcins-test', contentId: 'kcinsContent', metaId: 'kcinsMeta', listId: 'kcinsKayitListesi', kayitBtn: 'kcinsKayitBtn' },
+            { key: 'taki', tabId: 'taki-test', contentId: 'takiContent', metaId: 'takiMeta', listId: 'takiKayitListesi', kayitBtn: 'takiKayitBtn' },
+            { key: 'pist', tabId: 'pist-test', contentId: 'pistContent', metaId: 'pistMeta', listId: 'pistKayitListesi', kayitBtn: 'pistKayitBtn' },
+            { key: 'hp', tabId: 'hp-test', contentId: 'hpContent', metaId: 'hpMeta', listId: 'hpKayitListesi', kayitBtn: 'hpKayitBtn' },
+            { key: 'siklet', tabId: 'siklet-test', contentId: 'sikletContent', metaId: 'sikletMeta', listId: 'sikletKayitListesi', kayitBtn: 'sikletKayitBtn' }
+        ];
         let veriCache = {};
         let currentRaces = null;
         let currentHorses = [];
+        let currentSonTestKayitId = null;
+        let sonTestKayitSource = null;
+        let currentSonTestMeta = null;
+        let currentHipodrom = null;
         
         function createStatusDiv() {
             let statusDiv = document.getElementById('status');
@@ -248,11 +840,129 @@
         
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('tarihSelect').value = today;
+
+        fetch('/VERSION.txt?v=' + Date.now())
+            .then(r => r.ok ? r.text() : '')
+            .then(t => {
+                if (!t) return;
+                const el = document.getElementById('appVersion');
+                const branch = (t.match(/branch=(.+)/) || [])[1] || '';
+                const commit = (t.match(/commit=(.+)/) || [])[1] || '';
+                if (el && commit) {
+                    const shortBranch = branch.split('/').pop() || branch;
+                    el.textContent = 'v' + commit + (shortBranch ? ' · ' + shortBranch : '');
+                    el.title = t.trim();
+                }
+            })
+            .catch(() => {});
         
         document.getElementById('tarihSelect').addEventListener('change', function() { loadHipodromlar(); this.blur(); });
         document.getElementById('getirBtn').onclick = fetchProgram;
         document.getElementById('kaydetBtn').onclick = veriKaydet;
+        document.getElementById('sonTestKayitBtn').onclick = () => sonTestListKayitlar('sonTest');
+        document.getElementById('atSayisiKayitBtn').onclick = () => sonTestListKayitlar('atSayisi');
+        document.getElementById('sehirKayitBtn').onclick = () => sonTestListKayitlar('sehir');
+        for (const cfg of DIMENSION_TEST_TABS) {
+            const btn = document.getElementById(cfg.kayitBtn);
+            if (btn) btn.onclick = () => sonTestListKayitlar(cfg.key);
+        }
         
+        function getActiveTabId() {
+            return document.querySelector('.tab-btn.active')?.dataset.tab || 'hesaplama';
+        }
+
+        function setActiveTabContentLoading(html) {
+            const tabId = getActiveTabId();
+            if (tabId === 'son-test') {
+                document.getElementById('sonTestContent').innerHTML = html;
+            } else if (tabId === 'at-sayisi-test') {
+                document.getElementById('atSayisiContent').innerHTML = html;
+            } else if (tabId === 'sehir-test') {
+                document.getElementById('sehirContent').innerHTML = html;
+            } else if (tabId === 'hesaplama') {
+                document.getElementById('tab-hesaplama').innerHTML = html;
+            } else {
+                const dimTab = DIMENSION_TEST_TABS.find(t => t.tabId === tabId);
+                if (dimTab) document.getElementById(dimTab.contentId).innerHTML = html;
+            }
+        }
+
+        function syncVeriCacheFromRaces(races) {
+            for (let i = 0; i < (races || []).length; i++) {
+                const race = races[i];
+                for (let j = 0; j < (race.horses || []).length; j++) {
+                    const horse = race.horses[j];
+                    if (horse.atId && horse.kosular) veriCache[horse.atId] = horse.kosular;
+                }
+            }
+        }
+
+        function testTabsSetMeta(text) {
+            sonTestSetMeta(text);
+            const el1 = document.getElementById('atSayisiMeta');
+            const el2 = document.getElementById('sehirMeta');
+            if (el1) el1.textContent = text || '';
+            if (el2) el2.textContent = text || '';
+            for (const cfg of DIMENSION_TEST_TABS) {
+                const el = document.getElementById(cfg.metaId);
+                if (el) el.textContent = text || '';
+            }
+        }
+
+        function sonTestSetMeta(text) {
+            const el = document.getElementById('sonTestMeta');
+            if (el) el.textContent = text || '';
+        }
+        
+        let lastGosterimKayit = null;
+
+        function broadcastKayitToTahminim(kayit) {
+            lastGosterimKayit = kayit;
+            const frame = document.getElementById('tahminimFrame');
+            if (frame?.contentWindow) {
+                frame.contentWindow.postMessage({ type: '88atspeed-kayit-loaded', kayit }, '*');
+            }
+            broadcastKayitToIstatistikler(kayit);
+        }
+
+        function broadcastKayitToIstatistikler(kayit) {
+            const frame = document.getElementById('istatistiklerFrame');
+            if (frame?.contentWindow) {
+                frame.contentWindow.postMessage({ type: '88atspeed-kayit-loaded', kayit }, '*');
+            }
+        }
+
+        window.addEventListener('message', (e) => {
+            if (e.data?.type === '88atspeed-iframe-resize' && e.data.frame === 'tahminim') {
+                const frame = document.getElementById('tahminimFrame');
+                if (frame && e.data.height) {
+                    frame.style.height = Math.max(800, e.data.height + 24) + 'px';
+                }
+            }
+            if (e.data?.type === '88atspeed-iframe-resize' && e.data.frame === 'istatistikler') {
+                const frame = document.getElementById('istatistiklerFrame');
+                if (frame && e.data.height) {
+                    frame.style.height = Math.max(600, e.data.height + 24) + 'px';
+                }
+            }
+            if (e.data?.type === '88atspeed-kayit-loaded' && e.data.kayit) {
+                lastGosterimKayit = e.data.kayit;
+                broadcastKayitToTahminim(e.data.kayit);
+            }
+            if (e.data?.type === '88atspeed-request-gosterim-kayit') {
+                if (lastGosterimKayit) {
+                    broadcastKayitToTahminim(lastGosterimKayit);
+                } else {
+                    const gosterimFrame = document.getElementById('gosterimFrame');
+                    gosterimFrame?.contentWindow?.postMessage({ type: '88atspeed-request-kayit-export' }, '*');
+                }
+            }
+            if (e.data?.type === '88atspeed-request-kayit-export') {
+                const tahminimFrame = document.getElementById('tahminimFrame');
+                tahminimFrame?.contentWindow?.postMessage(e.data, '*');
+            }
+        });
+
         // SEKME GEÇİŞLERİ
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', function() {
@@ -261,6 +971,41 @@
                 document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                 this.classList.add('active');
                 document.getElementById('tab-' + tabId).classList.add('active');
+
+                if (tabId === 'gosterim') {
+                    const frame = document.getElementById('gosterimFrame');
+                    if (frame) frame.src = 'gosterim_full.html?v=' + Date.now();
+                }
+                if (tabId === 'tahminim') {
+                    const frame = document.getElementById('tahminimFrame');
+                    if (frame) {
+                        frame.src = 'tahminim.html?v=' + Date.now();
+                        frame.onload = () => {
+                            if (lastGosterimKayit) broadcastKayitToTahminim(lastGosterimKayit);
+                        };
+                    }
+                }
+                if (tabId === 'istatistikler') {
+                    const frame = document.getElementById('istatistiklerFrame');
+                    if (frame) {
+                        frame.src = 'istatistikler.html?v=' + Date.now();
+                        frame.onload = () => {
+                            if (lastGosterimKayit) broadcastKayitToIstatistikler(lastGosterimKayit);
+                        };
+                    }
+                }
+                if (tabId === 'puanlama-test') {
+                    const frame = document.getElementById('puanlamaTestFrame');
+                    if (frame) frame.src = 'istatistik-puanlama-test.html?v=' + Date.now();
+                }
+                if (tabId === 'yonetim') {
+                    const frame = document.getElementById('yonetimFrame');
+                    if (frame) frame.src = 'yonetim.html?v=' + Date.now();
+                }
+                if (tabId === 'karsilastirma') {
+                    const frame = document.getElementById('karsilastirmaFrame');
+                    if (frame) frame.src = 'karsilastirma.html?v=' + Date.now();
+                }
             });
         });
         
@@ -294,18 +1039,26 @@
             }
         }
         
-        async function getAtTumVeriler(atId, atAdi) {
-            if (veriCache[atId]) return veriCache[atId];
-            if (!atId) return { kosular: [] };
-            try {
-                let res = await fetch('/api/at-tum-veriler?id=' + atId + '&adi=' + encodeURIComponent(atAdi));
-                let data = await res.json();
-                if (data.success) {
-                    veriCache[atId] = data.kosular;
-                    return data.kosular;
+        async function getAtTumVeriler(atId, atAdi, retryCount) {
+            if (veriCache[atId]?.length) return veriCache[atId];
+            if (!atId) return [];
+            const retries = retryCount != null ? retryCount : 2;
+            for (let attempt = 0; attempt <= retries; attempt++) {
+                try {
+                    let res = await fetch('/api/at-tum-veriler?id=' + atId + '&adi=' + encodeURIComponent(atAdi || ''));
+                    let data = await res.json();
+                    if (data.success && data.kosular?.length) {
+                        veriCache[atId] = data.kosular;
+                        return data.kosular;
+                    }
+                    if (attempt < retries) await new Promise(r => setTimeout(r, 400 * (attempt + 1)));
+                } catch(e) {
+                    console.error(e);
+                    if (attempt < retries) await new Promise(r => setTimeout(r, 400 * (attempt + 1)));
                 }
-            } catch(e) { console.error(e); }
-            return [];
+            }
+            veriCache[atId] = veriCache[atId] || [];
+            return veriCache[atId];
         }
         
         function escapeHtml(s) {
@@ -333,15 +1086,8 @@
                 return;
             }
             
-            // HESAPLAMA sekmesini aktif yap
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.querySelector('.tab-btn[data-tab="hesaplama"]').classList.add('active');
-            document.getElementById('tab-hesaplama').classList.add('active');
-            
-            let sonucDiv = document.getElementById('tab-hesaplama');
+            setActiveTabContentLoading('<div class="info-box">🏇 Veriler çekiliyor...</div>');
             statusDiv.innerHTML = '<div class="status status-loading">⏳ ' + hipodromText + ' programı çekiliyor...</div>';
-            sonucDiv.innerHTML = '<div class="info-box">🏇 Veriler çekiliyor...</div>';
             
             try {
                 let response = await fetch('/api/yaris-programi?sehir=' + hipodromId + '&sehirAdi=' + encodeURIComponent(hipodromText) + '&tarih=' + tarih);
@@ -349,6 +1095,7 @@
                 if (!result.success) throw new Error(result.error);
                 
                 currentRaces = result.data;
+                currentHipodrom = hipodromText;
                 currentHorses = [];
                 for (let i = 0; i < currentRaces.length; i++) {
                     for (let j = 0; j < currentRaces[i].horses.length; j++) {
@@ -359,26 +1106,35 @@
                 
                 let uniqueIds = [];
                 let idsMap = {};
+                let idToName = {};
                 for (let i = 0; i < currentHorses.length; i++) {
                     let id = currentHorses[i].atId;
                     if (id && !idsMap[id]) {
                         idsMap[id] = true;
                         uniqueIds.push(id);
+                        idToName[id] = currentHorses[i].name || '';
                     }
                 }
                 
                 statusDiv.innerHTML = '<div class="status status-loading">⏳ ' + uniqueIds.length + ' at analiz ediliyor...</div>';
                 for (let i = 0; i < uniqueIds.length; i++) {
-                    await getAtTumVeriler(uniqueIds[i], '');
+                    await getAtTumVeriler(uniqueIds[i], idToName[uniqueIds[i]] || '');
                     statusDiv.innerHTML = '<div class="status status-loading">⏳ Analiz: ' + (i+1) + '/' + uniqueIds.length + ' at tamamlandı...</div>';
                 }
                 
                 hesaplamaGoster(currentRaces);
+                sonTestKayitSource = 'getir';
+                currentSonTestKayitId = null;
+                refreshTestTabs(currentRaces, {
+                    source: 'getir',
+                    tarih: tarih,
+                    hipodrom: hipodromText
+                });
                 statusDiv.innerHTML = '<div class="status status-success">✅ ' + hipodromText + ': ' + result.totalRaces + ' koşu, ' + result.totalHorses + ' at analiz edildi.</div>';
                 
             } catch (error) {
                 statusDiv.innerHTML = '<div class="status status-error">❌ Hata: ' + error.message + '</div>';
-                sonucDiv.innerHTML = '<div class="info-box">❌ ' + error.message + '</div>';
+                setActiveTabContentLoading('<div class="info-box">❌ ' + escapeHtml(error.message) + '</div>');
             }
         }
         
@@ -393,20 +1149,26 @@
             for (let raceIdx = 0; raceIdx < races.length; raceIdx++) {
                 const race = races[raceIdx];
                 
+                const kosuCols = AtMetaFields.kosuPreviewColCount();
+                const horseMetaCount = AtMetaFields.HORSE_FIELDS.length;
                 let thead = '<thead><tr>';
-                thead += '<th class="sticky-col">#</th>';
-                thead += '<th class="sticky-col2">AT İSMİ</th>';
-                thead += '<th class="sticky-col3">AT ID</th>';
+                thead += '<th class="sticky-col" rowspan="2">#</th>';
+                thead += '<th class="sticky-col2" rowspan="2">AT İSMİ</th>';
+                thead += '<th class="sticky-col3" rowspan="2">AT ID</th>';
+                thead += '<th colspan="' + horseMetaCount + '" class="tjk-horse-th" rowspan="1">AT META (TJK)</th>';
                 for (let k = 1; k <= 7; k++) {
-                    thead += '<th colspan="8" style="text-align:center;background:#ff9800;color:#000;">KOŞU ' + k + '</th>';
+                    thead += '<th colspan="' + kosuCols + '" style="text-align:center;background:#3949ab;color:#fff;">KOŞU ' + k + '</th>';
                 }
                 thead += '</tr>';
                 thead += '<tr>';
-                thead += '<th class="sticky-col">#</th>';
-                thead += '<th class="sticky-col2">AT İSMİ</th>';
-                thead += '<th class="sticky-col3">AT ID</th>';
+                for (const f of AtMetaFields.HORSE_FIELDS) {
+                    thead += '<th class="tjk-horse-th">' + f.label + '</th>';
+                }
                 for (let k = 1; k <= 7; k++) {
                     thead += '<th>TARİH</th><th>ŞEHİR</th><th>MESAFE</th><th>SIRA</th><th>AT DEREÇE</th><th>BİR.DEREÇE</th><th>SON800-1</th><th>SON800-2</th>';
+                    for (const f of AtMetaFields.KOSU_FIELDS) {
+                        thead += '<th class="tjk-meta-th">' + f.label + '</th>';
+                    }
                 }
                 thead += '</tr></thead>';
                 
@@ -414,12 +1176,17 @@
                 for (let j = 0; j < race.horses.length; j++) {
                     const horse = race.horses[j];
                     const kosular = veriCache[horse.atId] || [];
+                    const hm = AtMetaFields.extractHorseMeta(Object.assign({}, horse, { kosular: kosular }));
                     tbody += '<tr>';
                     tbody += '<td class="horse-no sticky-col">' + horse.no + '</td>';
                     tbody += '<td class="sticky-col2"><strong>' + escapeHtml(horse.name) + '</strong></td>';
                     tbody += '<td class="sticky-col3">' + (horse.atId || '-') + '</td>';
+                    for (const f of AtMetaFields.HORSE_FIELDS) {
+                        tbody += '<td class="tjk-horse-cell">' + escapeHtml(String(hm[f.key] || '—')) + '</td>';
+                    }
                     for (let k = 0; k < 7; k++) {
                         const kose = kosular[k] || {};
+                        const km = AtMetaFields.extractKosuMeta(kose);
                         tbody += '<td>' + (kose.tarih || '-') + '</td>';
                         tbody += '<td>' + (kose.sehir || '-') + '</td>';
                         tbody += '<td>' + (kose.mesafe || '-') + '</td>';
@@ -428,15 +1195,18 @@
                         tbody += '<td>' + (kose.birinci_derece || '-') + '</td>';
                         tbody += '<td><span class="son800-badge">' + (kose.son800_bir || '-') + '</span></td>';
                         tbody += '<td><span class="son800-badge">' + (kose.son800_iki || '-') + '</span></td>';
+                        for (const f of AtMetaFields.KOSU_FIELDS) {
+                            tbody += '<td class="tjk-meta-cell">' + escapeHtml(String(km[f.key] || '—')) + '</td>';
+                        }
                     }
                     tbody += '</tr>';
                 }
                 tbody += '</tbody>';
                 
-                let raceMesafe = (race.mesafe && race.mesafe !== '?') ? race.mesafe + ' ' + (race.pist || '') : '?';
+                let raceHeader = AtMetaFields.formatRaceHeader(race);
                 
                 genelHtml += '<div class="race-card">';
-                genelHtml += '<div class="race-header"><h3>🏁 ' + race.raceNo + '. KOŞU (' + race.horseCount + ' at) - MESAFE: ' + raceMesafe + '</h3></div>';
+                genelHtml += '<div class="race-header"><h3>🏁 ' + race.raceNo + '. KOŞU (' + race.horseCount + ' at) — ' + escapeHtml(raceHeader) + '</h3></div>';
                 genelHtml += '<div class="table-wrapper">';
                 genelHtml += '<table border="0" cellpadding="5" cellspacing="0">';
                 genelHtml += thead;
@@ -446,6 +1216,587 @@
             }
             
             document.getElementById('tab-hesaplama').innerHTML = genelHtml;
+        }
+
+        function refreshTestTabs(races, meta) {
+            if (meta?.hipodrom) currentHipodrom = meta.hipodrom;
+            sonTestGoster(races, meta);
+            atSayisiTestGoster(races, meta);
+            sehirTestGoster(races, meta);
+            for (const cfg of DIMENSION_TEST_TABS) {
+                dimensionTestGoster(races, meta, cfg.key);
+            }
+        }
+
+        function formatTestTabsMeta(meta) {
+            if (!meta) return '—';
+            currentSonTestMeta = meta;
+            const parts = [];
+            if (meta.source === 'kayit' && meta.kayitId) parts.push('Kayıt #' + meta.kayitId);
+            if (meta.tarih) parts.push(meta.tarih);
+            if (meta.hipodrom) parts.push(meta.hipodrom);
+            if (meta.source === 'getir') parts.push('canlı program');
+            return parts.join(' · ') || '—';
+        }
+
+        function sonTestGoster(races, meta) {
+            const el = document.getElementById('sonTestContent');
+            if (!el) return;
+            if (meta) testTabsSetMeta(formatTestTabsMeta(meta));
+            if (!races || !races.length) {
+                el.innerHTML = '<div class="info-box">📋 Veri bulunamadı</div>';
+                return;
+            }
+            let html = '<div class="son-test-wrap">';
+            for (let i = 0; i < races.length; i++) {
+                const race = races[i];
+                const raceK1 = FieldSizeStatsEngine.raceFieldSize(race);
+                const header = typeof AtMetaFields !== 'undefined'
+                    ? AtMetaFields.formatRaceHeader(race)
+                    : ((race.mesafe || '?') + ' ' + (race.pist || '')).trim();
+                const horses = [...(race.horses || [])].sort((a, b) => {
+                    const na = parseInt(a.no, 10);
+                    const nb = parseInt(b.no, 10);
+                    if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
+                    return String(a.name || '').localeCompare(String(b.name || ''), 'tr');
+                });
+                html += '<div class="son-test-race race-card">';
+                html += '<div class="race-header"><h3>🏁 ' + race.raceNo + '. KOŞU · '
+                    + horses.length + ' at · ' + escapeHtml(header) + '</h3></div>';
+                html += '<div class="son-test-table-wrap">';
+                html += '<table class="son-test-table">';
+                html += '<thead><tr>';
+                html += '<th class="col-no">#</th>';
+                html += '<th class="col-name">AT İSMİ</th>';
+                html += '<th class="col-k1" title="Bugünkü koşudaki at sayısı">K1</th>';
+                html += '</tr></thead><tbody>';
+                if (!horses.length) {
+                    html += '<tr><td class="col-no">—</td><td class="col-name">At yok</td><td class="col-k1">' + raceK1 + '</td></tr>';
+                } else {
+                    for (let j = 0; j < horses.length; j++) {
+                        const h = horses[j];
+                        html += '<tr>';
+                        html += '<td class="col-no">' + escapeHtml(String(h.no ?? (j + 1))) + '</td>';
+                        html += '<td class="col-name">' + escapeHtml(h.name || '—') + '</td>';
+                        html += '<td class="col-k1">' + raceK1 + '</td>';
+                        html += '</tr>';
+                    }
+                }
+                html += '</tbody></table></div></div>';
+            }
+            html += '</div>';
+            el.innerHTML = html;
+        }
+
+        function atSayisiTestGoster(races, meta) {
+            const el = document.getElementById('atSayisiContent');
+            if (!el) return;
+            if (meta) testTabsSetMeta(formatTestTabsMeta(meta));
+            const programTarih = meta?.tarih || null;
+            const L = FieldSizeStatsEngine.FS_LABELS;
+            if (!races || !races.length) {
+                el.innerHTML = '<div class="info-box">📋 Veri bulunamadı</div>';
+                return;
+            }
+            let html = '<div class="son-test-wrap">';
+            html += '<p class="astest-note">Geçmiş koşulardaki at sayıları TJK sonuç tablosundan (koşmaz/çekildi hariç). '
+                + 'GETİR ile diğer test sekmeleriyle <strong>aynı anda</strong> dolar. '
+                + 'Hedef alan = bugünkü koşudaki at sayısı. '
+                + '<strong>BAŞ+</strong> = ' + escapeHtml(L.adjLabel) + ' + GEN+ karışımı (max 6 koşu). '
+                + '<strong>' + escapeHtml(L.formLabel) + '</strong> = son 5 koşuda aynı alanda momentum. '
+                + '<strong>' + escapeHtml(L.adjLabel) + '</strong> = ' + escapeHtml(L.pctLabel)
+                + ' + form + son koşu alanı + S5 derece. '
+                + '<strong>1. / 1-2 / …</strong> = hedef alanda tam 1./2./3./4. adet. '
+                + ' Program günü koşusu geçmişten hariç tutulur.'
+                + (typeof AtestSon800Shared !== 'undefined' ? AtestSon800Shared.NOTE : '') + '</p>';
+            const hedefSehir = meta?.hipodrom || currentHipodrom || '';
+            for (let i = 0; i < races.length; i++) {
+                const race = races[i];
+                const raceK1 = FieldSizeStatsEngine.raceFieldSize(race);
+                const header = typeof AtMetaFields !== 'undefined'
+                    ? AtMetaFields.formatRaceHeader(race)
+                    : ((race.mesafe || '?') + ' ' + (race.pist || '')).trim();
+                const horses = [...(race.horses || [])].sort((a, b) => {
+                    const na = parseInt(a.no, 10);
+                    const nb = parseInt(b.no, 10);
+                    if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
+                    return String(a.name || '').localeCompare(String(b.name || ''), 'tr');
+                });
+                const sonCtx = typeof AtestSon800Shared !== 'undefined'
+                    ? AtestSon800Shared.buildRaceContext(race, horses, hedefSehir, programTarih)
+                    : { maxD1: 0 };
+                const maxD1 = sonCtx.maxD1 || 0;
+                const son800Cols = typeof AtestSon800Shared !== 'undefined'
+                    ? AtestSon800Shared.son800Colspan(maxD1) : 0;
+                const totalCols = 18 + son800Cols;
+                const thRs = typeof AtestSon800Shared !== 'undefined'
+                    ? AtestSon800Shared.appendThRowspan(maxD1) : '';
+                html += '<div class="son-test-race race-card">';
+                html += '<div class="race-header"><h3>🏁 ' + race.raceNo + '. KOŞU · '
+                    + horses.length + ' at · ' + escapeHtml(header)
+                    + (typeof AtestSon800Shared !== 'undefined' ? AtestSon800Shared.raceHeaderSuffix(maxD1) : '')
+                    + '</h3></div>';
+                html += '<div class="son-test-table-wrap">';
+                html += '<table class="son-test-table astest-table fstest-table'
+                    + (typeof AtestSon800Shared !== 'undefined' ? AtestSon800Shared.tableExtraClass(maxD1) : '') + '">';
+                html += '<thead>';
+                html += '<tr>';
+                html += '<th class="col-no"' + thRs + '>#</th>';
+                html += '<th class="col-name"' + thRs + '>AT İSMİ</th>';
+                html += '<th class="col-hedef"' + thRs + ' title="Bugünkü koşu alanı (at sayısı)">HEDEF</th>';
+                html += '<th class="col-stat col-stat-bas"' + thRs + ' title="Birleşik başarı: ' + escapeHtml(L.adjLabel)
+                    + ' + GEN+ karışımı">BAŞ+</th>';
+                html += '<th class="col-stat"' + thRs + ' title="Geçmiş koşu (at_sayisi bilgili)">TÜM KOŞU</th>';
+                html += '<th class="col-stat col-stat-fs-match"' + thRs + ' title="Aynı alanda koşu sayısı">'
+                    + escapeHtml(L.matchLabel) + '</th>';
+                html += '<th class="col-stat col-stat-fs-match"' + thRs + ' title="Aynı alanda koşma oranı">'
+                    + escapeHtml(L.pctLabel) + '</th>';
+                html += '<th class="col-stat col-stat-fs-match col-stat-rise"' + thRs + ' title="Son 5 koşuda hedef alanda momentum">'
+                    + escapeHtml(L.formLabel) + '</th>';
+                html += '<th class="col-stat col-stat-fs-match col-stat-fs-adj"' + thRs + ' title="Düzeltilmiş alan skoru">'
+                    + escapeHtml(L.adjLabel) + '</th>';
+                html += '<th class="col-stat col-stat-cnt"' + thRs + ' title="Hedef alanda 1. olma adedi">1.</th>';
+                html += '<th class="col-stat col-stat-cnt"' + thRs + ' title="Hedef alanda 2. olma adedi">1-2</th>';
+                html += '<th class="col-stat col-stat-cnt"' + thRs + ' title="Hedef alanda 3. olma adedi">1-2-3</th>';
+                html += '<th class="col-stat col-stat-cnt col-stat-all-hdr"' + thRs + ' title="Hedef alanda 4. olma adedi">1-2-3-4</th>';
+                html += '<th class="col-stat col-stat-gen col-stat-gen-adj"' + thRs + ' title="Genel başarı (tüm geçerli koşular)">GEN+</th>';
+                html += '<th class="col-stat col-stat-gen"' + thRs + ' title="Tüm koşularda 1. olma adedi">G1.</th>';
+                html += '<th class="col-stat col-stat-gen"' + thRs + ' title="Tüm koşularda 2. olma adedi">G1-2</th>';
+                html += '<th class="col-stat col-stat-gen"' + thRs + ' title="Tüm koşularda 3. olma adedi">G1-3</th>';
+                html += '<th class="col-stat col-stat-gen col-stat-all-hdr"' + thRs + ' title="Tüm koşularda 4. olma adedi">G1-4</th>';
+                if (maxD1 > 0 && typeof AtestSon800Shared !== 'undefined') {
+                    html += AtestSon800Shared.appendGroupHeaderHtml(maxD1);
+                }
+                html += '</tr>';
+                if (maxD1 > 0 && typeof AtestSon800Shared !== 'undefined') {
+                    html += AtestSon800Shared.appendMetricHeaderRows(maxD1);
+                }
+                html += '</thead><tbody>';
+                if (!horses.length) {
+                    html += '<tr><td colspan="' + totalCols + '" class="col-name">At yok</td></tr>';
+                } else {
+                    const horseRows = horses.map(function(h) {
+                        const kosular = veriCache[h.atId] || h.kosular || [];
+                        let st = FieldSizeStatsEngine.computeStats(kosular, programTarih, raceK1);
+                        if (typeof AtestSon800Shared !== 'undefined') {
+                            st = AtestSon800Shared.applyBasDeltaBoost(st, h, sonCtx);
+                        }
+                        return { h: h, st: st };
+                    });
+                    const basRankMap = astestBasPickRankMap(horseRows);
+                    for (let j = 0; j < horseRows.length; j++) {
+                        const row = horseRows[j];
+                        const h = row.h;
+                        const st = row.st;
+                        html += '<tr class="' + astestBasPickRowClass(h, basRankMap).trim() + '">';
+                        html += '<td class="col-no">' + escapeHtml(String(h.no ?? (j + 1))) + '</td>';
+                        html += '<td class="col-name">' + escapeHtml(h.name || '—') + '</td>';
+                        html += '<td class="col-hedef">' + raceK1 + '</td>';
+                        html += astestBasSuccessCell(st);
+                        html += '<td class="col-stat">' + FieldSizeStatsEngine.formatCell(st.kosuSayisi) + '</td>';
+                        html += '<td class="col-stat col-stat-fs-match">' + (st.matchCount ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-fs-match">'
+                            + FieldSizeStatsEngine.formatPct(st.matchPct) + '</td>';
+                        html += astestAsFormCell(st);
+                        html += astestAsAdjCell(st);
+                        html += '<td class="col-stat col-stat-cnt">' + st.cnt1 + '</td>';
+                        html += '<td class="col-stat col-stat-cnt">' + (st.cnt2 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-cnt">' + (st.cnt3 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-cnt col-stat-all-hdr">' + (st.cnt4 ?? 0) + '</td>';
+                        html += astestGenAdjCell(st);
+                        html += '<td class="col-stat col-stat-gen">' + (st.genCnt1 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-gen">' + (st.genCnt2 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-gen">' + (st.genCnt3 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-gen col-stat-all-hdr">' + (st.genCnt4 ?? 0) + '</td>';
+                        if (maxD1 > 0 && typeof AtestSon800Shared !== 'undefined') {
+                            html += AtestSon800Shared.renderRowCells(h, sonCtx);
+                        }
+                        html += '</tr>';
+                    }
+                }
+                html += '</tbody></table></div>';
+                html += '</div>';
+            }
+            html += '</div>';
+            el.innerHTML = html;
+        }
+
+        function sehirTestGoster(races, meta) {
+            const el = document.getElementById('sehirContent');
+            if (!el) return;
+            if (meta) testTabsSetMeta(formatTestTabsMeta(meta));
+            const hedefSehir = meta?.hipodrom || currentHipodrom || '';
+            const programTarih = meta?.tarih || null;
+            if (!races || !races.length) {
+                el.innerHTML = '<div class="info-box">📋 Veri bulunamadı</div>';
+                return;
+            }
+            let html = '<div class="son-test-wrap">';
+            html += '<p class="astest-note">Şehir verisi kosular[].sehir alanından gelir — GETİR ile at sayısı sekmesiyle '
+                + '<strong>aynı anda</strong> dolar. Hedef hipodrom: <strong>'
+                + escapeHtml(hedefSehir || '—') + '</strong>. '
+                + 'ŞEH% sonrası <strong>Ş-FORM</strong> = son 5 koşuda hedef şehirde performans momentumu (%50 nötr). '
+                + '<strong>ŞEH+</strong> = ŞEH% + Ş-FORM + son koşu şehri + S5 derece (hedef). '
+                + '<strong>GEN+ / G1–G4</strong> = tüm şehirlerde genel başarı (GEN% ortalama bitiş puanı + G-FORM + S5). '
+                + '<strong>BAŞ+</strong> (HEDEF sonrası) = tüm sütunların birleşik test skoru: hedef şehir deneyimine göre '
+                + 'ŞEH+ ve GEN+ karışımı + yerleşim adetleri + FORM (max 6 koşu). '
+                + '<strong>1. / 1-2 / 1-2-3 / 1-2-3-4</strong> = hedef şehirde tam olarak 1./2./3./4. olma adedi (kümülatif değil). '
+                + ' Program günü koşusu geçmişten hariç tutulur.'
+                + (typeof AtestSon800Shared !== 'undefined' ? AtestSon800Shared.NOTE : '') + '</p>';
+            for (let i = 0; i < races.length; i++) {
+                const race = races[i];
+                const header = typeof AtMetaFields !== 'undefined'
+                    ? AtMetaFields.formatRaceHeader(race)
+                    : ((race.mesafe || '?') + ' ' + (race.pist || '')).trim();
+                const horses = [...(race.horses || [])].sort((a, b) => {
+                    const na = parseInt(a.no, 10);
+                    const nb = parseInt(b.no, 10);
+                    if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
+                    return String(a.name || '').localeCompare(String(b.name || ''), 'tr');
+                });
+                const hedefAbbrev = SehirStatsEngine.abbrevSehir(hedefSehir);
+                const sonCtx = typeof AtestSon800Shared !== 'undefined'
+                    ? AtestSon800Shared.buildRaceContext(race, horses, hedefSehir, programTarih)
+                    : { maxD1: 0 };
+                const maxD1 = sonCtx.maxD1 || 0;
+                const son800Cols = typeof AtestSon800Shared !== 'undefined'
+                    ? AtestSon800Shared.son800Colspan(maxD1) : 0;
+                const totalCols = 18 + son800Cols;
+                const thRs = typeof AtestSon800Shared !== 'undefined'
+                    ? AtestSon800Shared.appendThRowspan(maxD1) : '';
+                html += '<div class="son-test-race race-card">';
+                html += '<div class="race-header"><h3>🏁 ' + race.raceNo + '. KOŞU · '
+                    + horses.length + ' at · ' + escapeHtml(header)
+                    + (typeof AtestSon800Shared !== 'undefined' ? AtestSon800Shared.raceHeaderSuffix(maxD1) : '')
+                    + '</h3></div>';
+                html += '<div class="son-test-table-wrap">';
+                html += '<table class="son-test-table astest-table sehirtest-table'
+                    + (typeof AtestSon800Shared !== 'undefined' ? AtestSon800Shared.tableExtraClass(maxD1) : '') + '">';
+                html += '<thead>';
+                html += '<tr>';
+                html += '<th class="col-no"' + thRs + '>#</th>';
+                html += '<th class="col-name"' + thRs + '>AT İSMİ</th>';
+                html += '<th class="col-hedef"' + thRs + ' title="Hedef hipodrom">HEDEF</th>';
+                html += '<th class="col-stat col-stat-bas"' + thRs + ' title="Birleşik başarı şansı: ŞEH+/GEN+ + yerleşim + FORM (hedef deneyimine göre karışım)">BAŞ+</th>';
+                html += '<th class="col-stat"' + thRs + ' title="Geçmiş koşu (kosular[] içinde şehir bilgili)">TÜM KOŞU</th>';
+                html += '<th class="col-stat col-stat-sehir"' + thRs + ' title="Hedef şehirdeki koşu sayısı (' + escapeHtml(hedefAbbrev) + ')">' + escapeHtml(hedefAbbrev) + ' KOŞU</th>';
+                html += '<th class="col-stat col-stat-sehir"' + thRs + ' title="Hedef şehirde koşma oranı (TÜM KOŞU içinde)">ŞEH%</th>';
+                html += '<th class="col-stat col-stat-sehir col-stat-rise"' + thRs + ' title="Son 5 koşuda hedef şehirde performans momentumu (%50=nötr, yüksek=son koşulara doğru iyileşme)">Ş-FORM</th>';
+                html += '<th class="col-stat col-stat-sehir col-stat-sehir-adj"' + thRs + ' title="Düzeltilmiş şehir skoru: ŞEH% + form + son koşu şehri (+8/−10) + S5 derece">ŞEH+</th>';
+                html += '<th class="col-stat col-stat-cnt"' + thRs + ' title="Hedef şehirde kaç kez 1. oldu">1.</th>';
+                html += '<th class="col-stat col-stat-cnt"' + thRs + ' title="Hedef şehirde kaç kez 2. oldu">1-2</th>';
+                html += '<th class="col-stat col-stat-cnt"' + thRs + ' title="Hedef şehirde kaç kez 3. oldu">1-2-3</th>';
+                html += '<th class="col-stat col-stat-cnt col-stat-all-hdr"' + thRs + ' title="Hedef şehirde kaç kez 4. oldu">1-2-3-4</th>';
+                html += '<th class="col-stat col-stat-gen col-stat-gen-adj"' + thRs + ' title="Genel başarı skoru: GEN% + G-FORM + son koşu/ hedef + S5 (tüm şehirler)">GEN+</th>';
+                html += '<th class="col-stat col-stat-gen"' + thRs + ' title="Tüm şehirlerde 1. olma adedi">G1.</th>';
+                html += '<th class="col-stat col-stat-gen"' + thRs + ' title="Tüm şehirlerde 2. olma adedi">G1-2</th>';
+                html += '<th class="col-stat col-stat-gen"' + thRs + ' title="Tüm şehirlerde 3. olma adedi">G1-3</th>';
+                html += '<th class="col-stat col-stat-gen col-stat-all-hdr"' + thRs + ' title="Tüm şehirlerde 4. olma adedi">G1-4</th>';
+                if (maxD1 > 0 && typeof AtestSon800Shared !== 'undefined') {
+                    html += AtestSon800Shared.appendGroupHeaderHtml(maxD1);
+                }
+                html += '</tr>';
+                if (maxD1 > 0 && typeof AtestSon800Shared !== 'undefined') {
+                    html += AtestSon800Shared.appendMetricHeaderRows(maxD1);
+                }
+                html += '</thead><tbody>';
+                if (!horses.length) {
+                    html += '<tr><td colspan="' + totalCols + '" class="col-name">At yok</td></tr>';
+                } else {
+                    const horseRows = horses.map(function(h) {
+                        const kosular = veriCache[h.atId] || h.kosular || [];
+                        let st = SehirStatsEngine.computeStats(kosular, hedefSehir, programTarih);
+                        if (typeof AtestSon800Shared !== 'undefined') {
+                            st = AtestSon800Shared.applyBasDeltaBoost(st, h, sonCtx);
+                        }
+                        return { h: h, st: st };
+                    });
+                    const basRankMap = astestBasPickRankMap(horseRows);
+                    for (let j = 0; j < horseRows.length; j++) {
+                        const row = horseRows[j];
+                        const h = row.h;
+                        const st = row.st;
+                        html += '<tr class="' + astestBasPickRowClass(h, basRankMap).trim() + '">';
+                        html += '<td class="col-no">' + escapeHtml(String(h.no ?? (j + 1))) + '</td>';
+                        html += '<td class="col-name">' + escapeHtml(h.name || '—') + '</td>';
+                        html += '<td class="col-hedef">' + escapeHtml(hedefAbbrev) + '</td>';
+                        html += astestBasSuccessCell(st);
+                        html += '<td class="col-stat">' + SehirStatsEngine.formatCell(st.kosuSayisi) + '</td>';
+                        html += '<td class="col-stat col-stat-sehir">' + st.inCityCount + '</td>';
+                        html += '<td class="col-stat col-stat-sehir">' + SehirStatsEngine.formatPct(st.sehirPct) + '</td>';
+                        html += astestSehirFormCell(st);
+                        html += astestSehirAdjCell(st);
+                        html += '<td class="col-stat col-stat-cnt">' + st.cnt1 + '</td>';
+                        html += '<td class="col-stat col-stat-cnt">' + (st.cnt2 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-cnt">' + (st.cnt3 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-cnt col-stat-all-hdr">' + (st.cnt4 ?? 0) + '</td>';
+                        html += astestGenAdjCell(st);
+                        html += '<td class="col-stat col-stat-gen">' + (st.genCnt1 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-gen">' + (st.genCnt2 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-gen">' + (st.genCnt3 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-gen col-stat-all-hdr">' + (st.genCnt4 ?? 0) + '</td>';
+                        if (maxD1 > 0 && typeof AtestSon800Shared !== 'undefined') {
+                            html += AtestSon800Shared.renderRowCells(h, sonCtx);
+                        }
+                        html += '</tr>';
+                    }
+                }
+                html += '</tbody></table></div>';
+                html += '</div>';
+            }
+            html += '</div>';
+            el.innerHTML = html;
+        }
+
+        function dimensionTestGoster(races, meta, dimKey) {
+            const dim = KosuDimensionStatsEngine.getDim(dimKey);
+            const cfg = DIMENSION_TEST_TABS.find(t => t.key === dimKey);
+            const el = cfg ? document.getElementById(cfg.contentId) : null;
+            if (!el || !dim) return;
+            if (meta) testTabsSetMeta(formatTestTabsMeta(meta));
+            if (!races || !races.length) {
+                el.innerHTML = '<div class="info-box">📋 Veri bulunamadı</div>';
+                return;
+            }
+            let html = '<div class="son-test-wrap">';
+            html += '<p class="astest-note">' + escapeHtml(dim.note) + ' GETİR ile diğer test sekmeleriyle '
+                + '<strong>aynı anda</strong> dolar. '
+                + '<strong>BAŞ+</strong> (HEDEF sonrası) = boyut + genel blok karışımı (max 6 koşu). '
+                + '<strong>' + escapeHtml(dim.formLabel) + '</strong> = son 5 koşuda hedef boyutta momentum (%50 nötr). '
+                + '<strong>' + escapeHtml(dim.adjLabel) + '</strong> = ' + escapeHtml(dim.pctLabel)
+                + ' + form + son koşu eşleşmesi + S5 derece. '
+                + '<strong>GEN+ / G1–G4</strong> = tüm geçerli koşularda genel başarı. '
+                + '<strong>1. / 1-2 / …</strong> = hedef boyutta tam 1./2./3./4. adet (kümülatif değil). '
+                + ' Program günü koşusu geçmişten hariç tutulur.'
+                + (dimKey === 'siklet' ? ' TJK 58,5→59 kg · ±0,5 kg eşleşme (59,5–60,5→60).' : '')
+                + (typeof AtestSon800Shared !== 'undefined' ? AtestSon800Shared.NOTE : '') + '</p>';
+            const programTarih = meta?.tarih || null;
+            const hedefSehir = meta?.hipodrom || currentHipodrom || '';
+            for (let i = 0; i < races.length; i++) {
+                const race = races[i];
+                const header = typeof AtMetaFields !== 'undefined'
+                    ? AtMetaFields.formatRaceHeader(race)
+                    : ((race.mesafe || '?') + ' ' + (race.pist || '')).trim();
+                const horses = [...(race.horses || [])].sort((a, b) => {
+                    const na = parseInt(a.no, 10);
+                    const nb = parseInt(b.no, 10);
+                    if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
+                    return String(a.name || '').localeCompare(String(b.name || ''), 'tr');
+                });
+                const sonCtx = typeof AtestSon800Shared !== 'undefined'
+                    ? AtestSon800Shared.buildRaceContext(race, horses, hedefSehir, programTarih)
+                    : { maxD1: 0 };
+                const maxD1 = sonCtx.maxD1 || 0;
+                const withSon800 = maxD1 > 0;
+                const son800Cols = typeof AtestSon800Shared !== 'undefined'
+                    ? AtestSon800Shared.son800Colspan(maxD1) : 0;
+                const totalCols = 18 + son800Cols;
+                html += '<div class="son-test-race race-card">';
+                html += '<div class="race-header"><h3>🏁 ' + race.raceNo + '. KOŞU · '
+                    + horses.length + ' at · ' + escapeHtml(header);
+                if (withSon800 && typeof AtestSon800Shared !== 'undefined') {
+                    html += AtestSon800Shared.raceHeaderSuffix(maxD1);
+                }
+                html += '</h3></div>';
+                html += '<div class="son-test-table-wrap">';
+                html += '<table class="son-test-table astest-table dimtest-table'
+                    + (withSon800 && typeof AtestSon800Shared !== 'undefined'
+                        ? AtestSon800Shared.tableExtraClass(maxD1) : '') + '">';
+                html += '<thead>';
+                html += '<tr>';
+                const thRs = withSon800 && typeof AtestSon800Shared !== 'undefined'
+                    ? AtestSon800Shared.appendThRowspan(maxD1) : '';
+                html += '<th class="col-no"' + thRs + '>#</th>';
+                html += '<th class="col-name"' + thRs + '>AT İSMİ</th>';
+                html += '<th class="col-hedef"' + thRs + ' title="Hedef ' + escapeHtml(dim.label) + '">HEDEF</th>';
+                html += '<th class="col-stat col-stat-bas"' + thRs + ' title="Birleşik başarı: '
+                    + escapeHtml(dim.adjLabel) + ' + GEN+ karışımı">BAŞ+</th>';
+                html += '<th class="col-stat"' + thRs + ' title="Geçmiş koşu (' + escapeHtml(dim.label) + ' bilgili)">TÜM KOŞU</th>';
+                html += '<th class="col-stat col-stat-dim-match"' + thRs + ' title="Hedef boyutta koşu sayısı">'
+                    + escapeHtml(dim.matchLabel) + '</th>';
+                html += '<th class="col-stat col-stat-dim-match"' + thRs + ' title="Eşleşme oranı">'
+                    + escapeHtml(dim.pctLabel) + '</th>';
+                html += '<th class="col-stat col-stat-dim-match col-stat-rise"' + thRs
+                    + ' title="Son 5 koşuda hedef boyutta momentum">'
+                    + escapeHtml(dim.formLabel) + '</th>';
+                html += '<th class="col-stat col-stat-dim-match col-stat-dim-adj"' + thRs
+                    + ' title="Düzeltilmiş boyut skoru">'
+                    + escapeHtml(dim.adjLabel) + '</th>';
+                html += '<th class="col-stat col-stat-cnt"' + thRs + ' title="Hedef boyutta 1. olma adedi">1.</th>';
+                html += '<th class="col-stat col-stat-cnt"' + thRs + ' title="Hedef boyutta 2. olma adedi">1-2</th>';
+                html += '<th class="col-stat col-stat-cnt"' + thRs + ' title="Hedef boyutta 3. olma adedi">1-2-3</th>';
+                html += '<th class="col-stat col-stat-cnt col-stat-all-hdr"' + thRs
+                    + ' title="Hedef boyutta 4. olma adedi">1-2-3-4</th>';
+                html += '<th class="col-stat col-stat-gen col-stat-gen-adj"' + thRs
+                    + ' title="Genel başarı (tüm geçerli koşular)">GEN+</th>';
+                html += '<th class="col-stat col-stat-gen"' + thRs + ' title="Tüm koşularda 1. olma adedi">G1.</th>';
+                html += '<th class="col-stat col-stat-gen"' + thRs + ' title="Tüm koşularda 2. olma adedi">G1-2</th>';
+                html += '<th class="col-stat col-stat-gen"' + thRs + ' title="Tüm koşularda 3. olma adedi">G1-3</th>';
+                html += '<th class="col-stat col-stat-gen col-stat-all-hdr"' + thRs
+                    + ' title="Tüm koşularda 4. olma adedi">G1-4</th>';
+                if (withSon800 && typeof AtestSon800Shared !== 'undefined') {
+                    html += AtestSon800Shared.appendGroupHeaderHtml(maxD1);
+                }
+                html += '</tr>';
+                if (withSon800 && typeof AtestSon800Shared !== 'undefined') {
+                    html += AtestSon800Shared.appendMetricHeaderRows(maxD1);
+                }
+                html += '</thead><tbody>';
+                if (!horses.length) {
+                    html += '<tr><td colspan="' + totalCols + '" class="col-name">At yok</td></tr>';
+                } else {
+                    const horseRows = horses.map(function(h) {
+                        const kosular = veriCache[h.atId] || h.kosular || [];
+                        const horseCtx = Object.assign({}, h, { kosular: kosular });
+                        const hedef = dim.getTarget(horseCtx, race);
+                        const st = KosuDimensionStatsEngine.computeStats(kosular, dimKey, hedef, programTarih);
+                        if (typeof AtestSon800Shared !== 'undefined') {
+                            AtestSon800Shared.applyBasDeltaBoost(st, h, sonCtx);
+                        }
+                        return { h: h, st: st, hedef: hedef };
+                    });
+                    const basRankMap = astestBasPickRankMap(horseRows);
+                    for (let j = 0; j < horseRows.length; j++) {
+                        const row = horseRows[j];
+                        const h = row.h;
+                        const st = row.st;
+                        const hedef = row.hedef;
+                        html += '<tr class="' + astestBasPickRowClass(h, basRankMap).trim() + '">';
+                        html += '<td class="col-no">' + escapeHtml(String(h.no ?? (j + 1))) + '</td>';
+                        html += '<td class="col-name">' + escapeHtml(h.name || '—') + '</td>';
+                        html += '<td class="col-hedef" title="' + escapeHtml(String(hedef || '—')) + '">'
+                            + escapeHtml(st.hedefAbbrev || '—') + '</td>';
+                        html += astestBasSuccessCell(st);
+                        html += '<td class="col-stat">' + KosuDimensionStatsEngine.formatCell(st.kosuSayisi) + '</td>';
+                        html += '<td class="col-stat col-stat-dim-match">' + st.matchCount + '</td>';
+                        html += '<td class="col-stat col-stat-dim-match">'
+                            + KosuDimensionStatsEngine.formatPct(st.matchPct) + '</td>';
+                        html += astestDimFormCell(st);
+                        html += astestDimAdjCell(st);
+                        html += '<td class="col-stat col-stat-cnt">' + st.cnt1 + '</td>';
+                        html += '<td class="col-stat col-stat-cnt">' + (st.cnt2 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-cnt">' + (st.cnt3 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-cnt col-stat-all-hdr">' + (st.cnt4 ?? 0) + '</td>';
+                        html += astestGenAdjCell(st);
+                        html += '<td class="col-stat col-stat-gen">' + (st.genCnt1 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-gen">' + (st.genCnt2 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-gen">' + (st.genCnt3 ?? 0) + '</td>';
+                        html += '<td class="col-stat col-stat-gen col-stat-all-hdr">' + (st.genCnt4 ?? 0) + '</td>';
+                        if (withSon800 && typeof AtestSon800Shared !== 'undefined') {
+                            html += AtestSon800Shared.renderRowCells(h, sonCtx);
+                        }
+                        html += '</tr>';
+                    }
+                }
+                html += '</tbody></table></div>';
+                html += '</div>';
+            }
+            html += '</div>';
+            el.innerHTML = html;
+        }
+
+        async function sonTestListKayitlar(which) {
+            const listIds = {
+                sonTest: 'sonTestKayitListesi',
+                atSayisi: 'atSayisiKayitListesi',
+                sehir: 'sehirKayitListesi'
+            };
+            for (const cfg of DIMENSION_TEST_TABS) {
+                listIds[cfg.key] = cfg.listId;
+            }
+            const listDiv = document.getElementById(listIds[which] || 'sonTestKayitListesi');
+            document.getElementById('sonTestKayitListesi').style.display = 'none';
+            document.getElementById('atSayisiKayitListesi').style.display = 'none';
+            document.getElementById('sehirKayitListesi').style.display = 'none';
+            for (const cfg of DIMENSION_TEST_TABS) {
+                const ld = document.getElementById(cfg.listId);
+                if (ld) ld.style.display = 'none';
+            }
+            statusDiv.innerHTML = '<div class="status status-loading">⏳ Kayıtlar yükleniyor...</div>';
+            try {
+                const response = await fetch('/api/hesaplama-kayitlar');
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+                if (!result.kayitlar.length) {
+                    listDiv.innerHTML = '<div class="empty">⚠️ Hiç hesaplama kaydı yok</div>';
+                    listDiv.style.display = 'block';
+                    statusDiv.innerHTML = '<div class="status status-error">⚠️ Hiç kayıt yok</div>';
+                    return;
+                }
+                let html = '<div class="kayit-listesi-title">📋 HESAPLAMA KAYITLARI</div>';
+                for (let i = 0; i < result.kayitlar.length; i++) {
+                    const k = result.kayitlar[i];
+                    html += AtSpeedUtils.hesaplamaKayitListItemHtml(k, '🏁 ' + k.race_count + ' koşu');
+                }
+                listDiv.innerHTML = html;
+                listDiv.style.display = 'block';
+                AtSpeedUtils.bindHesaplamaKayitList(listDiv, async (id) => {
+                    await loadSonTestKayit(id);
+                    listDiv.style.display = 'none';
+                }, () => {
+                    const left = listDiv.querySelectorAll('.kayit-item').length;
+                    if (left) {
+                        statusDiv.innerHTML = '<div class="status status-success">✅ ' + left + ' kayıt kaldı</div>';
+                    } else {
+                        listDiv.innerHTML = '<div class="empty">⚠️ Hiç hesaplama kaydı yok</div>';
+                        statusDiv.innerHTML = '<div class="status status-error">⚠️ Hiç kayıt yok</div>';
+                    }
+                });
+                statusDiv.innerHTML = '<div class="status status-success">✅ ' + result.kayitlar.length + ' kayıt listelendi — birini seçin</div>';
+            } catch (error) {
+                statusDiv.innerHTML = '<div class="status status-error">❌ ' + escapeHtml(error.message) + '</div>';
+            }
+        }
+
+        async function loadSonTestKayit(id) {
+            const loadingHtml = '<div class="info-box">⏳ Kayıt yükleniyor...</div>';
+            document.getElementById('sonTestContent').innerHTML = loadingHtml;
+            document.getElementById('atSayisiContent').innerHTML = loadingHtml;
+            document.getElementById('sehirContent').innerHTML = loadingHtml;
+            for (const cfg of DIMENSION_TEST_TABS) {
+                const el = document.getElementById(cfg.contentId);
+                if (el) el.innerHTML = loadingHtml;
+            }
+            statusDiv.innerHTML = '<div class="status status-loading">⏳ Kayıt #' + id + ' yükleniyor...</div>';
+            try {
+                const response = await fetch('/api/hesaplama-kayit/' + id);
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+                const kayit = result.kayit;
+                currentRaces = kayit.veri || [];
+                currentSonTestKayitId = id;
+                sonTestKayitSource = 'kayit';
+                currentHipodrom = kayit.hipodrom || null;
+                currentHorses = [];
+                veriCache = {};
+                syncVeriCacheFromRaces(currentRaces);
+                for (let i = 0; i < currentRaces.length; i++) {
+                    for (let j = 0; j < (currentRaces[i].horses || []).length; j++) {
+                        currentHorses.push({
+                            ...currentRaces[i].horses[j],
+                            raceNo: currentRaces[i].raceNo
+                        });
+                    }
+                }
+                refreshTestTabs(currentRaces, {
+                    source: 'kayit',
+                    kayitId: id,
+                    tarih: kayit.tarih,
+                    hipodrom: kayit.hipodrom
+                });
+                statusDiv.innerHTML = '<div class="status status-success">✅ Kayıt #' + id + ' yüklendi — '
+                    + (kayit.hipodrom || '') + ' ' + (kayit.tarih || '') + '</div>';
+            } catch (error) {
+                const errHtml = '<div class="info-box">❌ ' + escapeHtml(error.message) + '</div>';
+                document.getElementById('sonTestContent').innerHTML = errHtml;
+                document.getElementById('atSayisiContent').innerHTML = errHtml;
+                document.getElementById('sehirContent').innerHTML = errHtml;
+                for (const cfg of DIMENSION_TEST_TABS) {
+                    const el = document.getElementById(cfg.contentId);
+                    if (el) el.innerHTML = errHtml;
+                }
+                statusDiv.innerHTML = '<div class="status status-error">❌ ' + escapeHtml(error.message) + '</div>';
+            }
         }
         
         async function veriKaydet() {
@@ -469,25 +1820,71 @@
                 data: []
             };
             
+            let eksikKosular = [];
+            for (let i = 0; i < currentRaces.length; i++) {
+                let race = currentRaces[i];
+                for (let j = 0; j < race.horses.length; j++) {
+                    let horse = race.horses[j];
+                    if (horse.atId && !(veriCache[horse.atId]?.length)) {
+                        eksikKosular.push({ atId: horse.atId, name: horse.name, raceNo: race.raceNo, no: horse.no });
+                    }
+                }
+            }
+            if (eksikKosular.length) {
+                statusDiv.innerHTML = '<div class="status status-loading">⏳ '
+                    + eksikKosular.length + ' at için kosular yeniden çekiliyor...</div>';
+                for (let i = 0; i < eksikKosular.length; i++) {
+                    let h = eksikKosular[i];
+                    await getAtTumVeriler(h.atId, h.name, 2);
+                }
+            }
+
+            eksikKosular = eksikKosular.filter(h => !(veriCache[h.atId]?.length));
+            if (eksikKosular.length) {
+                let msg = eksikKosular.slice(0, 5).map(h => 'K' + h.raceNo + ' #' + h.no + ' ' + (h.name || h.atId)).join(', ');
+                if (eksikKosular.length > 5) msg += ' +' + (eksikKosular.length - 5);
+                statusDiv.innerHTML = '<div class="status status-error">⚠️ '
+                    + eksikKosular.length + ' atın kosular[] hâlâ boş (' + msg + '). Kayıt yine de devam ediyor.</div>';
+            }
+
+            let kosmazSkipped = 0;
             for (let i = 0; i < currentRaces.length; i++) {
                 let race = currentRaces[i];
                 let raceData = {
                     raceNo: race.raceNo,
                     mesafe: race.mesafe || '?',
                     pist: race.pist || '?',
+                    kcins_kosu: race.kcins_kosu || '',
+                    kategori: race.kategori || '',
                     horses: []
                 };
                 for (let j = 0; j < race.horses.length; j++) {
                     let horse = race.horses[j];
+                    if (/\(\s*koşmaz\s*\)/i.test(horse.name || '')
+                        || /\(\s*kosmaz\s*\)/i.test(horse.name || '')
+                        || /\(\s*koşm\s*\)/i.test(horse.name || '')
+                        || /\(\s*çekildi\s*\)/i.test(horse.name || '')
+                        || /\(\s*cekildi\s*\)/i.test(horse.name || '')) {
+                        kosmazSkipped++;
+                        continue;
+                    }
                     let kosular = veriCache[horse.atId] || [];
                     raceData.horses.push({
                         no: horse.no,
                         name: horse.name,
                         atId: horse.atId,
+                        yas: horse.yas || '',
+                        taki: horse.taki || '',
+                        hp: horse.hp || '',
+                        siklet: horse.siklet || '',
                         kosular: kosular
                     });
                 }
-                veri.data.push(raceData);
+                if (raceData.horses.length) veri.data.push(raceData);
+            }
+            if (kosmazSkipped) {
+                statusDiv.innerHTML = '<div class="status status-loading">⏳ '
+                    + kosmazSkipped + ' koşmaz at kayıttan çıkarıldı · kaydediliyor...</div>';
             }
             
             statusDiv.innerHTML = '<div class="status status-loading">⏳ Veri kaydediliyor...</div>';
