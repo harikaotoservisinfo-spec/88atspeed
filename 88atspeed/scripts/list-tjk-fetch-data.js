@@ -5,6 +5,7 @@
  *   node scripts/list-tjk-fetch-data.js --db atlar.db
  *   node scripts/list-tjk-fetch-data.js --db atlar.db --kayit 131 --race 6
  *   node scripts/list-tjk-fetch-data.js --live --at-id 114236 --adi "AT ADI"
+ *   node scripts/list-tjk-fetch-data.js --profile --at-id 108227 --adi "AT ADI"
  *   node scripts/list-tjk-fetch-data.js --raw --at-id 114236
  */
 const http = require('http');
@@ -24,8 +25,12 @@ const cli = {
     kayitId: argVal('--kayit') ? Number(argVal('--kayit')) : null,
     raceNo: argVal('--race') ? Number(argVal('--race')) : null,
     live: args.includes('--live'),
+    profile: args.includes('--profile'),
     raw: args.includes('--raw'),
     apiBase: argVal('--api') || 'http://127.0.0.1:3023',
+    maxKosu: argVal('--max-kosu') ? Number(argVal('--max-kosu')) : 7,
+    maxAllKosu: argVal('--max-all-kosu') ? Number(argVal('--max-all-kosu')) : 40,
+    allFieldSizes: argVal('--all-field-sizes') || '1',
     sample: Number(argVal('--sample')) || 5
 };
 
@@ -84,7 +89,9 @@ function printSchema() {
     console.log('  Adım 2: Son 7 koşu için tarihLink → GünlükYarisSonuclari sayfası');
     console.log('          → hipodrom sekmesi tıklanır, hash scroll');
     console.log('  Adım 3: Sonuç tablosundan at_derece, birinci_derece, son800 çekilir');
-    console.log('  Limit:  Son 7 koşu · koşu başına ~500ms bekleme');
+    console.log('  Limit:  İlk ' + (cli.maxKosu || 7) + ' koşu TAM detay (sayfa/koşu ~10sn)');
+    console.log('          + koşu 8..' + (cli.maxAllKosu || 40) + ' sadece at_sayisi (sayfa/koşu ~3.5sn)');
+    console.log('          → Tek at: ~7 sayfa + ~33 sayfa = ~40 TJK sayfa ziyareti olabilir');
 
     sub('Kaydedilen alanlar (kosular[] her eleman)');
     for (const f of FETCHED_FIELDS) {
@@ -215,6 +222,56 @@ function printKosuTable(kosular, atAdi) {
     }
 }
 
+async function profileFetch() {
+    if (!cli.atId) {
+        console.error('--profile için --at-id gerekli');
+        process.exit(1);
+    }
+    let scrape;
+    try { scrape = require('../lib/tjk-scrape'); } catch (e) {
+        console.error('tjk-scrape yüklenemedi:', e.message);
+        process.exit(1);
+    }
+    const maxKosu = Number(cli.maxKosu || 7);
+    const maxAllKosu = Number(cli.maxAllKosu || 40);
+    hr('3. PROFİL FETCH (doğrudan tjk-scrape · adım adım)');
+    console.log('  atId: ' + cli.atId + ' · maxKosu=' + maxKosu + ' · maxAllKosu=' + maxAllKosu);
+    const t0 = Date.now();
+    const steps = [];
+    const browser = await scrape.launchBrowser();
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1920, height: 1080 });
+    try {
+        const r = await scrape.fetchAtKosularFromPage(page, cli.atId, cli.adi, {
+            maxKosu,
+            maxAllKosu,
+            fetchAllFieldSizes: cli.allFieldSizes !== '0',
+            maxRetry: 1,
+            onProgress: msg => steps.push({ ms: Date.now() - t0, msg })
+        });
+        const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+        console.log('  süre: ' + elapsed + ' sn · kosular[]: ' + (r.kosular?.length || 0));
+        if (r.quality) {
+            console.log('  kalite: tam=' + (r.quality.tam || 0)
+                + ' kritik=' + (r.quality.kritik || 0)
+                + ' kısmi=' + (r.quality.kismi || 0));
+        }
+        sub('Adımlar (' + steps.length + ' log)');
+        steps.forEach((s, i) => console.log('  ' + String(i + 1).padStart(2) + ' '
+            + (s.ms / 1000).toFixed(1).padStart(6) + 's  ' + s.msg));
+        if (r.kosular?.length) printKosuTable(r.kosular, r.atAdi);
+        const detay = (r.quality?.detay || []).filter(q => q.status !== 'alan_sayisi_only').length;
+        const alanOnly = (r.quality?.detay || []).filter(q => q.status === 'alan_sayisi_only').length;
+        sub('Sayfa ziyareti özeti');
+        console.log('  Tam detay koşu: ' + detay + ' (her biri sonuç sayfası + parse)');
+        console.log('  Sadece at_sayisi: ' + alanOnly + ' (ek TJK sayfası, derece/son800 yok)');
+        console.log('  Toplam TJK sayfa ~' + (detay + alanOnly + 1) + ' ( +1 AtKosuBilgileri liste)');
+    } finally {
+        await page.close().catch(() => {});
+        await browser.close().catch(() => {});
+    }
+}
+
 async function liveFetch() {
     if (!cli.atId) {
         console.error('--live veya --raw için --at-id gerekli');
@@ -335,16 +392,19 @@ async function main() {
     printSchema();
     await scanDb();
 
-    if (cli.live) await liveFetch();
+    if (cli.profile) await profileFetch();
+    else if (cli.live) await liveFetch();
     else if (cli.raw) await rawFetch();
     else {
         hr('3. CANLI FETCH (opsiyonel)');
         console.log('  node scripts/list-tjk-fetch-data.js --live --at-id <ID> --adi "AT ADI"');
+        console.log('  node scripts/list-tjk-fetch-data.js --profile --at-id <ID> --adi "AT ADI"');
         console.log('  node scripts/list-tjk-fetch-data.js --raw --at-id <ID>   (TJK ham sütunlar)');
     }
 
     hr('4. ÖZET');
-    console.log('  Her at için max 7 koşu çekiliyor.');
+    console.log('  Her at: ' + cli.maxKosu + ' koşu TAM + (max ' + cli.maxAllKosu + '−' + cli.maxKosu + ') at_sayisi ek.');
+    console.log('  GETİR: her benzersiz at için sırayla /api/at-tum-veriler çağrılır.');
     console.log('  Derinlik (S800/T1/T1DR) için son800_bir + at_derece + birinci_derece şart.');
     console.log('  TEST/ORAN/renk göstergeleri kosular[] sonrası hesaplanır — TJK\'dan gelmez.');
     console.log('\nOK');
