@@ -58,7 +58,7 @@
             background: linear-gradient(135deg, #ab47bc, #8e24aa) !important;
             color: #fff !important;
         }
-        .son-test-table.sontest-bas-table tbody tr.bas-pick-1 > td:not([class*="istat-"]) {
+        .son-test-table.sontest-bas-table tbody tr.bas-pick-1 > td:not([class*="istat-"]):not(.col-no) {
             background: linear-gradient(135deg, #e1bee7, #ce93d8);
         }
         .son-test-table.sontest-bas-table tbody tr.bas-pick-1 > td.col-name { font-weight: 800; color: #4a148c; }
@@ -66,7 +66,7 @@
             background: linear-gradient(135deg, #ba68c8, #ab47bc) !important;
             color: #fff !important;
         }
-        .son-test-table.sontest-bas-table tbody tr.bas-pick-2 > td:not([class*="istat-"]) {
+        .son-test-table.sontest-bas-table tbody tr.bas-pick-2 > td:not([class*="istat-"]):not(.col-no) {
             background: linear-gradient(135deg, #ede7f6, #e1bee7);
         }
         .son-test-table.sontest-bas-table tbody tr.bas-pick-2 > td.col-name { font-weight: 800; }
@@ -74,14 +74,14 @@
             background: linear-gradient(135deg, #ce93d8, #ba68c8) !important;
             color: #fff !important;
         }
-        .son-test-table.sontest-bas-table tbody tr.bas-pick-3 > td:not([class*="istat-"]) {
+        .son-test-table.sontest-bas-table tbody tr.bas-pick-3 > td:not([class*="istat-"]):not(.col-no) {
             background: linear-gradient(135deg, #f3e5f5, #ede7f6);
         }
         .son-test-table.sontest-bas-table tbody tr.bas-pick-4 > td.son-test-bas-col {
             background: linear-gradient(135deg, #e1bee7, #ce93d8) !important;
             color: #4a148c !important;
         }
-        .son-test-table.sontest-bas-table tbody tr.bas-pick-4 > td:not([class*="istat-"]) {
+        .son-test-table.sontest-bas-table tbody tr.bas-pick-4 > td:not([class*="istat-"]):not(.col-no) {
             background: linear-gradient(135deg, #fafafa, #f3e5f5);
         }
         .son-test-table.sontest-bas-table .col-tahmin {
@@ -1697,7 +1697,13 @@
                         const row = horseRows[j];
                         const h = row.h;
                         html += '<tr class="' + astestBasPickRowClass(h, basRankMap).trim() + '">';
-                        html += '<td class="col-no">' + escapeHtml(String(h.no ?? (j + 1))) + '</td>';
+                        const gkNo = astestHorseRankKey(h);
+                        const gosRowNo = gkNo ? gosByKey.get(gkNo) : null;
+                        if (typeof AtestSonGosterimCols !== 'undefined') {
+                            html += AtestSonGosterimCols.renderNoCell(h, gosRowNo, j, escapeHtml);
+                        } else {
+                            html += '<td class="col-no">' + escapeHtml(String(h.no ?? (j + 1))) + '</td>';
+                        }
                         html += '<td class="col-name">' + escapeHtml(h.name || '—') + '</td>';
                         html += '<td class="col-k1">' + raceK1 + '</td>';
                         for (let si = 0; si < SON_TEST_BAS_SOURCES.length; si++) {

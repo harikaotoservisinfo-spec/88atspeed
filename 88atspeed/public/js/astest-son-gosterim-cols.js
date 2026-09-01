@@ -50,6 +50,22 @@ const AtestSonGosterimCols = (function () {
         return out;
     }
 
+    /** GÖSTERİM SIRA (col 0) ile birebir aynı hücre sınıfları — SON TEST # sütunu */
+    function noCellClassList(gosRow) {
+        const cls = ['col-no'];
+        if (!gosRow || typeof GosterimEngine === 'undefined') return cls;
+        cls.push(...satirRowClasses(gosRow.classes?.satirClass));
+        const cellClass = GosterimEngine.getCellClass(0, gosRow.classes);
+        if (cellClass) cls.push(...String(cellClass).split(/\s+/).filter(Boolean));
+        return cls;
+    }
+
+    function renderNoCell(h, gosRow, rowIndex, escapeHtml) {
+        const val = String(h?.no ?? (rowIndex + 1));
+        const cls = noCellClassList(gosRow).join(' ');
+        return '<td class="' + cls + '">' + escapeHtml(val) + '</td>';
+    }
+
     function renderHeaderCells(escapeHtml) {
         const headers = typeof GosterimHeaders !== 'undefined'
             ? GosterimHeaders.getHeaders()
@@ -99,6 +115,8 @@ const AtestSonGosterimCols = (function () {
                 : 0;
         },
         buildSiraOneMap,
+        noCellClassList,
+        renderNoCell,
         renderHeaderCells,
         renderRowCells
     };
