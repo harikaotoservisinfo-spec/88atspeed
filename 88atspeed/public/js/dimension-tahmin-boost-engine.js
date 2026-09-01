@@ -21,7 +21,7 @@ const DimensionTahminBoostEngine = (function () {
         { id: 'sk-bas', label: 'SK BAŞ+', group: 'siklet', window: null, metrics: ['basSuccess.pct'], weight: 0.16 },
         { id: 'tk-bas', label: 'TK BAŞ+', group: 'taki', window: null, metrics: ['basSuccess.pct'], weight: 0.14 },
         { id: 'ps-bas', label: 'PS BAŞ+', group: 'pist', window: null, metrics: ['basSuccess.pct'], weight: 0.12 },
-        { id: 'hp-bas', label: 'HP BAŞ+', group: 'hp', window: null, metrics: ['basSuccess.pct'], weight: 0.10 },
+        { id: 'hp-bas', label: 'HP BAŞ+', group: 'hp', window: null, metrics: ['basSuccess.pct'], weight: 0.13 },
         { id: 'kc-bas', label: 'KC BAŞ+', group: 'kcins_kosu', window: null, metrics: ['basSuccess.pct'], weight: 0.06, minSpread: 2 }
     ];
 
