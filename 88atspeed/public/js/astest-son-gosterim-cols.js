@@ -3,7 +3,7 @@
  * + GÖSTERİM yanıp sönen hücreler → TAHMİN ödülü
  */
 const AtestSonGosterimCols = (function () {
-    const TEST9_YANIP_TAHMIN_BONUS = 30;
+    const TEST9_YANIP_TAHMIN_BONUS = 45;
     const FARK8002_YANIP_TAHMIN_BONUS = 5;
 
     function horseKey(h) {
@@ -125,7 +125,7 @@ const AtestSonGosterimCols = (function () {
     }
 
     /**
-     * TEST9 yanıp → TAHMİN +%30 · 8002-8001 yanıp → TAHMİN +%5
+     * TEST9 yanıp → TAHMİN +%45 · 8002-8001 yanıp → TAHMİN +%5
      * pct %100 üstüne çıkabilir; sıra güncellenir.
      */
     function applyTahminBonuses(horseRows, gosByKey) {
