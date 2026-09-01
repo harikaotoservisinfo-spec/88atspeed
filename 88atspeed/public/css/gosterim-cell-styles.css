@@ -1,0 +1,671 @@
+/* Gösterim hücre renklendirme — gosterim tab + SON TEST HYB sonrası sütunlar */
+
+/* TEST4 = TEST6 — açık fosfor yeşil satır (eşleşen hücreler hariç) */
+tr.fosfor-yesil-satir td:not(.eslesme-yesil),
+tr.fosfor-yesil-satir .col-delete,
+tr.fosfor-yesil-satir .col-sticky:not(.eslesme-yesil),
+tr.fosfor-yesil-satir .col-sticky-2:not(.eslesme-yesil) {
+    background: #e8ff9e !important;
+    color: #1b5e20 !important;
+    box-shadow: inset 0 0 10px rgba(118, 255, 3, 0.2);
+}
+.fosfor-yesil-hucre:not(.eslesme-yesil) {
+    background: #c5f77d !important;
+    color: #1b5e20 !important;
+    font-weight: 800 !important;
+    box-shadow: inset 0 0 8px rgba(118, 255, 3, 0.25);
+}
+
+/* Koyu yeşil eşleşme — fosfor/pembe satırda da geçerli */
+tr.fosfor-yesil-satir td.eslesme-yesil,
+tr.fosfor-yesil-satir td.eslesme-yesil.col-sticky,
+tr.fosfor-yesil-satir td.eslesme-yesil.col-sticky-2,
+tr.pembe-satir td.eslesme-yesil,
+tr.fosfor-yesil-satir td.eslesme-yesil.son800-eniyi {
+    background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%) !important;
+    color: #ccff90 !important;
+    font-weight: 800 !important;
+    box-shadow: inset 0 0 10px rgba(118, 255, 3, 0.35), 0 0 6px rgba(76, 175, 80, 0.25) !important;
+    text-shadow: 0 0 4px rgba(204, 255, 144, 0.6);
+}
+
+.row-delete-btn {
+    border: 1px solid rgba(198, 40, 40, 0.35);
+    background: #ffebee;
+    color: #b71c1c;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.12s ease, transform 0.12s ease;
+}
+.row-delete-btn:hover { background: #ffcdd2; transform: scale(1.08); }
+
+/* Kayıt hipodromu / koşu mesafesi ile eşleşen hücreler */
+.eslesme-yesil,
+.mesafe-eslesme {
+    background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%) !important;
+    color: #ccff90 !important;
+    font-weight: 800 !important;
+    box-shadow: inset 0 0 10px rgba(118, 255, 3, 0.35), 0 0 6px rgba(76, 175, 80, 0.25);
+    text-shadow: 0 0 4px rgba(204, 255, 144, 0.6);
+}
+
+/* SON800 en düşük 3 — açık yeşil (şehir eşleşmezse) */
+.son800-eniyi {
+    background: #c8e6c9 !important;
+    color: #1b5e20 !important;
+    font-weight: 700 !important;
+}
+
+/* TEST1≈TEST2 en yakın ve en düşük 3 — fosfor koyu sarı kalın yazı */
+.fosfor-sari-yazi {
+    color: #b8860b !important;
+    font-weight: 800 !important;
+    text-shadow: 0 0 6px #fff176, 0 0 10px #ffeb3b, 0 0 3px #f9a825;
+}
+td.eslesme-yesil.fosfor-sari-yazi {
+    color: #fff176 !important;
+    text-shadow: 0 0 8px #ffeb3b, 0 0 14px #ffd600, 0 0 4px #f9a825;
+}
+
+/* Güçlü uyarı: kırmızı kural + TEST1≈TEST2 fosfor sarı aynı satırda */
+tr.guclu-uyari-satir td:not(.eslesme-yesil),
+tr.guclu-uyari-satir .col-delete,
+tr.guclu-uyari-satir .col-sticky:not(.eslesme-yesil),
+tr.guclu-uyari-satir .col-sticky-2:not(.eslesme-yesil) {
+    background: linear-gradient(135deg, #0a2e12 0%, #1b5e20 45%, #256329 100%) !important;
+    color: #e8f5e9 !important;
+    font-weight: 700 !important;
+    box-shadow: inset 0 0 14px rgba(118, 255, 3, 0.3), 0 0 10px rgba(27, 94, 32, 0.45);
+    border-top: 2px solid #76ff03;
+    border-bottom: 2px solid #76ff03;
+}
+tr.guclu-uyari-satir td.eslesme-yesil,
+tr.guclu-uyari-satir td.eslesme-yesil.col-sticky,
+tr.guclu-uyari-satir td.eslesme-yesil.col-sticky-2 {
+    background: linear-gradient(135deg, #004d14 0%, #1b5e20 50%, #388e3c 100%) !important;
+    color: #ccff90 !important;
+    font-weight: 800 !important;
+    box-shadow: inset 0 0 16px rgba(118, 255, 3, 0.5), 0 0 10px rgba(118, 255, 3, 0.35) !important;
+    text-shadow: 0 0 6px rgba(204, 255, 144, 0.8);
+}
+tr.guclu-uyari-satir .fosfor-sari-yazi {
+    color: #fff59d !important;
+    font-weight: 800 !important;
+    text-shadow: 0 0 10px #ffeb3b, 0 0 18px #ffd600, 0 0 6px #fff;
+}
+tr.guclu-uyari-satir .kirmizi-yazi {
+    color: #ff8a80 !important;
+    font-weight: 800 !important;
+    text-shadow: 0 0 10px #ff5252, 0 0 6px #fff, 0 0 3px #d50000;
+}
+/* Güçlü uyarı satırında şehir: farklıysa nötr, aynıysa fosfor yeşil yazı */
+tr.guclu-uyari-satir td.guclu-sehir-farkli {
+    background: #f2f1ec !important;
+    color: #0f2247 !important;
+    font-weight: 600 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+}
+tr.guclu-uyari-satir td.guclu-sehir-eslesme {
+    background: linear-gradient(135deg, #004d14 0%, #1b5e20 50%, #388e3c 100%) !important;
+    color: #76ff03 !important;
+    font-weight: 800 !important;
+    text-shadow: 0 0 8px #ccff90, 0 0 14px #76ff03, 0 0 4px #a5d6a7;
+    box-shadow: inset 0 0 16px rgba(118, 255, 3, 0.5), 0 0 10px rgba(118, 255, 3, 0.35) !important;
+}
+
+/* TEST3 top-3 + TEST2<TEST3 + TEST1<=TEST2 → fosfor mavi */
+.fosfor-mavi-yazi {
+    color: #01579b !important;
+    font-weight: 800 !important;
+    text-shadow: 0 0 8px #00e5ff, 0 0 14px #18ffff, 0 0 4px #0288d1;
+}
+tr.fosfor-mavi-satir:not(.guclu-uyari-satir) td:not(.eslesme-yesil):not(.test23-yanip-son) {
+    background: rgba(0, 188, 212, 0.14) !important;
+}
+tr.fosfor-mavi-satir td:not(.eslesme-yesil):not(.test23-yanip-son),
+tr.fosfor-mavi-satir .col-sticky:not(.eslesme-yesil),
+tr.fosfor-mavi-satir .col-sticky-2:not(.eslesme-yesil) {
+    color: #01579b !important;
+    font-weight: 700 !important;
+    text-shadow: 0 0 8px #00e5ff, 0 0 14px #18ffff, 0 0 4px #01579b;
+}
+tr.guclu-uyari-satir.fosfor-mavi-satir td:not(.eslesme-yesil):not(.test23-yanip-son):not(.guclu-sehir-farkli),
+tr.guclu-uyari-satir.fosfor-mavi-satir .fosfor-mavi-yazi:not(.test23-yanip-son) {
+    color: #84ffff !important;
+    font-weight: 800 !important;
+    text-shadow: 0 0 10px #18ffff, 0 0 18px #00e5ff, 0 0 6px #fff;
+}
+tr.fosfor-mavi-satir td.eslesme-yesil:not(.test23-yanip-son) {
+    color: #84ffff !important;
+    text-shadow: 0 0 10px #18ffff, 0 0 16px #00e5ff, 0 0 4px #fff;
+}
+
+/* TEST3−TEST2 en yüksek fark → TEST2/TEST3 yanıp söner */
+@keyframes test23-blink {
+    0%, 100% {
+        background: linear-gradient(135deg, #01579b 0%, #0277bd 100%) !important;
+        color: #84ffff !important;
+        font-weight: 800 !important;
+        box-shadow: inset 0 0 14px #00e5ff, 0 0 20px #18ffff !important;
+        text-shadow: 0 0 10px #fff, 0 0 18px #18ffff;
+    }
+    50% {
+        background: linear-gradient(135deg, #e1f5fe 0%, #b3e5fc 100%) !important;
+        color: #01579b !important;
+        font-weight: 800 !important;
+        box-shadow: inset 0 0 10px #00bcd4, 0 0 24px #fff !important;
+        text-shadow: 0 0 8px #0277bd;
+    }
+}
+td.test23-yanip-son,
+tr.guclu-uyari-satir td.test23-yanip-son,
+tr.fosfor-mavi-satir td.test23-yanip-son {
+    animation: test23-blink 1s ease-in-out infinite !important;
+    position: relative;
+    z-index: 2;
+}
+
+/* T1×DR — son koşu fosfor kırmızı yazı */
+.fosfor-kirmizi-yazi {
+    color: #ff1744 !important;
+    font-weight: 800 !important;
+    text-shadow: 0 0 6px #ff5252, 0 0 10px #ff1744, 0 0 3px #d50000;
+}
+tr.fosfor-mavi-satir td.fosfor-kirmizi-yazi,
+tr.fosfor-yesil-satir td.fosfor-kirmizi-yazi,
+tr.guclu-uyari-satir td.fosfor-kirmizi-yazi {
+    color: #ff1744 !important;
+    text-shadow: 0 0 8px #ff5252, 0 0 14px #ff1744, 0 0 4px #d50000;
+}
+
+/* T1×DR — son koşularda en iyi 2: fosfor yeşil yanıp sönen hücre */
+@keyframes t1dr-yesil-yanip {
+    0%, 100% {
+        background: #c5f77d !important;
+        color: #1b5e20 !important;
+        box-shadow: inset 0 0 8px rgba(118, 255, 3, 0.45), 0 0 6px rgba(118, 255, 3, 0.25);
+    }
+    50% {
+        background: #76ff03 !important;
+        color: #004d40 !important;
+        box-shadow: inset 0 0 14px rgba(118, 255, 3, 0.75), 0 0 12px rgba(118, 255, 3, 0.45);
+    }
+}
+td.t1dr-eniyi-yanip-son,
+tr.fosfor-mavi-satir td.t1dr-eniyi-yanip-son,
+tr.fosfor-yesil-satir td.t1dr-eniyi-yanip-son,
+tr.guclu-uyari-satir td.t1dr-eniyi-yanip-son {
+    animation: t1dr-yesil-yanip 1.1s ease-in-out infinite !important;
+    font-weight: 800 !important;
+    position: relative;
+    z-index: 2;
+}
+td.t1dr-eniyi-yanip-son.fosfor-kirmizi-yazi {
+    color: #b71c1c !important;
+    text-shadow: 0 0 8px #ff5252, 0 0 12px #ff1744, 0 0 4px #d50000;
+}
+
+/* T1×DR-T3 — son koşu koyu fosfor yeşil yazı */
+.fosfor-yesil-koyu-yazi {
+    color: #1b5e20 !important;
+    font-weight: 800 !important;
+    text-shadow: 0 0 6px #76ff03, 0 0 10px #00c853, 0 0 3px #2e7d32;
+}
+tr.fosfor-mavi-satir td.fosfor-yesil-koyu-yazi,
+tr.fosfor-yesil-satir td.fosfor-yesil-koyu-yazi,
+tr.guclu-uyari-satir td.fosfor-yesil-koyu-yazi {
+    color: #004d40 !important;
+    text-shadow: 0 0 8px #69f0ae, 0 0 14px #00e676, 0 0 4px #1b5e20;
+}
+
+/* Son 7 koşu 8002-8001 ort. 0'a yakın 3 at — AT İSMİ mavi fosfor yazı */
+.at-ismi-mavi-vurgu {
+    color: #01579b !important;
+    font-weight: 800 !important;
+    text-shadow: 0 0 8px #00e5ff, 0 0 14px #18ffff, 0 0 4px #0288d1;
+}
+tr.guclu-uyari-satir td.at-ismi-mavi-vurgu,
+tr.fosfor-mavi-satir td.at-ismi-mavi-vurgu,
+tr.fosfor-yesil-satir td.at-ismi-mavi-vurgu {
+    color: #84ffff !important;
+    text-shadow: 0 0 10px #18ffff, 0 0 18px #00e5ff, 0 0 6px #fff;
+}
+
+/* Son 3 koşu 8002-8001 ort. 0'a yakın 3 at — AT ID mavi hücre */
+.at-id-mavi-vurgu {
+    background: linear-gradient(135deg, #01579b 0%, #0288d1 50%, #03a9f4 100%) !important;
+    color: #e1f5fe !important;
+    font-weight: 800 !important;
+    box-shadow: inset 0 0 12px rgba(0, 229, 255, 0.45), 0 0 10px rgba(3, 169, 244, 0.35);
+    text-shadow: 0 0 6px rgba(255, 255, 255, 0.85);
+}
+tr.guclu-uyari-satir td.at-id-mavi-vurgu,
+tr.fosfor-mavi-satir td.at-id-mavi-vurgu,
+tr.fosfor-yesil-satir td.at-id-mavi-vurgu {
+    background: linear-gradient(135deg, #0277bd 0%, #039be5 50%, #29b6f6 100%) !important;
+    color: #fff !important;
+    box-shadow: inset 0 0 14px rgba(0, 229, 255, 0.55), 0 0 12px rgba(41, 182, 246, 0.45) !important;
+}
+
+/* Son 2 koşu 8002-8001 ort. 0'a yakın 3 at — TARİH koyu mavi */
+.tarih-koyu-mavi-vurgu {
+    color: #0d47a1 !important;
+    font-weight: 800 !important;
+    background: rgba(13, 71, 161, 0.1) !important;
+    text-shadow: 0 0 6px rgba(25, 118, 210, 0.45);
+    box-shadow: inset 0 0 8px rgba(13, 71, 161, 0.15);
+}
+tr.guclu-uyari-satir td.tarih-koyu-mavi-vurgu,
+tr.fosfor-mavi-satir td.tarih-koyu-mavi-vurgu,
+tr.fosfor-yesil-satir td.tarih-koyu-mavi-vurgu {
+    color: #90caf9 !important;
+    background: rgba(13, 71, 161, 0.35) !important;
+    text-shadow: 0 0 8px rgba(144, 202, 249, 0.8);
+}
+
+/* AT İSMİ+AT ID+TARİH vurgu + TEST1/2/3 kırmızı → SIRA koyu mavi */
+.at-sira-koyu-mavi-vurgu {
+    background: linear-gradient(135deg, #0d47a1 0%, #1565c0 50%, #1976d2 100%) !important;
+    color: #e3f2fd !important;
+    font-weight: 800 !important;
+    box-shadow: inset 0 0 12px rgba(13, 71, 161, 0.55), 0 0 8px rgba(25, 118, 210, 0.35);
+    text-shadow: 0 0 6px rgba(227, 242, 253, 0.8);
+}
+tr.guclu-uyari-satir td.at-sira-koyu-mavi-vurgu,
+tr.fosfor-mavi-satir td.at-sira-koyu-mavi-vurgu,
+tr.fosfor-yesil-satir td.at-sira-koyu-mavi-vurgu {
+    background: linear-gradient(135deg, #0a3d91 0%, #0d47a1 50%, #1565c0 100%) !important;
+    color: #fff !important;
+    box-shadow: inset 0 0 14px rgba(144, 202, 249, 0.45), 0 0 10px rgba(25, 118, 210, 0.5) !important;
+}
+
+/* TEST1≈TEST2 sarı vurgulu at — en soldaki SIRA (tüm satırlar) koyu mavi */
+.sira-no-koyu-mavi-vurgu,
+td.col-sticky.sira-no-koyu-mavi-vurgu {
+    background: linear-gradient(135deg, #0d47a1 0%, #1565c0 50%, #1976d2 100%) !important;
+    color: #e3f2fd !important;
+    font-weight: 800 !important;
+    box-shadow: inset 0 0 12px rgba(13, 71, 161, 0.55), 0 0 8px rgba(25, 118, 210, 0.35);
+    text-shadow: 0 0 6px rgba(227, 242, 253, 0.8);
+}
+tr.guclu-uyari-satir td.sira-no-koyu-mavi-vurgu,
+tr.fosfor-mavi-satir td.sira-no-koyu-mavi-vurgu,
+tr.fosfor-yesil-satir td.sira-no-koyu-mavi-vurgu {
+    background: linear-gradient(135deg, #0a3d91 0%, #0d47a1 50%, #1565c0 100%) !important;
+    color: #fff !important;
+    box-shadow: inset 0 0 14px rgba(144, 202, 249, 0.45), 0 0 10px rgba(25, 118, 210, 0.5) !important;
+}
+
+/* En yeni 2 yeşil koşu + herhangi sarı TEST1/2 + son 3'te kırmızı TEST → fosfor kırmızı kenar */
+@keyframes fosfor-kirmizi-kenar {
+    0%, 100% {
+        outline-color: #b71c1c;
+        box-shadow: inset 0 0 10px rgba(255, 23, 68, 0.35), 0 0 10px rgba(198, 40, 40, 0.55);
+    }
+    50% {
+        outline-color: #ff1744;
+        box-shadow: inset 0 0 14px rgba(255, 82, 82, 0.5), 0 0 18px rgba(255, 23, 68, 0.75);
+    }
+}
+tr.fosfor-kirmizi-kenar-satir td {
+    outline: 2px solid #b71c1c;
+    outline-offset: -2px;
+    animation: fosfor-kirmizi-kenar 1.4s ease-in-out infinite;
+}
+/* Sticky sütunlarda position:sticky korunmalı (relative ile ezilmesin) */
+tr.fosfor-kirmizi-kenar-satir .col-delete {
+    position: sticky;
+    left: 0;
+    z-index: 7;
+}
+tr.fosfor-kirmizi-kenar-satir .col-sticky {
+    position: sticky;
+    left: 52px;
+    z-index: 6;
+}
+tr.fosfor-kirmizi-kenar-satir .col-sticky-2 {
+    position: sticky;
+    left: 104px;
+    z-index: 6;
+}
+
+/* Koyu mavi kenar: TEST1≤TEST2≤TEST3 veya SON800-1 en iyi 3 */
+@keyframes koyu-mavi-kenar {
+    0%, 100% {
+        outline-color: #0d47a1;
+        box-shadow: inset 0 0 10px rgba(13, 71, 161, 0.35), 0 0 10px rgba(21, 101, 192, 0.55);
+    }
+    50% {
+        outline-color: #1565c0;
+        box-shadow: inset 0 0 14px rgba(25, 118, 210, 0.5), 0 0 18px rgba(33, 150, 243, 0.75);
+    }
+}
+tr.koyu-mavi-kenar-satir td {
+    outline: 2px solid #0d47a1;
+    outline-offset: -2px;
+    animation: koyu-mavi-kenar 1.4s ease-in-out infinite;
+}
+tr.koyu-mavi-kenar-satir .col-delete {
+    position: sticky;
+    left: 0;
+    z-index: 7;
+}
+tr.koyu-mavi-kenar-satir .col-sticky {
+    position: sticky;
+    left: 52px;
+    z-index: 6;
+}
+tr.koyu-mavi-kenar-satir .col-sticky-2 {
+    position: sticky;
+    left: 104px;
+    z-index: 6;
+}
+
+/* Mavi kenarlı satırlar arasında |TEST9| 0'a en yakın at → TEST9 koyu mavi yazı */
+.mavi-kenar-test9-vurgu,
+tr.koyu-mavi-kenar-satir td.mavi-kenar-test9-vurgu {
+    color: #0a3d91 !important;
+    font-weight: 800 !important;
+    text-shadow: 0 0 8px rgba(25, 118, 210, 0.75), 0 0 14px rgba(13, 71, 161, 0.55), 0 0 4px rgba(255, 255, 255, 0.6);
+}
+
+/* Görünüm SIRA=1 (en yeni koşu): 8002-8001 top-3 pozitif veya TEST9 yakın → mavi yanıp sönen */
+@keyframes mavi-yanip-son {
+    0%, 100% {
+        background: linear-gradient(135deg, #002171 0%, #01579b 45%, #0277bd 100%) !important;
+        color: #ffffff !important;
+        font-weight: 900 !important;
+        outline: 2px solid #00e5ff !important;
+        outline-offset: -2px;
+        box-shadow:
+            inset 0 0 18px #00e5ff,
+            0 0 22px #00b0ff,
+            0 0 36px #18ffff !important;
+        text-shadow:
+            0 0 12px #ffffff,
+            0 0 20px #18ffff,
+            0 0 28px #00e5ff;
+        transform: scale(1);
+    }
+    50% {
+        background: linear-gradient(135deg, #e0f7fa 0%, #80deea 50%, #4dd0e1 100%) !important;
+        color: #002171 !important;
+        font-weight: 900 !important;
+        outline: 3px solid #0277bd !important;
+        outline-offset: -3px;
+        box-shadow:
+            inset 0 0 8px #ffffff,
+            0 0 10px rgba(2, 119, 189, 0.35),
+            0 0 0 rgba(24, 255, 255, 0) !important;
+        text-shadow: 0 0 4px rgba(1, 87, 155, 0.45);
+        transform: scale(1.02);
+    }
+}
+td.mavi-yanip-son,
+tr.guclu-uyari-satir td.mavi-yanip-son,
+tr.fosfor-mavi-satir td.mavi-yanip-son,
+tr.fosfor-yesil-satir td.mavi-yanip-son,
+tr.fosfor-kirmizi-kenar-satir td.mavi-yanip-son,
+tr.koyu-mavi-kenar-satir td.mavi-yanip-son,
+tr.pembe-satir td.mavi-yanip-son {
+    animation: mavi-yanip-son 0.7s cubic-bezier(0.4, 0, 0.2, 1) infinite !important;
+    position: relative;
+    z-index: 3;
+    letter-spacing: 0.02em;
+}
+
+/* TEST9 — SIRA=1 kuralından |TEST9| 0'a en yakın 3 at: ekstra belirgin yanıp sönme */
+@keyframes test9-yanip-son-guclu {
+    0%, 45% {
+        background: linear-gradient(135deg, #000051 0%, #001a7a 35%, #0d47a1 100%) !important;
+        color: #ffffff !important;
+        font-weight: 900 !important;
+        outline: 3px solid #00e5ff !important;
+        outline-offset: -3px;
+        box-shadow:
+            inset 0 0 24px #00e5ff,
+            inset 0 0 40px #18ffff,
+            0 0 28px #00b0ff,
+            0 0 48px #18ffff,
+            0 0 64px rgba(0, 229, 255, 0.85) !important;
+        text-shadow:
+            0 0 14px #ffffff,
+            0 0 24px #18ffff,
+            0 0 36px #00e5ff,
+            0 0 48px #ffffff;
+        transform: scale(1.07);
+        filter: brightness(1.2);
+    }
+    50%, 100% {
+        background: #ffffff !important;
+        color: #000051 !important;
+        outline: 4px solid #0277bd !important;
+        outline-offset: -4px;
+        box-shadow:
+            inset 0 0 10px rgba(2, 119, 189, 0.35),
+            0 0 20px #00e5ff,
+            0 0 40px #18ffff,
+            0 0 60px rgba(24, 255, 255, 0.9) !important;
+        text-shadow: 0 0 6px rgba(0, 0, 81, 0.5);
+        transform: scale(1.1);
+        filter: brightness(1.35);
+    }
+}
+td.test9-yanip-son-guclu,
+tr.guclu-uyari-satir td.test9-yanip-son-guclu,
+tr.fosfor-mavi-satir td.test9-yanip-son-guclu,
+tr.fosfor-yesil-satir td.test9-yanip-son-guclu,
+tr.fosfor-kirmizi-kenar-satir td.test9-yanip-son-guclu,
+tr.koyu-mavi-kenar-satir td.test9-yanip-son-guclu,
+tr.pembe-satir td.test9-yanip-son-guclu {
+    animation: test9-yanip-son-guclu 0.55s step-end infinite !important;
+    position: relative;
+    z-index: 8 !important;
+    letter-spacing: 0.05em;
+    font-size: 1.08em;
+}
+td.test9-yanip-son-guclu.mavi-kenar-test9-vurgu {
+    color: inherit !important;
+    text-shadow: inherit;
+}
+
+
+/* SON TEST — gösterim sütunları (.col-gos) satır renkleri */
+.son-test-table td.col-gos.gos-row-fosfor-yesil-satir:not(.eslesme-yesil):not(.eslesme-yesil){
+    background: #e8ff9e !important;
+    color: #1b5e20 !important;
+    box-shadow: inset 0 0 10px rgba(118, 255, 3, 0.2);
+}
+
+.son-test-table td.col-gos.gos-row-fosfor-yesil-satir.eslesme-yesil,
+.son-test-table td.col-gos.gos-row-pembe-satir.eslesme-yesil,
+.son-test-table td.col-gos.gos-row-fosfor-yesil-satir.eslesme-yesil.son800-eniyi{
+    background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%) !important;
+    color: #ccff90 !important;
+    font-weight: 800 !important;
+    box-shadow: inset 0 0 10px rgba(118, 255, 3, 0.35), 0 0 6px rgba(76, 175, 80, 0.25) !important;
+    text-shadow: 0 0 4px rgba(204, 255, 144, 0.6);
+}
+
+.son-test-table td.col-gos.gos-row-guclu-uyari-satir:not(.eslesme-yesil):not(.eslesme-yesil){
+    background: linear-gradient(135deg, #0a2e12 0%, #1b5e20 45%, #256329 100%) !important;
+    color: #e8f5e9 !important;
+    font-weight: 700 !important;
+    box-shadow: inset 0 0 14px rgba(118, 255, 3, 0.3), 0 0 10px rgba(27, 94, 32, 0.45);
+    border-top: 2px solid #76ff03;
+    border-bottom: 2px solid #76ff03;
+}
+
+.son-test-table td.col-gos.gos-row-guclu-uyari-satir.eslesme-yesil{
+    background: linear-gradient(135deg, #004d14 0%, #1b5e20 50%, #388e3c 100%) !important;
+    color: #ccff90 !important;
+    font-weight: 800 !important;
+    box-shadow: inset 0 0 16px rgba(118, 255, 3, 0.5), 0 0 10px rgba(118, 255, 3, 0.35) !important;
+    text-shadow: 0 0 6px rgba(204, 255, 144, 0.8);
+}
+
+.son-test-table td.col-gos.gos-row-guclu-uyari-satir.fosfor-sari-yazi{
+    color: #fff59d !important;
+    font-weight: 800 !important;
+    text-shadow: 0 0 10px #ffeb3b, 0 0 18px #ffd600, 0 0 6px #fff;
+}
+
+.son-test-table td.col-gos.gos-row-guclu-uyari-satir.kirmizi-yazi{
+    color: #ff8a80 !important;
+    font-weight: 800 !important;
+    text-shadow: 0 0 10px #ff5252, 0 0 6px #fff, 0 0 3px #d50000;
+}
+
+.son-test-table td.col-gos.gos-row-guclu-uyari-satir.guclu-sehir-farkli{
+    background: #f2f1ec !important;
+    color: #0f2247 !important;
+    font-weight: 600 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+}
+
+.son-test-table td.col-gos.gos-row-guclu-uyari-satir.guclu-sehir-eslesme{
+    background: linear-gradient(135deg, #004d14 0%, #1b5e20 50%, #388e3c 100%) !important;
+    color: #76ff03 !important;
+    font-weight: 800 !important;
+    text-shadow: 0 0 8px #ccff90, 0 0 14px #76ff03, 0 0 4px #a5d6a7;
+    box-shadow: inset 0 0 16px rgba(118, 255, 3, 0.5), 0 0 10px rgba(118, 255, 3, 0.35) !important;
+}
+
+.son-test-table td.col-gos.gos-row-fosfor-mavi-satir:not(.guclu-uyari-satir):not(.eslesme-yesil):not(.test23-yanip-son){
+    background: rgba(0, 188, 212, 0.14) !important;
+}
+
+.son-test-table td.col-gos.gos-row-fosfor-mavi-satir:not(.eslesme-yesil):not(.eslesme-yesil):not(.test23-yanip-son){
+    color: #01579b !important;
+    font-weight: 700 !important;
+    text-shadow: 0 0 8px #00e5ff, 0 0 14px #18ffff, 0 0 4px #01579b;
+}
+
+.son-test-table td.col-gos.gos-row-guclu-uyari-satir.gos-row-fosfor-mavi-satir:not(.eslesme-yesil):not(.eslesme-yesil):not(.test23-yanip-son):not(.guclu-sehir-farkli),
+.son-test-table td.col-gos.gos-row-guclu-uyari-satir.gos-row-fosfor-mavi-satir.fosfor-mavi-yazi:not(.test23-yanip-son){
+    color: #84ffff !important;
+    font-weight: 800 !important;
+    text-shadow: 0 0 10px #18ffff, 0 0 18px #00e5ff, 0 0 6px #fff;
+}
+
+.son-test-table td.col-gos.gos-row-fosfor-mavi-satir:not(.test23-yanip-son).eslesme-yesil:not(.test23-yanip-son){
+    color: #84ffff !important;
+    text-shadow: 0 0 10px #18ffff, 0 0 16px #00e5ff, 0 0 4px #fff;
+}
+
+.son-test-table td.col-gos.gos-row-guclu-uyari-satir.test23-yanip-son,
+.son-test-table td.col-gos.gos-row-fosfor-mavi-satir.test23-yanip-son{
+    animation: test23-blink 1s ease-in-out infinite !important;
+    position: relative;
+    z-index: 2;
+}
+
+.son-test-table td.col-gos.gos-row-fosfor-mavi-satir.fosfor-kirmizi-yazi,
+.son-test-table td.col-gos.gos-row-fosfor-yesil-satir.fosfor-kirmizi-yazi,
+.son-test-table td.col-gos.gos-row-guclu-uyari-satir.fosfor-kirmizi-yazi{
+    color: #ff1744 !important;
+    text-shadow: 0 0 8px #ff5252, 0 0 14px #ff1744, 0 0 4px #d50000;
+}
+
+.son-test-table td.col-gos.gos-row-fosfor-mavi-satir.t1dr-eniyi-yanip-son,
+.son-test-table td.col-gos.gos-row-fosfor-yesil-satir.t1dr-eniyi-yanip-son,
+.son-test-table td.col-gos.gos-row-guclu-uyari-satir.t1dr-eniyi-yanip-son{
+    animation: t1dr-yesil-yanip 1.1s ease-in-out infinite !important;
+    font-weight: 800 !important;
+    position: relative;
+    z-index: 2;
+}
+
+.son-test-table td.col-gos.gos-row-fosfor-mavi-satir.fosfor-yesil-koyu-yazi,
+.son-test-table td.col-gos.gos-row-fosfor-yesil-satir.fosfor-yesil-koyu-yazi,
+.son-test-table td.col-gos.gos-row-guclu-uyari-satir.fosfor-yesil-koyu-yazi{
+    color: #004d40 !important;
+    text-shadow: 0 0 8px #69f0ae, 0 0 14px #00e676, 0 0 4px #1b5e20;
+}
+
+.son-test-table td.col-gos.gos-row-guclu-uyari-satir.at-ismi-mavi-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-mavi-satir.at-ismi-mavi-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-yesil-satir.at-ismi-mavi-vurgu{
+    color: #84ffff !important;
+    text-shadow: 0 0 10px #18ffff, 0 0 18px #00e5ff, 0 0 6px #fff;
+}
+
+.son-test-table td.col-gos.gos-row-guclu-uyari-satir.at-id-mavi-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-mavi-satir.at-id-mavi-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-yesil-satir.at-id-mavi-vurgu{
+    background: linear-gradient(135deg, #0277bd 0%, #039be5 50%, #29b6f6 100%) !important;
+    color: #fff !important;
+    box-shadow: inset 0 0 14px rgba(0, 229, 255, 0.55), 0 0 12px rgba(41, 182, 246, 0.45) !important;
+}
+
+.son-test-table td.col-gos.gos-row-guclu-uyari-satir.tarih-koyu-mavi-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-mavi-satir.tarih-koyu-mavi-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-yesil-satir.tarih-koyu-mavi-vurgu{
+    color: #90caf9 !important;
+    background: rgba(13, 71, 161, 0.35) !important;
+    text-shadow: 0 0 8px rgba(144, 202, 249, 0.8);
+}
+
+.son-test-table td.col-gos.gos-row-guclu-uyari-satir.at-sira-koyu-mavi-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-mavi-satir.at-sira-koyu-mavi-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-yesil-satir.at-sira-koyu-mavi-vurgu{
+    background: linear-gradient(135deg, #0a3d91 0%, #0d47a1 50%, #1565c0 100%) !important;
+    color: #fff !important;
+    box-shadow: inset 0 0 14px rgba(144, 202, 249, 0.45), 0 0 10px rgba(25, 118, 210, 0.5) !important;
+}
+
+.son-test-table td.col-gos.gos-row-guclu-uyari-satir.sira-no-koyu-mavi-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-mavi-satir.sira-no-koyu-mavi-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-yesil-satir.sira-no-koyu-mavi-vurgu{
+    background: linear-gradient(135deg, #0a3d91 0%, #0d47a1 50%, #1565c0 100%) !important;
+    color: #fff !important;
+    box-shadow: inset 0 0 14px rgba(144, 202, 249, 0.45), 0 0 10px rgba(25, 118, 210, 0.5) !important;
+}
+
+.son-test-table td.col-gos.gos-row-fosfor-kirmizi-kenar-satir{
+    outline: 2px solid #b71c1c;
+    outline-offset: -2px;
+    animation: fosfor-kirmizi-kenar 1.4s ease-in-out infinite;
+}
+
+.son-test-table td.col-gos.gos-row-koyu-mavi-kenar-satir{
+    outline: 2px solid #0d47a1;
+    outline-offset: -2px;
+    animation: koyu-mavi-kenar 1.4s ease-in-out infinite;
+}
+
+.son-test-table td.col-gos.gos-row-koyu-mavi-kenar-satir.mavi-kenar-test9-vurgu{
+    color: #0a3d91 !important;
+    font-weight: 800 !important;
+    text-shadow: 0 0 8px rgba(25, 118, 210, 0.75), 0 0 14px rgba(13, 71, 161, 0.55), 0 0 4px rgba(255, 255, 255, 0.6);
+}
+
+.son-test-table td.col-gos.gos-row-guclu-uyari-satir.mavi-yanip-son,
+.son-test-table td.col-gos.gos-row-fosfor-mavi-satir.mavi-yanip-son,
+.son-test-table td.col-gos.gos-row-fosfor-yesil-satir.mavi-yanip-son,
+.son-test-table td.col-gos.gos-row-fosfor-kirmizi-kenar-satir.mavi-yanip-son,
+.son-test-table td.col-gos.gos-row-koyu-mavi-kenar-satir.mavi-yanip-son,
+.son-test-table td.col-gos.gos-row-pembe-satir.mavi-yanip-son{
+    animation: mavi-yanip-son 0.7s cubic-bezier(0.4, 0, 0.2, 1) infinite !important;
+    position: relative;
+    z-index: 3;
+    letter-spacing: 0.02em;
+}
+
+.son-test-table td.col-gos.gos-row-guclu-uyari-satir.test9-yanip-son-guclu,
+.son-test-table td.col-gos.gos-row-fosfor-mavi-satir.test9-yanip-son-guclu,
+.son-test-table td.col-gos.gos-row-fosfor-yesil-satir.test9-yanip-son-guclu,
+.son-test-table td.col-gos.gos-row-fosfor-kirmizi-kenar-satir.test9-yanip-son-guclu,
+.son-test-table td.col-gos.gos-row-koyu-mavi-kenar-satir.test9-yanip-son-guclu,
+.son-test-table td.col-gos.gos-row-pembe-satir.test9-yanip-son-guclu{
+    animation: test9-yanip-son-guclu 0.55s step-end infinite !important;
+    position: relative;
+    z-index: 8 !important;
+    letter-spacing: 0.05em;
+    font-size: 1.08em;
+}

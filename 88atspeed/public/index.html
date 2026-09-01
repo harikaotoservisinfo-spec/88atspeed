@@ -9,6 +9,7 @@
     <title>88ATSPEED | 16 Sekmeli Analiz Platformu</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="css/theme.css?v=20260822a" rel="stylesheet">
+    <link href="css/gosterim-cell-styles.css?v=20260901a" rel="stylesheet">
     <style>
         .table-wrapper { padding: 0; }
         table { min-width: 5200px; }
@@ -160,6 +161,37 @@
         }
         .son-test-table.sontest-bas-table.sontest-renk-wide {
             min-width: 1200px !important;
+        }
+        .son-test-table.sontest-bas-table.sontest-gos-wide {
+            min-width: 3600px !important;
+        }
+        .son-test-table.sontest-bas-table th.col-gos-hdr {
+            background: #263238;
+            color: #eceff1;
+            font-size: 9px;
+            text-align: center;
+            min-width: 52px;
+            padding: 4px 3px;
+            line-height: 1.15;
+            white-space: nowrap;
+        }
+        .son-test-table.sontest-bas-table th.col-gos-hdr.col-gos-hdr-first {
+            border-left: 2px solid #546e7a;
+        }
+        .son-test-table.sontest-bas-table td.col-gos {
+            min-width: 52px;
+            max-width: 120px;
+            text-align: center;
+            font-size: 10px;
+            font-weight: 500;
+            padding: 4px 3px;
+            vertical-align: middle;
+            background: #fafafa;
+            white-space: nowrap;
+        }
+        .son-test-table.sontest-bas-table td.col-gos.col-gos-hdr-first,
+        .son-test-table.sontest-bas-table td.col-gos:first-of-type.col-gos {
+            border-left: 2px solid #90a4ae;
         }
         .son-test-table.sontest-bas-table .col-ptest-tahmin {
             min-width: 46px; max-width: 52px; text-align: center; font-weight: 700;
@@ -617,6 +649,8 @@
     <script src="js/astest-son-renk-tahmin.js?v=20260901c"></script>
     <script src="js/astest-son-gosterge1-tahmin.js?v=20260901a"></script>
     <script src="js/astest-son-ptest-tahmin.js?v=20260901a"></script>
+    <script src="js/gosterim-headers.js?v=20260901a"></script>
+    <script src="js/astest-son-gosterim-cols.js?v=20260901a"></script>
     <script>
         const RECENT_WINDOWS = FieldSizeStatsEngine.RECENT_WINDOWS;
 
@@ -1542,6 +1576,9 @@
             }
             if (calJobs.length) await Promise.all(calJobs);
             const extraTahminColCount = renkScenarioCols.length + ptestCols.length;
+            const gosColCount = typeof AtestSonGosterimCols !== 'undefined'
+                ? AtestSonGosterimCols.getColumnCount()
+                : 0;
             const programTarih = meta?.tarih || null;
             const hedefSehir = meta?.hipodrom || currentHipodrom || '';
             let html = '<div class="son-test-wrap">';
@@ -1550,7 +1587,8 @@
                 + 'Her sütun ilgili sekmedeki BAŞ+ ile aynı hesap (SON800-1 · Δ boost dahil). '
                 + '<strong>TAHMİN</strong> = 7 BAŞ+ · '
                 + '<strong>R2</strong> = Renk Puanlama · '
-                + '<strong>MTR/T9V/ASF/G1↕/G1⇄/GÖ/HYB</strong> = PUANLAMA TEST motorları. '
+                + '<strong>MTR/T9V/ASF/G1↕/G1⇄/GÖ/HYB</strong> = PUANLAMA TEST motorları · '
+                + '<strong>GÖSTERİM (SIRA=1)</strong> = gösterim sekmesi · en yeni geçmiş koşu satırı (tam renklendirme). '
                 + (ptestCalibrated ? '' : '<span style="color:#c62828"> Ek sütunlar için kayıt + bitiş gerekli.</span> ')
                 + 'Mor/turuncu/yeşil satır = TAHMİN skoruna göre top-4.</p>';
             for (let i = 0; i < races.length; i++) {
@@ -1572,7 +1610,8 @@
                 html += '<div class="race-header"><h3>🏁 ' + race.raceNo + '. KOŞU · '
                     + horses.length + ' at · ' + escapeHtml(header) + '</h3></div>';
                 html += '<div class="son-test-table-wrap son-test-renk-scenario-wrap">';
-                html += '<table class="son-test-table astest-table sontest-bas-table sontest-renk-wide">';
+                html += '<table class="son-test-table astest-table sontest-bas-table sontest-renk-wide'
+                    + (gosColCount ? ' sontest-gos-wide' : '') + '">';
                 html += '<thead><tr>';
                 html += '<th class="col-no">#</th>';
                 html += '<th class="col-name">AT İSMİ</th>';
@@ -1596,8 +1635,11 @@
                     html += '<th class="col-ptest-tahmin-hdr' + edge + '" title="' + escapeHtml(pc.title) + '">'
                         + escapeHtml(pc.label) + '</th>';
                 }
+                if (gosColCount && typeof AtestSonGosterimCols !== 'undefined') {
+                    html += AtestSonGosterimCols.renderHeaderCells(escapeHtml);
+                }
                 html += '</tr></thead><tbody>';
-                const totalCols = 4 + SON_TEST_BAS_SOURCES.length + extraTahminColCount;
+                const totalCols = 4 + SON_TEST_BAS_SOURCES.length + extraTahminColCount + gosColCount;
                 if (!horses.length) {
                     html += '<tr><td colspan="' + totalCols + '" class="col-name">At yok</td></tr>';
                 } else {
@@ -1609,6 +1651,9 @@
                     if (ptestCalibrated && typeof AtestSonPtestTahmin !== 'undefined') {
                         ptestByCol = AtestSonPtestTahmin.scoreRaceAll(race, meta, resolveHorseKosular);
                     }
+                    const gosByKey = gosColCount && typeof AtestSonGosterimCols !== 'undefined'
+                        ? AtestSonGosterimCols.buildSiraOneMap(race, meta, resolveHorseKosular)
+                        : new Map();
                     const horseRows = horses.map(function(h) {
                         const basBySource = {};
                         for (let si = 0; si < SON_TEST_BAS_SOURCES.length; si++) {
@@ -1669,6 +1714,11 @@
                             const pc = ptestCols[pi];
                             html += astestSonTestPtestCell(
                                 row.ptestTahmin?.[pc.id], ptestCalibrated, pi === 0 && !renkScenarioCols.length);
+                        }
+                        if (gosColCount && typeof AtestSonGosterimCols !== 'undefined') {
+                            const gk = astestHorseRankKey(h);
+                            html += AtestSonGosterimCols.renderRowCells(
+                                gk ? gosByKey.get(gk) : null, escapeHtml);
                         }
                         html += '</tr>';
                     }
