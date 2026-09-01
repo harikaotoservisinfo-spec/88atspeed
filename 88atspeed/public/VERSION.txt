@@ -1,4 +1,4 @@
-branch=cursor/istatistik-full-grids-c2e4
-commit=d4eae4d
-message=feat: T9V ton×çerçeve kombinasyon seçicileri (ayrı anlam)
+branch=cursor/kaydet-fetch-audit-b004
+commit=pending
+message=KAYDET: TJK yeniden çekme yok; GETİR: son 7 koşu tam detay
 deployed=

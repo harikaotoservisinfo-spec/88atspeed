@@ -597,10 +597,16 @@ app.get('/api/at-tum-veriler', async (req, res) => {
         page = await browserInstance.newPage();
         await page.setViewport({ width: 1920, height: 1080 });
         
+        const maxKosu = Number(req.query.maxKosu) || 7;
+        const fetchAllFieldSizes = req.query.allFieldSizes === '1';
+        const maxAllKosu = fetchAllFieldSizes
+            ? (Number(req.query.maxAllKosu) || 40)
+            : maxKosu;
+
         const result = await tjkScrape.fetchAtKosularFromPage(page, atId, adiParam, {
-            maxKosu: Number(req.query.maxKosu) || 7,
-            maxAllKosu: Number(req.query.maxAllKosu) || 7,
-            fetchAllFieldSizes: req.query.allFieldSizes === '1',
+            maxKosu,
+            maxAllKosu,
+            fetchAllFieldSizes,
             maxRetry: Number(req.query.retry) || 1
         });
         
