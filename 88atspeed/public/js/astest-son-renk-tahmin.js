@@ -1,7 +1,11 @@
 /**
- * SON TEST — Renk Puanlama Test motoru (25 benchmark senaryosu)
+ * SON TEST — Renk Puanlama Test (tek sütun: R2 · Top-50 · En iyi tek)
  */
 const AtestSonRenkTahmin = (function () {
+    /** Benchmark tablosu #2 — SON TEST'te gösterilen sütun */
+    const SON_TEST_COLUMN_INDEX = 2;
+    const SON_TEST_COLUMN_LABEL = 'R2';
+
     const DEFAULT_SCENARIO = {
         id: 'legacy',
         label: 'Mevcut · 7 sabit renk kuralı',
@@ -10,7 +14,7 @@ const AtestSonRenkTahmin = (function () {
 
     let calPromise = null;
     let allColorRowsCache = null;
-    /** @type {{ cfg: object, scoringOpts: object }[]|null} */
+    /** @type {{ index: number, cfg: object, scoringOpts: object }[]|null} */
     let scenarioCache = null;
 
     function buildBitisStatsFromEntries(entries) {
@@ -69,30 +73,34 @@ const AtestSonRenkTahmin = (function () {
         return scenarioCache;
     }
 
-    function getAllScenarios() {
-        if (scenarioCache?.length) {
-            return scenarioCache.map(function(s) { return Object.assign({ index: s.index }, s.cfg); });
+    function findScenarioItem(scenarioOrIndex) {
+        const cache = scenarioCache?.length ? scenarioCache : rebuildScenarioCache();
+        if (!cache.length) return null;
+        if (scenarioOrIndex == null) {
+            return cache.find(function(s) { return s.index === SON_TEST_COLUMN_INDEX; }) || cache[1] || cache[0];
         }
-        if (typeof GostergeScoringEngine !== 'undefined' && GostergeScoringEngine.generateColorBenchmarkConfigs) {
-            return GostergeScoringEngine.generateColorBenchmarkConfigs().map(function(cfg, idx) {
-                return Object.assign({ index: idx + 1 }, cfg);
-            });
+        if (typeof scenarioOrIndex === 'number') {
+            return cache.find(function(s) { return s.index === scenarioOrIndex; }) || null;
         }
-        return [Object.assign({ index: 1 }, DEFAULT_SCENARIO)];
+        const id = scenarioOrIndex.id;
+        if (id) return cache.find(function(s) { return s.cfg.id === id; }) || null;
+        return cache.find(function(s) { return s.index === SON_TEST_COLUMN_INDEX; }) || cache[0];
     }
 
-    /** Sütun meta — RENK + R2…R25 */
+    function getDisplayScenario() {
+        const item = findScenarioItem(SON_TEST_COLUMN_INDEX);
+        if (!item) return Object.assign({ index: SON_TEST_COLUMN_INDEX }, DEFAULT_SCENARIO);
+        return Object.assign({ index: item.index }, item.cfg);
+    }
+
     function getScenarioColumns() {
-        const scenarios = getAllScenarios();
-        return scenarios.map(function(cfg, idx) {
-            const n = idx + 1;
-            return {
-                index: n,
-                id: cfg.id,
-                shortLabel: n === 1 ? 'RENK' : ('R' + n),
-                title: '#' + n + ' · ' + (cfg.label || cfg.id)
-            };
-        });
+        const cfg = getDisplayScenario();
+        return [{
+            index: cfg.index,
+            id: cfg.id,
+            shortLabel: SON_TEST_COLUMN_LABEL,
+            title: '#' + cfg.index + ' · ' + (cfg.label || cfg.id)
+        }];
     }
 
     async function ensureCalibration() {
@@ -153,20 +161,12 @@ const AtestSonRenkTahmin = (function () {
         });
     }
 
-    /** Tek koşu — tek senaryo */
+    /** Tek koşu — R2 senaryosu; at anahtarı → tahmin */
     function scoreRace(race, meta, resolveKosular, scenario) {
-        const all = scoreRaceAllScenarios(race, meta, resolveKosular);
-        const cfg = scenario || DEFAULT_SCENARIO;
-        const sid = cfg.id || 'legacy';
-        return all[sid] || new Map();
-    }
-
-    /** Tek koşu — 25 senaryo; scenarioId → Map(horseKey → tahmin) */
-    function scoreRaceAllScenarios(race, meta, resolveKosular) {
-        const out = {};
+        const out = new Map();
         if (!GostergeScoringEngine?.isCalibrated?.()) return out;
-        const cache = scenarioCache?.length ? scenarioCache : rebuildScenarioCache();
-        if (!cache.length) return out;
+        const item = findScenarioItem(scenario);
+        if (!item) return out;
 
         const programTarih = meta?.tarih || null;
         const hedefSehir = meta?.hipodrom || '';
@@ -174,33 +174,29 @@ const AtestSonRenkTahmin = (function () {
         const pkg = IstatistikEngine.buildRaceIstatistikPackage(enriched, hedefSehir, programTarih);
         if (!pkg?.rows?.length) return out;
 
-        for (let si = 0; si < cache.length; si++) {
-            const item = cache[si];
-            const cfg = item.cfg;
-            GostergeScoringEngine.attachRaceTahminWithOptions(pkg, item.scoringOpts);
-            const map = new Map();
-            for (const row of pkg.rows) {
-                const key = horseKey(row);
-                if (key && row.tahmin) {
-                    map.set(key, cloneTahmin(row.tahmin, Object.assign({ index: item.index }, cfg)));
-                }
+        GostergeScoringEngine.attachRaceTahminWithOptions(pkg, item.scoringOpts);
+        const cfg = Object.assign({ index: item.index }, item.cfg);
+        for (const row of pkg.rows) {
+            const key = horseKey(row);
+            if (key && row.tahmin) {
+                out.set(key, cloneTahmin(row.tahmin, cfg));
             }
-            out[cfg.id] = map;
         }
         return out;
     }
 
     function getDefaultScenario() {
-        return Object.assign({ index: 1 }, DEFAULT_SCENARIO);
+        return getDisplayScenario();
     }
 
     return {
+        SON_TEST_COLUMN_INDEX,
+        SON_TEST_COLUMN_LABEL,
         DEFAULT_SCENARIO,
         ensureCalibration,
         scoreRace,
-        scoreRaceAllScenarios,
         getDefaultScenario,
-        getAllScenarios,
+        getDisplayScenario,
         getScenarioColumns,
         scoringOptionsFromScenario
     };
