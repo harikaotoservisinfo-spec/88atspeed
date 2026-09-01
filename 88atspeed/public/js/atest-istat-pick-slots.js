@@ -1,18 +1,27 @@
 /**
  * Test sekmeleri — HP+ sonrası 5 geçici istat sütunu (başlığa tıkla / tekrar tıkla boşalt).
+ * Seçim sekme genelinde geçerlidir — bir koşuda seçince tüm koşularda aynı alanlar dolar.
  */
 const AtestIstatPickSlots = (function () {
     const SLOT_COUNT = 5;
+    /** @type {Record<string, Array<{key:string,label:string}|null>>} */
     const slotState = Object.create(null);
+    /** @type {Record<string, {ctx: object, horses: object[]}>} */
     const raceCtx = Object.create(null);
 
     function emptySlots() {
         return [null, null, null, null, null];
     }
 
-    function getSlots(raceKey) {
-        if (!slotState[raceKey]) slotState[raceKey] = emptySlots();
-        return slotState[raceKey];
+    function getTabKeyFromEl(el) {
+        const wrap = el && el.closest ? el.closest('.son-test-wrap[data-pick-tab]') : null;
+        return wrap ? wrap.getAttribute('data-pick-tab') : null;
+    }
+
+    function getSlots(tabKey) {
+        if (!tabKey) return emptySlots();
+        if (!slotState[tabKey]) slotState[tabKey] = emptySlots();
+        return slotState[tabKey];
     }
 
     function registerRace(raceKey, ctx, horses) {
@@ -45,8 +54,8 @@ const AtestIstatPickSlots = (function () {
         return set;
     }
 
-    function togglePick(raceKey, pickKey, pickLabel) {
-        const slots = getSlots(raceKey);
+    function togglePick(tabKey, pickKey, pickLabel) {
+        const slots = getSlots(tabKey);
         const existing = findSlotIndex(slots, pickKey);
         if (existing >= 0) {
             slots[existing] = null;
@@ -58,15 +67,15 @@ const AtestIstatPickSlots = (function () {
         return slots;
     }
 
-    function appendSlotHeaders(rowspan, raceKey) {
+    function appendSlotHeaders(rowspan, tabKey) {
         const rs = rowspan > 1 ? (' rowspan="' + rowspan + '"') : '';
-        const slots = getSlots(raceKey);
+        const slots = getSlots(tabKey);
         let h = '';
         for (let i = 0; i < SLOT_COUNT; i++) {
             const label = slots[i]?.label || ('ALAN ' + (i + 1));
             const title = slots[i]
-                ? ('Seçili: ' + slots[i].label + ' — İstat başlığına tekrar tıklayın')
-                : ('Boş alan ' + (i + 1) + ' — sağdaki istat sütun başlığına tıklayın');
+                ? ('Seçili: ' + slots[i].label + ' — İstat başlığına tekrar tıklayın (tüm koşular)')
+                : ('Boş alan ' + (i + 1) + ' — istat başlığına tıklayın (tüm koşulara uygulanır)');
             h += '<th class="col-stat astest-pick-slot-hdr" data-slot="' + i + '"' + rs
                 + ' title="' + title.replace(/"/g, '&quot;') + '">'
                 + '<div class="astest-pick-slot-label">' + label + '</div></th>';
@@ -74,8 +83,8 @@ const AtestIstatPickSlots = (function () {
         return h;
     }
 
-    function renderSlotCells(horse, raceKey) {
-        const slots = getSlots(raceKey);
+    function renderSlotCells(horse, raceKey, tabKey) {
+        const slots = getSlots(tabKey);
         const rc = raceCtx[raceKey];
         let h = '';
         for (let i = 0; i < SLOT_COUNT; i++) {
@@ -99,10 +108,11 @@ const AtestIstatPickSlots = (function () {
     function refreshRaceTable(raceEl) {
         if (!raceEl) return;
         const raceKey = raceEl.getAttribute('data-race-key');
-        if (!raceKey) return;
+        const tabKey = getTabKeyFromEl(raceEl);
+        if (!raceKey || !tabKey) return;
         const rc = raceCtx[raceKey];
         if (!rc) return;
-        const slots = getSlots(raceKey);
+        const slots = getSlots(tabKey);
         const active = activePickKeys(slots);
 
         raceEl.querySelectorAll('.astest-pick-slot-hdr[data-slot]').forEach(function(th) {
@@ -111,8 +121,8 @@ const AtestIstatPickSlots = (function () {
             const labelEl = th.querySelector('.astest-pick-slot-label');
             if (labelEl) labelEl.textContent = slot?.label || ('ALAN ' + (idx + 1));
             th.title = slot
-                ? ('Seçili: ' + slot.label + ' — İstat başlığına tekrar tıklayın')
-                : ('Boş alan ' + (idx + 1) + ' — sağdaki istat sütun başlığına tıklayın');
+                ? ('Seçili: ' + slot.label + ' — İstat başlığına tekrar tıklayın (tüm koşular)')
+                : ('Boş alan ' + (idx + 1) + ' — istat başlığına tıklayın (tüm koşulara uygulanır)');
         });
 
         const rows = raceEl.querySelectorAll('tbody tr');
@@ -143,18 +153,23 @@ const AtestIstatPickSlots = (function () {
         });
     }
 
+    function refreshTab(tabKey) {
+        if (!tabKey) return;
+        document.querySelectorAll('.son-test-wrap[data-pick-tab="' + tabKey + '"] .son-test-race[data-race-key]')
+            .forEach(refreshRaceTable);
+    }
+
     function onHeaderClick(ev) {
         const th = ev.target.closest('th[data-istat-pick-key]');
         if (!th) return;
-        const raceEl = th.closest('.son-test-race[data-race-key]');
-        if (!raceEl) return;
+        const tabKey = getTabKeyFromEl(th);
+        if (!tabKey) return;
         ev.preventDefault();
         ev.stopPropagation();
-        const raceKey = raceEl.getAttribute('data-race-key');
         const pickKey = th.getAttribute('data-istat-pick-key');
         const pickLabel = th.getAttribute('data-istat-pick-label') || pickKey;
-        togglePick(raceKey, pickKey, pickLabel);
-        refreshRaceTable(raceEl);
+        togglePick(tabKey, pickKey, pickLabel);
+        refreshTab(tabKey);
     }
 
     let bound = false;
@@ -167,11 +182,13 @@ const AtestIstatPickSlots = (function () {
     return {
         SLOT_COUNT,
         getSlots,
+        getTabKeyFromEl,
         registerRace,
         togglePick,
         appendSlotHeaders,
         renderSlotCells,
         refreshRaceTable,
+        refreshTab,
         initDelegation,
         activePickKeys
     };

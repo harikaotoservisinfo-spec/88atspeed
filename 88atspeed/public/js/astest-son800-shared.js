@@ -4,8 +4,9 @@
 const AtestSon800Shared = (function () {
     const NOTE = ' <strong>İstatistikler</strong> derinlik grupları (SON800-1/2, ORAN, TEST, ek metrikler, başarı oranları)'
         + ' bu sekmede — İstatistikler sayfasıyla aynı hesap, AĞ. ORT. sütunları hariç.'
-        + ' <strong>ALAN 1–5</strong> (düzeltilmiş skor sütunu sonrası): sağdaki istat sütun başlığına tıklayınca'
-        + ' ilk boş alana geçici kopyalanır; aynı başlığa tekrar tıklayınca alan boşalır.'
+        + ' <strong>ALAN 1–5</strong> (düzeltilmiş skor sütunu sonrası): sağdaki istat başlığına tıklayınca'
+        + ' ilk boş alana geçici kopyalanır (sekmedeki <strong>tüm koşulara</strong> uygulanır);'
+        + ' aynı başlığa tekrar tıklayınca alan boşalır.'
         + ' <strong>BAŞ+</strong> skoru SON800-1 · Δ (gapPct) ile güçlendirilir: SON derinlik en ağır,'
         + ' 5 ÖNCE en hafif; taban ~%10 (Δ=0 tam). SON·Δ=0 ek +%10.'
         + ' Δ=0 + kırmızı +5, mavi +3, yeşil/fosfor +15 (derinliğe göre).';
