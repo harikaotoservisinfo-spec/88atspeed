@@ -108,6 +108,25 @@
         .astest-table tbody tr.bas-pick-4 .col-name {
             background: #f3e5f5 !important;
         }
+        /* Sticky pin — opak arka plan (kaydırınca istat hücreleri alttan görünmesin) */
+        .dimtest-table.astest-table tbody td.col-hedef {
+            background-color: #e3f2fd !important;
+        }
+        .sehirtest-table.astest-table tbody td.col-hedef {
+            background-color: #e8f5e9 !important;
+        }
+        .fstest-table.astest-table tbody td.col-hedef {
+            background-color: #f3e5f5 !important;
+        }
+        .astest-table tbody td.col-stat-bas {
+            background: linear-gradient(135deg, #ede7f6, #e1bee7) !important;
+        }
+        .astest-table tbody tr:hover td.col-hedef {
+            filter: brightness(0.97);
+        }
+        .astest-table tbody tr:hover td.col-stat-bas {
+            filter: brightness(0.97);
+        }
         .son-test-table .col-no {
             width: 52px; text-align: center; font-weight: 800;
             color: #7b1fa2; background: #fafafa;
@@ -229,12 +248,24 @@
             color: #4a148c !important;
             font-weight: 900;
         }
-        .astest-table tbody tr[class*="bas-pick-"] > td.col-hedef,
         .astest-table tbody tr[class*="bas-pick-"] > td.col-stat-dim-match,
         .astest-table tbody tr[class*="bas-pick-"] > td.col-stat-sehir,
         .astest-table tbody tr[class*="bas-pick-"] > td.col-stat-fs-match {
             background: inherit !important;
             color: inherit;
+        }
+        /* bas-pick satırında HEDEF — sekme rengi opak kalsın (sticky kaydırmada) */
+        .dimtest-table.astest-table tbody tr[class*="bas-pick-"] > td.col-hedef {
+            background-color: #e3f2fd !important;
+            color: #1565c0 !important;
+        }
+        .sehirtest-table.astest-table tbody tr[class*="bas-pick-"] > td.col-hedef {
+            background-color: #e8f5e9 !important;
+            color: #2e7d32 !important;
+        }
+        .fstest-table.astest-table tbody tr[class*="bas-pick-"] > td.col-hedef {
+            background-color: #f3e5f5 !important;
+            color: #6a1b9a !important;
         }
         .astest-table tbody tr[class*="bas-pick-"] > td.col-stat-gen,
         .astest-table tbody tr[class*="bas-pick-"] > td.col-stat-gen-adj {
