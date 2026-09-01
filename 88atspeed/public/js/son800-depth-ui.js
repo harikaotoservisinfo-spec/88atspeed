@@ -48,10 +48,13 @@ const Son800DepthUi = (function () {
         return d + ' ÖNCE';
     }
 
-    function son8001Colspan(maxDepth) {
+    function fiveStripColspan(maxDepth) {
         const d = maxDepth || 0;
-        if (!d) return 0;
-        return d * METRIC_STRIPS.length;
+        return d ? d * METRIC_STRIPS.length : 0;
+    }
+
+    function son8001Colspan(maxDepth) {
+        return fiveStripColspan(maxDepth);
     }
 
     function headerRowspan() {
@@ -219,31 +222,35 @@ const Son800DepthUi = (function () {
         }
     }
 
-    function stripTdClasses(strip, depthIndex, maxDepth, gapHi) {
-        let cls = GRP + ' ' + strip.tdClass;
+    function stripTdClasses(strip, depthIndex, maxDepth, gapHi, grpClass, edge) {
+        edge = edge || {};
+        let cls = grpClass + ' ' + strip.tdClass;
         if (depthIndex === 0) cls += ' istat-son800-strip-start';
         if (depthIndex === maxDepth - 1) cls += ' istat-son800-strip-end';
-        if (strip.id === 'son' && depthIndex === 0) cls += ' istat-grp-start';
-        if (strip.id === 'bs' && depthIndex === maxDepth - 1) cls += ' istat-grp-end';
+        if (edge.grpStart && strip.id === 'son' && depthIndex === 0) cls += ' istat-grp-start';
+        if (edge.grpEnd && strip.id === 'bs' && depthIndex === maxDepth - 1) cls += ' istat-grp-end';
         if (strip.id === 'delta' && gapHi?.tdExtra) cls += gapHi.tdExtra;
         return cls;
     }
 
-    function renderRowCells(row, maxDepth, groupLabel) {
-        groupLabel = groupLabel || GROUP_LABEL;
-        if (!maxDepth) {
-            return '<td class="' + GRP + ' istat-son800-depth istat-grp-start istat-grp-end">'
-                + '<span class="istat-pct istat-pct-none">—</span></td>';
-        }
+    function renderFiveStripCells(row, maxDepth, opts) {
+        opts = opts || {};
+        const grpClass = opts.grpClass || GRP;
+        const depthsKey = opts.depthsKey || 'son8001Depths';
+        const groupLabel = opts.groupLabel || GROUP_LABEL;
+        const twinZeroGap = opts.twinZeroGap !== false && groupLabel === 'SON800-1';
+        const edge = { grpStart: !!opts.grpStart, grpEnd: !!opts.grpEnd };
+        if (!maxDepth) return '';
         let h = '';
-        const depths = row?.son8001Depths || [];
+        const depths = row?.[depthsKey] || [];
         for (let si = 0; si < METRIC_STRIPS.length; si++) {
             const strip = METRIC_STRIPS[si];
             for (let d = 0; d < maxDepth; d++) {
                 const cell = depths[d] || null;
                 const dl = depthLabel(d);
-                const gapHi = strip.id === 'delta' ? gapHighlight(row, d, cell) : null;
-                const cls = stripTdClasses(strip, d, maxDepth, gapHi);
+                const gapHi = (strip.id === 'delta' && twinZeroGap)
+                    ? gapHighlight(row, d, cell) : null;
+                const cls = stripTdClasses(strip, d, maxDepth, gapHi, grpClass, edge);
                 const inner = formatStripCell(strip.id, cell, row, d, groupLabel, dl);
                 h += '<td class="' + depthTdClass(cls, cell) + '">'
                     + wrapDepthCellInner(inner, cell) + '</td>';
@@ -252,43 +259,137 @@ const Son800DepthUi = (function () {
         return h;
     }
 
-    function appendMetricGroupHeaderRow(maxDepth) {
+    function appendFiveStripMetricRow(maxDepth, opts) {
+        opts = opts || {};
+        const grpClass = opts.grpClass || GRP;
+        const edge = { grpStart: !!opts.grpStart, grpEnd: !!opts.grpEnd };
         let h = '';
         for (let si = 0; si < METRIC_STRIPS.length; si++) {
             const strip = METRIC_STRIPS[si];
-            let cls = 'istat-th-metric istat-son800-metric-hdr ' + GRP + ' ' + strip.thClass;
-            if (si === 0) cls += ' istat-grp-start';
-            if (si === METRIC_STRIPS.length - 1) cls += ' istat-grp-end';
+            let cls = 'istat-th-metric istat-son800-metric-hdr ' + grpClass + ' ' + strip.thClass;
+            if (edge.grpStart && si === 0) cls += ' istat-grp-start';
+            if (edge.grpEnd && si === METRIC_STRIPS.length - 1) cls += ' istat-grp-end';
             h += '<th colspan="' + maxDepth + '" class="' + cls + '">'
                 + '<div class="istat-col-label istat-son800-metric-label">' + strip.label + '</div></th>';
         }
         return h;
     }
 
-    function appendSubHeaderCells(maxDepth) {
+    function appendFiveStripDepthRow(maxDepth, opts) {
+        opts = opts || {};
+        const grpClass = opts.grpClass || GRP;
+        const edge = { grpStart: !!opts.grpStart, grpEnd: !!opts.grpEnd };
         let h = '';
         for (let si = 0; si < METRIC_STRIPS.length; si++) {
             const strip = METRIC_STRIPS[si];
             for (let d = 0; d < maxDepth; d++) {
                 const dl = depthLabel(d);
-                let cls = 'istat-th-metric istat-th-son800-depth ' + GRP + ' ' + strip.thClass;
+                let cls = 'istat-th-metric istat-th-son800-depth ' + grpClass + ' ' + strip.thClass;
                 if (d === 0) cls += ' istat-son800-strip-start';
                 if (d === maxDepth - 1) cls += ' istat-son800-strip-end';
-                if (si === 0 && d === 0) cls += ' istat-grp-start';
-                if (si === METRIC_STRIPS.length - 1 && d === maxDepth - 1) cls += ' istat-grp-end';
+                if (edge.grpStart && si === 0 && d === 0) cls += ' istat-grp-start';
+                if (edge.grpEnd && si === METRIC_STRIPS.length - 1 && d === maxDepth - 1) cls += ' istat-grp-end';
                 h += '<th class="' + cls + '"><div class="istat-col-label">' + dl + '</div></th>';
             }
         }
         return h;
     }
 
-    function groupHeaderColspan(maxDepth) {
-        const n = son8001Colspan(maxDepth);
+    function appendFiveStripGroupHeader(maxDepth, opts) {
+        opts = opts || {};
+        const n = fiveStripColspan(maxDepth);
         if (!n) return '';
-        return '<th colspan="' + n + '" class="istat-th-grp ' + GRP + ' istat-grp-start istat-grp-end">'
+        const grpClass = opts.grpClass || GRP;
+        let cls = 'istat-th-grp ' + grpClass + ' istat-grp-start';
+        if (opts.grpEnd) cls += ' istat-grp-end';
+        return '<th colspan="' + n + '" class="' + cls + '">'
             + '<div class="istat-grp-head">'
-            + '<div class="istat-grp-label">SON800-1<small>Derinlik bazlı rakip kıyası</small></div>'
+            + '<div class="istat-grp-label">' + (opts.label || 'SON800-1')
+            + '<small>' + (opts.subtitle || 'Derinlik bazlı rakip kıyası') + '</small></div>'
             + '</div></th>';
+    }
+
+    function formatGenericPctCell(cell, label, dl) {
+        if (!cell || cell.pct === null) {
+            return '<span class="istat-pct istat-pct-none">—</span>';
+        }
+        let title = label + ' · ' + dl;
+        if (cell.tarih) title += ' (' + cell.tarih + ')';
+        if (cell.comparedCount) title += ' | ' + cell.comparedCount + ' at kıyası';
+        title += ' → %' + cell.pct;
+        if (cell.isBest) title += ' (en iyi)';
+        return '<span class="istat-pct ' + pctClass(cell.pct) + '" title="'
+            + title.replace(/"/g, '&quot;') + '">%' + cell.pct + '</span>';
+    }
+
+    function renderSinglePctCells(row, maxDepth, opts) {
+        opts = opts || {};
+        const grpClass = opts.grpClass || GRP;
+        const depthsKey = opts.depthsKey;
+        const label = opts.label || '';
+        if (!maxDepth) return '';
+        let h = '';
+        const depths = row?.[depthsKey] || [];
+        for (let d = 0; d < maxDepth; d++) {
+            const cell = depths[d] || null;
+            const dl = depthLabel(d);
+            let cls = grpClass + ' istat-son800-depth';
+            if (opts.grpStart && d === 0) cls += ' istat-grp-start';
+            if (opts.grpEnd && d === maxDepth - 1) cls += ' istat-grp-end';
+            const inner = opts.formatCell
+                ? opts.formatCell(cell, dl, row)
+                : formatGenericPctCell(cell, label, dl);
+            h += '<td class="' + depthTdClass(cls, cell) + '">'
+                + wrapDepthCellInner(inner, cell) + '</td>';
+        }
+        return h;
+    }
+
+    function appendSinglePctDepthRow(maxDepth, opts) {
+        opts = opts || {};
+        const grpClass = opts.grpClass || GRP;
+        let h = '';
+        for (let d = 0; d < maxDepth; d++) {
+            const dl = depthLabel(d);
+            let cls = 'istat-th-metric istat-th-son800-depth ' + grpClass;
+            if (opts.grpStart && d === 0) cls += ' istat-grp-start';
+            if (opts.grpEnd && d === maxDepth - 1) cls += ' istat-grp-end';
+            const rs = opts.rowspan > 1 ? (' rowspan="' + opts.rowspan + '"') : '';
+            h += '<th class="' + cls + '"' + rs + '><div class="istat-col-label">' + dl + '</div></th>';
+        }
+        return h;
+    }
+
+    function renderRowCells(row, maxDepth, groupLabel) {
+        if (!maxDepth) {
+            return '<td class="' + GRP + ' istat-son800-depth istat-grp-start istat-grp-end">'
+                + '<span class="istat-pct istat-pct-none">—</span></td>';
+        }
+        return renderFiveStripCells(row, maxDepth, {
+            grpClass: GRP,
+            depthsKey: 'son8001Depths',
+            groupLabel: groupLabel || GROUP_LABEL,
+            grpStart: true,
+            grpEnd: true,
+            twinZeroGap: true
+        });
+    }
+
+    function appendMetricGroupHeaderRow(maxDepth) {
+        return appendFiveStripMetricRow(maxDepth, { grpClass: GRP, grpStart: true, grpEnd: true });
+    }
+
+    function appendSubHeaderCells(maxDepth) {
+        return appendFiveStripDepthRow(maxDepth, { grpClass: GRP, grpStart: true, grpEnd: true });
+    }
+
+    function groupHeaderColspan(maxDepth) {
+        return appendFiveStripGroupHeader(maxDepth, {
+            grpClass: GRP,
+            label: 'SON800-1',
+            subtitle: 'Derinlik bazlı rakip kıyası',
+            grpEnd: true
+        });
     }
 
     return {
@@ -296,12 +397,23 @@ const Son800DepthUi = (function () {
         METRIC_STRIPS,
         pctClass,
         depthLabel,
+        fiveStripColspan,
         son8001Colspan,
         headerRowspan,
         renderRowCells,
+        renderFiveStripCells,
+        renderSinglePctCells,
         appendMetricGroupHeaderRow,
         appendSubHeaderCells,
-        groupHeaderColspan
+        appendFiveStripMetricRow,
+        appendFiveStripDepthRow,
+        appendFiveStripGroupHeader,
+        appendSinglePctDepthRow,
+        formatGenericPctCell,
+        groupHeaderColspan,
+        depthTdClass,
+        wrapDepthCellInner,
+        gosterimTdExtraClasses
     };
 })();
 

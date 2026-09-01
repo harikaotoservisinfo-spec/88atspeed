@@ -1,8 +1,9 @@
 /**
- * Test sekmeleri — SON800-1 derinlik paketi + BAŞ+ Δ boost ortak yardımcılar
+ * Test sekmeleri — İstatistikler derinlik paketi + BAŞ+ Δ boost ortak yardımcılar
  */
 const AtestSon800Shared = (function () {
-    const NOTE = ' <strong>SON800-1</strong> (SON/Eİ/İÇ/Δ/BS × derinlik) bu sekmede.'
+    const NOTE = ' <strong>İstatistikler</strong> derinlik grupları (SON800-1/2, ORAN, TEST, ek metrikler, başarı oranları)'
+        + ' bu sekmede — İstatistikler sayfasıyla aynı hesap, AĞ. ORT. sütunları hariç.'
         + ' <strong>BAŞ+</strong> skoru SON800-1 · Δ (gapPct) ile güçlendirilir: SON derinlik en ağır,'
         + ' 5 ÖNCE en hafif; taban ~%10 (Δ=0 tam). SON·Δ=0 ek +%10.'
         + ' Δ=0 + kırmızı +5, mavi +3, yeşil/fosfor +15 (derinliğe göre).';
@@ -10,11 +11,14 @@ const AtestSon800Shared = (function () {
     function canUse() {
         return typeof IstatistikEngine !== 'undefined'
             && typeof Son800DepthUi !== 'undefined'
+            && typeof AtestIstatDepthUi !== 'undefined'
             && typeof SikletBasDeltaBoost !== 'undefined';
     }
 
     function buildRaceContext(race, horses, hedefSehir, programTarih) {
-        if (!canUse()) return { istatRowByKey: new Map(), maxD1: 0 };
+        if (!canUse()) {
+            return { istatRowByKey: new Map(), maxD1: 0, pkg: null, hedefSehir: hedefSehir || '' };
+        }
         const raceForIstat = Object.assign({}, race, {
             horses: horses.map(h => Object.assign({}, h, {
                 kosular: (typeof veriCache !== 'undefined' && h.atId != null
@@ -32,7 +36,7 @@ const AtestSon800Shared = (function () {
             istatRowByKey.set(String(row.no), row);
             if (row.atId != null) istatRowByKey.set(String(row.atId), row);
         }
-        return { istatRowByKey, maxD1 };
+        return { pkg, istatRowByKey, maxD1, hedefSehir: hedefSehir || '' };
     }
 
     function getIstatRow(horse, ctx) {
@@ -47,39 +51,48 @@ const AtestSon800Shared = (function () {
         return SikletBasDeltaBoost.applyToStats(st, getIstatRow(horse, ctx), ctx.maxD1);
     }
 
-    function son800Colspan(maxD1) {
-        return maxD1 > 0 ? Son800DepthUi.son8001Colspan(maxD1) : 0;
+    function hasIstatColumns(ctx) {
+        return !!(ctx?.pkg && AtestIstatDepthUi.hasColumns(ctx.pkg));
     }
 
-    function headerRowspan(maxD1) {
-        return maxD1 > 0 ? Son800DepthUi.headerRowspan() : 1;
+    function son800Colspan(ctx) {
+        if (!ctx?.pkg) return 0;
+        return AtestIstatDepthUi.totalColspan(ctx.pkg);
     }
 
-    function appendThRowspan(maxD1) {
-        return maxD1 > 0 ? (' rowspan="' + Son800DepthUi.headerRowspan() + '"') : '';
+    function headerRowspan(ctx) {
+        if (!hasIstatColumns(ctx)) return 1;
+        return AtestIstatDepthUi.headerRowspan(ctx.pkg);
     }
 
-    function appendGroupHeaderHtml(maxD1) {
-        return maxD1 > 0 ? Son800DepthUi.groupHeaderColspan(maxD1) : '';
+    function appendThRowspan(ctx) {
+        const rs = headerRowspan(ctx);
+        return rs > 1 ? (' rowspan="' + rs + '"') : '';
     }
 
-    function appendMetricHeaderRows(maxD1) {
-        if (!maxD1) return '';
-        return '<tr>' + Son800DepthUi.appendMetricGroupHeaderRow(maxD1) + '</tr>'
-            + '<tr>' + Son800DepthUi.appendSubHeaderCells(maxD1) + '</tr>';
+    function appendGroupHeaderHtml(ctx) {
+        if (!hasIstatColumns(ctx)) return '';
+        return AtestIstatDepthUi.appendGroupHeaderHtml(ctx.pkg);
+    }
+
+    function appendMetricHeaderRows(ctx) {
+        if (!hasIstatColumns(ctx)) return '';
+        return AtestIstatDepthUi.appendMetricHeaderRows(ctx.pkg);
     }
 
     function renderRowCells(horse, ctx) {
-        if (!ctx?.maxD1) return '';
-        return Son800DepthUi.renderRowCells(getIstatRow(horse, ctx), ctx.maxD1, 'SON800-1');
+        if (!hasIstatColumns(ctx)) return '';
+        const row = getIstatRow(horse, ctx);
+        return AtestIstatDepthUi.renderAllCells(row, ctx.pkg, ctx);
     }
 
-    function tableExtraClass(maxD1) {
-        return maxD1 > 0 ? ' siklet-son800-table' : '';
+    function tableExtraClass(ctx) {
+        return hasIstatColumns(ctx) ? ' astest-istat-table siklet-son800-table' : '';
     }
 
-    function raceHeaderSuffix(maxD1) {
-        return maxD1 > 0 ? (' · SON800-1 derinlik: ' + maxD1) : '';
+    function raceHeaderSuffix(ctx) {
+        if (!hasIstatColumns(ctx)) return '';
+        return AtestIstatDepthUi.raceHeaderSuffix(ctx.pkg);
     }
 
     return {
@@ -88,6 +101,7 @@ const AtestSon800Shared = (function () {
         buildRaceContext,
         getIstatRow,
         applyBasDeltaBoost,
+        hasIstatColumns,
         son800Colspan,
         headerRowspan,
         appendThRowspan,
