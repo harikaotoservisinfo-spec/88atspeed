@@ -6,6 +6,9 @@ const AtestSonGosterimCols = (function () {
     const TEST9_YANIP_TAHMIN_BONUS = 45;
     const FARK8002_YANIP_TAHMIN_BONUS = 5;
     const TEST123_KIRMIZI_TAHMIN_BONUS = 25;
+    const TEST1_GREEN_SINGLE_BONUS = 15;
+    const TEST1_GREEN_MULTI_BASE = 15;
+    const TEST1_GREEN_MULTI_STEP = 3;
 
     function horseKey(h) {
         if (h?.atId != null && h.atId !== '') return String(h.atId);
@@ -128,6 +131,64 @@ const AtestSonGosterimCols = (function () {
         return true;
     }
 
+    /** TEST1 hücresi yeşil eşleşme (eslesme-yesil) */
+    function isTest1GreenCell(gosRow) {
+        if (!gosRow?.classes || typeof GosterimEngine === 'undefined') return false;
+        const cellClass = GosterimEngine.getCellClass(GosterimEngine.COL.TEST1, gosRow.classes);
+        return !!(cellClass && /\beslesme-yesil\b/.test(cellClass));
+    }
+
+    function test1SortKey(gosRow) {
+        if (!gosRow?.values || typeof GosterimEngine === 'undefined') return null;
+        const raw = gosRow.values[GosterimEngine.COL.TEST1];
+        if (!raw || raw === '-') return null;
+        if (typeof AtSpeedUtils !== 'undefined' && AtSpeedUtils.dereceToSalise) {
+            return AtSpeedUtils.dereceToSalise(raw);
+        }
+        return null;
+    }
+
+    /**
+     * Aynı koşuda TEST1 yeşil hücre sayısına göre TAHMİN ödülü.
+     * 1 at → +%15 · 2+ at → TEST1 değeri (en iyi süre) sırasıyla 15, 12, 9…
+     */
+    function computeTest1GreenBonuses(horseRows, gosByKey) {
+        const out = new Map();
+        const green = [];
+        for (let i = 0; i < horseRows.length; i++) {
+            const key = horseKey(horseRows[i].h);
+            if (!key) continue;
+            const gos = gosByKey.get(key);
+            if (!gos || !isTest1GreenCell(gos)) continue;
+            green.push({
+                key: key,
+                salise: test1SortKey(gos),
+                display: gos.values[GosterimEngine.COL.TEST1]
+            });
+        }
+        if (green.length === 1) {
+            out.set(green[0].key, {
+                bonus: TEST1_GREEN_SINGLE_BONUS,
+                label: 'TEST1 yeşil (tek at)'
+            });
+        } else if (green.length >= 2) {
+            green.sort(function(a, b) {
+                if (a.salise == null && b.salise == null) return 0;
+                if (a.salise == null) return 1;
+                if (b.salise == null) return -1;
+                return a.salise - b.salise;
+            });
+            for (let r = 0; r < green.length; r++) {
+                const bonus = Math.max(0, TEST1_GREEN_MULTI_BASE - r * TEST1_GREEN_MULTI_STEP);
+                out.set(green[r].key, {
+                    bonus: bonus,
+                    label: 'TEST1 yeşil #' + (r + 1) + ' · ' + (green[r].display || '?')
+                });
+            }
+        }
+        return out;
+    }
+
     /** GÖSTERİM SIRA=1 satırında yanıp sönen hücre bayrakları */
     function gosterimBlinkFlags(gosRow) {
         if (!gosRow?.classes) {
@@ -143,10 +204,13 @@ const AtestSonGosterimCols = (function () {
 
     /**
      * TEST9 yanıp → +%45 · 8002-8001 yanıp → +%5 · TEST1/2/3 kırmızı → +%25
+     * TEST1 yeşil: koşuda 1 at +%15 · 2+ at TEST1 süresine göre 15/12/9…
      * pct %100 üstüne çıkabilir; sıra güncellenir.
      */
     function applyTahminBonuses(horseRows, gosByKey) {
         if (!horseRows?.length || !gosByKey?.size) return horseRows;
+
+        const test1GreenBonuses = computeTest1GreenBonuses(horseRows, gosByKey);
 
         for (let i = 0; i < horseRows.length; i++) {
             const row = horseRows[i];
@@ -183,6 +247,15 @@ const AtestSonGosterimCols = (function () {
                 bonusTerms.push({
                     label: 'TEST1/2/3 kırmızı',
                     points: TEST123_KIRMIZI_TAHMIN_BONUS,
+                    source: 'gosterim'
+                });
+            }
+            const t1Green = test1GreenBonuses.get(key);
+            if (t1Green && t1Green.bonus > 0) {
+                bonus += t1Green.bonus;
+                bonusTerms.push({
+                    label: t1Green.label,
+                    points: t1Green.bonus,
                     source: 'gosterim'
                 });
             }
@@ -224,6 +297,8 @@ const AtestSonGosterimCols = (function () {
         },
         buildSiraOneMap,
         allTest123Kirmizi,
+        isTest1GreenCell,
+        computeTest1GreenBonuses,
         gosterimBlinkFlags,
         applyTahminBonuses,
         noCellClassList,
@@ -232,7 +307,10 @@ const AtestSonGosterimCols = (function () {
         renderRowCells,
         TEST9_YANIP_TAHMIN_BONUS,
         FARK8002_YANIP_TAHMIN_BONUS,
-        TEST123_KIRMIZI_TAHMIN_BONUS
+        TEST123_KIRMIZI_TAHMIN_BONUS,
+        TEST1_GREEN_SINGLE_BONUS,
+        TEST1_GREEN_MULTI_BASE,
+        TEST1_GREEN_MULTI_STEP
     };
 })();
 
