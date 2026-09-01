@@ -151,12 +151,18 @@ const AtestIstatDepthUi = (function () {
 
     function appendFixedSubHeaders(spec, isEnd) {
         const labels = PERIOD_LABELS;
+        const periods = ['ay3', 'ay1', 'gun15'];
         let h = '';
         for (let i = 0; i < labels.length; i++) {
-            let cls = 'istat-th-metric ' + spec.grpClass;
+            let cls = 'istat-th-metric istat-pick-hdr ' + spec.grpClass;
             if (i === 0) cls += ' istat-grp-start';
             if (i === labels.length - 1 && isEnd) cls += ' istat-grp-end';
-            h += '<th class="' + cls + '" rowspan="2"><div class="istat-col-label">' + labels[i] + '</div></th>';
+            const pickLabel = spec.label + ' · ' + labels[i];
+            const pickKey = 'su|' + spec.id + '|' + periods[i];
+            h += '<th class="' + cls + '" rowspan="2"'
+                + ' data-istat-pick-key="' + pickKey + '"'
+                + ' data-istat-pick-label="' + pickLabel.replace(/"/g, '&quot;') + '"'
+                + '><div class="istat-col-label">' + labels[i] + '</div></th>';
         }
         return h;
     }
@@ -178,23 +184,36 @@ const AtestIstatDepthUi = (function () {
                 row3 += UI.appendFiveStripDepthRow(spec.maxDepth, {
                     grpClass: spec.grpClass,
                     grpStart: true,
-                    grpEnd: isEnd
+                    grpEnd: isEnd,
+                    metricId: spec.id,
+                    groupLabel: spec.groupLabel
                 });
             } else if (spec.type === 'singlePct' || spec.type === 'extra') {
                 row2 += UI.appendSinglePctDepthRow(spec.maxDepth, {
                     grpClass: spec.grpClass,
                     grpStart: true,
                     grpEnd: isEnd,
-                    rowspan: plan.hasFiveStrip ? 2 : 1
+                    rowspan: plan.hasFiveStrip ? 2 : 1,
+                    pickType: spec.type === 'extra' ? 'ex' : 'sp',
+                    metricId: spec.id,
+                    label: spec.label
                 });
             } else if (spec.type === 'testOzet') {
-                const cols = ['TEST1', 'TEST2', 'TEST3'];
+                const cols = [
+                    { id: 'test1', label: 'TEST1' },
+                    { id: 'test2', label: 'TEST2' },
+                    { id: 'test3', label: 'TEST3' }
+                ];
                 for (let c = 0; c < cols.length; c++) {
-                    let cls = 'istat-th-metric ' + spec.grpClass;
+                    let cls = 'istat-th-metric istat-pick-hdr ' + spec.grpClass;
                     if (c === 0) cls += ' istat-grp-start';
                     if (c === cols.length - 1 && isEnd) cls += ' istat-grp-end';
                     const rs = plan.hasFiveStrip ? ' rowspan="2"' : '';
-                    row2 += '<th class="' + cls + '"' + rs + '><div class="istat-col-label">' + cols[c] + '</div></th>';
+                    const pickLabel = 'TEST AĞ. ORT. · ' + cols[c].label;
+                    row2 += '<th class="' + cls + '"' + rs
+                        + ' data-istat-pick-key="to|' + cols[c].id + '"'
+                        + ' data-istat-pick-label="' + pickLabel.replace(/"/g, '&quot;') + '"'
+                        + '><div class="istat-col-label">' + cols[c].label + '</div></th>';
                 }
             } else if (spec.type === 'success') {
                 row2 += appendFixedSubHeaders(spec, isEnd);
@@ -373,6 +392,104 @@ const AtestIstatDepthUi = (function () {
         return h;
     }
 
+    function findSectionForPickKey(pkg, pickKey) {
+        const parts = (pickKey || '').split('|');
+        if (!parts.length) return null;
+        const plan = buildPlan(pkg);
+        const type = parts[0];
+        if (type === 'fs') {
+            return plan.sections.find(s => s.type === 'fiveStrip' && s.id === parts[1]) || null;
+        }
+        if (type === 'sp') {
+            return plan.sections.find(s => s.type === 'singlePct' && s.id === parts[1]) || null;
+        }
+        if (type === 'ex') {
+            return plan.sections.find(s => s.type === 'extra' && s.id === parts[1]) || null;
+        }
+        if (type === 'to') return plan.sections.find(s => s.type === 'testOzet') || null;
+        if (type === 'su') return plan.sections.find(s => s.type === 'success' && s.id === parts[1]) || null;
+        return null;
+    }
+
+    function renderSinglePctPickCell(row, spec, depthIndex) {
+        const depths = row?.[spec.depthsKey] || [];
+        const cell = depths[depthIndex] || null;
+        const dl = UI ? UI.depthLabel(depthIndex) : (depthIndex === 0 ? 'SON' : depthIndex + ' ÖNCE');
+        let cls = spec.grpClass + ' istat-son800-depth';
+        if (depthIndex === 0) cls += ' istat-grp-start';
+        if (depthIndex === spec.maxDepth - 1) cls += ' istat-grp-end';
+        let inner;
+        if (spec.type === 'singlePct') {
+            inner = formatDrKorelasyonCell(cell, dl, spec.label, spec.drLabel);
+        } else {
+            inner = UI.formatGenericPctCell(cell, spec.label, dl);
+        }
+        if (UI) {
+            return {
+                inner: UI.wrapDepthCellInner(inner, cell),
+                tdClass: UI.depthTdClass(cls, cell)
+            };
+        }
+        return { inner: inner, tdClass: cls };
+    }
+
+    function renderPickCell(row, pickKey, pkg, ctx) {
+        if (!pickKey || !row) {
+            return { inner: '<span class="istat-pick-empty">—</span>', tdClass: '' };
+        }
+        const parts = pickKey.split('|');
+        const spec = findSectionForPickKey(pkg, pickKey);
+        if (!spec || !UI) {
+            return { inner: '<span class="istat-pick-empty">—</span>', tdClass: '' };
+        }
+        const type = parts[0];
+        if (type === 'fs') {
+            const stripId = parts[2];
+            const depthIndex = parseInt(parts[3], 10);
+            return UI.renderSingleFiveStripCell(row, spec.maxDepth, {
+                grpClass: spec.grpClass,
+                depthsKey: spec.depthsKey,
+                groupLabel: spec.groupLabel,
+                grpStart: true,
+                grpEnd: false,
+                twinZeroGap: !!spec.twinZeroGap
+            }, stripId, depthIndex);
+        }
+        if (type === 'sp' || type === 'ex') {
+            const depthIndex = parseInt(parts[2], 10);
+            return renderSinglePctPickCell(row, spec, depthIndex);
+        }
+        if (type === 'to') {
+            const colId = parts[1];
+            const keyMap = { test1: 'test1OrtOzeti', test2: 'test2OrtOzeti', test3: 'test3OrtOzeti' };
+            const labelMap = { test1: 'TEST1', test2: 'TEST2', test3: 'TEST3' };
+            const inner = formatAgirlikliOrt(row[keyMap[colId]]?.agirlikli, labelMap[colId] || colId);
+            return { inner: inner, tdClass: 'istat-grp-testozet istat-son800-avg' };
+        }
+        if (type === 'su') {
+            const period = parts[2];
+            const donemNames = ['Son 3 ay', 'Son 1 ay', 'Son 15 gün'];
+            const periodIdx = ['ay3', 'ay1', 'gun15'].indexOf(period);
+            const hedefSehir = ctx?.hedefSehir || '';
+            const hedefMesafe = row.hedefMesafe;
+            let inner = '<span class="istat-pct istat-pct-none">—</span>';
+            if (spec.kind === 'donem') {
+                inner = formatDonemPctCell(row[period], donemNames[periodIdx] || period);
+            } else {
+                const stat = row[spec.keys[0]]?.[period];
+                if (spec.kind === 'genel') {
+                    inner = formatGenelIlkPctCell(stat, donemNames[periodIdx], spec.ilkNo);
+                } else if (spec.kind === 'sm') {
+                    inner = formatSmIlkPctCell(stat, donemNames[periodIdx], hedefSehir, hedefMesafe, spec.ilkNo);
+                } else if (spec.kind === 'mesafe') {
+                    inner = formatMesafeIlkPctCell(stat, donemNames[periodIdx], hedefMesafe, spec.ilkNo);
+                }
+            }
+            return { inner: inner, tdClass: spec.grpClass };
+        }
+        return { inner: '<span class="istat-pick-empty">—</span>', tdClass: '' };
+    }
+
     function raceHeaderSuffix(pkg) {
         if (!hasColumns(pkg)) return '';
         const parts = [];
@@ -391,6 +508,8 @@ const AtestIstatDepthUi = (function () {
         appendGroupHeaderHtml,
         appendMetricHeaderRows,
         renderAllCells,
+        renderPickCell,
+        findSectionForPickKey,
         raceHeaderSuffix,
         extraGrpClass
     };

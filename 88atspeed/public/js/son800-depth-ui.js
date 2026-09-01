@@ -275,21 +275,32 @@ const Son800DepthUi = (function () {
         return h;
     }
 
+    function pickKeyAttrs(metricId, stripId, depthIndex, pickLabel) {
+        if (!metricId) return '';
+        const key = 'fs|' + metricId + '|' + stripId + '|' + depthIndex;
+        const label = (pickLabel || key).replace(/"/g, '&quot;');
+        return ' data-istat-pick-key="' + key + '" data-istat-pick-label="' + label + '"';
+    }
+
     function appendFiveStripDepthRow(maxDepth, opts) {
         opts = opts || {};
         const grpClass = opts.grpClass || GRP;
         const edge = { grpStart: !!opts.grpStart, grpEnd: !!opts.grpEnd };
+        const metricId = opts.metricId || '';
+        const groupLabel = opts.groupLabel || GROUP_LABEL;
         let h = '';
         for (let si = 0; si < METRIC_STRIPS.length; si++) {
             const strip = METRIC_STRIPS[si];
             for (let d = 0; d < maxDepth; d++) {
                 const dl = depthLabel(d);
-                let cls = 'istat-th-metric istat-th-son800-depth ' + grpClass + ' ' + strip.thClass;
+                let cls = 'istat-th-metric istat-th-son800-depth istat-pick-hdr ' + grpClass + ' ' + strip.thClass;
                 if (d === 0) cls += ' istat-son800-strip-start';
                 if (d === maxDepth - 1) cls += ' istat-son800-strip-end';
                 if (edge.grpStart && si === 0 && d === 0) cls += ' istat-grp-start';
                 if (edge.grpEnd && si === METRIC_STRIPS.length - 1 && d === maxDepth - 1) cls += ' istat-grp-end';
-                h += '<th class="' + cls + '"><div class="istat-col-label">' + dl + '</div></th>';
+                const pickLabel = groupLabel + ' · ' + strip.label + ' · ' + dl;
+                h += '<th class="' + cls + '"' + pickKeyAttrs(metricId, strip.id, d, pickLabel)
+                    + '><div class="istat-col-label">' + dl + '</div></th>';
             }
         }
         return h;
@@ -345,19 +356,56 @@ const Son800DepthUi = (function () {
         return h;
     }
 
+    function singlePctPickKeyAttrs(typePrefix, metricId, depthIndex, pickLabel) {
+        if (!metricId) return '';
+        const prefix = typePrefix || 'sp';
+        const key = prefix + '|' + metricId + '|' + depthIndex;
+        const label = (pickLabel || key).replace(/"/g, '&quot;');
+        return ' data-istat-pick-key="' + key + '" data-istat-pick-label="' + label + '"';
+    }
+
     function appendSinglePctDepthRow(maxDepth, opts) {
         opts = opts || {};
         const grpClass = opts.grpClass || GRP;
+        const metricId = opts.metricId || '';
+        const pickType = opts.pickType || 'sp';
+        const label = opts.label || '';
         let h = '';
         for (let d = 0; d < maxDepth; d++) {
             const dl = depthLabel(d);
-            let cls = 'istat-th-metric istat-th-son800-depth ' + grpClass;
+            let cls = 'istat-th-metric istat-th-son800-depth istat-pick-hdr ' + grpClass;
             if (opts.grpStart && d === 0) cls += ' istat-grp-start';
             if (opts.grpEnd && d === maxDepth - 1) cls += ' istat-grp-end';
             const rs = opts.rowspan > 1 ? (' rowspan="' + opts.rowspan + '"') : '';
-            h += '<th class="' + cls + '"' + rs + '><div class="istat-col-label">' + dl + '</div></th>';
+            const pickLabel = label + ' · ' + dl;
+            h += '<th class="' + cls + '"' + rs + singlePctPickKeyAttrs(pickType, metricId, d, pickLabel)
+                + '><div class="istat-col-label">' + dl + '</div></th>';
         }
         return h;
+    }
+
+    function renderSingleFiveStripCell(row, maxDepth, opts, stripId, depthIndex) {
+        opts = opts || {};
+        const grpClass = opts.grpClass || GRP;
+        const depthsKey = opts.depthsKey || 'son8001Depths';
+        const groupLabel = opts.groupLabel || GROUP_LABEL;
+        const twinZeroGap = opts.twinZeroGap !== false && groupLabel === 'SON800-1';
+        const edge = { grpStart: !!opts.grpStart, grpEnd: !!opts.grpEnd };
+        if (!maxDepth || depthIndex < 0 || depthIndex >= maxDepth) {
+            return { inner: '<span class="istat-pct istat-pct-none">—</span>', tdClass: grpClass };
+        }
+        const strip = METRIC_STRIPS.find(s => s.id === stripId) || METRIC_STRIPS[0];
+        const depths = row?.[depthsKey] || [];
+        const cell = depths[depthIndex] || null;
+        const dl = depthLabel(depthIndex);
+        const gapHi = (strip.id === 'delta' && twinZeroGap)
+            ? gapHighlight(row, depthIndex, cell) : null;
+        const cls = stripTdClasses(strip, depthIndex, maxDepth, gapHi, grpClass, edge);
+        const inner = formatStripCell(strip.id, cell, row, depthIndex, groupLabel, dl);
+        return {
+            inner: wrapDepthCellInner(inner, cell),
+            tdClass: depthTdClass(cls, cell)
+        };
     }
 
     function renderRowCells(row, maxDepth, groupLabel) {
@@ -409,6 +457,9 @@ const Son800DepthUi = (function () {
         appendFiveStripDepthRow,
         appendFiveStripGroupHeader,
         appendSinglePctDepthRow,
+        renderSingleFiveStripCell,
+        singlePctPickKeyAttrs,
+        pickKeyAttrs,
         formatGenericPctCell,
         groupHeaderColspan,
         depthTdClass,

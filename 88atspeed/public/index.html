@@ -46,13 +46,14 @@
         .astest-table .col-hedef,
         .astest-table .col-stat-bas {
             position: sticky;
-            z-index: 6;
+            z-index: 10;
+            background-clip: padding-box;
         }
         .astest-table thead .col-no,
         .astest-table thead .col-name,
         .astest-table thead .col-hedef,
         .astest-table thead .col-stat-bas {
-            z-index: 18;
+            z-index: 20;
         }
         .astest-table .col-no {
             left: 0;
@@ -349,6 +350,36 @@
         .siklet-son800-table td.istat-son800-strip-end {
             border-right: 1px solid rgba(0, 105, 112, 0.2);
         }
+        /* HP+ sonrası geçici istat alanları (ALAN 1–5) */
+        .astest-pick-slot-hdr {
+            background: #fff8e1 !important;
+            color: #e65100;
+            min-width: 68px;
+            max-width: 108px;
+            font-size: 9px;
+            vertical-align: bottom;
+        }
+        .astest-pick-slot-label {
+            font-size: 9px;
+            line-height: 1.25;
+            max-width: 100px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .astest-pick-slot {
+            background: #fffde7;
+            text-align: center;
+            min-width: 58px;
+            font-size: 11px;
+        }
+        .son-test-table th.istat-pick-hdr { cursor: pointer; }
+        .son-test-table th.istat-pick-hdr:hover { outline: 2px solid #ff9800; outline-offset: -2px; }
+        .son-test-table th.istat-pick-hdr-active {
+            box-shadow: inset 0 0 0 2px #ff9800;
+            background: #ffe0b2 !important;
+        }
+        .istat-pick-empty { color: #bdbdbd; }
         .siklet-son800-table th.istat-th-self-depth,
         .siklet-son800-table td.istat-self-depth { background: rgba(255, 255, 255, 0.45); box-shadow: inset 1px 0 0 rgba(0, 0, 0, 0.06); }
         .siklet-son800-table tbody tr:hover td.istat-self-depth { background: rgba(255, 255, 255, 0.65); }
@@ -598,27 +629,48 @@
     <script src="js/istatistik-engine.js?v=20260831c"></script>
     <script src="js/istatistik-grids-extra.js?v=20260831e"></script>
     <script src="js/istatistik-gosterim-flags.js?v=20260831e"></script>
-    <script src="js/son800-depth-ui.js?v=20260901a"></script>
-    <script src="js/atest-istat-depth-ui.js?v=20260901a"></script>
+    <script src="js/son800-depth-ui.js?v=20260901b"></script>
+    <script src="js/atest-istat-depth-ui.js?v=20260901b"></script>
+    <script src="js/atest-istat-pick-slots.js?v=20260901b"></script>
     <script src="js/siklet-bas-delta-boost.js?v=20260831h"></script>
-    <script src="js/astest-son800-shared.js?v=20260901a"></script>
+    <script src="js/astest-son800-shared.js?v=20260901b"></script>
     <script src="js/field-size-stats-engine.js?v=20260831i"></script>
     <script src="js/sehir-stats-engine.js?v=20260831g"></script>
     <script src="js/kosu-dimension-stats-engine.js?v=20260831h"></script>
     <script>
         const RECENT_WINDOWS = FieldSizeStatsEngine.RECENT_WINDOWS;
 
+        function astestPickColCount(sonCtx) {
+            return (typeof AtestIstatPickSlots !== 'undefined'
+                && typeof AtestSon800Shared !== 'undefined'
+                && AtestSon800Shared.hasIstatColumns(sonCtx))
+                ? AtestIstatPickSlots.SLOT_COUNT : 0;
+        }
+
         function astestIstatMeta(sonCtx) {
             const on = typeof AtestSon800Shared !== 'undefined';
             const hasIstat = on && AtestSon800Shared.hasIstatColumns(sonCtx);
+            const pickCols = astestPickColCount(sonCtx);
+            const thRs = on ? AtestSon800Shared.appendThRowspan(sonCtx) : '';
             return {
                 hasIstat: hasIstat,
+                pickCols: pickCols,
                 istatCols: on ? AtestSon800Shared.son800Colspan(sonCtx) : 0,
-                thRs: on ? AtestSon800Shared.appendThRowspan(sonCtx) : '',
+                thRs: thRs,
                 tableClass: on ? AtestSon800Shared.tableExtraClass(sonCtx) : '',
                 headerSuffix: on ? AtestSon800Shared.raceHeaderSuffix(sonCtx) : '',
                 groupHeaders: hasIstat ? AtestSon800Shared.appendGroupHeaderHtml(sonCtx) : '',
                 metricHeaders: hasIstat ? AtestSon800Shared.appendMetricHeaderRows(sonCtx) : '',
+                pickHeaders: function(raceKey) {
+                    return pickCols ? AtestIstatPickSlots.appendSlotHeaders(
+                        on ? AtestSon800Shared.headerRowspan(sonCtx) : 1, raceKey) : '';
+                },
+                renderPickCells: function(horse, raceKey) {
+                    return pickCols ? AtestIstatPickSlots.renderSlotCells(horse, raceKey) : '';
+                },
+                registerRace: function(raceKey, horses) {
+                    if (pickCols) AtestIstatPickSlots.registerRace(raceKey, sonCtx, horses);
+                },
                 renderCells: function(horse) {
                     return hasIstat ? AtestSon800Shared.renderRowCells(horse, sonCtx) : '';
                 }
@@ -1479,8 +1531,9 @@
                     ? AtestSon800Shared.buildRaceContext(race, horses, hedefSehir, programTarih)
                     : { maxD1: 0 };
                 const istat = astestIstatMeta(sonCtx);
-                const totalCols = 18 + istat.istatCols;
-                html += '<div class="son-test-race race-card">';
+                const raceKey = 'atSayisi-' + race.raceNo;
+                const totalCols = 18 + istat.pickCols + istat.istatCols;
+                html += '<div class="son-test-race race-card" data-race-key="' + raceKey + '">';
                 html += '<div class="race-header"><h3>🏁 ' + race.raceNo + '. KOŞU · '
                     + horses.length + ' at · ' + escapeHtml(header)
                     + istat.headerSuffix
@@ -1503,6 +1556,7 @@
                     + escapeHtml(L.formLabel) + '</th>';
                 html += '<th class="col-stat col-stat-fs-match col-stat-fs-adj"' + istat.thRs + ' title="Düzeltilmiş alan skoru">'
                     + escapeHtml(L.adjLabel) + '</th>';
+                html += istat.pickHeaders(raceKey);
                 html += '<th class="col-stat col-stat-cnt"' + istat.thRs + ' title="Hedef alanda 1. olma adedi">1.</th>';
                 html += '<th class="col-stat col-stat-cnt"' + istat.thRs + ' title="Hedef alanda 2. olma adedi">1-2</th>';
                 html += '<th class="col-stat col-stat-cnt"' + istat.thRs + ' title="Hedef alanda 3. olma adedi">1-2-3</th>';
@@ -1532,6 +1586,7 @@
                         return { h: h, st: st };
                     });
                     const basRankMap = astestBasPickRankMap(horseRows);
+                    istat.registerRace(raceKey, horses);
                     for (let j = 0; j < horseRows.length; j++) {
                         const row = horseRows[j];
                         const h = row.h;
@@ -1547,6 +1602,7 @@
                             + FieldSizeStatsEngine.formatPct(st.matchPct) + '</td>';
                         html += astestAsFormCell(st);
                         html += astestAsAdjCell(st);
+                        html += istat.renderPickCells(h, raceKey);
                         html += '<td class="col-stat col-stat-cnt">' + st.cnt1 + '</td>';
                         html += '<td class="col-stat col-stat-cnt">' + (st.cnt2 ?? 0) + '</td>';
                         html += '<td class="col-stat col-stat-cnt">' + (st.cnt3 ?? 0) + '</td>';
@@ -1567,6 +1623,7 @@
             }
             html += '</div>';
             el.innerHTML = html;
+            if (typeof AtestIstatPickSlots !== 'undefined') AtestIstatPickSlots.initDelegation();
         }
 
         function sehirTestGoster(races, meta) {
@@ -1607,8 +1664,9 @@
                     ? AtestSon800Shared.buildRaceContext(race, horses, hedefSehir, programTarih)
                     : { maxD1: 0 };
                 const istat = astestIstatMeta(sonCtx);
-                const totalCols = 18 + istat.istatCols;
-                html += '<div class="son-test-race race-card">';
+                const raceKey = 'sehir-' + race.raceNo;
+                const totalCols = 18 + istat.pickCols + istat.istatCols;
+                html += '<div class="son-test-race race-card" data-race-key="' + raceKey + '">';
                 html += '<div class="race-header"><h3>🏁 ' + race.raceNo + '. KOŞU · '
                     + horses.length + ' at · ' + escapeHtml(header)
                     + istat.headerSuffix
@@ -1626,6 +1684,7 @@
                 html += '<th class="col-stat col-stat-sehir"' + istat.thRs + ' title="Hedef şehirde koşma oranı (TÜM KOŞU içinde)">ŞEH%</th>';
                 html += '<th class="col-stat col-stat-sehir col-stat-rise"' + istat.thRs + ' title="Son 5 koşuda hedef şehirde performans momentumu (%50=nötr, yüksek=son koşulara doğru iyileşme)">Ş-FORM</th>';
                 html += '<th class="col-stat col-stat-sehir col-stat-sehir-adj"' + istat.thRs + ' title="Düzeltilmiş şehir skoru: ŞEH% + form + son koşu şehri (+8/−10) + S5 derece">ŞEH+</th>';
+                html += istat.pickHeaders(raceKey);
                 html += '<th class="col-stat col-stat-cnt"' + istat.thRs + ' title="Hedef şehirde kaç kez 1. oldu">1.</th>';
                 html += '<th class="col-stat col-stat-cnt"' + istat.thRs + ' title="Hedef şehirde kaç kez 2. oldu">1-2</th>';
                 html += '<th class="col-stat col-stat-cnt"' + istat.thRs + ' title="Hedef şehirde kaç kez 3. oldu">1-2-3</th>';
@@ -1655,6 +1714,7 @@
                         return { h: h, st: st };
                     });
                     const basRankMap = astestBasPickRankMap(horseRows);
+                    istat.registerRace(raceKey, horses);
                     for (let j = 0; j < horseRows.length; j++) {
                         const row = horseRows[j];
                         const h = row.h;
@@ -1669,6 +1729,7 @@
                         html += '<td class="col-stat col-stat-sehir">' + SehirStatsEngine.formatPct(st.sehirPct) + '</td>';
                         html += astestSehirFormCell(st);
                         html += astestSehirAdjCell(st);
+                        html += istat.renderPickCells(h, raceKey);
                         html += '<td class="col-stat col-stat-cnt">' + st.cnt1 + '</td>';
                         html += '<td class="col-stat col-stat-cnt">' + (st.cnt2 ?? 0) + '</td>';
                         html += '<td class="col-stat col-stat-cnt">' + (st.cnt3 ?? 0) + '</td>';
@@ -1689,6 +1750,7 @@
             }
             html += '</div>';
             el.innerHTML = html;
+            if (typeof AtestIstatPickSlots !== 'undefined') AtestIstatPickSlots.initDelegation();
         }
 
         function dimensionTestGoster(races, meta, dimKey) {
@@ -1730,8 +1792,9 @@
                     ? AtestSon800Shared.buildRaceContext(race, horses, hedefSehir, programTarih)
                     : { maxD1: 0 };
                 const istat = astestIstatMeta(sonCtx);
-                const totalCols = 18 + istat.istatCols;
-                html += '<div class="son-test-race race-card">';
+                const raceKey = dimKey + '-' + race.raceNo;
+                const totalCols = 18 + istat.pickCols + istat.istatCols;
+                html += '<div class="son-test-race race-card" data-race-key="' + raceKey + '">';
                 html += '<div class="race-header"><h3>🏁 ' + race.raceNo + '. KOŞU · '
                     + horses.length + ' at · ' + escapeHtml(header)
                     + istat.headerSuffix
@@ -1756,6 +1819,7 @@
                 html += '<th class="col-stat col-stat-dim-match col-stat-dim-adj"' + istat.thRs
                     + ' title="Düzeltilmiş boyut skoru">'
                     + escapeHtml(dim.adjLabel) + '</th>';
+                html += istat.pickHeaders(raceKey);
                 html += '<th class="col-stat col-stat-cnt"' + istat.thRs + ' title="Hedef boyutta 1. olma adedi">1.</th>';
                 html += '<th class="col-stat col-stat-cnt"' + istat.thRs + ' title="Hedef boyutta 2. olma adedi">1-2</th>';
                 html += '<th class="col-stat col-stat-cnt"' + istat.thRs + ' title="Hedef boyutta 3. olma adedi">1-2-3</th>';
@@ -1790,6 +1854,7 @@
                         return { h: h, st: st, hedef: hedef };
                     });
                     const basRankMap = astestBasPickRankMap(horseRows);
+                    istat.registerRace(raceKey, horses);
                     for (let j = 0; j < horseRows.length; j++) {
                         const row = horseRows[j];
                         const h = row.h;
@@ -1807,6 +1872,7 @@
                             + KosuDimensionStatsEngine.formatPct(st.matchPct) + '</td>';
                         html += astestDimFormCell(st);
                         html += astestDimAdjCell(st);
+                        html += istat.renderPickCells(h, raceKey);
                         html += '<td class="col-stat col-stat-cnt">' + st.cnt1 + '</td>';
                         html += '<td class="col-stat col-stat-cnt">' + (st.cnt2 ?? 0) + '</td>';
                         html += '<td class="col-stat col-stat-cnt">' + (st.cnt3 ?? 0) + '</td>';
@@ -1827,6 +1893,7 @@
             }
             html += '</div>';
             el.innerHTML = html;
+            if (typeof AtestIstatPickSlots !== 'undefined') AtestIstatPickSlots.initDelegation();
         }
 
         async function sonTestListKayitlar(which) {
