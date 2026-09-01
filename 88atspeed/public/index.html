@@ -40,6 +40,25 @@
         }
         .son-test-table tbody tr:hover { background: #f3e5f5; }
         .son-test-table tbody tr:last-child td { border-bottom: none; }
+        .son-test-table.sontest-bas-table { min-width: 720px !important; }
+        .son-test-table.sontest-bas-table .son-test-bas-col {
+            min-width: 52px; text-align: center; font-weight: 800;
+            background: linear-gradient(135deg, #ede7f6, #e1bee7);
+            color: #4a148c; font-size: 12px;
+        }
+        .son-test-table.sontest-bas-table th.son-test-bas-hdr {
+            background: #d1c4e9; color: #4a148c; font-size: 10px;
+            text-align: center; min-width: 52px;
+        }
+        .son-test-table.sontest-bas-table th.son-test-bas-hdr-edge {
+            border-left: 2px solid #9575cd;
+        }
+        .son-test-table.sontest-bas-table tbody tr.bas-pick-1 > td.son-test-bas-col,
+        .son-test-table.sontest-bas-table tbody tr.bas-pick-2 > td.son-test-bas-col,
+        .son-test-table.sontest-bas-table tbody tr.bas-pick-3 > td.son-test-bas-col,
+        .son-test-table.sontest-bas-table tbody tr.bas-pick-4 > td.son-test-bas-col {
+            font-weight: 900;
+        }
         .son-test-table .col-no {
             width: 52px; text-align: center; font-weight: 800;
             color: #7b1fa2; background: #fafafa;
@@ -740,6 +759,49 @@
                 + escapeHtml(bs.display || '—') + '</td>';
         }
 
+        /** Tüm test sekmelerindeki BAŞ+ kaynakları — SON TEST yan yana sütunlar */
+        const SON_TEST_BAS_SOURCES = [
+            { key: 'fieldSize', label: 'AS+', title: '👥 KOŞU AT SAYISI · BAŞ+' },
+            { key: 'sehir', label: 'SH+', title: '🏟️ ŞEHİR DURUMU · BAŞ+' },
+            { key: 'kcins_kosu', label: 'KC+', title: '🏇 KOŞU CİNSİ · BAŞ+' },
+            { key: 'taki', label: 'TK+', title: '🎽 TAKİ · BAŞ+' },
+            { key: 'pist', label: 'PS+', title: '🌿 PİST · BAŞ+' },
+            { key: 'hp', label: 'HP+', title: '📊 HP · BAŞ+' },
+            { key: 'siklet', label: 'SK+', title: '⚖️ SİKLET · BAŞ+' }
+        ];
+
+        function astestComputeBasForSource(horse, race, meta, sourceKey, sonCtx) {
+            const kosular = resolveHorseKosular(horse);
+            const programTarih = meta?.tarih || null;
+            const hedefSehir = meta?.hipodrom || currentHipodrom || '';
+            let st;
+            if (sourceKey === 'fieldSize') {
+                st = FieldSizeStatsEngine.computeStats(
+                    kosular, programTarih, FieldSizeStatsEngine.raceFieldSize(race));
+            } else if (sourceKey === 'sehir') {
+                st = SehirStatsEngine.computeStats(kosular, hedefSehir, programTarih);
+            } else {
+                const dim = KosuDimensionStatsEngine.getDim(sourceKey);
+                if (!dim) return { basSuccess: { display: '—' } };
+                const horseCtx = Object.assign({}, horse, { kosular: kosular });
+                const hedef = dim.getTarget(horseCtx, race);
+                st = KosuDimensionStatsEngine.computeStats(kosular, sourceKey, hedef, programTarih);
+            }
+            if (typeof AtestSon800Shared !== 'undefined' && sonCtx) {
+                st = AtestSon800Shared.applyBasDeltaBoost(st, horse, sonCtx);
+            }
+            return st;
+        }
+
+        function astestSonTestBasCell(st, extraCls) {
+            const bs = st?.basSuccess || {};
+            let cls = 'col-stat col-stat-bas son-test-bas-col' + (extraCls ? ' ' + extraCls : '');
+            if (bs.boosted) cls += ' col-stat-rise-up';
+            else if (bs.penalized) cls += ' col-stat-rise-down';
+            return '<td class="' + cls + '" title="' + escapeHtml(bs.tooltip || '') + '">'
+                + escapeHtml(bs.display || '—') + '</td>';
+        }
+
         function astestGenAdjCell(st) {
             const adj = st.genAdj || {};
             let cls = 'col-stat col-stat-gen col-stat-gen-adj';
@@ -1269,7 +1331,13 @@
                 el.innerHTML = '<div class="info-box">📋 Veri bulunamadı</div>';
                 return;
             }
+            const programTarih = meta?.tarih || null;
+            const hedefSehir = meta?.hipodrom || currentHipodrom || '';
             let html = '<div class="son-test-wrap">';
+            html += '<p class="astest-note">Tüm test sekmelerindeki <strong>BAŞ+</strong> skorları yan yana — '
+                + '👥 KOŞU AT SAYISI, 🏟️ ŞEHİR, 🏇 KOŞU CİNSİ, 🎽 TAKİ, 🌿 PİST, 📊 HP, ⚖️ SİKLET. '
+                + 'Her sütun ilgili sekmedeki BAŞ+ ile aynı hesap (SON800-1 · Δ boost dahil). '
+                + 'Mor satır = 7 skorun ortalamasına göre top-4.</p>';
             for (let i = 0; i < races.length; i++) {
                 const race = races[i];
                 const raceK1 = FieldSizeStatsEngine.raceFieldSize(race);
@@ -1282,25 +1350,57 @@
                     if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
                     return String(a.name || '').localeCompare(String(b.name || ''), 'tr');
                 });
+                const sonCtx = typeof AtestSon800Shared !== 'undefined'
+                    ? AtestSon800Shared.buildRaceContext(race, horses, hedefSehir, programTarih)
+                    : null;
                 html += '<div class="son-test-race race-card">';
                 html += '<div class="race-header"><h3>🏁 ' + race.raceNo + '. KOŞU · '
                     + horses.length + ' at · ' + escapeHtml(header) + '</h3></div>';
                 html += '<div class="son-test-table-wrap">';
-                html += '<table class="son-test-table">';
+                html += '<table class="son-test-table astest-table sontest-bas-table">';
                 html += '<thead><tr>';
                 html += '<th class="col-no">#</th>';
                 html += '<th class="col-name">AT İSMİ</th>';
                 html += '<th class="col-k1" title="Bugünkü koşudaki at sayısı">K1</th>';
+                for (let si = 0; si < SON_TEST_BAS_SOURCES.length; si++) {
+                    const src = SON_TEST_BAS_SOURCES[si];
+                    const edge = si === 0 ? ' son-test-bas-hdr-edge' : '';
+                    html += '<th class="son-test-bas-hdr' + edge + '" title="' + escapeHtml(src.title) + '">'
+                        + escapeHtml(src.label) + '</th>';
+                }
                 html += '</tr></thead><tbody>';
+                const totalCols = 3 + SON_TEST_BAS_SOURCES.length;
                 if (!horses.length) {
-                    html += '<tr><td class="col-no">—</td><td class="col-name">At yok</td><td class="col-k1">' + raceK1 + '</td></tr>';
+                    html += '<tr><td colspan="' + totalCols + '" class="col-name">At yok</td></tr>';
                 } else {
-                    for (let j = 0; j < horses.length; j++) {
-                        const h = horses[j];
-                        html += '<tr>';
+                    const horseRows = horses.map(function(h) {
+                        const basBySource = {};
+                        for (let si = 0; si < SON_TEST_BAS_SOURCES.length; si++) {
+                            const src = SON_TEST_BAS_SOURCES[si];
+                            basBySource[src.key] = astestComputeBasForSource(
+                                h, race, meta, src.key, sonCtx);
+                        }
+                        const pcts = SON_TEST_BAS_SOURCES.map(function(s) {
+                            return basBySource[s.key]?.basSuccess?.pct;
+                        }).filter(function(p) { return p != null; });
+                        const avgPct = pcts.length
+                            ? Math.round(pcts.reduce(function(a, b) { return a + b; }, 0) / pcts.length)
+                            : null;
+                        return { h: h, basBySource: basBySource, st: { basSuccess: { pct: avgPct } } };
+                    });
+                    const basRankMap = astestBasPickRankMap(horseRows);
+                    for (let j = 0; j < horseRows.length; j++) {
+                        const row = horseRows[j];
+                        const h = row.h;
+                        html += '<tr class="' + astestBasPickRowClass(h, basRankMap).trim() + '">';
                         html += '<td class="col-no">' + escapeHtml(String(h.no ?? (j + 1))) + '</td>';
                         html += '<td class="col-name">' + escapeHtml(h.name || '—') + '</td>';
                         html += '<td class="col-k1">' + raceK1 + '</td>';
+                        for (let si = 0; si < SON_TEST_BAS_SOURCES.length; si++) {
+                            const src = SON_TEST_BAS_SOURCES[si];
+                            const edge = si === 0 ? ' son-test-bas-hdr-edge' : '';
+                            html += astestSonTestBasCell(row.basBySource[src.key], edge.trim());
+                        }
                         html += '</tr>';
                     }
                 }
