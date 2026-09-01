@@ -1,0 +1,4 @@
+branch=cursor/kaydet-fetch-audit-b004
+commit=pending
+message=KAYDET: TJK yeniden çekme yok; GETİR: son 7 koşu tam detay
+deployed=
