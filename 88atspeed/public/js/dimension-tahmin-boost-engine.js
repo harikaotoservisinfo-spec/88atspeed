@@ -205,6 +205,75 @@ const DimensionTahminBoostEngine = (function () {
         return scored;
     }
 
+    function basBundleFromBySource(basBySource) {
+        if (!basBySource) return null;
+        return {
+            fieldSize: basBySource.fieldSize,
+            sehir: basBySource.sehir,
+            siklet: basBySource.siklet,
+            taki: basBySource.taki,
+            pist: basBySource.pist,
+            hp: basBySource.hp,
+            kcins_kosu: basBySource.kcins_kosu
+        };
+    }
+
+    /** SON TEST — 7 BAŞ+ sütunundan boyut-only TAHMİN (hibrit taban yok) */
+    function computeDimensionOnlyFromBasBySource(horseRows) {
+        if (!horseRows?.length) return horseRows;
+        const scored = horseRows.map(function(row) {
+            return {
+                row: row.h,
+                horseRow: row,
+                basBySource: row.basBySource,
+                tahmin: { score: 0, pct: 0, topTerms: [], source: 'son-test-bas' }
+            };
+        });
+
+        const bundles = new Map();
+        for (const s of scored) {
+            const b = basBundleFromBySource(s.basBySource);
+            if (b) bundles.set(s, b);
+        }
+        if (!bundles.size) return horseRows;
+
+        const routes = activeRoutesForRace(scored, bundles);
+        if (!routes.length) return horseRows;
+
+        const weightSum = routes.reduce(function(a, r) { return a + r.weight; }, 0);
+        if (!weightSum) return horseRows;
+
+        for (const s of scored) {
+            let boostSum = 0;
+            const dimTerms = [];
+            for (const route of routes) {
+                const norm = route.norms.get(s) ?? 0;
+                boostSum += norm * route.weight;
+                if (norm >= 0.45) {
+                    dimTerms.push({
+                        label: route.label,
+                        points: Math.round(norm * route.weight * 100),
+                        source: 'dimension',
+                        norm: norm
+                    });
+                }
+            }
+            const combined = boostSum / weightSum;
+            const dimScore = Math.max(1, Math.round(combined * 100));
+            s.tahmin.score = dimScore;
+            s.tahmin.dimensionNorm = combined;
+            s.tahmin.activeDimensionRoutes = routes.map(function(r) { return r.id; });
+            dimTerms.sort(function(a, b) { return (b.points || 0) - (a.points || 0); });
+            s.tahmin.topTerms = dimTerms.slice(0, 8);
+        }
+
+        finalizeScoredRace(scored);
+        for (const s of scored) {
+            if (s.horseRow) s.horseRow.tahmin = s.tahmin;
+        }
+        return horseRows;
+    }
+
     function applyRaceBoost(scored, pkg) {
         if (!enabled || pkg?.skipDimensionBoost || !scored?.length) return scored;
         if (!pkg?.forceDimensionBoost
@@ -559,7 +628,9 @@ const DimensionTahminBoostEngine = (function () {
         attachTahminForDimPct,
         evaluateLeaderSuccess,
         evaluateProximitySuccess,
-        blendCalibrationObjective
+        blendCalibrationObjective,
+        basBundleFromBySource,
+        computeDimensionOnlyFromBasBySource
     };
 })();
 

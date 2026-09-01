@@ -53,12 +53,65 @@
         .son-test-table.sontest-bas-table th.son-test-bas-hdr-edge {
             border-left: 2px solid #9575cd;
         }
-        .son-test-table.sontest-bas-table tbody tr.bas-pick-1 > td.son-test-bas-col,
-        .son-test-table.sontest-bas-table tbody tr.bas-pick-2 > td.son-test-bas-col,
-        .son-test-table.sontest-bas-table tbody tr.bas-pick-3 > td.son-test-bas-col,
-        .son-test-table.sontest-bas-table tbody tr.bas-pick-4 > td.son-test-bas-col {
-            font-weight: 900;
+        .son-test-table.sontest-bas-table tbody tr.bas-pick-1 > td.son-test-bas-col {
+            background: linear-gradient(135deg, #ab47bc, #8e24aa) !important;
+            color: #fff !important;
         }
+        .son-test-table.sontest-bas-table tbody tr.bas-pick-1 > td:not([class*="istat-"]) {
+            background: linear-gradient(135deg, #e1bee7, #ce93d8);
+        }
+        .son-test-table.sontest-bas-table tbody tr.bas-pick-1 > td.col-name { font-weight: 800; color: #4a148c; }
+        .son-test-table.sontest-bas-table tbody tr.bas-pick-2 > td.son-test-bas-col {
+            background: linear-gradient(135deg, #ba68c8, #ab47bc) !important;
+            color: #fff !important;
+        }
+        .son-test-table.sontest-bas-table tbody tr.bas-pick-2 > td:not([class*="istat-"]) {
+            background: linear-gradient(135deg, #ede7f6, #e1bee7);
+        }
+        .son-test-table.sontest-bas-table tbody tr.bas-pick-2 > td.col-name { font-weight: 800; }
+        .son-test-table.sontest-bas-table tbody tr.bas-pick-3 > td.son-test-bas-col {
+            background: linear-gradient(135deg, #ce93d8, #ba68c8) !important;
+            color: #fff !important;
+        }
+        .son-test-table.sontest-bas-table tbody tr.bas-pick-3 > td:not([class*="istat-"]) {
+            background: linear-gradient(135deg, #f3e5f5, #ede7f6);
+        }
+        .son-test-table.sontest-bas-table tbody tr.bas-pick-4 > td.son-test-bas-col {
+            background: linear-gradient(135deg, #e1bee7, #ce93d8) !important;
+            color: #4a148c !important;
+        }
+        .son-test-table.sontest-bas-table tbody tr.bas-pick-4 > td:not([class*="istat-"]) {
+            background: linear-gradient(135deg, #fafafa, #f3e5f5);
+        }
+        .son-test-table.sontest-bas-table .col-tahmin {
+            min-width: 72px; text-align: center; font-weight: 800;
+            background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+            color: #e65100; font-size: 12px;
+            border-left: 2px solid #ffb74d;
+        }
+        .son-test-table.sontest-bas-table th.col-tahmin-hdr {
+            background: #ffcc80; color: #bf360c; font-size: 10px;
+            text-align: center; min-width: 72px;
+            border-left: 2px solid #ffb74d;
+        }
+        .son-test-table.sontest-bas-table tbody tr.bas-pick-1 > td.col-tahmin {
+            background: linear-gradient(135deg, #ff9800, #f57c00) !important;
+            color: #fff !important;
+        }
+        .son-test-table.sontest-bas-table tbody tr.bas-pick-2 > td.col-tahmin {
+            background: linear-gradient(135deg, #ffb74d, #ff9800) !important;
+            color: #fff !important;
+        }
+        .son-test-table.sontest-bas-table tbody tr.bas-pick-3 > td.col-tahmin {
+            background: linear-gradient(135deg, #ffcc80, #ffb74d) !important;
+            color: #4e342e !important;
+        }
+        .son-test-table.sontest-bas-table tbody tr.bas-pick-4 > td.col-tahmin {
+            background: linear-gradient(135deg, #ffe0b2, #ffcc80) !important;
+            color: #bf360c !important;
+        }
+        .son-test-tahmin-rank { font-weight: 900; margin-right: 2px; }
+        .son-test-tahmin-pct { font-weight: 700; font-size: 11px; }
         .son-test-table .col-no {
             width: 52px; text-align: center; font-weight: 800;
             color: #7b1fa2; background: #fafafa;
@@ -488,6 +541,7 @@
     <script src="js/field-size-stats-engine.js?v=20260831i"></script>
     <script src="js/sehir-stats-engine.js?v=20260831g"></script>
     <script src="js/kosu-dimension-stats-engine.js?v=20260831h"></script>
+    <script src="js/dimension-tahmin-boost-engine.js?v=20260901a"></script>
     <script>
         const RECENT_WINDOWS = FieldSizeStatsEngine.RECENT_WINDOWS;
 
@@ -704,12 +758,22 @@
             return best;
         }
 
-        /** BAŞ+ top-4 tahmin sırası → at no/atId → 1..4 */
-        function astestBasPickRankMap(horseRows) {
+        /** Tek at anahtarı — rank map çakışmasını önler */
+        function astestHorseRankKey(h) {
+            const k = atCacheKey(h?.atId);
+            if (k) return k;
+            if (h?.no != null && h.no !== '') return 'no:' + String(h.no);
+            if (h?.name) return 'name:' + String(h.name);
+            return null;
+        }
+
+        /** BAŞ+ / TAHMİN top-4 sırası → at anahtarı → 1..4 */
+        function astestBasPickRankMap(horseRows, getPct) {
+            const getter = getPct || function(row) { return row.st?.basSuccess?.pct; };
             const rankMap = new Map();
             const sorted = horseRows.slice().sort(function(a, b) {
-                const pa = a.st?.basSuccess?.pct;
-                const pb = b.st?.basSuccess?.pct;
+                const pa = getter(a);
+                const pb = getter(b);
                 if (pa == null && pb == null) return 0;
                 if (pa == null) return 1;
                 if (pb == null) return -1;
@@ -720,16 +784,34 @@
                 return String(a.h?.name || '').localeCompare(String(b.h?.name || ''), 'tr');
             });
             for (let r = 0; r < Math.min(4, sorted.length); r++) {
-                const h = sorted[r].h;
-                if (h?.no != null) rankMap.set(String(h.no), r + 1);
-                if (h?.atId != null) rankMap.set(String(h.atId), r + 1);
+                const key = astestHorseRankKey(sorted[r].h);
+                if (key && getter(sorted[r]) != null) rankMap.set(key, r + 1);
             }
             return rankMap;
         }
 
         function astestBasPickRowClass(h, rankMap) {
-            const rank = rankMap.get(String(h?.no)) || rankMap.get(String(h?.atId));
+            const key = astestHorseRankKey(h);
+            const rank = key ? rankMap.get(key) : null;
             return rank ? ' bas-pick-' + rank : '';
+        }
+
+        function astestSonTestTahminCell(tahmin) {
+            if (!tahmin || tahmin.rank == null || tahmin.pct == null) {
+                return '<td class="col-tahmin">—</td>';
+            }
+            let title = 'TAHMİN · ' + tahmin.rank + '. sıra · skor ' + (tahmin.score ?? '?');
+            if (tahmin.activeDimensionRoutes?.length) {
+                title += ' · rotalar: ' + tahmin.activeDimensionRoutes.join(', ');
+            }
+            if (tahmin.topTerms?.length) {
+                title += '\n' + tahmin.topTerms.map(function(t) {
+                    return t.label + ' +' + t.points;
+                }).join('\n');
+            }
+            return '<td class="col-tahmin" title="' + escapeHtml(title) + '">'
+                + '<span class="son-test-tahmin-rank">' + tahmin.rank + '.</span>'
+                + '<span class="son-test-tahmin-pct">%' + tahmin.pct + '</span></td>';
         }
 
         function astestSehirFormCell(st) {
@@ -1337,7 +1419,8 @@
             html += '<p class="astest-note">Tüm test sekmelerindeki <strong>BAŞ+</strong> skorları yan yana — '
                 + '👥 KOŞU AT SAYISI, 🏟️ ŞEHİR, 🏇 KOŞU CİNSİ, 🎽 TAKİ, 🌿 PİST, 📊 HP, ⚖️ SİKLET. '
                 + 'Her sütun ilgili sekmedeki BAŞ+ ile aynı hesap (SON800-1 · Δ boost dahil). '
-                + 'Mor satır = 7 skorun ortalamasına göre top-4.</p>';
+                + '<strong>TAHMİN</strong> = 7 BAŞ+ sinyalinin boyut ağırlıklı karışımı (AS 22% · SH 20% · SK 16% · TK 14% · PS 12% · HP 10% · KC 6%). '
+                + 'Mor/turuncu satır = TAHMİN skoruna göre top-4.</p>';
             for (let i = 0; i < races.length; i++) {
                 const race = races[i];
                 const raceK1 = FieldSizeStatsEngine.raceFieldSize(race);
@@ -1368,8 +1451,9 @@
                     html += '<th class="son-test-bas-hdr' + edge + '" title="' + escapeHtml(src.title) + '">'
                         + escapeHtml(src.label) + '</th>';
                 }
+                html += '<th class="col-tahmin-hdr" title="7 BAŞ+ boyut karışımı · dimension-tahmin motoru">TAHMİN</th>';
                 html += '</tr></thead><tbody>';
-                const totalCols = 3 + SON_TEST_BAS_SOURCES.length;
+                const totalCols = 4 + SON_TEST_BAS_SOURCES.length;
                 if (!horses.length) {
                     html += '<tr><td colspan="' + totalCols + '" class="col-name">At yok</td></tr>';
                 } else {
@@ -1386,9 +1470,14 @@
                         const avgPct = pcts.length
                             ? Math.round(pcts.reduce(function(a, b) { return a + b; }, 0) / pcts.length)
                             : null;
-                        return { h: h, basBySource: basBySource, st: { basSuccess: { pct: avgPct } } };
+                        return { h: h, basBySource: basBySource, st: { basSuccess: { pct: avgPct } }, tahmin: null };
                     });
-                    const basRankMap = astestBasPickRankMap(horseRows);
+                    if (typeof DimensionTahminBoostEngine !== 'undefined') {
+                        DimensionTahminBoostEngine.computeDimensionOnlyFromBasBySource(horseRows);
+                    }
+                    const basRankMap = astestBasPickRankMap(horseRows, function(row) {
+                        return row.tahmin?.score ?? row.st?.basSuccess?.pct;
+                    });
                     for (let j = 0; j < horseRows.length; j++) {
                         const row = horseRows[j];
                         const h = row.h;
@@ -1401,6 +1490,7 @@
                             const edge = si === 0 ? ' son-test-bas-hdr-edge' : '';
                             html += astestSonTestBasCell(row.basBySource[src.key], edge.trim());
                         }
+                        html += astestSonTestTahminCell(row.tahmin);
                         html += '</tr>';
                     }
                 }
