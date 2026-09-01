@@ -5,6 +5,7 @@
 const AtestSonGosterimCols = (function () {
     const TEST9_YANIP_TAHMIN_BONUS = 45;
     const FARK8002_YANIP_TAHMIN_BONUS = 5;
+    const TEST123_KIRMIZI_TAHMIN_BONUS = 25;
 
     function horseKey(h) {
         if (h?.atId != null && h.atId !== '') return String(h.atId);
@@ -112,20 +113,36 @@ const AtestSonGosterimCols = (function () {
         return html;
     }
 
+    /** TEST1 + TEST2 + TEST3 hücrelerinin üçünün de kirmizi-yazi olması */
+    function allTest123Kirmizi(gosRow) {
+        if (!gosRow?.classes || typeof GosterimEngine === 'undefined') return false;
+        const cols = [
+            GosterimEngine.COL.TEST1,
+            GosterimEngine.COL.TEST2,
+            GosterimEngine.COL.TEST3
+        ];
+        for (let i = 0; i < cols.length; i++) {
+            const cellClass = GosterimEngine.getCellClass(cols[i], gosRow.classes);
+            if (!cellClass || !/\bkirmizi-yazi\b/.test(cellClass)) return false;
+        }
+        return true;
+    }
+
     /** GÖSTERİM SIRA=1 satırında yanıp sönen hücre bayrakları */
     function gosterimBlinkFlags(gosRow) {
         if (!gosRow?.classes) {
-            return { test9Yanip: false, fark8002Yanip: false };
+            return { test9Yanip: false, fark8002Yanip: false, test123Kirmizi: false };
         }
         const c = gosRow.classes;
         return {
             test9Yanip: !!(c.test9YanipClass && String(c.test9YanipClass).trim()),
-            fark8002Yanip: !!(c.fark8002YanipClass && String(c.fark8002YanipClass).trim())
+            fark8002Yanip: !!(c.fark8002YanipClass && String(c.fark8002YanipClass).trim()),
+            test123Kirmizi: allTest123Kirmizi(gosRow)
         };
     }
 
     /**
-     * TEST9 yanıp → TAHMİN +%45 · 8002-8001 yanıp → TAHMİN +%5
+     * TEST9 yanıp → +%45 · 8002-8001 yanıp → +%5 · TEST1/2/3 kırmızı → +%25
      * pct %100 üstüne çıkabilir; sıra güncellenir.
      */
     function applyTahminBonuses(horseRows, gosByKey) {
@@ -161,10 +178,20 @@ const AtestSonGosterimCols = (function () {
                     source: 'gosterim'
                 });
             }
+            if (flags.test123Kirmizi) {
+                bonus += TEST123_KIRMIZI_TAHMIN_BONUS;
+                bonusTerms.push({
+                    label: 'TEST1/2/3 kırmızı',
+                    points: TEST123_KIRMIZI_TAHMIN_BONUS,
+                    source: 'gosterim'
+                });
+            }
             if (!bonus) continue;
 
-            tahmin.basePct = tahmin.pct;
-            tahmin.baseScore = tahmin.score;
+            if (tahmin.basePct == null) {
+                tahmin.basePct = tahmin.pct;
+                tahmin.baseScore = tahmin.score;
+            }
             tahmin.gosterimBonus = bonus;
             tahmin.gosterimBonusTerms = bonusTerms;
             tahmin.pct = (tahmin.pct ?? 0) + bonus;
@@ -196,6 +223,7 @@ const AtestSonGosterimCols = (function () {
                 : 0;
         },
         buildSiraOneMap,
+        allTest123Kirmizi,
         gosterimBlinkFlags,
         applyTahminBonuses,
         noCellClassList,
@@ -203,7 +231,8 @@ const AtestSonGosterimCols = (function () {
         renderHeaderCells,
         renderRowCells,
         TEST9_YANIP_TAHMIN_BONUS,
-        FARK8002_YANIP_TAHMIN_BONUS
+        FARK8002_YANIP_TAHMIN_BONUS,
+        TEST123_KIRMIZI_TAHMIN_BONUS
     };
 })();
 
