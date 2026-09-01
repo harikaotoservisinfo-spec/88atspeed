@@ -598,9 +598,9 @@ app.get('/api/at-tum-veriler', async (req, res) => {
         await page.setViewport({ width: 1920, height: 1080 });
         
         const result = await tjkScrape.fetchAtKosularFromPage(page, atId, adiParam, {
-            maxKosu: 7,
-            maxAllKosu: Number(req.query.maxAllKosu) || 40,
-            fetchAllFieldSizes: req.query.allFieldSizes !== '0',
+            maxKosu: Number(req.query.maxKosu) || 7,
+            maxAllKosu: Number(req.query.maxAllKosu) || 7,
+            fetchAllFieldSizes: req.query.allFieldSizes === '1',
             maxRetry: Number(req.query.retry) || 1
         });
         

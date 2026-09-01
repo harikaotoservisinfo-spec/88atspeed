@@ -27,9 +27,10 @@ const cli = {
     pick: argVal('--pick') != null ? Number(argVal('--pick')) : 0,
     maxRaces: argVal('--max-races') ? Number(argVal('--max-races')) : null,
     maxKosu: Number(argVal('--max-kosu') || '7'),
-    maxAllKosu: argVal('--max-all-kosu') ? Number(argVal('--max-all-kosu')) : 40,
+    maxAllKosu: argVal('--max-all-kosu') ? Number(argVal('--max-all-kosu')) : 7,
     delayMs: Number(argVal('--delay')) || 600,
     quick: args.includes('--quick'),
+    allFieldSizes: args.includes('--all-field-sizes'),
     sehir: argVal('--sehir') || '',
     sehirId: argVal('--sehir-id') || '',
     tarih: argVal('--tarih') || ''
@@ -231,15 +232,17 @@ async function main() {
 
             console.log('── ' + raceLabel + ' ──');
             console.log('  At #' + horse.no + ' ' + horse.name + ' (atId=' + horse.atId + ') çekiliyor...');
-            if (!cli.quick) {
-                console.log('  (ilk ' + cli.maxKosu + ' koşu tam detay + kalanlarda at_sayisi, max ' + cli.maxAllKosu + ' koşu — ~1-3 dk/at)');
+            if (cli.allFieldSizes) {
+                console.log('  (ilk ' + cli.maxKosu + ' koşu tam detay + at_sayisi ek, max ' + cli.maxAllKosu + ' — ~2-3 dk/at)');
+            } else {
+                console.log('  (son ' + cli.maxKosu + ' koşu tam detay — ~1 dk/at)');
             }
 
             const res = await fetchAtKosularFromPage(page, horse.atId, horse.name, {
                 maxKosu: cli.maxKosu,
                 maxAllKosu: cli.maxAllKosu,
                 maxRetry: 1,
-                fetchAllFieldSizes: !cli.quick,
+                fetchAllFieldSizes: cli.allFieldSizes,
                 onProgress: cli.verbose ? (msg) => console.log('    … ' + msg) : null
             });
 

@@ -29,8 +29,8 @@ const cli = {
     raw: args.includes('--raw'),
     apiBase: argVal('--api') || 'http://127.0.0.1:3023',
     maxKosu: argVal('--max-kosu') ? Number(argVal('--max-kosu')) : 7,
-    maxAllKosu: argVal('--max-all-kosu') ? Number(argVal('--max-all-kosu')) : 40,
-    allFieldSizes: argVal('--all-field-sizes') || '1',
+    maxAllKosu: argVal('--max-all-kosu') ? Number(argVal('--max-all-kosu')) : 7,
+    allFieldSizes: argVal('--all-field-sizes') || '0',
     sample: Number(argVal('--sample')) || 5
 };
 
@@ -89,9 +89,9 @@ function printSchema() {
     console.log('  Adım 2: Son 7 koşu için tarihLink → GünlükYarisSonuclari sayfası');
     console.log('          → hipodrom sekmesi tıklanır, hash scroll');
     console.log('  Adım 3: Sonuç tablosundan at_derece, birinci_derece, son800 çekilir');
-    console.log('  Limit:  İlk ' + (cli.maxKosu || 7) + ' koşu TAM detay (sayfa/koşu ~10sn)');
-    console.log('          + koşu 8..' + (cli.maxAllKosu || 40) + ' sadece at_sayisi (sayfa/koşu ~3.5sn)');
-    console.log('          → Tek at: ~7 sayfa + ~33 sayfa = ~40 TJK sayfa ziyareti olabilir');
+    console.log('  Limit:  Varsayılan ' + (cli.maxKosu || 7) + ' koşu TAM detay (GETİR / API)');
+    console.log('          Opsiyonel: ?allFieldSizes=1&maxAllKosu=40 → koşu 8..40 at_sayisi ek');
+    console.log('          → Tek at varsayılan: ~7 TJK sayfa · ~1-1.5 dk');
 
     sub('Kaydedilen alanlar (kosular[] her eleman)');
     for (const f of FETCHED_FIELDS) {
@@ -245,7 +245,7 @@ async function profileFetch() {
         const r = await scrape.fetchAtKosularFromPage(page, cli.atId, cli.adi, {
             maxKosu,
             maxAllKosu,
-            fetchAllFieldSizes: cli.allFieldSizes !== '0',
+            fetchAllFieldSizes: cli.allFieldSizes === '1',
             maxRetry: 1,
             onProgress: msg => steps.push({ ms: Date.now() - t0, msg })
         });
@@ -403,7 +403,7 @@ async function main() {
     }
 
     hr('4. ÖZET');
-    console.log('  Her at: ' + cli.maxKosu + ' koşu TAM + (max ' + cli.maxAllKosu + '−' + cli.maxKosu + ') at_sayisi ek.');
+    console.log('  Her at: varsayılan ' + cli.maxKosu + ' koşu (allFieldSizes=1 ile ek at_sayisi koşuları).');
     console.log('  GETİR: her benzersiz at için sırayla /api/at-tum-veriler çağrılır.');
     console.log('  Derinlik (S800/T1/T1DR) için son800_bir + at_derece + birinci_derece şart.');
     console.log('  TEST/ORAN/renk göstergeleri kosular[] sonrası hesaplanır — TJK\'dan gelmez.');

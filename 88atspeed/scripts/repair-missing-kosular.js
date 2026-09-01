@@ -179,10 +179,11 @@ function formatKosuPreview(kosular) {
 async function runFetchPlan(plan, apiBase, delayMs) {
     hr('TJK fetch (' + apiBase + ')');
     console.log('  Not: TJK atId sayfasından çekilir — tarih/hipodrom/at eşleşmesi atId ile garanti.');
-    if (cli.fetchQuick) {
-        console.log('  Mod: fetch-quick — sadece son 7 koşu tam detay (~1-2 dk/at)');
+    if (cli.fetchQuick || cli.maxAllKosu === 7) {
+        console.log('  Mod: son ' + (cli.maxAllKosu || 7) + ' koşu tam detay (~1-1.5 dk/at)');
     } else {
-        console.log('  Mod: tam — son 7 detay + max ' + (cli.maxAllKosu || 40) + ' koşu at_sayisi (~2-4 dk/at)');
+        console.log('  Mod: genişletilmiş — son 7 detay + max ' + (cli.maxAllKosu || 40) + ' koşu at_sayisi (~2-4 dk/at)');
+        console.log('  (API: ?allFieldSizes=1&maxAllKosu=' + (cli.maxAllKosu || 40) + ')');
     }
 
     const byAtId = new Map();
@@ -193,7 +194,7 @@ async function runFetchPlan(plan, apiBase, delayMs) {
     }
     const unique = [...byAtId.values()];
     console.log('  Benzersiz atId: ' + unique.length + ' (satır tekrarı atlanır)');
-    console.log('  Tahmini süre: ~' + Math.ceil(unique.length * (cli.fetchQuick ? 1.5 : 3)) + ' dk\n');
+    console.log('  Tahmini süre: ~' + Math.ceil(unique.length * (cli.fetchQuick || !cli.maxAllKosu ? 1.2 : 3)) + ' dk\n');
 
     let ok = 0;
     let fail = 0;

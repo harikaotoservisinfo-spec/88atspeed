@@ -647,7 +647,7 @@ async function fetchAtKosularFromPage(page, atId, atAdi, opts = {}) {
         await new Promise(r => setTimeout(r, 500));
     }
 
-    if (opts.fetchAllFieldSizes !== false) {
+    if (opts.fetchAllFieldSizes === true) {
         const maxAll = opts.maxAllKosu != null ? opts.maxAllKosu : anaKosular.length;
         const keys = new Set(sonuclar.map(k => [k.tarih, k.sehir, k.mesafe].join('|')));
         const extraEnd = Math.min(maxAll, anaKosular.length);
