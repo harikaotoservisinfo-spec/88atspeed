@@ -40,6 +40,74 @@
         }
         .son-test-table tbody tr:hover { background: #f3e5f5; }
         .son-test-table tbody tr:last-child td { border-bottom: none; }
+        /* Test sekmeleri — # / AT İSMİ / HEDEF / BAŞ+ yatay kaydırmada sabit */
+        .astest-table .col-no,
+        .astest-table .col-name,
+        .astest-table .col-hedef,
+        .astest-table .col-stat-bas {
+            position: sticky;
+            z-index: 6;
+        }
+        .astest-table thead .col-no,
+        .astest-table thead .col-name,
+        .astest-table thead .col-hedef,
+        .astest-table thead .col-stat-bas {
+            z-index: 18;
+        }
+        .astest-table .col-no {
+            left: 0;
+            width: 52px;
+            min-width: 52px;
+            max-width: 52px;
+        }
+        .astest-table .col-name {
+            left: 52px;
+            width: 240px;
+            min-width: 240px;
+            max-width: 240px;
+            box-sizing: border-box;
+        }
+        .astest-table .col-hedef {
+            left: 292px;
+            width: 56px;
+            min-width: 56px;
+            max-width: 56px;
+        }
+        .astest-table .col-stat-bas {
+            left: 348px;
+            width: 64px;
+            min-width: 64px;
+            max-width: 64px;
+            box-shadow: 4px 0 10px -4px rgba(0, 0, 0, 0.16);
+        }
+        .astest-table thead .col-no,
+        .astest-table thead .col-name,
+        .astest-table thead .col-hedef,
+        .astest-table thead .col-stat-bas {
+            background: #ede7f6;
+        }
+        .astest-table tbody .col-no { background: #fafafa; }
+        .astest-table tbody .col-name { background: #fff; }
+        .astest-table tbody tr:hover .col-no,
+        .astest-table tbody tr:hover .col-name {
+            background: #f3e5f5;
+        }
+        .astest-table tbody tr.bas-pick-1 .col-no,
+        .astest-table tbody tr.bas-pick-1 .col-name {
+            background: #ce93d8 !important;
+        }
+        .astest-table tbody tr.bas-pick-2 .col-no,
+        .astest-table tbody tr.bas-pick-2 .col-name {
+            background: #e1bee7 !important;
+        }
+        .astest-table tbody tr.bas-pick-3 .col-no,
+        .astest-table tbody tr.bas-pick-3 .col-name {
+            background: #ede7f6 !important;
+        }
+        .astest-table tbody tr.bas-pick-4 .col-no,
+        .astest-table tbody tr.bas-pick-4 .col-name {
+            background: #f3e5f5 !important;
+        }
         .son-test-table .col-no {
             width: 52px; text-align: center; font-weight: 800;
             color: #7b1fa2; background: #fafafa;
