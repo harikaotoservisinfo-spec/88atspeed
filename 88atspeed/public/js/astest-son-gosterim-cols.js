@@ -9,6 +9,8 @@ const AtestSonGosterimCols = (function () {
     const TEST1_GREEN_SINGLE_BONUS = 15;
     const TEST1_GREEN_MULTI_BASE = 15;
     const TEST1_GREEN_MULTI_STEP = 3;
+    const TEST1_RANK_BONUSES = [7, 5, 3];
+    const TEST1_RANK_KIRMIZI_EXTRA = 3;
 
     function horseKey(h) {
         if (h?.atId != null && h.atId !== '') return String(h.atId);
@@ -148,6 +150,54 @@ const AtestSonGosterimCols = (function () {
         return null;
     }
 
+    /** TEST1 hücresi kırmızı yazı */
+    function isTest1Kirmizi(gosRow) {
+        if (!gosRow?.classes || typeof GosterimEngine === 'undefined') return false;
+        const cellClass = GosterimEngine.getCellClass(GosterimEngine.COL.TEST1, gosRow.classes);
+        return !!(cellClass && /\bkirmizi-yazi\b/.test(cellClass));
+    }
+
+    /**
+     * Koşuda en iyi 3 TEST1 süresi → +7 / +5 / +3
+     * TEST1 hücresi kırmızı yazıysa ek +3
+     */
+    function computeTest1RankBonuses(horseRows, gosByKey) {
+        const out = new Map();
+        const ranked = [];
+        for (let i = 0; i < horseRows.length; i++) {
+            const key = horseKey(horseRows[i].h);
+            if (!key) continue;
+            const gos = gosByKey.get(key);
+            if (!gos) continue;
+            const salise = test1SortKey(gos);
+            if (salise == null) continue;
+            ranked.push({
+                key: key,
+                salise: salise,
+                gos: gos,
+                display: gos.values[GosterimEngine.COL.TEST1],
+                no: parseInt(horseRows[i].h?.no, 10)
+            });
+        }
+        ranked.sort(function(a, b) {
+            if (a.salise !== b.salise) return a.salise - b.salise;
+            if (!isNaN(a.no) && !isNaN(b.no) && a.no !== b.no) return a.no - b.no;
+            return String(a.key).localeCompare(String(b.key), 'tr');
+        });
+        const topN = Math.min(3, ranked.length);
+        for (let r = 0; r < topN; r++) {
+            const entry = ranked[r];
+            let bonus = TEST1_RANK_BONUSES[r];
+            let label = 'TEST1 top-' + (r + 1) + ' · ' + (entry.display || '?') + ' +' + bonus;
+            if (isTest1Kirmizi(entry.gos)) {
+                bonus += TEST1_RANK_KIRMIZI_EXTRA;
+                label += ' + kırmızı +' + TEST1_RANK_KIRMIZI_EXTRA;
+            }
+            out.set(entry.key, { bonus: bonus, label: label });
+        }
+        return out;
+    }
+
     /**
      * Aynı koşuda TEST1 yeşil hücre sayısına göre TAHMİN ödülü.
      * 1 at → +%15 · 2+ at → TEST1 değeri (en iyi süre) sırasıyla 15, 12, 9…
@@ -205,12 +255,14 @@ const AtestSonGosterimCols = (function () {
     /**
      * TEST9 yanıp → +%45 · 8002-8001 yanıp → +%5 · TEST1/2/3 kırmızı → +%25
      * TEST1 yeşil: koşuda 1 at +%15 · 2+ at TEST1 süresine göre 15/12/9…
+     * TEST1 en iyi 3 süre: +7 / +5 / +3 · TEST1 kırmızı yazı +3 ekstra
      * pct %100 üstüne çıkabilir; sıra güncellenir.
      */
     function applyTahminBonuses(horseRows, gosByKey) {
         if (!horseRows?.length || !gosByKey?.size) return horseRows;
 
         const test1GreenBonuses = computeTest1GreenBonuses(horseRows, gosByKey);
+        const test1RankBonuses = computeTest1RankBonuses(horseRows, gosByKey);
 
         for (let i = 0; i < horseRows.length; i++) {
             const row = horseRows[i];
@@ -259,6 +311,15 @@ const AtestSonGosterimCols = (function () {
                     source: 'gosterim'
                 });
             }
+            const t1Rank = test1RankBonuses.get(key);
+            if (t1Rank && t1Rank.bonus > 0) {
+                bonus += t1Rank.bonus;
+                bonusTerms.push({
+                    label: t1Rank.label,
+                    points: t1Rank.bonus,
+                    source: 'gosterim'
+                });
+            }
             if (!bonus) continue;
 
             if (tahmin.basePct == null) {
@@ -298,7 +359,9 @@ const AtestSonGosterimCols = (function () {
         buildSiraOneMap,
         allTest123Kirmizi,
         isTest1GreenCell,
+        isTest1Kirmizi,
         computeTest1GreenBonuses,
+        computeTest1RankBonuses,
         gosterimBlinkFlags,
         applyTahminBonuses,
         noCellClassList,
@@ -310,7 +373,9 @@ const AtestSonGosterimCols = (function () {
         TEST123_KIRMIZI_TAHMIN_BONUS,
         TEST1_GREEN_SINGLE_BONUS,
         TEST1_GREEN_MULTI_BASE,
-        TEST1_GREEN_MULTI_STEP
+        TEST1_GREEN_MULTI_STEP,
+        TEST1_RANK_BONUSES,
+        TEST1_RANK_KIRMIZI_EXTRA
     };
 })();
 
