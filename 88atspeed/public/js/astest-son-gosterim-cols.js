@@ -1,7 +1,11 @@
 /**
  * SON TEST — HYB sonrası GÖSTERİM (SIRA=1) sütunları · tam renklendirme
+ * + GÖSTERİM yanıp sönen hücreler → TAHMİN ödülü
  */
 const AtestSonGosterimCols = (function () {
+    const TEST9_YANIP_TAHMIN_BONUS = 30;
+    const FARK8002_YANIP_TAHMIN_BONUS = 5;
+
     function horseKey(h) {
         if (h?.atId != null && h.atId !== '') return String(h.atId);
         if (h?.no != null && h.no !== '') return 'no:' + String(h.no);
@@ -108,6 +112,83 @@ const AtestSonGosterimCols = (function () {
         return html;
     }
 
+    /** GÖSTERİM SIRA=1 satırında yanıp sönen hücre bayrakları */
+    function gosterimBlinkFlags(gosRow) {
+        if (!gosRow?.classes) {
+            return { test9Yanip: false, fark8002Yanip: false };
+        }
+        const c = gosRow.classes;
+        return {
+            test9Yanip: !!(c.test9YanipClass && String(c.test9YanipClass).trim()),
+            fark8002Yanip: !!(c.fark8002YanipClass && String(c.fark8002YanipClass).trim())
+        };
+    }
+
+    /**
+     * TEST9 yanıp → TAHMİN +%30 · 8002-8001 yanıp → TAHMİN +%5
+     * pct %100 üstüne çıkabilir; sıra güncellenir.
+     */
+    function applyTahminBonuses(horseRows, gosByKey) {
+        if (!horseRows?.length || !gosByKey?.size) return horseRows;
+
+        for (let i = 0; i < horseRows.length; i++) {
+            const row = horseRows[i];
+            const tahmin = row.tahmin;
+            if (!tahmin || tahmin.rank == null) continue;
+
+            const key = horseKey(row.h);
+            if (!key) continue;
+            const gosRow = gosByKey.get(key);
+            if (!gosRow) continue;
+
+            const flags = gosterimBlinkFlags(gosRow);
+            let bonus = 0;
+            const bonusTerms = [];
+
+            if (flags.test9Yanip) {
+                bonus += TEST9_YANIP_TAHMIN_BONUS;
+                bonusTerms.push({
+                    label: 'TEST9 yanıp',
+                    points: TEST9_YANIP_TAHMIN_BONUS,
+                    source: 'gosterim'
+                });
+            }
+            if (flags.fark8002Yanip) {
+                bonus += FARK8002_YANIP_TAHMIN_BONUS;
+                bonusTerms.push({
+                    label: '8002-8001 yanıp',
+                    points: FARK8002_YANIP_TAHMIN_BONUS,
+                    source: 'gosterim'
+                });
+            }
+            if (!bonus) continue;
+
+            tahmin.basePct = tahmin.pct;
+            tahmin.baseScore = tahmin.score;
+            tahmin.gosterimBonus = bonus;
+            tahmin.gosterimBonusTerms = bonusTerms;
+            tahmin.pct = (tahmin.pct ?? 0) + bonus;
+            tahmin.score = (tahmin.score ?? 0) + bonus;
+            if (!tahmin.topTerms) tahmin.topTerms = [];
+            tahmin.topTerms = bonusTerms.concat(tahmin.topTerms).slice(0, 8);
+        }
+
+        const ranked = horseRows.map(function(row, idx) {
+            return { row: row, idx: idx, score: row.tahmin?.score ?? 0 };
+        });
+        ranked.sort(function(a, b) {
+            if (b.score !== a.score) return b.score - a.score;
+            const na = parseInt(a.row.h?.no, 10);
+            const nb = parseInt(b.row.h?.no, 10);
+            if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
+            return a.idx - b.idx;
+        });
+        for (let r = 0; r < ranked.length; r++) {
+            if (ranked[r].row.tahmin) ranked[r].row.tahmin.rank = r + 1;
+        }
+        return horseRows;
+    }
+
     return {
         getColumnCount() {
             return typeof GosterimHeaders !== 'undefined'
@@ -115,10 +196,14 @@ const AtestSonGosterimCols = (function () {
                 : 0;
         },
         buildSiraOneMap,
+        gosterimBlinkFlags,
+        applyTahminBonuses,
         noCellClassList,
         renderNoCell,
         renderHeaderCells,
-        renderRowCells
+        renderRowCells,
+        TEST9_YANIP_TAHMIN_BONUS,
+        FARK8002_YANIP_TAHMIN_BONUS
     };
 })();
 
