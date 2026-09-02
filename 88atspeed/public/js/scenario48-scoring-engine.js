@@ -153,14 +153,39 @@ const Scenario48ScoringEngine = (function () {
         return out;
     }
 
+    /** Terminal sweep — maxCap 38…55 arası test (varsayılan = üretim +38) */
+    let _bonusSweepConfig = { pctMult: 10, minBonus: 9, baseMax: 38, maxCap: 38 };
+
     /**
-     * maxFinal → TAHMİN % bonusu (S3D×0.9≈9 … S1A×1.5≈38)
+     * maxFinal → TAHMİN % bonusu
      * @param {number} maxFinal
+     * @param {{ pctMult?: number, minBonus?: number, maxCap?: number, baseMax?: number }} [opts]
      * @returns {number}
      */
-    function finalToPctBonus(maxFinal) {
+    function finalToPctBonus(maxFinal, opts) {
         if (!maxFinal || maxFinal <= 0) return 0;
-        return Math.round(maxFinal * 10);
+        const cfg = Object.assign({}, _bonusSweepConfig, opts || {});
+        const baseMax = cfg.baseMax ?? 38;
+        const maxCap = cfg.maxCap ?? baseMax;
+        const scale = baseMax > 0 ? maxCap / baseMax : 1;
+        let b = Math.round(maxFinal * (cfg.pctMult ?? 10) * scale);
+        const minBonus = cfg.minBonus ?? 9;
+        if (minBonus != null) b = Math.max(minBonus, b);
+        if (maxCap != null) b = Math.min(maxCap, b);
+        return b;
+    }
+
+    function setScenarioBonusCap(maxCap, baseMax) {
+        _bonusSweepConfig = {
+            pctMult: 10,
+            minBonus: 9,
+            baseMax: baseMax ?? 38,
+            maxCap: maxCap ?? 38
+        };
+    }
+
+    function getScenarioBonusCap() {
+        return Object.assign({}, _bonusSweepConfig);
     }
 
     /** Lider at (en yüksek maxFinal; eşitlikte sumFinal, at no) */
@@ -203,7 +228,9 @@ const Scenario48ScoringEngine = (function () {
         pickLeader,
         pickLeaderBySumFinal,
         pickLeaderByMetric,
-        finalToPctBonus
+        finalToPctBonus,
+        setScenarioBonusCap,
+        getScenarioBonusCap
     };
 })();
 
