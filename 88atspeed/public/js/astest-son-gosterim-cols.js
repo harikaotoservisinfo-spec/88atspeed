@@ -489,8 +489,7 @@ const AtestSonGosterimCols = (function () {
     }
 
     /**
-     * TEST9 yanıp → +%45 · 8002-8001 yanıp → +%5
-     * TEST1/2/3 kırmızı → 48 senaryo (tüm geçmiş koşular, en iyi isabet · maxFinal×10 ≈ +9…+38)
+     * TEST1/2/3 kırmızı → 48 senaryo (tüm geçmiş koşular; TEST9/8002 çarpanı dahil · maxFinal×10 ≈ +9…+38)
      * TEST1 yeşil: koşuda 1 at +%15 · 2+ at TEST1 süresine göre 15/12/9…
      * TEST1 en iyi 3 süre: +7 / +5 / +3 · TEST1 kırmızı yazı +3 ekstra
      * AT İSMİ mavi fosfor (son 7): +5 · mavi değil: −5
@@ -620,25 +619,6 @@ const AtestSonGosterimCols = (function () {
                     bonusTerms.push({
                         label: 'AT İSMİ kırmızı kenar',
                         points: AT_ISMI_KENAR_KIRMIZI_BONUS,
-                        source: 'gosterim'
-                    });
-                }
-
-                const flags = gosterimBlinkFlags(gosRow);
-
-                if (flags.test9Yanip) {
-                    bonus += TEST9_YANIP_TAHMIN_BONUS;
-                    bonusTerms.push({
-                        label: 'TEST9 yanıp',
-                        points: TEST9_YANIP_TAHMIN_BONUS,
-                        source: 'gosterim'
-                    });
-                }
-                if (flags.fark8002Yanip) {
-                    bonus += FARK8002_YANIP_TAHMIN_BONUS;
-                    bonusTerms.push({
-                        label: '8002-8001 yanıp',
-                        points: FARK8002_YANIP_TAHMIN_BONUS,
                         source: 'gosterim'
                     });
                 }

@@ -91,6 +91,42 @@ function enrichRaceHorses(race) {
     });
 }
 
+function leaderSummaryFromRaceStats(raceStats, leaderKey) {
+    let racesWithBitis = 0, b1 = 0, b12 = 0, b123 = 0, sumBlend = 0;
+    for (const rs of raceStats) {
+        const bitis = rs[leaderKey + 'Bitis'];
+        if (bitis == null) continue;
+        racesWithBitis++;
+        sumBlend += rs[leaderKey + 'Blended'];
+        if (bitis === 1) b1++;
+        if (bitis <= 2) b12++;
+        if (bitis <= 3) b123++;
+    }
+    return {
+        racesWithBitis: racesWithBitis,
+        b1: b1,
+        b12: b12,
+        b123: b123,
+        avgBlend: racesWithBitis ? sumBlend / racesWithBitis : 0
+    };
+}
+
+function countSameLeaders(raceStats) {
+    let n = 0;
+    for (const rs of raceStats) {
+        if (rs.sameLeader) n++;
+    }
+    return n;
+}
+
+function printLeaderMethodRow(label, summary) {
+    const denom = Math.max(1, summary.racesWithBitis);
+    console.log(pad(label, 14)
+        + pad(pct(summary.b1 / denom) + ' (' + summary.b1 + '/' + summary.racesWithBitis + ')', 18)
+        + pad(pct(summary.b123 / denom) + ' (' + summary.b123 + '/' + summary.racesWithBitis + ')', 18)
+        + pad((summary.avgBlend * 100).toFixed(1) + '%', 10));
+}
+
 async function analyzeKayit(db, kayitId, bitisMap) {
     const rows = await dbAll(db,
         'SELECT id, hipodrom, tarih, veri FROM hesaplama_kayitlari WHERE id = ?', [kayitId]);
@@ -148,42 +184,55 @@ async function analyzeKayit(db, kayitId, bitisMap) {
             }
         }
 
-        const leader = S48.pickLeader(scored);
-        const leaderBitis = leader ? resolveBitis(leader.horse, kayitId, raceNo, bitisMap) : null;
+        const leaderMax = S48.pickLeader(scored);
+        const leaderSum = S48.pickLeaderBySumFinal(scored);
+        const leaderMaxBitis = leaderMax ? resolveBitis(leaderMax.horse, kayitId, raceNo, bitisMap) : null;
+        const leaderSumBitis = leaderSum ? resolveBitis(leaderSum.horse, kayitId, raceNo, bitisMap) : null;
+        const sameLeader = !!(leaderMax && leaderSum
+            && leaderMax.horseIndex === leaderSum.horseIndex);
         const withHits = scored.filter(s => s.hitCount > 0).length;
 
         raceStats.push({
             raceNo: raceNo,
             fieldSize: (race.horses || []).length,
             withHits: withHits,
-            leaderName: leader ? (leader.horse.name || '').replace(/\s*\(\d+\)\s*$/, '').trim() : '—',
-            leaderCode: leader?.bestCode || '—',
-            leaderMax: leader?.maxFinal ?? 0,
-            leaderBitis: leaderBitis,
-            leaderBlended: blendedFromBitis(leaderBitis)
+            sameLeader: sameLeader,
+            leaderMaxName: leaderMax ? (leaderMax.horse.name || '').replace(/\s*\(\d+\)\s*$/, '').trim() : '—',
+            leaderMaxCode: leaderMax?.bestCode || '—',
+            leaderMaxScore: leaderMax?.maxFinal ?? 0,
+            leaderMaxBitis: leaderMaxBitis,
+            leaderMaxBlended: blendedFromBitis(leaderMaxBitis),
+            leaderSumName: leaderSum ? (leaderSum.horse.name || '').replace(/\s*\(\d+\)\s*$/, '').trim() : '—',
+            leaderSumCode: leaderSum?.bestCode || '—',
+            leaderSumScore: leaderSum?.sumFinal ?? 0,
+            leaderSumBitis: leaderSumBitis,
+            leaderSumBlended: blendedFromBitis(leaderSumBitis)
         });
 
-        if (cli.verbose && leader) {
-            console.log('\n  K' + raceNo + ' lider: #' + leader.horse.no + ' ' + raceStats[raceStats.length - 1].leaderName
-                + ' · ' + leader.bestCode + ' · max=' + leader.maxFinal.toFixed(2) + 'x'
-                + ' · bitiş=' + (leaderBitis ?? '?'));
-            if (leader.hits.length) {
-                for (const h of leader.hits) {
-                    console.log('    SIRA=' + (h.sira ?? '?') + ' ' + h.code + ' → ' + h.final.toFixed(2) + 'x');
+        if (cli.verbose && (leaderMax || leaderSum)) {
+            const rs = raceStats[raceStats.length - 1];
+            console.log('\n  K' + raceNo + (sameLeader ? ' · aynı lider' : ' · farklı lider'));
+            if (leaderMax) {
+                console.log('    maxFinal: #' + leaderMax.horse.no + ' ' + rs.leaderMaxName
+                    + ' · ' + leaderMax.bestCode + ' · max=' + leaderMax.maxFinal.toFixed(2) + 'x'
+                    + ' · bitiş=' + (leaderMaxBitis ?? '?'));
+                if (leaderMax.hits.length) {
+                    for (const h of leaderMax.hits) {
+                        console.log('      SIRA=' + (h.sira ?? '?') + ' ' + h.code + ' → ' + h.final.toFixed(2) + 'x');
+                    }
                 }
+            }
+            if (leaderSum && !sameLeader) {
+                console.log('    sumFinal: #' + leaderSum.horse.no + ' ' + rs.leaderSumName
+                    + ' · sum=' + leaderSum.sumFinal.toFixed(2) + 'x'
+                    + ' · bitiş=' + (leaderSumBitis ?? '?'));
             }
         }
     }
 
-    let racesWithLeader = 0, b1 = 0, b12 = 0, b123 = 0, sumBlend = 0;
-    for (const rs of raceStats) {
-        if (rs.leaderBitis == null) continue;
-        racesWithLeader++;
-        sumBlend += rs.leaderBlended;
-        if (rs.leaderBitis === 1) b1++;
-        if (rs.leaderBitis <= 2) b12++;
-        if (rs.leaderBitis <= 3) b123++;
-    }
+    const maxSummary = leaderSummaryFromRaceStats(raceStats, 'leaderMax');
+    const sumSummary = leaderSummaryFromRaceStats(raceStats, 'leaderSum');
+    const sameLeaderCount = countSameLeaders(raceStats);
 
     return {
         kayitId: kayitId,
@@ -192,13 +241,16 @@ async function analyzeKayit(db, kayitId, bitisMap) {
         raceStats: raceStats,
         scenarioRows: scenarioRows,
         codeTotals: codeTotals,
+        maxSummary: maxSummary,
+        sumSummary: sumSummary,
         summary: {
             races: raceStats.length,
-            racesWithBitis: racesWithLeader,
-            b1: b1,
-            b12: b12,
-            b123: b123,
-            avgBlend: racesWithLeader ? sumBlend / racesWithLeader : 0
+            racesWithBitis: maxSummary.racesWithBitis,
+            b1: maxSummary.b1,
+            b12: maxSummary.b12,
+            b123: maxSummary.b123,
+            avgBlend: maxSummary.avgBlend,
+            sameLeader: sameLeaderCount
         }
     };
 }
@@ -207,22 +259,27 @@ function printKayitReport(report) {
     hr('Kayıt #' + report.kayitId + ' · ' + report.tarih + ' · ' + report.hipodrom);
     const s = report.summary;
     console.log('Koşu sayısı: ' + s.races + ' · bitiş bilinen: ' + s.racesWithBitis);
-    console.log('48 senaryo lideri → ★1.: ' + pct(s.b1 / Math.max(1, s.racesWithBitis))
-        + ' (' + s.b1 + '/' + s.racesWithBitis + ')'
-        + ' · ◆1–3: ' + pct(s.b123 / Math.max(1, s.racesWithBitis))
-        + ' (' + s.b123 + '/' + s.racesWithBitis + ')'
-        + ' · ort. blend: ' + (s.avgBlend * 100).toFixed(1) + '%');
 
-    console.log('\nKoşu bazında lider (maxFinal):');
-    console.log(pad('Koşu', 6) + pad('Lider', 22) + pad('Senaryo', 8)
-        + pad('Max', 8) + pad('Bitiş', 8) + pad('Blend', 8));
+    console.log('\nmaxFinal vs sumFinal lider karşılaştırması (TAHMİN bonusu maxFinal kullanır):');
+    console.log(pad('Yöntem', 14) + pad('★1.', 18) + pad('◆1–3', 18) + pad('Blend', 10));
+    printLeaderMethodRow('maxFinal', report.maxSummary);
+    printLeaderMethodRow('sumFinal', report.sumSummary);
+    console.log('Aynı lider: ' + s.sameLeader + '/' + s.races + ' koşu');
+
+    console.log('\nKoşu bazında liderler:');
+    console.log(pad('Koşu', 6) + pad('maxFinal', 22) + pad('Kod', 7)
+        + pad('Max', 8) + pad('Bit', 5)
+        + pad('sumFinal', 22) + pad('Sum', 8) + pad('Bit', 5) + pad('=', 4));
     for (const rs of report.raceStats) {
         console.log(pad('K' + rs.raceNo, 6)
-            + pad(rs.leaderName.slice(0, 20), 22)
-            + pad(rs.leaderCode, 8)
-            + pad(rs.leaderMax ? rs.leaderMax.toFixed(2) + 'x' : '—', 8)
-            + pad(rs.leaderBitis != null ? bitisMark(rs.leaderBitis) + rs.leaderBitis : '?', 8)
-            + pad(rs.leaderBitis != null ? Math.round(rs.leaderBlended * 100) + '%' : '—', 8));
+            + pad(rs.leaderMaxName.slice(0, 20), 22)
+            + pad(rs.leaderMaxCode, 7)
+            + pad(rs.leaderMaxScore ? rs.leaderMaxScore.toFixed(2) + 'x' : '—', 8)
+            + pad(rs.leaderMaxBitis != null ? bitisMark(rs.leaderMaxBitis) + rs.leaderMaxBitis : '?', 5)
+            + pad(rs.leaderSumName.slice(0, 20), 22)
+            + pad(rs.leaderSumScore ? rs.leaderSumScore.toFixed(2) + 'x' : '—', 8)
+            + pad(rs.leaderSumBitis != null ? bitisMark(rs.leaderSumBitis) + rs.leaderSumBitis : '?', 5)
+            + pad(rs.sameLeader ? '=' : '≠', 4));
     }
 
     console.log('\nSenaryo kodu × bitiş (satır bazında — tüm geçmiş koşular):');
@@ -273,20 +330,39 @@ async function main() {
     }
 
     if (reports.length > 1) {
-        hr('TOPLAM ÖZET');
-        let tr = 0, tb1 = 0, tb123 = 0, tBlend = 0, tBitis = 0;
+        hr('TOPLAM ÖZET · maxFinal vs sumFinal');
+        let tr = 0, tSame = 0;
+        const aggMax = { b1: 0, b123: 0, blend: 0, bitis: 0 };
+        const aggSum = { b1: 0, b123: 0, blend: 0, bitis: 0 };
         for (const r of reports) {
             tr += r.summary.races;
-            tb1 += r.summary.b1;
-            tb123 += r.summary.b123;
-            tBitis += r.summary.racesWithBitis;
-            tBlend += r.summary.avgBlend * r.summary.racesWithBitis;
+            tSame += r.summary.sameLeader;
+            aggMax.b1 += r.maxSummary.b1;
+            aggMax.b123 += r.maxSummary.b123;
+            aggMax.blend += r.maxSummary.avgBlend * r.maxSummary.racesWithBitis;
+            aggMax.bitis += r.maxSummary.racesWithBitis;
+            aggSum.b1 += r.sumSummary.b1;
+            aggSum.b123 += r.sumSummary.b123;
+            aggSum.blend += r.sumSummary.avgBlend * r.sumSummary.racesWithBitis;
+            aggSum.bitis += r.sumSummary.racesWithBitis;
         }
         console.log('Kayıt: ' + reports.map(r => '#' + r.kayitId).join(', '));
-        console.log('Toplam koşu: ' + tr + ' · bitiş bilinen: ' + tBitis);
-        console.log('★1.: ' + pct(tb1 / Math.max(1, tBitis)) + ' (' + tb1 + '/' + tBitis + ')');
-        console.log('◆1–3: ' + pct(tb123 / Math.max(1, tBitis)) + ' (' + tb123 + '/' + tBitis + ')');
-        console.log('Ort. blend: ' + (tBitis ? (tBlend / tBitis * 100).toFixed(1) : '0') + '%');
+        console.log('Toplam koşu: ' + tr + ' · aynı lider: ' + tSame + '/' + tr);
+        console.log(pad('Yöntem', 14) + pad('★1.', 18) + pad('◆1–3', 18) + pad('Blend', 10));
+        const maxRow = {
+            racesWithBitis: aggMax.bitis,
+            b1: aggMax.b1,
+            b123: aggMax.b123,
+            avgBlend: aggMax.bitis ? aggMax.blend / aggMax.bitis : 0
+        };
+        const sumRow = {
+            racesWithBitis: aggSum.bitis,
+            b1: aggSum.b1,
+            b123: aggSum.b123,
+            avgBlend: aggSum.bitis ? aggSum.blend / aggSum.bitis : 0
+        };
+        printLeaderMethodRow('maxFinal', maxRow);
+        printLeaderMethodRow('sumFinal', sumRow);
     }
 }
 

@@ -165,18 +165,28 @@ const Scenario48ScoringEngine = (function () {
 
     /** Lider at (en yüksek maxFinal; eşitlikte sumFinal, at no) */
     function pickLeader(scored) {
-        const ranked = (scored || []).filter(s => s.maxFinal > 0);
+        return pickLeaderByMetric(scored, 'maxFinal');
+    }
+
+    /** Lider at (en yüksek sumFinal; eşitlikte maxFinal, at no) */
+    function pickLeaderBySumFinal(scored) {
+        return pickLeaderByMetric(scored, 'sumFinal');
+    }
+
+    function pickLeaderByMetric(scored, metric) {
+        const alt = metric === 'maxFinal' ? 'sumFinal' : 'maxFinal';
+        const ranked = (scored || []).filter(function (s) { return (s[metric] || 0) > 0; });
         if (ranked.length < 2) return ranked[0] || null;
         ranked.sort(function (a, b) {
-            if (b.maxFinal !== a.maxFinal) return b.maxFinal - a.maxFinal;
-            if (b.sumFinal !== a.sumFinal) return b.sumFinal - a.sumFinal;
+            if (b[metric] !== a[metric]) return b[metric] - a[metric];
+            if (b[alt] !== a[alt]) return b[alt] - a[alt];
             const na = parseInt(a.horse?.no, 10);
             const nb = parseInt(b.horse?.no, 10);
             if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
             return a.horseIndex - b.horseIndex;
         });
-        if (ranked[0].maxFinal === ranked[1].maxFinal
-            && ranked[0].sumFinal === ranked[1].sumFinal) return null;
+        if (ranked[0][metric] === ranked[1][metric]
+            && ranked[0][alt] === ranked[1][alt]) return null;
         return ranked[0];
     }
 
@@ -191,6 +201,8 @@ const Scenario48ScoringEngine = (function () {
         aggregateHorseHits,
         scoreRace,
         pickLeader,
+        pickLeaderBySumFinal,
+        pickLeaderByMetric,
         finalToPctBonus
     };
 })();
