@@ -22,6 +22,8 @@ const AtestSonGosterimCols = (function () {
     const SIRA_ATISMI_ATID_TARIH_MAVI_BONUS = 4;
     const AT_ISMI_KENAR_MAVI_BONUS = 3;
     const AT_ISMI_KENAR_KIRMIZI_BONUS = 3;
+    const SON800_1_RANK_BONUSES = [10, 7, 4];
+    const SON800_DUAL_GREEN_BONUS = 5;
 
     function horseKey(h) {
         if (h?.atId != null && h.atId !== '') return String(h.atId);
@@ -281,6 +283,103 @@ const AtestSonGosterimCols = (function () {
         return keys;
     }
 
+    function calcRaceForGosterim(race, meta, resolveKosular) {
+        const calcRace = enrichRace(race, resolveKosular);
+        if (typeof GosterimEngine !== 'undefined' && meta?.tarih) {
+            return GosterimEngine._raceForCalc(calcRace, meta.tarih);
+        }
+        return calcRace;
+    }
+
+    /** Koşu kartı genelinde SON800-1/2 sıralı listeler + top-3 kümeleri */
+    function collectSon800RankedLists(calcRace) {
+        const son800_1 = [];
+        const son800_2 = [];
+        if (!calcRace?.horses) {
+            return {
+                son800_1: son800_1,
+                son800_2: son800_2,
+                enIyilerSon800_1: new Set(),
+                enIyilerSon800_2: new Set()
+            };
+        }
+        for (let j = 0; j < calcRace.horses.length; j++) {
+            for (const atKosu of calcRace.horses[j].kosular || []) {
+                const s1 = typeof AtSpeedUtils !== 'undefined'
+                    ? AtSpeedUtils.dereceToSalise(atKosu.son800_bir)
+                    : null;
+                if (s1 !== null) son800_1.push({ j: j, atKosu: atKosu, val: s1 });
+                let s8002 = atKosu.son800_iki;
+                if (!s8002 || s8002 === '-') s8002 = atKosu.son800_bir;
+                const s2 = typeof AtSpeedUtils !== 'undefined'
+                    ? AtSpeedUtils.dereceToSalise(s8002)
+                    : null;
+                if (s2 !== null) son800_2.push({ j: j, atKosu: atKosu, val: s2 });
+            }
+        }
+        son800_1.sort(function(a, b) {
+            if (a.val !== b.val) return a.val - b.val;
+            return a.j - b.j;
+        });
+        son800_2.sort(function(a, b) {
+            if (a.val !== b.val) return a.val - b.val;
+            return a.j - b.j;
+        });
+        const top = typeof GosterimEngine !== 'undefined'
+            ? GosterimEngine.collectTopSon800(calcRace)
+            : { enIyilerSon800_1: new Set(), enIyilerSon800_2: new Set() };
+        return {
+            son800_1: son800_1,
+            son800_2: son800_2,
+            enIyilerSon800_1: top.enIyilerSon800_1 || new Set(),
+            enIyilerSon800_2: top.enIyilerSon800_2 || new Set()
+        };
+    }
+
+    /**
+     * SON800-1 koşu top-3 → +10 / +7 / +4 (tüm geçmiş koşular dahil)
+     * Aynı geçmiş koşuda SON800-1 + SON800-2 ikisi yeşil (top-3) → +5
+     */
+    function computeSon800Bonuses(race, meta, resolveKosular) {
+        const rankBonuses = new Map();
+        const dualGreenKeys = new Set();
+        if (typeof GosterimEngine === 'undefined' || !race) {
+            return { rankBonuses: rankBonuses, dualGreenKeys: dualGreenKeys };
+        }
+
+        const calcRace = calcRaceForGosterim(race, meta, resolveKosular);
+        const pack = collectSon800RankedLists(calcRace);
+        const topN = Math.min(3, pack.son800_1.length);
+        for (let r = 0; r < topN; r++) {
+            const entry = pack.son800_1[r];
+            const horse = calcRace.horses[entry.j];
+            const key = horseKey(horse);
+            if (!key) continue;
+            const bonus = SON800_1_RANK_BONUSES[r];
+            const prev = rankBonuses.get(key);
+            if (!prev || prev.bonus < bonus) {
+                rankBonuses.set(key, {
+                    bonus: bonus,
+                    label: 'SON800-1 top-' + (r + 1) + ' · ' + (entry.atKosu.son800_bir || '?')
+                });
+            }
+        }
+
+        for (let j = 0; j < calcRace.horses.length; j++) {
+            const key = horseKey(calcRace.horses[j]);
+            if (!key) continue;
+            for (const atKosu of calcRace.horses[j].kosular || []) {
+                const kk = GosterimEngine._kosuKey(j, atKosu);
+                if (pack.enIyilerSon800_1.has(kk) && pack.enIyilerSon800_2.has(kk)) {
+                    dualGreenKeys.add(key);
+                    break;
+                }
+            }
+        }
+
+        return { rankBonuses: rankBonuses, dualGreenKeys: dualGreenKeys };
+    }
+
     /** @deprecated use buildSifiraYakinKeySets().son7 */
     function buildAtIsmiMaviKeySet(race, meta, resolveKosular) {
         return buildSifiraYakinKeySets(race, meta, resolveKosular).son7;
@@ -361,6 +460,7 @@ const AtestSonGosterimCols = (function () {
      * AT ID + TARİH ikisi mavi: ekstra +4 · herhangi 3'lü mavi: ekstra +4
      * SIRA + AT İSMİ + AT ID + TARİH dörtlüsü mavi: ekstra +4
      * AT İSMİ mavi kenar: +3 · kırmızı kenar: +3 (mavi fosfor yazıdan bağımsız)
+     * SON800-1 koşu top-3: +10 / +7 / +4 · aynı geçmiş koşuda SON800-1+2 yeşil: +5
      * pct %100 üstüne çıkabilir; sıra güncellenir.
      */
     function applyTahminBonuses(horseRows, gosByKey, race, meta, resolveKosular) {
@@ -368,6 +468,7 @@ const AtestSonGosterimCols = (function () {
 
         const sifiraSets = buildSifiraYakinKeySets(race, meta, resolveKosular);
         const siraMaviKeys = buildSiraMaviKeySet(race, meta, resolveKosular);
+        const son800Bonuses = computeSon800Bonuses(race, meta, resolveKosular);
         const test1GreenBonuses = gosByKey?.size
             ? computeTest1GreenBonuses(horseRows, gosByKey)
             : new Map();
@@ -530,6 +631,25 @@ const AtestSonGosterimCols = (function () {
                     source: 'gosterim'
                 });
             }
+
+            const s800Rank = son800Bonuses.rankBonuses.get(key);
+            if (s800Rank && s800Rank.bonus > 0) {
+                bonus += s800Rank.bonus;
+                bonusTerms.push({
+                    label: s800Rank.label,
+                    points: s800Rank.bonus,
+                    source: 'gosterim'
+                });
+            }
+            if (son800Bonuses.dualGreenKeys.has(key)) {
+                bonus += SON800_DUAL_GREEN_BONUS;
+                bonusTerms.push({
+                    label: 'SON800-1+2 ikisi yeşil (geçmiş koşu)',
+                    points: SON800_DUAL_GREEN_BONUS,
+                    source: 'gosterim'
+                });
+            }
+
             if (!bonus) continue;
 
             applyBonusDelta(tahmin, bonus, bonusTerms);
@@ -563,6 +683,8 @@ const AtestSonGosterimCols = (function () {
         isTest1Kirmizi,
         computeTest1GreenBonuses,
         computeTest1RankBonuses,
+        computeSon800Bonuses,
+        collectSon800RankedLists,
         buildSifiraYakinKeySets,
         buildSiraMaviKeySet,
         buildAtIsmiMaviKeySet,
@@ -593,7 +715,9 @@ const AtestSonGosterimCols = (function () {
         MAVI_UCLU_COMBO_BONUS,
         SIRA_ATISMI_ATID_TARIH_MAVI_BONUS,
         AT_ISMI_KENAR_MAVI_BONUS,
-        AT_ISMI_KENAR_KIRMIZI_BONUS
+        AT_ISMI_KENAR_KIRMIZI_BONUS,
+        SON800_1_RANK_BONUSES,
+        SON800_DUAL_GREEN_BONUS
     };
 })();
 
