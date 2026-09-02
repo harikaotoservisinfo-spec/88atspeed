@@ -42,6 +42,7 @@
     "test:siklet-son800-demo": "node scripts/test-siklet-son800-correlation.js --demo --phase exhaustive,forensics",
     "test:siklet-horse": "node scripts/test-dimension-tab-horse.js --db atlar.db --kayit 148 --race 7 --horse PATARA --dim siklet",
     "test:kayit-basari": "node scripts/test-kayit-basari-report.js --kayit 148",
+    "test:scenario48": "node scripts/test-scenario48-basari.js --kayit 148,154",
     "test:top3-tabs": "node scripts/test-top3-tab-success.js --all-kayitlar",
     "test:sehir-race": "node scripts/test-sehir-tab-race.js --kayit 148 --race 1",
     "test:audit-kosu-counts": "node scripts/audit-horse-kosu-counts.js --kayit 148",
