@@ -18,6 +18,7 @@ const AtestSonGosterimCols = (function () {
     const TARIH_MAVI_BONUS = 5;
     const TARIH_MAVI_PENALTY = 3;
     const AT_ID_TARIH_IKISI_MAVI_BONUS = 4;
+    const MAVI_UCLU_COMBO_BONUS = 4;
     const SIRA_ATISMI_ATID_TARIH_MAVI_BONUS = 4;
     const AT_ISMI_KENAR_MAVI_BONUS = 3;
     const AT_ISMI_KENAR_KIRMIZI_BONUS = 3;
@@ -285,6 +286,32 @@ const AtestSonGosterimCols = (function () {
         return buildSifiraYakinKeySets(race, meta, resolveKosular).son7;
     }
 
+    /** SIRA / AT İSMİ / AT ID / TARİH mavi bayrakları */
+    function mavi800DeltaFlags(key, siraMaviKeys, sifiraSets) {
+        return {
+            sira: siraMaviKeys.has(key),
+            atIsmi: sifiraSets.son7.has(key),
+            atId: sifiraSets.son3.has(key),
+            tarih: sifiraSets.son2.has(key)
+        };
+    }
+
+    function countMavi800Delta(flags) {
+        return (flags.sira ? 1 : 0)
+            + (flags.atIsmi ? 1 : 0)
+            + (flags.atId ? 1 : 0)
+            + (flags.tarih ? 1 : 0);
+    }
+
+    function mavi800DeltaComboLabel(flags) {
+        const parts = [];
+        if (flags.sira) parts.push('SIRA');
+        if (flags.atIsmi) parts.push('AT İSMİ');
+        if (flags.atId) parts.push('AT ID');
+        if (flags.tarih) parts.push('TARİH');
+        return parts.join(' + ');
+    }
+
     function applyBonusDelta(tahmin, delta, terms) {
         if (!delta) return;
         if (tahmin.basePct == null) {
@@ -331,7 +358,7 @@ const AtestSonGosterimCols = (function () {
      * TEST1 en iyi 3 süre: +7 / +5 / +3 · TEST1 kırmızı yazı +3 ekstra
      * AT İSMİ mavi fosfor (son 7): +5 · mavi değil: −5
      * AT ID mavi (son 3): +7 · mavi değil: −3 · TARİH mavi (son 2): +5 · mavi değil: −3
-     * AT ID + TARİH ikisi mavi: ekstra +4
+     * AT ID + TARİH ikisi mavi: ekstra +4 · herhangi 3'lü mavi: ekstra +4
      * SIRA + AT İSMİ + AT ID + TARİH dörtlüsü mavi: ekstra +4
      * AT İSMİ mavi kenar: +3 · kırmızı kenar: +3 (mavi fosfor yazıdan bağımsız)
      * pct %100 üstüne çıkabilir; sıra güncellenir.
@@ -407,7 +434,10 @@ const AtestSonGosterimCols = (function () {
                 });
             }
 
-            if (sifiraSets.son3.has(key) && sifiraSets.son2.has(key)) {
+            const maviFlags = mavi800DeltaFlags(key, siraMaviKeys, sifiraSets);
+            const maviCount = countMavi800Delta(maviFlags);
+
+            if (maviFlags.atId && maviFlags.tarih) {
                 bonus += AT_ID_TARIH_IKISI_MAVI_BONUS;
                 bonusTerms.push({
                     label: 'AT ID + TARİH ikisi mavi',
@@ -416,10 +446,16 @@ const AtestSonGosterimCols = (function () {
                 });
             }
 
-            if (siraMaviKeys.has(key)
-                && sifiraSets.son7.has(key)
-                && sifiraSets.son3.has(key)
-                && sifiraSets.son2.has(key)) {
+            if (maviCount === 3) {
+                bonus += MAVI_UCLU_COMBO_BONUS;
+                bonusTerms.push({
+                    label: mavi800DeltaComboLabel(maviFlags) + ' üçlü mavi',
+                    points: MAVI_UCLU_COMBO_BONUS,
+                    source: 'gosterim'
+                });
+            }
+
+            if (maviCount === 4) {
                 bonus += SIRA_ATISMI_ATID_TARIH_MAVI_BONUS;
                 bonusTerms.push({
                     label: 'SIRA + AT İSMİ + AT ID + TARİH mavi',
@@ -532,6 +568,8 @@ const AtestSonGosterimCols = (function () {
         buildAtIsmiMaviKeySet,
         gosterimBlinkFlags,
         atIsmiKenarFlags,
+        mavi800DeltaFlags,
+        countMavi800Delta,
         applyTahminBonuses,
         noCellClassList,
         renderNoCell,
@@ -552,6 +590,7 @@ const AtestSonGosterimCols = (function () {
         TARIH_MAVI_BONUS,
         TARIH_MAVI_PENALTY,
         AT_ID_TARIH_IKISI_MAVI_BONUS,
+        MAVI_UCLU_COMBO_BONUS,
         SIRA_ATISMI_ATID_TARIH_MAVI_BONUS,
         AT_ISMI_KENAR_MAVI_BONUS,
         AT_ISMI_KENAR_KIRMIZI_BONUS
