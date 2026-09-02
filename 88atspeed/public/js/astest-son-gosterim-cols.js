@@ -18,6 +18,7 @@ const AtestSonGosterimCols = (function () {
     const TARIH_MAVI_BONUS = 5;
     const TARIH_MAVI_PENALTY = 3;
     const AT_ID_TARIH_IKISI_MAVI_BONUS = 4;
+    const SIRA_ATISMI_ATID_TARIH_MAVI_BONUS = 4;
     const AT_ISMI_KENAR_MAVI_BONUS = 3;
     const AT_ISMI_KENAR_KIRMIZI_BONUS = 3;
 
@@ -264,6 +265,21 @@ const AtestSonGosterimCols = (function () {
         return out;
     }
 
+    /** TEST1–TEST2 en yakın 3 at → sol SIRA (AT İSMİ öncesi) koyu mavi */
+    function buildSiraMaviKeySet(race, meta, resolveKosular) {
+        const keys = new Set();
+        if (typeof GosterimEngine === 'undefined' || !race) return keys;
+        const calcRace = enrichRace(race, resolveKosular);
+        const hedefMesafe = parseInt(calcRace.mesafe, 10);
+        const { test12YakinAtlar } = GosterimEngine.collectClosestTest12(calcRace, hedefMesafe);
+        if (!test12YakinAtlar) return keys;
+        for (const j of test12YakinAtlar) {
+            const k = horseKey(calcRace.horses[j]);
+            if (k) keys.add(k);
+        }
+        return keys;
+    }
+
     /** @deprecated use buildSifiraYakinKeySets().son7 */
     function buildAtIsmiMaviKeySet(race, meta, resolveKosular) {
         return buildSifiraYakinKeySets(race, meta, resolveKosular).son7;
@@ -316,6 +332,7 @@ const AtestSonGosterimCols = (function () {
      * AT İSMİ mavi fosfor (son 7): +5 · mavi değil: −5
      * AT ID mavi (son 3): +7 · mavi değil: −3 · TARİH mavi (son 2): +5 · mavi değil: −3
      * AT ID + TARİH ikisi mavi: ekstra +4
+     * SIRA + AT İSMİ + AT ID + TARİH dörtlüsü mavi: ekstra +4
      * AT İSMİ mavi kenar: +3 · kırmızı kenar: +3 (mavi fosfor yazıdan bağımsız)
      * pct %100 üstüne çıkabilir; sıra güncellenir.
      */
@@ -323,6 +340,7 @@ const AtestSonGosterimCols = (function () {
         if (!horseRows?.length) return horseRows;
 
         const sifiraSets = buildSifiraYakinKeySets(race, meta, resolveKosular);
+        const siraMaviKeys = buildSiraMaviKeySet(race, meta, resolveKosular);
         const test1GreenBonuses = gosByKey?.size
             ? computeTest1GreenBonuses(horseRows, gosByKey)
             : new Map();
@@ -394,6 +412,18 @@ const AtestSonGosterimCols = (function () {
                 bonusTerms.push({
                     label: 'AT ID + TARİH ikisi mavi',
                     points: AT_ID_TARIH_IKISI_MAVI_BONUS,
+                    source: 'gosterim'
+                });
+            }
+
+            if (siraMaviKeys.has(key)
+                && sifiraSets.son7.has(key)
+                && sifiraSets.son3.has(key)
+                && sifiraSets.son2.has(key)) {
+                bonus += SIRA_ATISMI_ATID_TARIH_MAVI_BONUS;
+                bonusTerms.push({
+                    label: 'SIRA + AT İSMİ + AT ID + TARİH mavi',
+                    points: SIRA_ATISMI_ATID_TARIH_MAVI_BONUS,
                     source: 'gosterim'
                 });
             }
@@ -498,6 +528,7 @@ const AtestSonGosterimCols = (function () {
         computeTest1GreenBonuses,
         computeTest1RankBonuses,
         buildSifiraYakinKeySets,
+        buildSiraMaviKeySet,
         buildAtIsmiMaviKeySet,
         gosterimBlinkFlags,
         atIsmiKenarFlags,
@@ -521,6 +552,7 @@ const AtestSonGosterimCols = (function () {
         TARIH_MAVI_BONUS,
         TARIH_MAVI_PENALTY,
         AT_ID_TARIH_IKISI_MAVI_BONUS,
+        SIRA_ATISMI_ATID_TARIH_MAVI_BONUS,
         AT_ISMI_KENAR_MAVI_BONUS,
         AT_ISMI_KENAR_KIRMIZI_BONUS
     };
