@@ -5,6 +5,7 @@
 const AtestSonGosterimCols = (function () {
     const TEST9_YANIP_TAHMIN_BONUS = 45;
     const FARK8002_YANIP_TAHMIN_BONUS = 5;
+    /** Eski sabit +25 yerine Scenario48ScoringEngine.finalToPctBonus(maxFinal) */
     const TEST123_KIRMIZI_TAHMIN_BONUS = 25;
     const TEST1_GREEN_SINGLE_BONUS = 15;
     const TEST1_GREEN_MULTI_BASE = 15;
@@ -438,6 +439,42 @@ const AtestSonGosterimCols = (function () {
         };
     }
 
+    /**
+     * Atın tüm geçmiş GÖSTERİM satırlarından 48 senaryo — en iyi isabet → TAHMİN %
+     * @returns {Map<string, { bonus: number, label: string, code: string|null, maxFinal: number, hitCount: number }>}
+     */
+    function buildTest123ScenarioBonusMap(race, meta, resolveKosular) {
+        const out = new Map();
+        if (typeof Scenario48ScoringEngine === 'undefined' || typeof GosterimEngine === 'undefined') {
+            return out;
+        }
+        const raceForCalc = calcRaceForGosterim(race, meta, resolveKosular);
+        const scored = Scenario48ScoringEngine.scoreRace(raceForCalc, {
+            programTarih: meta?.tarih || null,
+            hipodromSehir: meta?.hipodrom || '',
+            raceIndex: 0
+        });
+        for (let i = 0; i < scored.length; i++) {
+            const entry = scored[i];
+            if (!entry.maxFinal || entry.maxFinal <= 0) continue;
+            const key = horseKey(entry.horse);
+            if (!key) continue;
+            const bonus = Scenario48ScoringEngine.finalToPctBonus(entry.maxFinal);
+            if (bonus <= 0) continue;
+            const code = entry.bestCode || '?';
+            out.set(key, {
+                bonus: bonus,
+                label: 'TEST1/2/3 kırmızı · ' + code + ' · '
+                    + entry.maxFinal.toFixed(2) + 'x → +' + bonus + '%'
+                    + (entry.hitCount > 1 ? ' (' + entry.hitCount + ' isabet)' : ''),
+                code: code,
+                maxFinal: entry.maxFinal,
+                hitCount: entry.hitCount
+            });
+        }
+        return out;
+    }
+
     /** GÖSTERİM SIRA=1 satırında yanıp sönen hücre bayrakları */
     function gosterimBlinkFlags(gosRow) {
         if (!gosRow?.classes) {
@@ -452,7 +489,8 @@ const AtestSonGosterimCols = (function () {
     }
 
     /**
-     * TEST9 yanıp → +%45 · 8002-8001 yanıp → +%5 · TEST1/2/3 kırmızı → +%25
+     * TEST9 yanıp → +%45 · 8002-8001 yanıp → +%5
+     * TEST1/2/3 kırmızı → 48 senaryo (tüm geçmiş koşular, en iyi isabet · maxFinal×10 ≈ +9…+38)
      * TEST1 yeşil: koşuda 1 at +%15 · 2+ at TEST1 süresine göre 15/12/9…
      * TEST1 en iyi 3 süre: +7 / +5 / +3 · TEST1 kırmızı yazı +3 ekstra
      * AT İSMİ mavi fosfor (son 7): +5 · mavi değil: −5
@@ -475,6 +513,7 @@ const AtestSonGosterimCols = (function () {
         const test1RankBonuses = gosByKey?.size
             ? computeTest1RankBonuses(horseRows, gosByKey)
             : new Map();
+        const test123ScenarioBonuses = buildTest123ScenarioBonusMap(race, meta, resolveKosular);
 
         for (let i = 0; i < horseRows.length; i++) {
             const row = horseRows[i];
@@ -603,14 +642,16 @@ const AtestSonGosterimCols = (function () {
                         source: 'gosterim'
                     });
                 }
-                if (flags.test123Kirmizi) {
-                    bonus += TEST123_KIRMIZI_TAHMIN_BONUS;
-                    bonusTerms.push({
-                        label: 'TEST1/2/3 kırmızı',
-                        points: TEST123_KIRMIZI_TAHMIN_BONUS,
-                        source: 'gosterim'
-                    });
-                }
+            }
+
+            const test123Scenario = test123ScenarioBonuses.get(key);
+            if (test123Scenario && test123Scenario.bonus > 0) {
+                bonus += test123Scenario.bonus;
+                bonusTerms.push({
+                    label: test123Scenario.label,
+                    points: test123Scenario.bonus,
+                    source: 'gosterim'
+                });
             }
 
             const t1Green = test1GreenBonuses.get(key);
@@ -688,6 +729,7 @@ const AtestSonGosterimCols = (function () {
         buildSifiraYakinKeySets,
         buildSiraMaviKeySet,
         buildAtIsmiMaviKeySet,
+        buildTest123ScenarioBonusMap,
         gosterimBlinkFlags,
         atIsmiKenarFlags,
         mavi800DeltaFlags,

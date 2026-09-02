@@ -153,6 +153,16 @@ const Scenario48ScoringEngine = (function () {
         return out;
     }
 
+    /**
+     * maxFinal → TAHMİN % bonusu (S3D×0.9≈9 … S1A×1.5≈38)
+     * @param {number} maxFinal
+     * @returns {number}
+     */
+    function finalToPctBonus(maxFinal) {
+        if (!maxFinal || maxFinal <= 0) return 0;
+        return Math.round(maxFinal * 10);
+    }
+
     /** Lider at (en yüksek maxFinal; eşitlikte sumFinal, at no) */
     function pickLeader(scored) {
         const ranked = (scored || []).filter(s => s.maxFinal > 0);
@@ -180,7 +190,8 @@ const Scenario48ScoringEngine = (function () {
         scoreGosRow,
         aggregateHorseHits,
         scoreRace,
-        pickLeader
+        pickLeader,
+        finalToPctBonus
     };
 })();
 
