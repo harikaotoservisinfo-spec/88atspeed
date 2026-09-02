@@ -59,6 +59,8 @@ echo "  cd $APP_DIR && node scripts/test-dimension-finish-correlation.js --db $A
 echo "  cd $APP_DIR && npm run test:dimension-finish"
 echo "  cd $APP_DIR && npm run test:tahmin-buckets"
 echo "  cd $APP_DIR && npm run test:kayit-basari"
+echo "  cd $APP_DIR && npm run test:scenario48"
+echo "  cd $APP_DIR && node scripts/test-scenario48-basari.js --kayit 148,154 -v"
 echo "  cd $APP_DIR && npm run test:siklet-recency"
 echo "  cd $APP_DIR && npm run test:siklet-maxpct"
 echo "  cd $APP_DIR && npm run test:sehir-race"
