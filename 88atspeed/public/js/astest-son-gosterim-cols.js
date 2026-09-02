@@ -13,6 +13,8 @@ const AtestSonGosterimCols = (function () {
     const TEST1_RANK_KIRMIZI_EXTRA = 3;
     const AT_ISMI_MAVI_BONUS = 4;
     const AT_ISMI_MAVI_PENALTY = 4;
+    const AT_ISMI_KENAR_MAVI_BONUS = 3;
+    const AT_ISMI_KENAR_KIRMIZI_BONUS = 3;
 
     function horseKey(h) {
         if (h?.atId != null && h.atId !== '') return String(h.atId);
@@ -270,6 +272,19 @@ const AtestSonGosterimCols = (function () {
         tahmin.topTerms = terms.concat(tahmin.topTerms).slice(0, 10);
     }
 
+    function satirHasClass(gosRow, className) {
+        if (!gosRow?.classes?.satirClass) return false;
+        return new RegExp('\\b' + className + '\\b').test(String(gosRow.classes.satirClass));
+    }
+
+    /** GÖSTERİM satırında koyu mavi / fosfor kırmızı kenar (AT İSMİ hücre çevresi) */
+    function atIsmiKenarFlags(gosRow) {
+        return {
+            koyuMaviKenar: satirHasClass(gosRow, 'koyu-mavi-kenar-satir'),
+            fosforKirmiziKenar: satirHasClass(gosRow, 'fosfor-kirmizi-kenar-satir')
+        };
+    }
+
     /** GÖSTERİM SIRA=1 satırında yanıp sönen hücre bayrakları */
     function gosterimBlinkFlags(gosRow) {
         if (!gosRow?.classes) {
@@ -288,6 +303,7 @@ const AtestSonGosterimCols = (function () {
      * TEST1 yeşil: koşuda 1 at +%15 · 2+ at TEST1 süresine göre 15/12/9…
      * TEST1 en iyi 3 süre: +7 / +5 / +3 · TEST1 kırmızı yazı +3 ekstra
      * AT İSMİ mavi fosfor: +4 · mavi değil: −4
+     * AT İSMİ mavi kenar: +3 · kırmızı kenar: +3 (mavi fosfor yazıdan bağımsız)
      * pct %100 üstüne çıkabilir; sıra güncellenir.
      */
     function applyTahminBonuses(horseRows, gosByKey, race, meta, resolveKosular) {
@@ -330,6 +346,24 @@ const AtestSonGosterimCols = (function () {
 
             const gosRow = gosByKey?.get(key);
             if (gosRow) {
+                const kenar = atIsmiKenarFlags(gosRow);
+                if (kenar.koyuMaviKenar) {
+                    bonus += AT_ISMI_KENAR_MAVI_BONUS;
+                    bonusTerms.push({
+                        label: 'AT İSMİ mavi kenar',
+                        points: AT_ISMI_KENAR_MAVI_BONUS,
+                        source: 'gosterim'
+                    });
+                }
+                if (kenar.fosforKirmiziKenar) {
+                    bonus += AT_ISMI_KENAR_KIRMIZI_BONUS;
+                    bonusTerms.push({
+                        label: 'AT İSMİ kırmızı kenar',
+                        points: AT_ISMI_KENAR_KIRMIZI_BONUS,
+                        source: 'gosterim'
+                    });
+                }
+
                 const flags = gosterimBlinkFlags(gosRow);
 
                 if (flags.test9Yanip) {
@@ -411,6 +445,7 @@ const AtestSonGosterimCols = (function () {
         computeTest1RankBonuses,
         buildAtIsmiMaviKeySet,
         gosterimBlinkFlags,
+        atIsmiKenarFlags,
         applyTahminBonuses,
         noCellClassList,
         renderNoCell,
@@ -425,7 +460,9 @@ const AtestSonGosterimCols = (function () {
         TEST1_RANK_BONUSES,
         TEST1_RANK_KIRMIZI_EXTRA,
         AT_ISMI_MAVI_BONUS,
-        AT_ISMI_MAVI_PENALTY
+        AT_ISMI_MAVI_PENALTY,
+        AT_ISMI_KENAR_MAVI_BONUS,
+        AT_ISMI_KENAR_KIRMIZI_BONUS
     };
 })();
 
