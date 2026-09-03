@@ -1119,6 +1119,50 @@ a { color: inherit; text-decoration: none; }
     border: 1px solid #ffcc80;
 }
 
+/* Kullanıcı seçimi — soft kırmızı */
+.pub-muht-table-ganyan tbody tr.pub-muht-ganyan-row {
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.pub-muht-table-ganyan tbody tr.pub-muht-ganyan-row:hover {
+    background: #fff5f5;
+}
+
+.pub-muht-pick-odd {
+    background: #ffcdd2 !important;
+    color: #b71c1c !important;
+    font-weight: 900;
+}
+
+.pub-muht-pick-row .pub-muht-pick-no {
+    background: #c62828;
+    color: #fff;
+    border-radius: 4px;
+    padding: 1px 5px;
+}
+
+.pub-muht-pick-at {
+    color: #b71c1c;
+    font-weight: 800;
+}
+
+.pub-muht-pick-row .pub-muht-pick-cell {
+    background: #ffebee !important;
+    color: #c62828;
+    font-weight: 700;
+}
+
+.pub-muht-pick-badge {
+    font-size: 10px;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: #ffebee;
+    color: #c62828;
+    border: 1px solid #ef9a9a;
+}
+
 @media (max-width: 900px) {
     .pub-muht-bet-board {
         grid-template-columns: repeat(4, minmax(155px, 1fr));
