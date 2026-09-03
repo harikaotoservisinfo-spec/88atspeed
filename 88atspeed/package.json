@@ -65,6 +65,7 @@
     "fetch:public-program": "node scripts/fetch-public-program.js",
     "fetch:public-program-bugun": "node scripts/fetch-public-program.js --bugun",
     "fetch:public-program-ankara": "node scripts/fetch-public-program.js --bugun --hipodrom Ankara",
+    "sync:public-to-hesaplama": "node scripts/sync-public-to-hesaplama.js",
     "build:public-tahmin": "node --max-old-space-size=3072 scripts/build-public-tahmin.js",
     "build:public-tahmin-bugun": "node --max-old-space-size=3072 scripts/build-public-tahmin.js --bugun"
   },

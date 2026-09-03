@@ -73,6 +73,125 @@ function sleep(ms) {
     return new Promise((r) => setTimeout(r, ms));
 }
 
+function dbGet(db, sql, params = []) {
+    return new Promise((resolve, reject) => {
+        db.get(sql, params, (err, row) => (err ? reject(err) : resolve(row || null)));
+    });
+}
+
+function dbRun(db, sql, params = []) {
+    return new Promise((resolve, reject) => {
+        db.run(sql, params, function onRun(err) {
+            if (err) reject(err);
+            else resolve({ lastID: this.lastID, changes: this.changes });
+        });
+    });
+}
+
+function racesToHesaplamaVeri(races) {
+    return (races || []).map((race) => ({
+        raceNo: String(race.raceNo),
+        saat: race.saat || '',
+        mesafe: race.mesafe || '',
+        pist: race.pist || '',
+        baslik: race.baslik || '',
+        kcins_kosu: race.kcins_kosu || '',
+        kategori: race.kategori || '',
+        horseCount: (race.horses || []).length,
+        horses: (race.horses || []).map((h) => ({
+            no: h.no,
+            name: h.name,
+            atId: h.atId || '',
+            yas: h.yas || '',
+            siklet: h.siklet || '',
+            hp: h.hp || '',
+            taki: h.taki || '',
+            kosular: Array.isArray(h.kosular) ? h.kosular : []
+        }))
+    }));
+}
+
+function mergeHesaplamaVeri(existingRaces, newRaces) {
+    const kosuByHorse = new Map();
+    for (const race of existingRaces || []) {
+        const raceNo = String(race.raceNo);
+        for (const h of race.horses || []) {
+            if (!h.kosular?.length) continue;
+            if (h.atId) kosuByHorse.set('id:' + h.atId, h.kosular);
+            kosuByHorse.set('no:' + raceNo + ':' + h.no, h.kosular);
+        }
+    }
+    return racesToHesaplamaVeri(newRaces).map((race) => ({
+        ...race,
+        horses: race.horses.map((h) => {
+            const kosular = h.kosular.length
+                ? h.kosular
+                : (h.atId && kosuByHorse.get('id:' + h.atId))
+                    || kosuByHorse.get('no:' + race.raceNo + ':' + h.no)
+                    || [];
+            return Object.assign({}, h, { kosular });
+        })
+    }));
+}
+
+async function syncProgramToHesaplamaKayit(db, row) {
+    const { tarih, hipodromId, hipodrom, races } = row;
+    let veri = racesToHesaplamaVeri(races);
+    const existing = await dbGet(
+        db,
+        `SELECT id, veri FROM hesaplama_kayitlari WHERE tarih = ? AND hipodrom_id = ?`,
+        [tarih, String(hipodromId)]
+    );
+    if (existing?.veri) {
+        let oldVeri = [];
+        try {
+            oldVeri = JSON.parse(existing.veri);
+        } catch (_) { /* */ }
+        veri = mergeHesaplamaVeri(oldVeri, races);
+        const totalHorses = veri.reduce((n, r) => n + (r.horses?.length || 0), 0);
+        await dbRun(
+            db,
+            `UPDATE hesaplama_kayitlari SET hipodrom = ?, race_count = ?, total_horses = ?, veri = ?,
+             kayit_tarihi = CURRENT_TIMESTAMP WHERE id = ?`,
+            [hipodrom, veri.length, totalHorses, JSON.stringify(veri), existing.id]
+        );
+        return { id: existing.id, updated: true, raceCount: veri.length, totalHorses };
+    }
+    const totalHorses = veri.reduce((n, r) => n + (r.horses?.length || 0), 0);
+    const ins = await dbRun(
+        db,
+        `INSERT INTO hesaplama_kayitlari (hipodrom, hipodrom_id, tarih, race_count, total_horses, veri)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [hipodrom, String(hipodromId), tarih, veri.length, totalHorses, JSON.stringify(veri)]
+    );
+    return { id: ins.lastID, updated: false, raceCount: veri.length, totalHorses };
+}
+
+async function syncAllPublicProgramsToHesaplama(db, opts = {}) {
+    const rows = await listPublicProgramKayitlar(db, { tarih: opts.tarih || null });
+    const synced = [];
+    for (const meta of rows) {
+        const full = await getPublicProgramKayit(db, meta.tarih, meta.hipodrom_id);
+        if (!full?.races?.length) continue;
+        const result = await syncProgramToHesaplamaKayit(db, {
+            tarih: full.tarih,
+            hipodromId: full.hipodromId,
+            hipodrom: full.hipodrom,
+            races: full.races
+        });
+        synced.push({
+            tarih: full.tarih,
+            hipodrom: full.hipodrom,
+            hipodromId: full.hipodromId,
+            hesaplamaId: result.id,
+            updated: result.updated,
+            raceCount: result.raceCount,
+            totalHorses: result.totalHorses
+        });
+    }
+    return synced;
+}
+
 function parseRaceMetaFromText(text) {
     const line = (text || '').replace(/\s+/g, ' ').trim();
     const mesafeMatch = line.match(/(\d{3,4})\s*(Çim|Kum|Sentetik)/i);
@@ -303,8 +422,23 @@ async function buildPublicProgram(db, tarih, opts = {}) {
                 durum: publish ? 'yayinda' : 'taslak'
             };
             await saveProgramRow(db, row);
-            results.push({ hipodrom: hip.name, kosuSayisi: prog.kosuSayisi, ok: true });
-            console.log('  ✓', hip.name, '—', prog.kosuSayisi, 'koşu');
+            let hesaplamaSync = null;
+            if (opts.syncHesaplama !== false) {
+                try {
+                    hesaplamaSync = await syncProgramToHesaplamaKayit(db, row);
+                } catch (syncErr) {
+                    console.warn('  ⚠ hesaplama sync:', hip.name, syncErr.message);
+                }
+            }
+            results.push({
+                hipodrom: hip.name,
+                kosuSayisi: prog.kosuSayisi,
+                hesaplamaId: hesaplamaSync?.id || null,
+                hesaplamaUpdated: !!hesaplamaSync?.updated,
+                ok: true
+            });
+            console.log('  ✓', hip.name, '—', prog.kosuSayisi, 'koşu'
+                + (hesaplamaSync ? ' · hesaplama #' + hesaplamaSync.id : ''));
         } catch (err) {
             results.push({ hipodrom: hip.name, ok: false, error: err.message });
             console.warn('  ✗', hip.name, '—', err.message);
@@ -602,5 +736,7 @@ module.exports = {
     getProgramSyncForDate,
     getProgramSyncOverview,
     listPublicProgramKayitlar,
-    getPublicProgramKayit
+    getPublicProgramKayit,
+    syncProgramToHesaplamaKayit,
+    syncAllPublicProgramsToHesaplama
 };

@@ -482,10 +482,29 @@ app.post('/api/admin/public-program-cek', async (req, res) => {
             publish: req.body?.publish !== false,
             trigger: 'admin'
         });
+        clearCalibrationFlatCache();
+        clearCalibrationBundleCache();
         const sync = await publicProgram.getProgramSyncForDate(db, tarih);
         res.json({ success: true, ...built, sync });
     } catch (err) {
         console.error('public-program-cek:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.post('/api/admin/sync-public-to-hesaplama', async (req, res) => {
+    if (!adminAuth.isAuthenticated(req)) {
+        return res.status(401).json({ success: false, error: 'Yönetici oturumu gerekli' });
+    }
+    try {
+        const synced = await publicProgram.syncAllPublicProgramsToHesaplama(db, {
+            tarih: req.body?.tarih || null
+        });
+        clearCalibrationFlatCache();
+        clearCalibrationBundleCache();
+        res.json({ success: true, count: synced.length, synced });
+    } catch (err) {
+        console.error('sync-public-to-hesaplama:', err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 });

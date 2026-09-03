@@ -54,7 +54,13 @@ const opts = {
                 prog.races[0]?.saat || '', JSON.stringify(prog.races)
             ], (err) => err ? reject(err) : resolve());
         });
-        console.log('✅', hip.name, '—', prog.kosuSayisi, 'koşu kaydedildi');
+        const hesaplamaSync = await publicProgram.syncProgramToHesaplamaKayit(db, {
+            tarih,
+            hipodromId: hip.id,
+            hipodrom: hip.name,
+            races: prog.races
+        });
+        console.log('✅', hip.name, '—', prog.kosuSayisi, 'koşu · hesaplama #' + hesaplamaSync.id);
         await publicProgram.logFetchRun(db, {
             startedAt,
             tarih,
