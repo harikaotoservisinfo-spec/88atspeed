@@ -777,13 +777,7 @@ a { color: inherit; text-decoration: none; }
 }
 
 .pub-muht-toolbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    padding: 14px 18px;
-    border-bottom: 1px solid var(--pub-border);
-    flex-wrap: wrap;
+    display: none;
 }
 
 .pub-muht-toolbar p {
@@ -1032,10 +1026,6 @@ a { color: inherit; text-decoration: none; }
     border-radius: var(--pub-radius);
     overflow: hidden;
     box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-}
-
-.pub-muht-toolbar {
-    display: none;
 }
 
 .pub-muht-race-top {
