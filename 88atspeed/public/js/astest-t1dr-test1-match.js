@@ -207,6 +207,20 @@ const AtestT1drTest1Match = (function () {
         }
 
         let html = '<div class="son-test-wrap t1dr-test1-wrap">';
+        if (races.length > 1) {
+            html += '<div class="t1dr-race-select-wrap"><label for="t1drRaceSelect">Koşu seç:</label> ';
+            html += '<select id="t1drRaceSelect" class="t1dr-race-select">';
+            for (let ri = 0; ri < races.length; ri++) {
+                const race = races[ri];
+                const header = typeof AtMetaFields !== 'undefined'
+                    ? AtMetaFields.formatRaceHeader(race)
+                    : ((race.mesafe || '?') + ' ' + (race.pist || '')).trim();
+                const label = race.raceNo + '. KOŞU · ' + (race.horses || []).length
+                    + ' at · ' + header;
+                html += '<option value="' + ri + '">' + escapeHtml(label) + '</option>';
+            }
+            html += '</select></div>';
+        }
         html += '<p class="astest-note">Tüm <strong>GÖSTERİM</strong> satırları taranır; <strong>T1×DR</strong> ile <strong>TEST1</strong> '
             + 'değeri birebir aynı olan satırlar listelenir. '
             + '<strong>BİTİŞ</strong> = bugünkü koşu bitiş sırası · '
@@ -236,7 +250,8 @@ const AtestT1drTest1Match = (function () {
             const horseCount = (race.horses || []).length;
             const uniqueHorses = new Set(matches.map(function (m) { return horseKey(m.horse); })).size;
 
-            html += '<div class="son-test-race race-card t1dr-test1-race" data-race-idx="' + ri + '">';
+            html += '<div class="son-test-race race-card t1dr-test1-race" data-race-idx="' + ri + '"'
+                + (races.length > 1 && ri > 0 ? ' style="display:none"' : '') + '>';
             html += '<div class="race-header"><h3>🏁 ' + race.raceNo + '. KOŞU · '
                 + horseCount + ' at · ' + escapeHtml(header) + '</h3></div>';
             html += '<p class="t1dr-match-summary">' + matches.length + ' eşleşme satırı · '
@@ -297,11 +312,24 @@ const AtestT1drTest1Match = (function () {
         return html;
     }
 
+    function bindRaceSelector(root) {
+        const host = root || document;
+        const sel = host.querySelector ? host.querySelector('#t1drRaceSelect') : null;
+        if (!sel) return;
+        sel.addEventListener('change', function () {
+            const idx = String(sel.value);
+            host.querySelectorAll('.t1dr-test1-race').forEach(function (el) {
+                el.style.display = el.getAttribute('data-race-idx') === idx ? '' : 'none';
+            });
+        });
+    }
+
     return {
         t1drEqualsTest1,
         collectMatchRows,
         buildRaceScoreMaps,
         renderRaces,
+        bindRaceSelector,
         horseKey
     };
 })();

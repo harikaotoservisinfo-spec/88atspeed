@@ -3,7 +3,7 @@
 set -euo pipefail
 
 APP_DIR="/var/www/88atspeed"
-BRANCH="${1:-cursor/siklet-parse-fix-b004}"
+BRANCH="${1:-cursor/t1dr-test1-go-hyb-b944}"
 REPO="https://github.com/harikaotoservisinfo-spec/88atspeed.git"
 TMP="/tmp/88atspeed-deploy-$$"
 
