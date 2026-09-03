@@ -1,0 +1,664 @@
+/* 88 AT SPEED — Premium kamu vitrini (hipodrom.com esinli) */
+:root {
+    --pub-red: #c62828;
+    --pub-red-dark: #8e0000;
+    --pub-red-light: #ff5252;
+    --pub-bg: #f4f4f6;
+    --pub-card: #ffffff;
+    --pub-text: #1a1a1a;
+    --pub-muted: #666;
+    --pub-border: #e0e0e0;
+    --pub-green: #2e7d32;
+    --pub-orange: #ef6c00;
+    --pub-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    --pub-radius: 10px;
+    --pub-max: 1280px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body.pub-body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--pub-bg);
+    color: var(--pub-text);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; text-decoration: none; }
+
+/* Üst şerit */
+.pub-strip {
+    background: #111;
+    color: #aaa;
+    font-size: 12px;
+    padding: 6px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.pub-strip a { color: #ddd; }
+.pub-strip a:hover { color: #fff; }
+
+/* Ana header */
+.pub-header {
+    background: linear-gradient(180deg, var(--pub-red) 0%, var(--pub-red-dark) 100%);
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(198,40,40,0.35);
+}
+
+.pub-header-inner {
+    max-width: var(--pub-max);
+    margin: 0 auto;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.pub-logo {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    font-size: 32px;
+    font-weight: 900;
+    letter-spacing: -1px;
+}
+
+.pub-logo .n88 { color: #ffeb3b; }
+.pub-logo .nat { color: #fff; }
+.pub-logo .nsp { color: #90caf9; }
+
+.pub-header-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.pub-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 20px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    white-space: nowrap;
+}
+
+.pub-btn:hover { transform: translateY(-1px); }
+
+.pub-btn-white {
+    background: #fff;
+    color: var(--pub-red);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+}
+
+.pub-btn-outline {
+    background: transparent;
+    color: #fff;
+    border: 2px solid rgba(255,255,255,0.6);
+}
+
+.pub-btn-outline:hover { border-color: #fff; }
+
+/* Alt navigasyon */
+.pub-subnav {
+    background: #fff;
+    border-bottom: 1px solid var(--pub-border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.pub-subnav-inner {
+    max-width: var(--pub-max);
+    margin: 0 auto;
+    padding: 0 12px;
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.pub-subnav-inner::-webkit-scrollbar { display: none; }
+
+.pub-tab {
+    padding: 14px 18px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--pub-muted);
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.pub-tab:hover { color: var(--pub-red); }
+
+.pub-tab.active {
+    color: var(--pub-red);
+    border-bottom-color: var(--pub-red);
+}
+
+/* Reklam alanları */
+.pub-ad-leaderboard {
+    max-width: var(--pub-max);
+    margin: 16px auto;
+    padding: 0 20px;
+}
+
+.pub-ad-slot {
+    background: linear-gradient(135deg, #eceff1, #cfd8dc);
+    border: 2px dashed #b0bec5;
+    border-radius: var(--pub-radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #78909c;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    min-height: 90px;
+}
+
+.pub-ad-leaderboard .pub-ad-slot { min-height: 100px; }
+
+.pub-ad-rect { min-height: 250px; margin-bottom: 16px; }
+
+.pub-ad-sky { min-height: 400px; }
+
+.pub-ad-label {
+    position: absolute;
+    top: 6px;
+    left: 8px;
+    font-size: 9px;
+    color: #90a4ae;
+    text-transform: uppercase;
+}
+
+.pub-ad-wrap { position: relative; }
+
+/* Ana layout */
+.pub-layout {
+    max-width: var(--pub-max);
+    margin: 0 auto;
+    padding: 0 20px 48px;
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 24px;
+    align-items: start;
+}
+
+.pub-main { min-width: 0; }
+
+/* Tarih şeridi */
+.pub-date-bar {
+    background: var(--pub-card);
+    border-radius: var(--pub-radius);
+    padding: 16px 20px;
+    margin-bottom: 16px;
+    box-shadow: var(--pub-shadow);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.pub-date-bar h2 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--pub-text);
+}
+
+.pub-date-bar p {
+    font-size: 13px;
+    color: var(--pub-muted);
+    margin-top: 4px;
+}
+
+.pub-date-input {
+    padding: 10px 14px;
+    border: 1px solid var(--pub-border);
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* Hipodrom sekmeleri */
+.pub-hip-tabs {
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+    background: var(--pub-red);
+    border-radius: var(--pub-radius) var(--pub-radius) 0 0;
+    scrollbar-width: none;
+}
+
+.pub-hip-tabs::-webkit-scrollbar { display: none; }
+
+.pub-hip-tab {
+    flex: 0 0 auto;
+    padding: 14px 20px;
+    background: transparent;
+    border: none;
+    color: rgba(255,255,255,0.85);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    text-align: left;
+    min-width: 120px;
+    transition: background 0.15s;
+}
+
+.pub-hip-tab small {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    opacity: 0.85;
+    margin-top: 2px;
+}
+
+.pub-hip-tab:hover { background: rgba(0,0,0,0.1); }
+
+.pub-hip-tab.active {
+    background: #fff;
+    color: var(--pub-red);
+    border-bottom-color: var(--pub-red);
+}
+
+/* Hipodrom bilgi */
+.pub-hip-info {
+    background: #fff;
+    padding: 12px 20px;
+    border-left: 1px solid var(--pub-border);
+    border-right: 1px solid var(--pub-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: 13px;
+}
+
+.pub-hip-info strong { font-weight: 800; }
+
+.pub-weather {
+    display: flex;
+    gap: 16px;
+    color: var(--pub-muted);
+    font-size: 12px;
+}
+
+/* Koşu kartları */
+.pub-race-panel {
+    background: #fff;
+    border: 1px solid var(--pub-border);
+    border-top: none;
+    border-radius: 0 0 var(--pub-radius) var(--pub-radius);
+    box-shadow: var(--pub-shadow);
+    overflow: hidden;
+}
+
+.pub-race-card {
+    display: grid;
+    grid-template-columns: 80px 1fr auto auto;
+    gap: 16px;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: background 0.12s;
+}
+
+.pub-race-card:hover { background: #fafafa; }
+
+.pub-race-card:last-child { border-bottom: none; }
+
+.pub-race-no {
+    text-align: center;
+}
+
+.pub-race-no strong {
+    display: block;
+    font-size: 15px;
+    font-weight: 900;
+    color: var(--pub-red);
+}
+
+.pub-race-no span {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--pub-text);
+}
+
+.pub-race-desc {
+    min-width: 0;
+}
+
+.pub-race-desc h3 {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    line-height: 1.35;
+}
+
+.pub-race-badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.pub-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.pub-badge-grass { background: #e8f5e9; color: var(--pub-green); }
+.pub-badge-dirt { background: #fff3e0; color: var(--pub-orange); }
+.pub-badge-synth { background: #e3f2fd; color: #1565c0; }
+.pub-badge-tahmin { background: #fce4ec; color: #c2185b; }
+
+.pub-race-tahmin {
+    text-align: right;
+    font-size: 12px;
+    min-width: 100px;
+}
+
+.pub-race-tahmin strong {
+    display: block;
+    font-size: 11px;
+    color: var(--pub-muted);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.pub-tahmin-picks {
+    font-weight: 800;
+    color: var(--pub-red);
+    font-size: 15px;
+}
+
+.pub-race-chevron {
+    color: #bbb;
+    font-size: 20px;
+}
+
+/* Tahmin paneli */
+.pub-tab-panel { display: none; }
+.pub-tab-panel.active { display: block; }
+
+.pub-tahmin-grid {
+    display: grid;
+    gap: 16px;
+}
+
+.pub-tahmin-card {
+    background: #fff;
+    border-radius: var(--pub-radius);
+    box-shadow: var(--pub-shadow);
+    overflow: hidden;
+}
+
+.pub-tahmin-card-hdr {
+    background: linear-gradient(90deg, var(--pub-red), var(--pub-red-dark));
+    color: #fff;
+    padding: 12px 18px;
+    font-weight: 800;
+    font-size: 14px;
+}
+
+.pub-tahmin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.pub-tahmin-table th {
+    background: #f5f5f5;
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--pub-muted);
+}
+
+.pub-tahmin-table td {
+    padding: 10px 14px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.pub-tahmin-rank {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--pub-red);
+    color: #fff;
+    font-weight: 900;
+    font-size: 12px;
+}
+
+.pub-tahmin-pct {
+    font-weight: 800;
+    color: var(--pub-red);
+}
+
+/* Sidebar */
+.pub-sidebar { position: sticky; top: 56px; }
+
+.pub-widget {
+    background: #fff;
+    border-radius: var(--pub-radius);
+    box-shadow: var(--pub-shadow);
+    margin-bottom: 16px;
+    overflow: hidden;
+}
+
+.pub-widget-hdr {
+    padding: 14px 16px;
+    font-size: 13px;
+    font-weight: 800;
+    border-bottom: 1px solid var(--pub-border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pub-widget-hdr::before {
+    content: '';
+    width: 4px;
+    height: 16px;
+    background: var(--pub-red);
+    border-radius: 2px;
+}
+
+.pub-widget-body { padding: 12px 16px; }
+
+.pub-link-list { list-style: none; }
+
+.pub-link-list li {
+    border-bottom: 1px solid #f5f5f5;
+}
+
+.pub-link-list li:last-child { border-bottom: none; }
+
+.pub-link-list a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--pub-text);
+    transition: color 0.12s;
+}
+
+.pub-link-list a:hover { color: var(--pub-red); }
+
+.pub-link-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: #ffebee;
+    color: var(--pub-red);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+}
+
+/* Boş / yükleme */
+.pub-empty {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--pub-muted);
+}
+
+.pub-empty-icon { font-size: 48px; margin-bottom: 12px; }
+
+.pub-empty h3 {
+    font-size: 1.1rem;
+    color: var(--pub-text);
+    margin-bottom: 8px;
+}
+
+.pub-loading {
+    text-align: center;
+    padding: 40px;
+    color: var(--pub-muted);
+}
+
+.pub-spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid #eee;
+    border-top-color: var(--pub-red);
+    border-radius: 50%;
+    animation: pub-spin 0.8s linear infinite;
+    margin: 0 auto 12px;
+}
+
+@keyframes pub-spin { to { transform: rotate(360deg); } }
+
+/* Hero promo */
+.pub-promo-row {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.pub-promo-card {
+    background: #fff;
+    border-radius: var(--pub-radius);
+    box-shadow: var(--pub-shadow);
+    padding: 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.pub-promo-card h3 {
+    font-size: 1.1rem;
+    font-weight: 800;
+    margin-bottom: 6px;
+}
+
+.pub-promo-card p {
+    font-size: 13px;
+    color: var(--pub-muted);
+}
+
+.pub-promo-icon {
+    font-size: 40px;
+    flex-shrink: 0;
+}
+
+/* Footer */
+.pub-footer {
+    background: #1a1a1a;
+    color: #bbb;
+    margin-top: 32px;
+}
+
+.pub-footer-inner {
+    max-width: var(--pub-max);
+    margin: 0 auto;
+    padding: 40px 20px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 32px;
+}
+
+.pub-footer h4 {
+    color: #fff;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    padding-left: 10px;
+    border-left: 3px solid var(--pub-red);
+}
+
+.pub-footer ul { list-style: none; }
+
+.pub-footer li { margin-bottom: 8px; }
+
+.pub-footer a {
+    font-size: 13px;
+    color: #aaa;
+}
+
+.pub-footer a:hover { color: #fff; }
+
+.pub-footer-bottom {
+    border-top: 1px solid #333;
+    padding: 16px 20px;
+    text-align: center;
+    font-size: 12px;
+    color: #777;
+}
+
+/* Responsive */
+@media (max-width: 960px) {
+    .pub-layout { grid-template-columns: 1fr; }
+    .pub-sidebar { position: static; }
+    .pub-promo-row { grid-template-columns: 1fr; }
+    .pub-race-card {
+        grid-template-columns: 70px 1fr;
+        grid-template-rows: auto auto;
+    }
+    .pub-race-tahmin, .pub-race-chevron {
+        grid-column: 2;
+        text-align: left;
+    }
+}
+
+@media (max-width: 600px) {
+    .pub-logo { font-size: 24px; }
+    .pub-header-inner { justify-content: center; }
+}

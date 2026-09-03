@@ -116,7 +116,9 @@ function guardAdminPage(req, res, next) {
 }
 
 function guardAdminApi(req, res, next) {
-    if (req.path.startsWith('/admin/')) return next();
+    const open = req.path === '/admin/login' || req.path === '/admin/session' || req.path === '/admin/logout';
+    if (open) return next();
+    if (req.path.startsWith('/public/')) return next();
     if (!isAuthenticated(req)) {
         return res.status(401).json({ success: false, error: 'Yönetici oturumu gerekli' });
     }

@@ -6,6 +6,7 @@ const tjkScrape = require('./lib/tjk-scrape');
 const { buildCalibrationFlat, clearCalibrationFlatCache } = require('./lib/calibration-flat-build');
 const { buildCalibrationBundle, clearCalibrationBundleCache } = require('./lib/calibration-bundle');
 const adminAuth = require('./lib/admin-auth');
+const publicProgram = require('./lib/public-program');
 const app = express();
 const PORT = 3023;
 
@@ -16,6 +17,7 @@ let browser = null;
 
 // SQLite Veritabanı Bağlantısı
 const db = new sqlite3.Database('atlar.db');
+publicProgram.ensureTables(db).catch((e) => console.warn('public_gunluk_program:', e.message));
 
 const hipodromCache = new Map();
 const HIPODROM_CACHE_MS = 10 * 60 * 1000;
@@ -137,6 +139,42 @@ app.get('/yonetim', (req, res) => {
         return res.redirect('/panel.html');
     }
     res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+/** Kamuya açık vitrin — günlük program & tahminler */
+app.get('/api/public/vitrin', async (req, res) => {
+    try {
+        let tarih = req.query.tarih;
+        if (!tarih && req.query.iso) tarih = publicProgram.isoToTr(req.query.iso);
+        if (!tarih) tarih = publicProgram.todayTr();
+        const vitrin = await publicProgram.getPublicVitrin(db, tarih);
+        res.json({
+            success: true,
+            ...vitrin,
+            iso: publicProgram.trToIso(tarih)
+        });
+    } catch (err) {
+        console.error('public/vitrin:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.post('/api/admin/public-program-cek', async (req, res) => {
+    if (!adminAuth.isAuthenticated(req)) {
+        return res.status(401).json({ success: false, error: 'Yönetici oturumu gerekli' });
+    }
+    const tarih = req.body?.tarih || publicProgram.tomorrowTr();
+    const onlyDomestic = req.body?.onlyDomestic !== false;
+    try {
+        const built = await publicProgram.buildPublicProgram(db, tarih, {
+            onlyDomestic,
+            publish: req.body?.publish !== false
+        });
+        res.json({ success: true, ...built });
+    } catch (err) {
+        console.error('public-program-cek:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 app.use(adminAuth.guardAdminPage);

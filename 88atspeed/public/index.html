@@ -3,83 +3,202 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="88 AT SPEED — TJK at yarışı için profesyonel veri analizi ve karar destek platformu.">
-    <title>88 AT SPEED | Profesyonel At Yarışı Analizi</title>
+    <meta name="description" content="88 AT SPEED — Günlük at yarışı programı, tahminler ve premium analiz.">
+    <title>88 AT SPEED | Günlük Yarış Programı & Tahminler</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="css/landing.css?v=20260903site" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="css/public-site.css?v=20260903pub" rel="stylesheet">
 </head>
-<body class="lp-body">
-    <div class="lp-bg-glow"></div>
-    <div class="lp-shell">
-        <nav class="lp-nav">
-            <div class="lp-logo" aria-label="88 AT SPEED">
+<body class="pub-body">
+    <div class="pub-strip">
+        <span>🏇 TJK günlük program · Veri odaklı tahmin platformu</span>
+        <a href="/yonetim">Yönetici Girişi</a>
+    </div>
+
+    <header class="pub-header">
+        <div class="pub-header-inner">
+            <a href="/" class="pub-logo" aria-label="88 AT SPEED">
                 <span class="n88">88</span><span class="nat">AT</span><span class="nsp">SPEED</span>
-            </div>
-            <div class="lp-nav-actions">
-                <a href="/yonetim" class="lp-btn lp-btn-ghost">Yönetici Girişi</a>
-            </div>
-        </nav>
-
-        <header class="lp-hero">
-            <p class="lp-eyebrow">TJK · Veri Odaklı Analiz</p>
-            <h1>At yarışında <span>profesyonel karar desteği</span></h1>
-            <p class="lp-lead">
-                Geçmiş performans, pist koşulları ve çok boyutlu istatistikleri tek platformda
-                birleştiren analiz altyapısı. Detaylı araçlar yalnızca yetkili yönetim panelinde sunulur.
-            </p>
-            <div class="lp-hero-cta">
-                <a href="/yonetim" class="lp-btn lp-btn-primary">Yönetim Paneline Git</a>
-            </div>
-        </header>
-
-        <div class="lp-stats">
-            <div class="lp-stat">
-                <strong>11+</strong>
-                <span>Analiz modülü</span>
-            </div>
-            <div class="lp-stat">
-                <strong>Çoklu</strong>
-                <span>Hipodrom desteği</span>
-            </div>
-            <div class="lp-stat">
-                <strong>Gerçek zamanlı</strong>
-                <span>Program verisi</span>
-            </div>
-            <div class="lp-stat">
-                <strong>Güvenli</strong>
-                <span>Yönetici erişimi</span>
+            </a>
+            <div class="pub-header-actions">
+                <a href="#gunun-kosulari" class="pub-btn pub-btn-outline">Günün Koşuları</a>
+                <a href="#panel-tahminler" class="pub-btn pub-btn-white">Tahminleri Gör</a>
             </div>
         </div>
+    </header>
 
-        <h2 class="lp-section-title">Platform yetenekleri</h2>
-        <section class="lp-features">
-            <article class="lp-feature">
-                <div class="lp-feature-icon">📊</div>
-                <h3>İstatistik motorları</h3>
-                <p>SON800, TEST serileri, pist ve sıklet boyutlarında derinlemesine başarı analizi.</p>
-            </article>
-            <article class="lp-feature">
-                <div class="lp-feature-icon">🎯</div>
-                <h3>Tahmin skorları</h3>
-                <p>Çoklu motor karışımı ile koşu bazlı sıralama ve yüzde skorları.</p>
-            </article>
-            <article class="lp-feature">
-                <div class="lp-feature-icon">🏇</div>
-                <h3>Program entegrasyonu</h3>
-                <p>TJK yarış programı ve geçmiş koşu verilerinin otomatik eşleştirilmesi.</p>
-            </article>
-            <article class="lp-feature">
-                <div class="lp-feature-icon">🔒</div>
-                <h3>Korumalı yönetim</h3>
-                <p>Analiz araçları ve ham veri yalnızca yetkili yönetici oturumu ile erişilebilir.</p>
-            </article>
-        </section>
+    <nav class="pub-subnav" aria-label="Ana sekmeler">
+        <div class="pub-subnav-inner">
+            <button type="button" class="pub-tab active" data-panel="kosular">🏁 Günün Koşuları</button>
+            <button type="button" class="pub-tab" data-panel="tahminler">🎯 Tahminler</button>
+            <button type="button" class="pub-tab" data-panel="hazir">📋 Hazır Kupon</button>
+            <button type="button" class="pub-tab" data-panel="sonuclar">🏆 Sonuçlar</button>
+            <button type="button" class="pub-tab" data-panel="rehber">📖 Rehber</button>
+        </div>
+    </nav>
 
-        <footer class="lp-footer">
-            <p>© 2026 88 AT SPEED · Profesyonel analiz platformu</p>
-            <p style="margin-top:8px"><a href="/yonetim">Yönetici girişi</a></p>
-        </footer>
+    <div class="pub-ad-leaderboard">
+        <div class="pub-ad-wrap">
+            <span class="pub-ad-label">Reklam</span>
+            <div class="pub-ad-slot">728 × 90 — Üst Banner Reklam Alanı</div>
+        </div>
     </div>
+
+    <div class="pub-layout">
+        <main class="pub-main">
+            <div class="pub-promo-row">
+                <div class="pub-promo-card">
+                    <div class="pub-promo-icon">📊</div>
+                    <div>
+                        <h3>Günlük tahminler bir gün önceden hazırlanır</h3>
+                        <p>Program ve analiz motorlarımız her akşam ertesi günün koşuları için güncellenir. Sayfaya girdiğinizde hazır tahminleri görürsünüz.</p>
+                    </div>
+                </div>
+                <div class="pub-ad-wrap">
+                    <span class="pub-ad-label">Reklam</span>
+                    <div class="pub-ad-slot pub-ad-rect" style="min-height:120px">300 × 250</div>
+                </div>
+            </div>
+
+            <div class="pub-date-bar" id="gunun-kosulari">
+                <div>
+                    <h2>Günün Koşuları</h2>
+                    <p id="pubDateLabel">Yükleniyor…</p>
+                </div>
+                <input type="date" id="pubDateInput" class="pub-date-input" aria-label="Tarih seçin">
+            </div>
+
+            <!-- Günün Koşuları paneli -->
+            <section id="panel-kosular" class="pub-tab-panel active">
+                <div id="pubHipTabs" class="pub-hip-tabs" role="tablist"></div>
+                <div id="pubHipInfo" class="pub-hip-info" style="display:none"></div>
+                <div id="pubRacePanel" class="pub-race-panel">
+                    <div id="pubRaceList" class="pub-loading">
+                        <div class="pub-spinner"></div>
+                        Program yükleniyor…
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tahminler paneli -->
+            <section id="panel-tahminler" class="pub-tab-panel">
+                <div id="pubTahminContent" class="pub-tahmin-grid">
+                    <div class="pub-empty">
+                        <div class="pub-empty-icon">🎯</div>
+                        <h3>Tahminler</h3>
+                        <p>Önce günün koşularını yükleyin; tahminler koşu bazında burada listelenir.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Hazır Kupon -->
+            <section id="panel-hazir" class="pub-tab-panel">
+                <div class="pub-widget">
+                    <div class="pub-widget-hdr">Hazır Kuponlar</div>
+                    <div class="pub-widget-body pub-empty">
+                        <div class="pub-empty-icon">📋</div>
+                        <h3>Yakında</h3>
+                        <p>Uzman hazır kupon önerileri bu alanda yayınlanacak.</p>
+                    </div>
+                </div>
+                <div class="pub-ad-wrap" style="margin-top:16px">
+                    <span class="pub-ad-label">Reklam</span>
+                    <div class="pub-ad-slot">İçerik Arası Banner — 728 × 90</div>
+                </div>
+            </section>
+
+            <!-- Sonuçlar -->
+            <section id="panel-sonuclar" class="pub-tab-panel">
+                <div class="pub-widget">
+                    <div class="pub-widget-hdr">Sonuçlar</div>
+                    <div class="pub-widget-body pub-empty">
+                        <div class="pub-empty-icon">🏆</div>
+                        <h3>Koşu sonuçları</h3>
+                        <p>Gün içinde tamamlanan koşuların sonuçları burada yer alacak.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Rehber -->
+            <section id="panel-rehber" class="pub-tab-panel">
+                <div class="pub-widget">
+                    <div class="pub-widget-hdr">Nasıl Kullanılır?</div>
+                    <div class="pub-widget-body" style="font-size:14px;line-height:1.7;color:#444">
+                        <p><strong>1.</strong> Üstten tarihi seçin veya bugünün programına bakın.</p>
+                        <p style="margin-top:10px"><strong>2.</strong> Hipodrom sekmesinden şehri seçin.</p>
+                        <p style="margin-top:10px"><strong>3.</strong> Koşu kartına tıklayarak tahmin detaylarını görün.</p>
+                        <p style="margin-top:10px"><strong>4.</strong> <em>Tahminler</em> sekmesinde tüm koşuların özet sıralaması listelenir.</p>
+                        <p style="margin-top:16px;padding:12px;background:#fff3e0;border-radius:8px;font-size:13px">
+                            ⚡ Programlar bir gün önceden otomatik çekilir. Detaylı analiz araçları yönetim panelindedir.
+                        </p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <aside class="pub-sidebar">
+            <div class="pub-ad-wrap">
+                <span class="pub-ad-label">Reklam</span>
+                <div class="pub-ad-slot pub-ad-rect">300 × 250</div>
+            </div>
+
+            <div class="pub-widget">
+                <div class="pub-widget-hdr">Hızlı Linkler</div>
+                <ul class="pub-widget-body pub-link-list">
+                    <li><a href="#gunun-kosulari"><span class="pub-link-icon">🏁</span> Günün Programı</a></li>
+                    <li><a href="#panel-tahminler" id="sidebarTahminLink"><span class="pub-link-icon">🎯</span> Tahminler</a></li>
+                    <li><a href="/yonetim"><span class="pub-link-icon">🔒</span> Yönetim Paneli</a></li>
+                </ul>
+            </div>
+
+            <div class="pub-widget">
+                <div class="pub-widget-hdr">Premium Analiz</div>
+                <div class="pub-widget-body" style="font-size:13px;color:#555">
+                    <p>11+ analiz modülü, istatistik motorları ve derinlemesine koşu analizi yönetim panelinde.</p>
+                    <a href="/yonetim" class="pub-btn pub-btn-white" style="width:100%;margin-top:12px;background:var(--pub-red);color:#fff;border-radius:8px">Panele Git</a>
+                </div>
+            </div>
+
+            <div class="pub-ad-wrap">
+                <span class="pub-ad-label">Reklam</span>
+                <div class="pub-ad-slot pub-ad-sky">160 × 600</div>
+            </div>
+        </aside>
+    </div>
+
+    <footer class="pub-footer">
+        <div class="pub-footer-inner">
+            <div>
+                <h4>Program</h4>
+                <ul>
+                    <li><a href="#gunun-kosulari">Günün Koşuları</a></li>
+                    <li><a href="#panel-tahminler">Tahminler</a></li>
+                    <li><a href="#hazir">Hazır Kupon</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4>Analiz</h4>
+                <ul>
+                    <li><a href="/yonetim">Yönetim Paneli</a></li>
+                    <li><a href="#rehber">Kullanım Rehberi</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4>Kurumsal</h4>
+                <ul>
+                    <li><a href="#">Hakkımızda</a></li>
+                    <li><a href="#">İletişim</a></li>
+                    <li><a href="#">Gizlilik</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4>88 AT SPEED</h4>
+                <p style="font-size:13px;line-height:1.6">Profesyonel at yarışı veri analizi ve tahmin platformu.</p>
+            </div>
+        </div>
+        <div class="pub-footer-bottom">© 2026 88 AT SPEED · Tüm hakları saklıdır</div>
+    </footer>
+
+    <script src="js/public-home.js?v=20260903pub"></script>
 </body>
 </html>
