@@ -25,8 +25,8 @@
                 return {
                     ok: false,
                     error: is502
-                        ? 'Sunucu çöktü (502). SSH: bash /var/www/88atspeed/deploy/fix-server.sh — ardından Ctrl+F5'
-                        : 'Sunucu HTML döndü (HTTP ' + res.status + '). Deploy veya fix-server.sh gerekli.'
+                        ? 'Sunucu yeniden başlıyor (502). 10 sn bekleyip tekrar deneyin. Devam ederse SSH: bash /var/www/88atspeed/deploy/fix-server.sh'
+                        : 'Sunucu HTML döndü (HTTP ' + res.status + '). fix-server.sh gerekli.'
                 };
             }
             return { ok: false, error: 'Geçersiz sunucu yanıtı (HTTP ' + res.status + ')' };
@@ -157,13 +157,17 @@
             if (!username || !password) return;
             if (btn) { btn.disabled = true; btn.textContent = 'Kontrol ediliyor…'; }
             try {
-                const healthRes = await fetch('/api/public/bitalih/auto/health');
-                const health = await parseJsonResponse(healthRes);
-                if (health.ok && health.data && !health.data.chromeInstalled) {
-                    updateSystemMessages({
-                        autoError: 'Sunucuda Chrome yok. SSH: bash /var/www/88atspeed/deploy/fix-server.sh'
-                    });
-                    return;
+                for (let h = 0; h < 3; h++) {
+                    const healthRes = await fetch('/api/public/bitalih/auto/health');
+                    const health = await parseJsonResponse(healthRes);
+                    if (health.ok && health.data?.chromeInstalled) break;
+                    if (h < 2) await new Promise((r) => setTimeout(r, 3000));
+                    if (h === 2 && (!health.ok || !health.data?.chromeInstalled)) {
+                        updateSystemMessages({
+                            autoError: 'Sunucu hazır değil. SSH: bash /var/www/88atspeed/deploy/fix-server.sh'
+                        });
+                        return;
+                    }
                 }
                 if (btn) btn.textContent = 'Giriş başlatılıyor…';
                 const res = await fetch('/api/public/bitalih/auto/login', {

@@ -3,7 +3,7 @@
  */
 const fs = require('fs');
 const path = require('path');
-const { fork } = require('child_process');
+const { spawn } = require('child_process');
 const bitalihAuth = require('./bitalih-auth');
 const {
     withPage,
@@ -41,7 +41,7 @@ function childEnv(jobId, chromePath, creds) {
 function startBackgroundScript(scriptName, args, jobId, chromePath, creds) {
     ensureDataDir();
     const script = path.join(__dirname, '..', 'scripts', scriptName);
-    const child = fork(script, args, {
+    const child = spawn(process.execPath, [script, ...args], {
         cwd: path.join(__dirname, '..'),
         detached: true,
         stdio: 'ignore',
@@ -51,7 +51,7 @@ function startBackgroundScript(scriptName, args, jobId, chromePath, creds) {
         jobs.failJob(jobId, 'Alt süreç başlatılamadı: ' + err.message, 'spawn_failed');
     });
     child.unref();
-    jobs.updateJob(jobId, { meta: { pid: child.pid || null, chromePath: chromePath || null } });
+    jobs.updateJob(jobId, { meta: { pid: child.pid || null, chromePath: chromePath || null, spawn: 'exec' } });
 }
 
 function prepareLoginJob(ssn, password) {
@@ -113,10 +113,10 @@ function runChildScriptSync(scriptName, args, timeoutMs) {
     const script = path.join(__dirname, '..', 'scripts', scriptName);
     const chromePath = resolveChromePath();
     return new Promise((resolve, reject) => {
-        const child = fork(script, args, {
+        const child = spawn(process.execPath, [script, ...args], {
             cwd: path.join(__dirname, '..'),
             env: childEnv('sync', chromePath),
-            stdio: ['ignore', 'pipe', 'pipe', 'ipc']
+            stdio: ['ignore', 'pipe', 'pipe']
         });
         let out = '';
         let errOut = '';

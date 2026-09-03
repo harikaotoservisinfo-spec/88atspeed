@@ -13,9 +13,7 @@ const tjkTvProxy = require('./lib/tjk-tv-proxy');
 const hipodromAuth = require('./lib/hipodrom-auth');
 const hipodromBet = require('./lib/hipodrom-bet');
 const hipodromBrowser = require('./lib/hipodrom-browser');
-const bitalihAuth = require('./lib/bitalih-auth');
 const bitalihBet = require('./lib/bitalih-bet');
-const bitalihBrowser = require('./lib/bitalih-browser');
 const { resolveChromePath } = require('./lib/chrome-path');
 const app = express();
 const PORT = 3023;
@@ -408,15 +406,19 @@ app.post('/api/public/bitalih/auto/login', (req, res) => {
             code: current.code || null
         });
         if (prep.ssn && prep.password && prep.chromePath) {
-            setImmediate(() => {
+            const jobId = prep.job.id;
+            const ssn = prep.ssn;
+            const pass = prep.password;
+            const chrome = prep.chromePath;
+            setTimeout(() => {
                 try {
-                    bitalihBet.runLoginJob(prep.job.id, prep.ssn, prep.password, prep.chromePath);
+                    bitalihBet.runLoginJob(jobId, ssn, pass, chrome);
                 } catch (err) {
                     console.error('bitalih/login spawn:', err.message);
                     const jobs = require('./lib/bitalih-jobs');
-                    jobs.failJob(prep.job.id, err.message, 'spawn_failed');
+                    jobs.failJob(jobId, err.message, 'spawn_failed');
                 }
-            });
+            }, 300);
         }
     } catch (err) {
         console.error('bitalih/auto/login:', err.message);
@@ -450,15 +452,17 @@ app.post('/api/public/bitalih/auto/bet/fixed', (req, res) => {
             code: current.code || null
         });
         if (prep.chromePath) {
-            setImmediate(() => {
+            const jobId = prep.job.id;
+            const chrome = prep.chromePath;
+            setTimeout(() => {
                 try {
-                    bitalihBet.runBetJob(prep.job.id, betOpts, prep.chromePath);
+                    bitalihBet.runBetJob(jobId, betOpts, chrome);
                 } catch (err) {
                     console.error('bitalih/bet spawn:', err.message);
                     const jobs = require('./lib/bitalih-jobs');
-                    jobs.failJob(prep.job.id, err.message, 'spawn_failed');
+                    jobs.failJob(jobId, err.message, 'spawn_failed');
                 }
-            });
+            }, 300);
         }
     } catch (err) {
         console.error('bitalih/auto/bet:', err.message);
@@ -573,8 +577,6 @@ async function getBrowserInstance() {
 
 hipodromAuth.setBrowserFactory(getBrowserInstance);
 hipodromBrowser.setBrowserFactory(getBrowserInstance);
-bitalihAuth.setBrowserFactory(getBrowserInstance);
-bitalihBrowser.setBrowserFactory(getBrowserInstance);
 
 async function gotoWithHeaders(page, url) {
     await page.setExtraHTTPHeaders(getBrowserHeaders());
