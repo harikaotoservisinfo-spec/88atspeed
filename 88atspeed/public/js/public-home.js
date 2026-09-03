@@ -24,6 +24,7 @@
 
     const MUHT_REFRESH_SEC = 15;
     const MUHT_SELECT_RESET_MS = 30000;
+    const MUHT_RACE_ADVANCE_MS = 3 * 60 * 1000;
     const TJK_TV_DIRECT = 'https://tjktv-live.tjk.org/tjktv/tjktv.m3u8';
     const TJK_TV_PROXY = '/api/public/tjk-tv?f=tjktv.m3u8';
     let muhtPollTimer = null;
@@ -74,6 +75,54 @@
         if (p.includes('çim') || p.includes('cim')) return 'pub-muht-race-top-grass';
         if (p.includes('kum')) return 'pub-muht-race-top-dirt';
         return 'pub-muht-race-top-synth';
+    }
+
+    function muhtPistPillClass(pist) {
+        const p = (pist || '').toLowerCase();
+        if (p.includes('çim') || p.includes('cim')) return 'pub-muht-pill-grass';
+        if (p.includes('kum')) return 'pub-muht-pill-dirt';
+        return 'pub-muht-pill-synth';
+    }
+
+    function muhtDurumPillClass(isOpen) {
+        return isOpen ? 'pub-muht-pill-open' : 'pub-muht-pill-closed';
+    }
+
+    function parseRaceDateTime(iso, saat) {
+        if (!iso || !saat) return null;
+        const m = String(saat).trim().match(/^(\d{1,2}):(\d{2})/);
+        if (!m) return null;
+        const parts = iso.split('-').map((n) => parseInt(n, 10));
+        if (parts.length < 3 || parts.some((n) => isNaN(n))) return null;
+        return new Date(parts[0], parts[1] - 1, parts[2], parseInt(m[1], 10), parseInt(m[2], 10), 0, 0);
+    }
+
+    function getAutoMuhtKosuNo(kosular, iso) {
+        if (!kosular?.length) return null;
+        const now = Date.now();
+        const sorted = [...kosular].sort((a, b) => Number(a.NO) - Number(b.NO));
+        for (let i = 0; i < sorted.length; i++) {
+            const raceTime = parseRaceDateTime(iso, sorted[i].SAAT);
+            if (!raceTime) continue;
+            if (now < raceTime.getTime() + MUHT_RACE_ADVANCE_MS) {
+                return sorted[i].NO;
+            }
+        }
+        return sorted[sorted.length - 1].NO;
+    }
+
+    function checkMuhtAutoAdvance() {
+        if (!state.muhtemeller || !state.muhtHipKey) return;
+        if (!$('#panel-muhtemeller')?.classList.contains('active')) return;
+        const hip = state.muhtemeller.hipodromlar.find((h) => h.key === state.muhtHipKey);
+        const kosular = hip?.kosular || [];
+        if (!kosular.length) return;
+        const iso = state.muhtIso || state.iso || localTodayIso();
+        const autoNo = getAutoMuhtKosuNo(kosular, iso);
+        if (!autoNo || String(autoNo) === String(state.muhtKosuNo)) return;
+        state.muhtKosuNo = autoNo;
+        clearMuhtUserSelection();
+        renderMuhtemeller();
     }
 
     function buildPlaceholderTahminler(race) {
@@ -271,6 +320,7 @@
             if (!state.muhtemeller || state.muhtIso !== iso) {
                 loadMuhtemeller(iso);
             } else {
+                checkMuhtAutoAdvance();
                 startMuhtPolling();
             }
         } else {
@@ -503,6 +553,7 @@
         muhtPollTimer = setInterval(() => {
             if (document.hidden) return;
             if (!state.muhtAutoRefresh) return;
+            checkMuhtAutoAdvance();
             state.muhtCountdown -= 1;
             updateMuhtToolbar(isCurrentRaceOpen());
             if (state.muhtCountdown <= 0) {
@@ -695,9 +746,10 @@
 
         let badge = '';
         if (userPick && highlightNo) {
-            badge = '<span class="pub-muht-pick-badge">Seçili #' + escapeHtml(highlightNo) + '</span>';
+            badge = '<span class="pub-muht-pill pub-muht-pill-pick">Seçili #' + escapeHtml(highlightNo) + '</span>';
         } else if (leaderNo) {
-            badge = '<span class="pub-muht-fav-badge">★ Favori #' + escapeHtml(leaderNo) + '</span>';
+            badge = '<span class="pub-muht-pill pub-muht-pill-fav">'
+                + '<span class="pub-muht-pill-star" aria-hidden="true">★</span> Favori #' + escapeHtml(leaderNo) + '</span>';
         }
 
         let html = '<div class="pub-muht-race-card" data-leader-no="' + escapeHtml(leaderNo || '') + '">'
@@ -705,8 +757,8 @@
             + '<div class="pub-muht-race-title"><strong>' + title + '</strong>'
             + (sub ? '<span>' + escapeHtml(sub) + '</span>' : '') + '</div>'
             + '<div class="pub-muht-race-meta">'
-            + '<span class="pub-badge ' + pistBadgeClass(muht.pist) + '">' + escapeHtml(muht.pist || '') + '</span>'
-            + '<span class="pub-muht-durum pub-muht-durum-' + (muht.isOpen ? 'acik' : 'resmi') + '">' + escapeHtml(muht.durum || '') + '</span>'
+            + '<span class="pub-muht-pill ' + muhtPistPillClass(muht.pist) + '">' + escapeHtml(muht.pist || '') + '</span>'
+            + '<span class="pub-muht-pill ' + muhtDurumPillClass(muht.isOpen) + '">' + escapeHtml(muht.durum || '') + '</span>'
             + badge
             + '</div></div>';
 
@@ -791,8 +843,9 @@
         });
 
         const kosular = hip.kosular || [];
+        const iso = state.muhtIso || state.iso || localTodayIso();
         if (!state.muhtKosuNo && kosular.length) {
-            state.muhtKosuNo = hip.selected || kosular[0].NO;
+            state.muhtKosuNo = getAutoMuhtKosuNo(kosular, iso) || hip.selected || kosular[0].NO;
         }
         kosuTabs.innerHTML = kosular.map((k) => {
             const no = k.NO;
@@ -812,7 +865,6 @@
         });
 
         const runKey = getCurrentRunKey();
-        const iso = state.muhtIso || state.iso || localTodayIso();
         const cacheKey = iso + ':' + runKey;
         const cached = state.muhtRaceCache[cacheKey];
 
@@ -961,6 +1013,7 @@
                 pauseTjkTv();
             } else if ($('#panel-muhtemeller')?.classList.contains('active')) {
                 document.getElementById('pubTjkTvVideo')?.play().catch(() => {});
+                checkMuhtAutoAdvance();
                 startMuhtPolling();
             }
         });
