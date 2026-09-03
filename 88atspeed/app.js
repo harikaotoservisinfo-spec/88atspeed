@@ -7,6 +7,7 @@ const { buildCalibrationFlat, clearCalibrationFlatCache } = require('./lib/calib
 const { buildCalibrationBundle, clearCalibrationBundleCache } = require('./lib/calibration-bundle');
 const adminAuth = require('./lib/admin-auth');
 const publicProgram = require('./lib/public-program');
+const muhtemellerFetch = require('./lib/muhtemeller-fetch');
 const app = express();
 const PORT = 3023;
 
@@ -155,6 +156,23 @@ app.get('/api/public/vitrin', async (req, res) => {
         });
     } catch (err) {
         console.error('public/vitrin:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.get('/api/public/muhtemeller', async (req, res) => {
+    try {
+        let iso = req.query.iso;
+        let tarih = req.query.tarih;
+        if (!iso && tarih) iso = publicProgram.trToIso(tarih);
+        const data = await muhtemellerFetch.fetchMuhtemeller({
+            iso,
+            tarih,
+            raceKey: req.query.kosu || req.query.raceKey || null
+        });
+        res.json(data);
+    } catch (err) {
+        console.error('public/muhtemeller:', err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 });

@@ -6,7 +6,10 @@
         iso: '',
         hipodromlar: [],
         activeHipId: null,
-        vitrin: null
+        vitrin: null,
+        muhtemeller: null,
+        muhtHipKey: null,
+        muhtKosuNo: null
     };
 
     const $ = (sel) => document.querySelector(sel);
@@ -233,6 +236,129 @@
             const el = document.getElementById('panel-tahminler');
             if (el) el.scrollIntoView({ behavior: 'smooth' });
         }
+        if (panelId === 'muhtemeller' && !state.muhtemeller) {
+            loadMuhtemeller(state.iso || localTodayIso());
+        }
+    }
+
+    function renderMuhtemeller() {
+        const data = state.muhtemeller;
+        const hipTabs = $('#pubMuhtHipTabs');
+        const kosuTabs = $('#pubMuhtKosuTabs');
+        const content = $('#pubMuhtContent');
+        const label = $('#pubMuhtLabel');
+
+        if (!data || !data.hipodromlar?.length) {
+            hipTabs.innerHTML = '';
+            kosuTabs.innerHTML = '';
+            content.innerHTML = '<div class="pub-empty"><div class="pub-empty-icon">💰</div>'
+                + '<h3>Muhtemel bulunamadı</h3><p>Bu tarih için TJK muhtemel verisi yok.</p></div>';
+            return;
+        }
+
+        label.textContent = trToDisplay(data.tarih) + ' · TJK resmi muhtemeller'
+            + (data.guncelleme ? ' · ' + data.guncelleme : '');
+
+        if (!state.muhtHipKey) state.muhtHipKey = data.hipodromlar[0].key;
+        const hip = data.hipodromlar.find((h) => h.key === state.muhtHipKey) || data.hipodromlar[0];
+        state.muhtHipKey = hip.key;
+
+        hipTabs.innerHTML = data.hipodromlar.map((h) => {
+            const sel = h.key === state.muhtHipKey;
+            const cnt = (h.kosular || []).length;
+            return '<button type="button" class="pub-hip-tab' + (sel ? ' active' : '') + '" data-muht-hip="' + escapeHtml(h.key) + '">'
+                + escapeHtml(h.yer || h.key) + '<small>' + cnt + ' koşu</small></button>';
+        }).join('');
+
+        hipTabs.querySelectorAll('[data-muht-hip]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                state.muhtHipKey = btn.dataset.muhtHip;
+                state.muhtKosuNo = null;
+                renderMuhtemeller();
+            });
+        });
+
+        const kosular = hip.kosular || [];
+        if (!state.muhtKosuNo && kosular.length) {
+            state.muhtKosuNo = hip.selected || kosular[0].NO;
+        }
+        kosuTabs.innerHTML = kosular.map((k) => {
+            const no = k.NO;
+            const sel = String(no) === String(state.muhtKosuNo);
+            const durumCls = k.DURUM === 'AÇIK' ? ' pub-muht-open' : '';
+            return '<button type="button" class="pub-muht-kosu-btn' + (sel ? ' active' : '') + durumCls + '" data-muht-kosu="' + escapeHtml(no) + '">'
+                + no + '. Koşu <small>' + escapeHtml(k.SAAT || '') + ' · ' + escapeHtml(k.PIST || '') + '</small></button>';
+        }).join('');
+
+        kosuTabs.querySelectorAll('[data-muht-kosu]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                state.muhtKosuNo = btn.dataset.muhtKosu;
+                renderMuhtemeller();
+            });
+        });
+
+        const runKey = state.muhtHipKey + '-' + state.muhtKosuNo;
+        const muht = data.muhtemeller?.[runKey];
+        if (!muht) {
+            content.innerHTML = '<div class="pub-empty"><h3>Muhtemel henüz yok</h3><p>'
+                + escapeHtml(runKey) + ' için veri yayınlanmadı.</p></div>';
+            return;
+        }
+
+        let html = '<div class="pub-muht-race-hdr">'
+            + '<strong>' + escapeHtml(muht.key) + ' · ' + muht.no + '. Koşu</strong>'
+            + '<span class="pub-badge ' + pistBadgeClass(muht.pist) + '">' + escapeHtml((muht.pist || '') + ' ' + (muht.saat || '')) + '</span>'
+            + '<span class="pub-muht-durum pub-muht-durum-' + (muht.isOpen ? 'acik' : 'resmi') + '">' + escapeHtml(muht.durum || '') + '</span>'
+            + '</div>';
+
+        (muht.bahisler || []).forEach((bet) => {
+            html += '<div class="pub-muht-bet-card">'
+                + '<div class="pub-muht-bet-hdr">' + escapeHtml(bet.B) + ' <span class="pub-muht-bet-durum">' + escapeHtml(bet.D || '') + '</span></div>';
+            if (bet.isGanyan || bet.B === 'GANYAN') {
+                html += '<table class="pub-muht-table"><thead><tr><th>No</th><th>At</th><th>Ganyan</th><th>Sıra</th></tr></thead><tbody>';
+                (bet.muhtemeller || []).forEach((row) => {
+                    const fav = row.A ? ' pub-muht-fav' : '';
+                    html += '<tr class="' + fav + '"><td><strong>' + escapeHtml(row.S1) + '</strong></td>'
+                        + '<td>' + escapeHtml(row.atAdi || row.T || '') + '</td>'
+                        + '<td class="pub-muht-ganyan">' + escapeHtml(row.G || '—') + '</td>'
+                        + '<td>' + escapeHtml(row.R || '—') + '</td></tr>';
+                });
+                html += '</tbody></table>';
+            } else {
+                html += '<table class="pub-muht-table pub-muht-table-compact"><thead><tr><th>Kombinasyon</th><th>Oran</th></tr></thead><tbody>';
+                const rows = (bet.muhtemeller || []).slice(0, 30);
+                rows.forEach((row) => {
+                    html += '<tr><td>' + escapeHtml(row.T || (row.S1 + '-' + row.S2)) + '</td>'
+                        + '<td class="pub-muht-ganyan">' + escapeHtml(row.G || '—') + '</td></tr>';
+                });
+                if ((bet.muhtemeller || []).length > 30) {
+                    html += '<tr><td colspan="2" style="text-align:center;color:#888">+ '
+                        + ((bet.muhtemeller.length - 30)) + ' kombinasyon daha</td></tr>';
+                }
+                html += '</tbody></table>';
+            }
+            html += '</div>';
+        });
+
+        content.innerHTML = html;
+    }
+
+    async function loadMuhtemeller(iso) {
+        const content = $('#pubMuhtContent');
+        content.innerHTML = '<div class="pub-loading"><div class="pub-spinner"></div>Muhtemeller yükleniyor…</div>';
+        $('#pubMuhtLabel').textContent = 'TJK muhtemeller yükleniyor…';
+        try {
+            const res = await fetch('/api/public/muhtemeller?iso=' + encodeURIComponent(iso));
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Yükleme hatası');
+            state.muhtemeller = data;
+            state.muhtHipKey = null;
+            state.muhtKosuNo = null;
+            renderMuhtemeller();
+        } catch (err) {
+            content.innerHTML = '<div class="pub-empty"><div class="pub-empty-icon">⚠️</div>'
+                + '<h3>Muhtemel yüklenemedi</h3><p>' + escapeHtml(err.message) + '</p></div>';
+        }
     }
 
     function initTabs() {
@@ -243,13 +369,24 @@
             e.preventDefault();
             switchTab('tahminler');
         });
+        $('#sidebarMuhtLink')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            switchTab('muhtemeller');
+        });
     }
 
     function initDate() {
         const input = $('#pubDateInput');
         const iso = localTodayIso();
         input.value = iso;
-        input.addEventListener('change', () => loadVitrin(input.value));
+        input.addEventListener('change', () => {
+            state.iso = input.value;
+            state.muhtemeller = null;
+            loadVitrin(input.value);
+            if ($('#panel-muhtemeller')?.classList.contains('active')) {
+                loadMuhtemeller(input.value);
+            }
+        });
         loadVitrin(iso);
     }
 

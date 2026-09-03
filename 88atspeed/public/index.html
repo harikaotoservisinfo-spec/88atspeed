@@ -7,7 +7,7 @@
     <title>88 AT SPEED | Günlük Yarış Programı & Tahminler</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link href="css/public-site.css?v=20260903pub" rel="stylesheet">
+    <link href="css/public-site.css?v=20260903muht" rel="stylesheet">
 </head>
 <body class="pub-body">
     <div class="pub-strip">
@@ -31,6 +31,7 @@
         <div class="pub-subnav-inner">
             <button type="button" class="pub-tab active" data-panel="kosular">🏁 Günün Koşuları</button>
             <button type="button" class="pub-tab" data-panel="tahminler">🎯 Tahminler</button>
+            <button type="button" class="pub-tab" data-panel="muhtemeller">💰 Muhtemeller</button>
             <button type="button" class="pub-tab" data-panel="hazir">📋 Hazır Kupon</button>
             <button type="button" class="pub-tab" data-panel="sonuclar">🏆 Sonuçlar</button>
             <button type="button" class="pub-tab" data-panel="rehber">📖 Rehber</button>
@@ -91,6 +92,21 @@
                 </div>
             </section>
 
+            <!-- Muhtemeller (TJK VHS) -->
+            <section id="panel-muhtemeller" class="pub-tab-panel">
+                <div class="pub-muht-wrap">
+                    <div class="pub-muht-toolbar">
+                        <p id="pubMuhtLabel">TJK resmi muhtemeller yükleniyor…</p>
+                        <span class="pub-muht-source">Kaynak: vhs.tjk.org</span>
+                    </div>
+                    <div id="pubMuhtHipTabs" class="pub-hip-tabs" role="tablist"></div>
+                    <div id="pubMuhtKosuTabs" class="pub-muht-kosu-tabs"></div>
+                    <div id="pubMuhtContent" class="pub-muht-content">
+                        <div class="pub-loading"><div class="pub-spinner"></div>Muhtemeller yükleniyor…</div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Hazır Kupon -->
             <section id="panel-hazir" class="pub-tab-panel">
                 <div class="pub-widget">
@@ -147,6 +163,7 @@
                 <ul class="pub-widget-body pub-link-list">
                     <li><a href="#gunun-kosulari"><span class="pub-link-icon">🏁</span> Günün Programı</a></li>
                     <li><a href="#panel-tahminler" id="sidebarTahminLink"><span class="pub-link-icon">🎯</span> Tahminler</a></li>
+                    <li><a href="#panel-muhtemeller" id="sidebarMuhtLink"><span class="pub-link-icon">💰</span> Muhtemeller</a></li>
                     <li><a href="/yonetim"><span class="pub-link-icon">🔒</span> Yönetim Paneli</a></li>
                 </ul>
             </div>
@@ -199,6 +216,6 @@
         <div class="pub-footer-bottom">© 2026 88 AT SPEED · Tüm hakları saklıdır</div>
     </footer>
 
-    <script src="js/public-home.js?v=20260903pub"></script>
+    <script src="js/public-home.js?v=20260903muht"></script>
 </body>
 </html>
