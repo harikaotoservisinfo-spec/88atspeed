@@ -7,7 +7,7 @@
     <title>88 AT SPEED | Günlük Yarış Programı & Tahminler</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link href="css/public-site.css?v=20260903muht-prem" rel="stylesheet">
+    <link href="css/public-site.css?v=20260903hdr-lerta" rel="stylesheet">
 </head>
 <body class="pub-body">
     <div class="pub-strip">
@@ -15,14 +15,47 @@
         <a href="/yonetim">Yönetici Girişi</a>
     </div>
 
-    <header class="pub-header">
+    <header class="pub-header pub-header-premium">
+        <div class="pub-header-bg" aria-hidden="true">
+            <div class="pub-header-glow"></div>
+            <div class="pub-header-stripe"></div>
+        </div>
         <div class="pub-header-inner">
-            <a href="/" class="pub-logo" aria-label="88 AT SPEED">
-                <span class="n88">88</span><span class="nat">AT</span><span class="nsp">SPEED</span>
-            </a>
+            <div class="pub-header-brand">
+                <a href="/" class="pub-logo pub-logo-premium" aria-label="88 AT SPEED">
+                    <span class="pub-logo-emblem">
+                        <span class="n88">88</span>
+                        <span class="pub-logo-shine"></span>
+                    </span>
+                    <span class="pub-logo-wordmark">
+                        <span class="nat">AT</span><span class="nsp">SPEED</span>
+                    </span>
+                </a>
+                <p class="pub-header-tagline">TJK günlük program · Veri odaklı tahmin platformu</p>
+            </div>
+            <div class="pub-header-center">
+                <div class="pub-header-live-chip">
+                    <span class="pub-header-live-dot"></span>
+                    <span class="pub-header-live-label">Canlı program</span>
+                    <time id="pubHeaderClock" class="pub-header-clock" datetime="">—</time>
+                </div>
+            </div>
             <div class="pub-header-actions">
-                <a href="#gunun-kosulari" class="pub-btn pub-btn-outline">Günün Koşuları</a>
-                <a href="#panel-tahminler" class="pub-btn pub-btn-white">Tahminleri Gör</a>
+                <a href="#gunun-kosulari" class="pub-header-btn pub-header-btn-ghost">
+                    <span class="pub-header-btn-icon" aria-hidden="true">🏁</span>
+                    <span class="pub-header-btn-copy">
+                        <strong>Günün Koşuları</strong>
+                        <small>Program &amp; saatler</small>
+                    </span>
+                </a>
+                <a href="#panel-tahminler" class="pub-header-btn pub-header-btn-primary" id="pubHeaderTahminBtn">
+                    <span class="pub-header-btn-icon" aria-hidden="true">🎯</span>
+                    <span class="pub-header-btn-copy">
+                        <strong>Tahminleri Gör</strong>
+                        <small>Analiz &amp; sıralama</small>
+                    </span>
+                    <span class="pub-header-btn-glow" aria-hidden="true"></span>
+                </a>
             </div>
         </div>
     </header>
@@ -39,9 +72,9 @@
     </nav>
 
     <div class="pub-ad-leaderboard">
-        <div class="pub-ad-wrap">
-            <span class="pub-ad-label">Reklam</span>
-            <div class="pub-ad-slot">728 × 90 — Üst Banner Reklam Alanı</div>
+        <div class="pub-ad-wrap pub-ad-rotator" data-pub-ad="leaderboard">
+            <span class="pub-ad-label">Sponsor</span>
+            <div class="pub-ad-creative"></div>
         </div>
     </div>
 
@@ -55,9 +88,9 @@
                         <p>Program ve analiz motorlarımız her akşam ertesi günün koşuları için güncellenir. Sayfaya girdiğinizde hazır tahminleri görürsünüz.</p>
                     </div>
                 </div>
-                <div class="pub-ad-wrap">
-                    <span class="pub-ad-label">Reklam</span>
-                    <div class="pub-ad-slot pub-ad-rect" style="min-height:120px">300 × 250</div>
+                <div class="pub-ad-wrap pub-ad-rotator" data-pub-ad="rect">
+                    <span class="pub-ad-label">Sponsor</span>
+                    <div class="pub-ad-creative pub-ad-creative-rect"></div>
                 </div>
             </div>
 
@@ -152,9 +185,9 @@
                         <p>Uzman hazır kupon önerileri bu alanda yayınlanacak.</p>
                     </div>
                 </div>
-                <div class="pub-ad-wrap" style="margin-top:16px">
-                    <span class="pub-ad-label">Reklam</span>
-                    <div class="pub-ad-slot">İçerik Arası Banner — 728 × 90</div>
+                <div class="pub-ad-wrap pub-ad-rotator" data-pub-ad="leaderboard" style="margin-top:16px">
+                    <span class="pub-ad-label">Sponsor</span>
+                    <div class="pub-ad-creative"></div>
                 </div>
             </section>
 
@@ -188,9 +221,9 @@
         </main>
 
         <aside class="pub-sidebar">
-            <div class="pub-ad-wrap">
-                <span class="pub-ad-label">Reklam</span>
-                <div class="pub-ad-slot pub-ad-rect">300 × 250</div>
+            <div class="pub-ad-wrap pub-ad-rotator" data-pub-ad="rect">
+                <span class="pub-ad-label">Sponsor</span>
+                <div class="pub-ad-creative pub-ad-creative-rect"></div>
             </div>
 
             <div class="pub-widget">
@@ -211,9 +244,9 @@
                 </div>
             </div>
 
-            <div class="pub-ad-wrap">
-                <span class="pub-ad-label">Reklam</span>
-                <div class="pub-ad-slot pub-ad-sky">160 × 600</div>
+            <div class="pub-ad-wrap pub-ad-rotator" data-pub-ad="sky">
+                <span class="pub-ad-label">Sponsor</span>
+                <div class="pub-ad-creative pub-ad-creative-sky"></div>
             </div>
         </aside>
     </div>
@@ -252,6 +285,7 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js" crossorigin="anonymous"></script>
-    <script src="js/public-home.js?v=20260903muht-prem"></script>
+    <script src="js/pub-ads.js?v=20260903hdr-lerta"></script>
+    <script src="js/public-home.js?v=20260903hdr-lerta"></script>
 </body>
 </html>
