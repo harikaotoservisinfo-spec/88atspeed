@@ -17,11 +17,15 @@
         muhtRefreshSec: 15,
         muhtCountdown: 15,
         muhtLastUpdate: null,
-        muhtPrevOdds: {}
+        muhtPrevOdds: {},
+        muhtSelectedNo: null,
+        muhtSelectRunKey: null
     };
 
     const MUHT_REFRESH_SEC = 15;
+    const MUHT_SELECT_RESET_MS = 30000;
     let muhtPollTimer = null;
+    let muhtSelectTimer = null;
 
     const $ = (sel) => document.querySelector(sel);
     const $$ = (sel) => document.querySelectorAll(sel);
@@ -356,7 +360,67 @@
         return String(row.S1) === horseNo || String(row.S2) === horseNo;
     }
 
-    function renderMuhtemelBetPanel(bet, flashKeys, leaderNo) {
+    function clearMuhtUserSelection() {
+        state.muhtSelectedNo = null;
+        state.muhtSelectRunKey = null;
+        if (muhtSelectTimer) {
+            clearTimeout(muhtSelectTimer);
+            muhtSelectTimer = null;
+        }
+    }
+
+    function isMuhtUserPick() {
+        return !!(state.muhtSelectedNo && state.muhtSelectRunKey === getCurrentRunKey());
+    }
+
+    function getMuhtHighlightNo(bahisler) {
+        if (isMuhtUserPick()) return state.muhtSelectedNo;
+        return findLeaderHorseNo(bahisler);
+    }
+
+    function scheduleMuhtSelectReset() {
+        if (muhtSelectTimer) clearTimeout(muhtSelectTimer);
+        muhtSelectTimer = setTimeout(() => {
+            muhtSelectTimer = null;
+            state.muhtSelectedNo = null;
+            state.muhtSelectRunKey = null;
+            refreshMuhtHighlightUI();
+        }, MUHT_SELECT_RESET_MS);
+    }
+
+    function selectMuhtHorse(horseNo) {
+        if (!horseNo) return;
+        state.muhtSelectedNo = String(horseNo);
+        state.muhtSelectRunKey = getCurrentRunKey();
+        scheduleMuhtSelectReset();
+        refreshMuhtHighlightUI();
+    }
+
+    function refreshMuhtHighlightUI() {
+        const cacheKey = (state.muhtIso || state.iso || localTodayIso()) + ':' + getCurrentRunKey();
+        const cached = state.muhtRaceCache[cacheKey];
+        if (!cached?.muhtemel) return;
+        showMuhtemelRace(cached);
+    }
+
+    function bindMuhtGanyanClicks() {
+        $('#pubMuhtContent')?.querySelectorAll('.pub-muht-ganyan-row').forEach((tr) => {
+            tr.addEventListener('click', () => {
+                const horseNo = tr.dataset.horseNo;
+                if (horseNo) selectMuhtHorse(horseNo);
+            });
+        });
+    }
+
+    function showMuhtemelRace(cached, flashKeys) {
+        const content = $('#pubMuhtContent');
+        if (!content || !cached?.muhtemel) return;
+        content.innerHTML = renderMuhtemelRaceBody(cached.muhtemel, flashKeys);
+        bindMuhtGanyanClicks();
+        updateMuhtToolbar(isCurrentRaceOpen());
+    }
+
+    function renderMuhtemelBetPanel(bet, flashKeys, highlightNo, userPick) {
         const isOpen = (bet.D || '').toUpperCase() === 'AÇIK';
         const cnt = (bet.muhtemeller || []).length;
         const isGanyan = bet.isGanyan || bet.B === 'GANYAN';
@@ -372,28 +436,34 @@
             html += '<table class="pub-muht-table pub-muht-table-ganyan"><thead><tr>'
                 + '<th>#</th><th>At</th><th>G</th><th>S</th></tr></thead><tbody>';
             (bet.muhtemeller || []).forEach((row) => {
-                const isLeader = leaderNo && String(row.S1) === leaderNo;
+                const horseNo = String(row.S1);
+                const isHighlight = highlightNo && horseNo === highlightNo;
                 const oddKey = bet.B + '|' + (row.S1 || '') + '||';
                 const flash = flashKeys?.[oddKey] || '';
                 const atAd = row.atAdi || row.T || '';
-                html += '<tr class="' + (isLeader ? 'pub-muht-leader-row' : '') + '" data-odd-key="' + escapeHtml(oddKey) + '" title="' + escapeHtml(atAd) + '">'
-                    + '<td><span class="pub-muht-no-sm' + (isLeader ? ' pub-muht-leader-no' : '') + '">' + escapeHtml(row.S1) + '</span></td>'
-                    + '<td class="pub-muht-at-cell' + (isLeader ? ' pub-muht-leader-at' : '') + '">' + escapeHtml(atAd) + '</td>'
-                    + '<td class="pub-muht-ganyan' + flash + (isLeader ? ' pub-muht-leader-odd' : '') + '">' + escapeHtml(row.G || '—') + '</td>'
+                const rowCls = isHighlight
+                    ? (userPick ? 'pub-muht-pick-row pub-muht-ganyan-row' : 'pub-muht-leader-row pub-muht-ganyan-row')
+                    : 'pub-muht-ganyan-row';
+                html += '<tr class="' + rowCls + '" data-horse-no="' + escapeHtml(horseNo) + '" data-odd-key="' + escapeHtml(oddKey) + '" title="' + escapeHtml(atAd) + '">'
+                    + '<td><span class="pub-muht-no-sm' + (isHighlight ? (userPick ? ' pub-muht-pick-no' : ' pub-muht-leader-no') : '') + '">' + escapeHtml(row.S1) + '</span></td>'
+                    + '<td class="pub-muht-at-cell' + (isHighlight ? (userPick ? ' pub-muht-pick-at' : ' pub-muht-leader-at') : '') + '">' + escapeHtml(atAd) + '</td>'
+                    + '<td class="pub-muht-ganyan' + flash + (isHighlight ? (userPick ? ' pub-muht-pick-odd' : ' pub-muht-leader-odd') : '') + '">' + escapeHtml(row.G || '—') + '</td>'
                     + '<td class="pub-muht-sira">' + escapeHtml(row.R || '—') + '</td></tr>';
             });
             html += '</tbody></table>';
         } else {
             html += '<table class="pub-muht-table pub-muht-table-combo"><thead><tr><th>Komb.</th><th>Oran</th></tr></thead><tbody>';
             (bet.muhtemeller || []).forEach((row) => {
-                const isLinked = comboIncludesHorse(row, leaderNo);
+                const isLinked = comboIncludesHorse(row, highlightNo);
                 const oddKey = bet.B + '|' + (row.S1 || '') + '|' + (row.S2 || '') + '|';
                 const flash = flashKeys?.[oddKey] || '';
                 const label = (row.S1 && row.S2) ? (row.S1 + '-' + row.S2) : (row.T || '—');
                 const full = row.T || label;
-                html += '<tr class="' + (isLinked ? 'pub-muht-linked-row' : '') + '" data-odd-key="' + escapeHtml(oddKey) + '" title="' + escapeHtml(full) + '">'
-                    + '<td class="pub-muht-komb' + (isLinked ? ' pub-muht-linked-cell' : '') + '">' + escapeHtml(label) + '</td>'
-                    + '<td class="pub-muht-ganyan' + flash + (isLinked ? ' pub-muht-linked-cell' : '') + '">' + escapeHtml(row.G || '—') + '</td></tr>';
+                const rowCls = isLinked ? (userPick ? 'pub-muht-pick-row' : 'pub-muht-linked-row') : '';
+                const cellCls = isLinked ? (userPick ? ' pub-muht-pick-cell' : ' pub-muht-linked-cell') : '';
+                html += '<tr class="' + rowCls + '" data-odd-key="' + escapeHtml(oddKey) + '" title="' + escapeHtml(full) + '">'
+                    + '<td class="pub-muht-komb' + cellCls + '">' + escapeHtml(label) + '</td>'
+                    + '<td class="pub-muht-ganyan' + flash + cellCls + '">' + escapeHtml(row.G || '—') + '</td></tr>';
             });
             html += '</tbody></table>';
         }
@@ -408,21 +478,30 @@
         }
 
         const leaderNo = findLeaderHorseNo(bahisler);
+        const userPick = isMuhtUserPick();
+        const highlightNo = getMuhtHighlightNo(bahisler);
         const title = escapeHtml(muht.key) + ' · ' + muht.no + '. Koşu';
         const sub = [muht.pist, muht.saat].filter(Boolean).join(' · ');
 
-        let html = '<div class="pub-muht-race-card"' + (leaderNo ? ' data-leader-no="' + escapeHtml(leaderNo) + '"' : '') + '>'
+        let badge = '';
+        if (userPick && highlightNo) {
+            badge = '<span class="pub-muht-pick-badge">Seçili #' + escapeHtml(highlightNo) + '</span>';
+        } else if (leaderNo) {
+            badge = '<span class="pub-muht-fav-badge">★ Favori #' + escapeHtml(leaderNo) + '</span>';
+        }
+
+        let html = '<div class="pub-muht-race-card" data-leader-no="' + escapeHtml(leaderNo || '') + '">'
             + '<div class="pub-muht-race-top">'
             + '<div class="pub-muht-race-title"><strong>' + title + '</strong>'
             + (sub ? '<span>' + escapeHtml(sub) + '</span>' : '') + '</div>'
             + '<div class="pub-muht-race-meta">'
             + '<span class="pub-badge ' + pistBadgeClass(muht.pist) + '">' + escapeHtml(muht.pist || '') + '</span>'
             + '<span class="pub-muht-durum pub-muht-durum-' + (muht.isOpen ? 'acik' : 'resmi') + '">' + escapeHtml(muht.durum || '') + '</span>'
-            + (leaderNo ? '<span class="pub-muht-fav-badge">★ Favori #' + escapeHtml(leaderNo) + '</span>' : '')
+            + badge
             + '</div></div>';
 
         html += '<div class="pub-muht-bet-board">';
-        bahisler.forEach((bet) => { html += renderMuhtemelBetPanel(bet, flashKeys, leaderNo); });
+        bahisler.forEach((bet) => { html += renderMuhtemelBetPanel(bet, flashKeys, highlightNo, userPick); });
         html += '</div></div>';
 
         return html;
@@ -456,8 +535,7 @@
             return;
         }
         if (cached?.muhtemel) {
-            content.innerHTML = renderMuhtemelRaceBody(cached.muhtemel, flashKeys);
-            updateMuhtToolbar(isCurrentRaceOpen());
+            showMuhtemelRace(cached, flashKeys);
             return;
         }
         content.innerHTML = '<div class="pub-loading"><div class="pub-spinner"></div>Koşu muhtemelleri yükleniyor…</div>';
@@ -496,6 +574,7 @@
             btn.addEventListener('click', () => {
                 state.muhtHipKey = btn.dataset.muhtHip;
                 state.muhtKosuNo = null;
+                clearMuhtUserSelection();
                 stopMuhtPolling();
                 renderMuhtemeller();
             });
@@ -516,6 +595,7 @@
         kosuTabs.querySelectorAll('[data-muht-kosu]').forEach((btn) => {
             btn.addEventListener('click', () => {
                 state.muhtKosuNo = btn.dataset.muhtKosu;
+                clearMuhtUserSelection();
                 stopMuhtPolling();
                 renderMuhtemeller();
             });
@@ -635,6 +715,7 @@
             state.muhtKosuNo = null;
             state.muhtRaceCache = {};
             state.muhtLastUpdate = null;
+            clearMuhtUserSelection();
             renderMuhtemeller();
             startMuhtPolling();
         } catch (err) {
