@@ -162,6 +162,7 @@ function shouldTryBrowserLogin(errOrData) {
     const code = errOrData?.code || errOrData?.error?.[0]?.code || '';
     if (['hipodrom.102036', 'hipodrom.102037', 'hipodrom.102031', 'hipodrom.999999'].includes(code)) return true;
     if (errOrData?.needsCaptcha) return true;
+    if (code === 'api_unreachable' || code === 'api_empty') return true;
     return false;
 }
 
@@ -191,8 +192,26 @@ async function getBrowser() {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+async function dismissCookieBanner(page) {
+    await page.evaluate(() => {
+        const btns = [...document.querySelectorAll('button, a')];
+        const accept = btns.find((b) => /kabul|tamam|anladım|accept|onayla/i.test((b.textContent || '').trim()));
+        if (accept) accept.click();
+    });
+}
+
+async function openLoginModal(page) {
+    await page.evaluate(() => {
+        const login = document.querySelector('button.loginBtn')
+            || document.querySelector('button.btn.login')
+            || [...document.querySelectorAll('button')].find((b) => /^giriş yap$/i.test((b.textContent || '').trim()));
+        if (login) login.click();
+    });
+}
+
 async function loginWithBrowser(username, password) {
     let browser;
+    const ownsBrowser = !browserFactory;
     try {
         browser = await getBrowser();
     } catch (err) {
@@ -204,14 +223,12 @@ async function loginWithBrowser(username, password) {
     try {
         await page.setUserAgent(BROWSER_UA);
         await page.setViewport({ width: 1280, height: 800 });
-        await page.goto(HIPODROM_ORIGIN, { waitUntil: 'networkidle2', timeout: 60000 });
-        await sleep(1500);
-
-        await page.evaluate(() => {
-            const btns = [...document.querySelectorAll('a, button, span')];
-            const login = btns.find((b) => /giriş yap/i.test((b.textContent || '').trim()));
-            if (login) login.click();
-        });
+        await page.goto(HIPODROM_ORIGIN, { waitUntil: 'domcontentloaded', timeout: 45000 });
+        await sleep(2500);
+        await dismissCookieBanner(page);
+        await sleep(500);
+        await page.waitForSelector('button.loginBtn, button.btn.login', { timeout: 15000 });
+        await openLoginModal(page);
         await sleep(1500);
 
         await page.waitForSelector('#username', { timeout: 15000 });
@@ -270,6 +287,9 @@ async function loginWithBrowser(username, password) {
         throw new Error(pageError || 'Hipodrom girişi başarısız. Bilgilerinizi kontrol edin.');
     } finally {
         await page.close().catch(() => {});
+        if (ownsBrowser && browser) {
+            await browser.close().catch(() => {});
+        }
     }
 }
 
@@ -284,11 +304,25 @@ async function login(username, password, recaptchaCode) {
     const headers = { 'User-Agent': BROWSER_UA };
     if (recaptchaCode) headers['X-G-Recaptcha'] = recaptchaCode;
 
-    const { data } = await hipodromApi('/auth/login', {
-        method: 'POST',
-        headers,
-        body: { username: String(username || '').trim(), password: String(password || '') }
-    });
+    let data;
+    try {
+        const res = await hipodromApi('/auth/login', {
+            method: 'POST',
+            headers,
+            body: { username: String(username || '').trim(), password: String(password || '') }
+        });
+        data = res.data;
+        if (!res.ok && !data) {
+            const err = new Error('Hipodrom API yanıt vermedi (HTTP ' + res.status + ')');
+            err.code = 'api_unreachable';
+            throw err;
+        }
+    } catch (fetchErr) {
+        if (fetchErr.code) throw fetchErr;
+        const err = new Error('Hipodrom API\'ye ulaşılamadı: ' + (fetchErr.message || 'ağ hatası'));
+        err.code = 'api_unreachable';
+        throw err;
+    }
 
     if (!data?.success) {
         const err = new Error(extractError(data));
@@ -306,18 +340,20 @@ async function login(username, password, recaptchaCode) {
 }
 
 async function loginAuto(username, password, recaptchaCode) {
+    let apiErr = null;
     try {
         return { tokens: await login(username, password, recaptchaCode), method: 'api' };
-    } catch (apiErr) {
-        if (!shouldTryBrowserLogin(apiErr)) throw apiErr;
-        try {
-            return { tokens: await loginWithBrowser(username, password), method: 'browser' };
-        } catch (browserErr) {
-            const err = new Error(browserErr.message || apiErr.message);
-            err.needsCaptcha = apiErr.needsCaptcha || browserErr.needsCaptcha;
-            err.code = browserErr.code || apiErr.code;
-            throw err;
-        }
+    } catch (err) {
+        apiErr = err;
+        if (!shouldTryBrowserLogin(err)) throw err;
+    }
+    try {
+        return { tokens: await loginWithBrowser(username, password), method: 'browser' };
+    } catch (browserErr) {
+        const err = new Error(browserErr.message || apiErr?.message || 'Giriş başarısız');
+        err.needsCaptcha = apiErr?.needsCaptcha || browserErr.needsCaptcha;
+        err.code = browserErr.code || apiErr?.code;
+        throw err;
     }
 }
 

@@ -3,6 +3,7 @@
 
     const HIPODROM_URL = 'https://www.hipodrom.com/';
     let sessionCache = null;
+    let iframeLoaded = false;
 
     const $ = (sel, root) => (root || document).querySelector(sel);
 
@@ -16,9 +17,12 @@
         } catch (_) {
             const snippet = text.replace(/\s+/g, ' ').trim().slice(0, 160);
             if (text.trim().startsWith('<')) {
+                const is502 = res.status === 502 || /502 Bad Gateway/i.test(text);
                 return {
                     ok: false,
-                    error: 'Sunucu HTML döndü (HTTP ' + res.status + '). Deploy eksik veya nginx zaman aşımı — pm2 restart deneyin.'
+                    error: is502
+                        ? 'Sunucu giriş sırasında yanıt veremedi (502). 15–30 sn bekleyip tekrar deneyin; sorun sürerse pm2 restart gerekir.'
+                        : 'Sunucu HTML döndü (HTTP ' + res.status + '). Deploy eksik veya nginx zaman aşımı — pm2 restart deneyin.'
                 };
             }
             if (snippet.startsWith('Cannot POST')) {
@@ -41,10 +45,16 @@
 
     function renderInfoBanner() {
         return '<div class="pub-kazanc-info">'
-            + '<span class="pub-kazanc-info-icon">ℹ️</span>'
-            + '<div><strong>Önemli:</strong> Hipodrom\'u başka sekmede açmak 88 AT SPEED ile bağlantı kurmaz. '
-            + 'Hesabınızı buraya bağlamak için <strong>Hesaba Bağlan</strong> kullanın — bakiye ve kupon işlemleri buradan yönetilecek.</div>'
-            + '</div>';
+            + '<span class="pub-kazanc-info-icon">⚠️</span>'
+            + '<div>'
+            + '<strong>Hipodrom\'u başka sekmede açmak bu sayfaya bağlanmaz.</strong>'
+            + '<p class="pub-kazanc-info-p">Orada giriş yapsanız bile bakiye ve kuponlar burada görünmez — tarayıcı güvenliği gereği oturumlar paylaşılmaz.</p>'
+            + '<ol class="pub-kazanc-steps">'
+            + '<li>Aşağıdaki forma <strong>Hipodrom kullanıcı adı ve şifrenizi</strong> girin</li>'
+            + '<li><strong>Hesaba Bağlan</strong> — 15–30 sn sürebilir</li>'
+            + '<li>Bağlandıktan sonra adınız ve bakiyeniz üst şeritte görünür</li>'
+            + '</ol>'
+            + '</div></div>';
     }
 
     function renderAccountStrip(user, opts) {
@@ -54,6 +64,7 @@
                 + '<span class="pub-kazanc-connected-dot"></span>'
                 + '<strong>' + escapeHtml(user.displayName) + '</strong>'
                 + (user.memberNo ? '<span class="pub-kazanc-member-inline">#' + escapeHtml(user.memberNo) + '</span>' : '')
+                + '<span class="pub-kazanc-linked-badge">88 AT SPEED\'e bağlı</span>'
                 + '</div>'
                 + '<div class="pub-kazanc-account-strip-mid">'
                 + '<span>Bakiye</span><strong>' + formatMoney(user.totalAmount ?? user.amount) + '</strong>'
@@ -66,27 +77,40 @@
 
         const err = opts?.error || '';
         const needsCaptcha = opts?.needsCaptcha;
-        return '<div class="pub-kazanc-account-strip">'
+        return '<div class="pub-kazanc-account-strip pub-kazanc-account-strip-login">'
+            + '<div class="pub-kazanc-login-hdr">Hesabınızı 88 AT SPEED\'e bağlayın</div>'
             + '<form id="pubKazancLoginForm" class="pub-kazanc-inline-form">'
-            + '<div class="pub-kazanc-inline-brand"><span>H</span> Hipodrom bağlantısı</div>'
+            + '<div class="pub-kazanc-inline-brand"><span>H</span> Hipodrom</div>'
             + '<input type="text" id="pubKazancUser" required autocomplete="username" placeholder="Kullanıcı adı / e-posta / TC">'
             + '<input type="password" id="pubKazancPass" required autocomplete="current-password" placeholder="Şifre">'
             + '<button type="submit" class="pub-kazanc-strip-btn pub-kazanc-strip-btn-primary" id="pubKazancLoginBtn">Hesaba Bağlan</button>'
             + '</form>'
+            + '<p class="pub-kazanc-login-hint">Hipodrom.com\'da zaten giriş yaptıysanız yine de buradan bağlanmanız gerekir.</p>'
             + (err ? '<div class="pub-kazanc-strip-error">' + escapeHtml(err) + '</div>' : '')
             + (needsCaptcha ? '<div class="pub-kazanc-strip-warn">Güvenlik doğrulaması gerekebilir — tekrar deneyin.</div>' : '')
             + '</div>';
     }
 
     function renderIframeBlock() {
-        return '<div class="pub-kazanc-embed">'
+        const expanded = iframeLoaded;
+        return '<div class="pub-kazanc-embed pub-kazanc-embed-optional">'
             + '<div class="pub-kazanc-embed-hdr">'
-            + '<span>Hipodrom.com — uygulama içi</span>'
-            + '<button type="button" class="pub-kazanc-strip-btn pub-kazanc-strip-btn-ghost" id="pubKazancReloadIframe">↻ Yenile</button>'
+            + '<div class="pub-kazanc-embed-hdr-left">'
+            + '<span>Hipodrom.com önizleme</span>'
+            + '<span class="pub-kazanc-embed-warn">Ayrı oturum — bağlantı kurmaz</span>'
             + '</div>'
-            + '<div class="pub-kazanc-embed-body">'
-            + '<iframe id="pubKazancIframe" class="pub-kazanc-iframe-full" src="' + HIPODROM_URL + '" title="Hipodrom.com"></iframe>'
-            + '</div></div>';
+            + '<button type="button" class="pub-kazanc-strip-btn pub-kazanc-strip-btn-ghost" id="pubKazancToggleIframe">'
+            + (expanded ? 'Gizle' : 'Siteyi göster')
+            + '</button>'
+            + '</div>'
+            + (expanded
+                ? '<div class="pub-kazanc-embed-body">'
+                + '<iframe id="pubKazancIframe" class="pub-kazanc-iframe-full" src="' + HIPODROM_URL + '" title="Hipodrom.com"></iframe>'
+                + '<div class="pub-kazanc-embed-actions">'
+                + '<button type="button" class="pub-kazanc-strip-btn pub-kazanc-strip-btn-ghost" id="pubKazancReloadIframe">↻ Yenile</button>'
+                + '</div></div>'
+                : '<div class="pub-kazanc-embed-collapsed">Sadece görüntüleme içindir. Bahis ve bakiye için üstteki <strong>Hesaba Bağlan</strong> kullanın.</div>')
+            + '</div>';
     }
 
     function renderKazancLayout(user, opts) {
@@ -106,7 +130,7 @@
             if (!username || !password) return;
             if (btn) {
                 btn.disabled = true;
-                btn.textContent = 'Doğrulanıyor…';
+                btn.textContent = 'Bağlanıyor… (15–30 sn)';
             }
             try {
                 const controller = new AbortController();
@@ -154,6 +178,10 @@
         $('#pubKazancRefreshBtn', root)?.addEventListener('click', () => {
             sessionCache = null;
             loadKazancSession(true);
+        });
+        $('#pubKazancToggleIframe', root)?.addEventListener('click', () => {
+            iframeLoaded = !iframeLoaded;
+            renderKazanc(sessionCache?.loggedIn ? { user: sessionCache } : {});
         });
         $('#pubKazancReloadIframe', root)?.addEventListener('click', () => {
             const iframe = $('#pubKazancIframe', root);
