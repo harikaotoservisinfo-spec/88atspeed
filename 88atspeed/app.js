@@ -2,6 +2,7 @@ const express = require('express');
 const puppeteer = require('puppeteer');
 const sqlite3 = require('sqlite3').verbose();
 const tjkScrape = require('./lib/tjk-scrape');
+const { buildCalibrationFlat, clearCalibrationFlatCache } = require('./lib/calibration-flat-build');
 const app = express();
 const PORT = 3023;
 
@@ -755,6 +756,7 @@ app.post('/api/hesaplama-kaydet', (req, res) => {
             res.json({ success: false, error: err.message });
         } else {
             console.log('✅ HESAPLAMA kayıt başarılı! ID:', this.lastID);
+            clearCalibrationFlatCache();
             res.json({ success: true, id: this.lastID });
         }
     });
@@ -768,6 +770,23 @@ app.get('/api/hesaplama-kayitlar', (req, res) => {
             res.json({ success: true, kayitlar: rows });
         }
     });
+});
+
+/** Kalibrasyon için flat entry — sunucuda DB'den tek seferde (tarayıcı N+1 yerine) */
+app.get('/api/calibration-flat-build', async (req, res) => {
+    try {
+        const built = await buildCalibrationFlat();
+        res.json({
+            success: true,
+            flatEntries: built.flatEntries,
+            bitisMap: built.bitisMap,
+            flatCount: built.flatCount,
+            buildMs: built.buildMs
+        });
+    } catch (err) {
+        console.error('calibration-flat-build:', err);
+        res.status(500).json({ success: false, error: err.message || String(err) });
+    }
 });
 
 app.get('/api/hesaplama-kayit/:id', (req, res) => {
@@ -860,6 +879,7 @@ app.delete('/api/hesaplama-kayit/:id', (req, res) => {
                 return;
             }
             console.log('🗑 Hesaplama kaydı silindi ID:', id);
+            clearCalibrationFlatCache();
             res.json({ success: true, deletedId: parseInt(id, 10) });
         });
     });

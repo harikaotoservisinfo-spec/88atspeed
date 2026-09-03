@@ -119,8 +119,9 @@ const AtestSonRenkTahmin = (function () {
                 await GostergeScoringEngine.calibrate(flatEntries, host);
                 if (GostergeScoringEngine.isCalibrated?.()) {
                     try {
-                        allColorRowsCache = GostergeScoringEngine.collectAllColorGostergeRows(
-                            flatEntries, host) || [];
+                        allColorRowsCache = GostergeScoringEngine.getCachedAllColorRows?.()
+                            || GostergeScoringEngine.collectAllColorGostergeRows(
+                                flatEntries, host) || [];
                     } catch (_) {
                         allColorRowsCache = [];
                     }

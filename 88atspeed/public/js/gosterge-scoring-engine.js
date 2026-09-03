@@ -631,6 +631,7 @@ const GostergeScoringEngine = (function () {
             let colorLadder = [];
             try {
                 allColorRows = collectAllColorGostergeRows(flatEntries, host);
+                cachedAllColorRows = allColorRows;
                 colorLadder = buildColorGostergeLadder(allColorRows, COLOR_GOSTERGE_CONFIG);
             } catch (err) {
                 console.warn('color ladder build failed', err);
@@ -1600,14 +1601,20 @@ const GostergeScoringEngine = (function () {
 
     let flatBuildPromise = null;
     let cachedFlatBuild = null;
+    let cachedAllColorRows = null;
 
     function getCachedFlatBuild() {
         return cachedFlatBuild;
     }
 
+    function getCachedAllColorRows() {
+        return cachedAllColorRows;
+    }
+
     function clearFlatEntriesCache() {
         cachedFlatBuild = null;
         flatBuildPromise = null;
+        cachedAllColorRows = null;
     }
 
     /** PUANLAMA TEST bitiş + hesaplama kayıtlarından kalibrasyon verisi oluştur */
@@ -1616,6 +1623,20 @@ const GostergeScoringEngine = (function () {
         if (flatBuildPromise) return flatBuildPromise;
         flatBuildPromise = (async function () {
             try {
+                try {
+                    const serverRes = await fetch('/api/calibration-flat-build');
+                    if (serverRes.ok) {
+                        const serverJson = await serverRes.json();
+                        if (serverJson.success && serverJson.flatEntries?.length) {
+                            cachedFlatBuild = {
+                                flatEntries: serverJson.flatEntries,
+                                bitisMap: serverJson.bitisMap || {}
+                            };
+                            return cachedFlatBuild;
+                        }
+                    }
+                } catch (_) { /* sunucu yolu yoksa tarayıcı fallback */ }
+
                 const IE = options?.IE || IstatistikEngine;
                 const bitisRes = await fetch('/api/puanlama-bitis-sonuclari');
         const bitisJson = await bitisRes.json();
@@ -1674,7 +1695,7 @@ const GostergeScoringEngine = (function () {
     }
 
     function makeBitisHost(flatEntries, bitisMap, buildBitisStatsFromEntries) {
-        return {
+        const host = {
             flatEntries,
             buildBitisStatsFromEntries,
             bitisValueForSort(entry) {
@@ -1684,9 +1705,60 @@ const GostergeScoringEngine = (function () {
                 if (entry._bitisPos != null && entry._bitisPos >= 1) return entry._bitisPos;
                 return AtSpeedUtils.extractBitisFromHorseName(entry.row?.name);
             },
-            countUniqueRaces: () => new Set(flatEntries.map(e => e.kayitId + '|' + e.raceNo)).size,
-            raceKey: (kayitId, raceNo) => String(kayitId) + '|' + raceNo
+            buildRaceEntryGroups() {
+                const map = new Map();
+                for (const entry of flatEntries) {
+                    const rk = host.raceKey(entry.kayitId, entry.raceNo);
+                    if (!map.has(rk)) map.set(rk, []);
+                    map.get(rk).push(entry);
+                }
+                return map;
+            },
+            computeMetricRankInRace(entry, raceEntries, getMetric) {
+                const val = getMetric(entry);
+                if (val == null) return { rank: null, field: 0 };
+                let rank = 1;
+                let field = 0;
+                for (const other of raceEntries) {
+                    const ov = getMetric(other);
+                    if (ov == null) continue;
+                    field++;
+                    if (ov > val) rank++;
+                }
+                if (!field) return { rank: null, field: 0 };
+                return { rank, field };
+            },
+            buildRaceRankStatsFromItems(rankItems) {
+                let withRank = 0;
+                let r1 = 0, r12 = 0, r123 = 0, r4 = 0, rOut = 0;
+                for (const item of rankItems) {
+                    const rank = item.rank;
+                    if (rank == null) continue;
+                    withRank++;
+                    if (rank === 1) r1++;
+                    if (rank <= 2) r12++;
+                    if (rank <= 3) r123++;
+                    if (rank === 4) r4++;
+                    if (rank >= 5) rOut++;
+                }
+                return {
+                    matchedRows: rankItems.length,
+                    withBitis: withRank,
+                    b1: r1,
+                    b12: r12,
+                    b123: r123,
+                    b4: r4,
+                    bOut: rOut
+                };
+            },
+            countUniqueRaces() {
+                return new Set(flatEntries.map(e => e.kayitId + '|' + e.raceNo)).size;
+            },
+            raceKey(kayitId, raceNo) {
+                return String(kayitId) + '|' + raceNo;
+            }
         };
+        return host;
     }
 
     async function loadAndCalibrateFromApi(buildBitisStatsFromEntries) {
@@ -1927,6 +1999,7 @@ const GostergeScoringEngine = (function () {
         loadAndCalibrateFromApi,
         buildFlatEntriesFromApi,
         getCachedFlatBuild,
+        getCachedAllColorRows,
         clearFlatEntriesCache,
         makeBitisHost,
         setSuccessBlend,

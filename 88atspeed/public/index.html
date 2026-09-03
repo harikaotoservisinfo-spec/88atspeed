@@ -1156,6 +1156,78 @@
             { key: 'hp', tabId: 'hp-test', contentId: 'hpContent', metaId: 'hpMeta', listId: 'hpKayitListesi', kayitBtn: 'hpKayitBtn' },
             { key: 'siklet', tabId: 'siklet-test', contentId: 'sikletContent', metaId: 'sikletMeta', listId: 'sikletKayitListesi', kayitBtn: 'sikletKayitBtn' }
         ];
+        const TEST_TAB_IDS = ['son-test', 'at-sayisi-test', 'sehir-test']
+            .concat(DIMENSION_TEST_TABS.map(t => t.tabId));
+        let testTabsRenderGen = 0;
+        let testTabsRendered = { metaKey: null, tabs: new Set() };
+        let sharedTestCalibrationPromise = null;
+
+        function isTestTabId(tabId) {
+            return TEST_TAB_IDS.indexOf(tabId) >= 0;
+        }
+
+        function getActiveTestTabId() {
+            const active = getActiveTabId();
+            return isTestTabId(active) ? active : 'son-test';
+        }
+
+        function testTabsMetaKey(meta) {
+            if (!meta) return '—';
+            return [meta.source || '', meta.kayitId || '', meta.tarih || '', meta.hipodrom || ''].join('|');
+        }
+
+        function resetTestTabsRendered(meta) {
+            testTabsRendered = { metaKey: testTabsMetaKey(meta), tabs: new Set() };
+        }
+
+        function setTestTabLoadingHtml(tabId, html) {
+            if (tabId === 'son-test') {
+                document.getElementById('sonTestContent').innerHTML = html;
+            } else if (tabId === 'at-sayisi-test') {
+                document.getElementById('atSayisiContent').innerHTML = html;
+            } else if (tabId === 'sehir-test') {
+                document.getElementById('sehirContent').innerHTML = html;
+            } else {
+                const dimTab = DIMENSION_TEST_TABS.find(t => t.tabId === tabId);
+                if (dimTab) document.getElementById(dimTab.contentId).innerHTML = html;
+            }
+        }
+
+        function ensureSharedTestCalibration() {
+            if (typeof AtestSonPtestTahmin === 'undefined') return Promise.resolve(false);
+            if (AtestSonPtestTahmin.isCalibrated?.()
+                && typeof GostergeScoringEngine !== 'undefined'
+                && GostergeScoringEngine.isCalibrated?.()) {
+                return Promise.resolve(true);
+            }
+            if (sharedTestCalibrationPromise) return sharedTestCalibrationPromise;
+            statusDiv.innerHTML = '<div class="status status-loading">⏳ PUANLAMA TEST kalibrasyonu yükleniyor… (ilk sefer ~30–60 sn)</div>';
+            sharedTestCalibrationPromise = AtestSonPtestTahmin.ensureCalibration()
+                .then(function(ok) {
+                    sharedTestCalibrationPromise = null;
+                    return ok;
+                })
+                .catch(function(err) {
+                    sharedTestCalibrationPromise = null;
+                    console.warn('ensureSharedTestCalibration', err);
+                    return false;
+                });
+            return sharedTestCalibrationPromise;
+        }
+
+        async function renderOneTestTab(tabId, races, meta) {
+            if (tabId === 'son-test') {
+                await sonTestGoster(races, meta, { skipCalibration: true });
+            } else if (tabId === 'at-sayisi-test') {
+                await atSayisiTestGoster(races, meta);
+            } else if (tabId === 'sehir-test') {
+                sehirTestGoster(races, meta);
+            } else {
+                const cfg = DIMENSION_TEST_TABS.find(t => t.tabId === tabId);
+                if (cfg) dimensionTestGoster(races, meta, cfg.key);
+            }
+            testTabsRendered.tabs.add(tabId);
+        }
         let veriCache = {};
         let currentRaces = null;
         let currentHorses = [];
@@ -1379,6 +1451,20 @@
                     const frame = document.getElementById('karsilastirmaFrame');
                     if (frame) frame.src = 'karsilastirma.html?v=' + Date.now();
                 }
+                if (isTestTabId(tabId) && currentRaces?.length && currentSonTestMeta) {
+                    const mk = testTabsMetaKey(currentSonTestMeta);
+                    if (testTabsRendered.metaKey !== mk) {
+                        resetTestTabsRendered(currentSonTestMeta);
+                    }
+                    if (!testTabsRendered.tabs.has(tabId)) {
+                        setTestTabLoadingHtml(tabId, '<div class="info-box">⏳ Sekme yükleniyor...</div>');
+                        ensureSharedTestCalibration().then(function() {
+                            return renderOneTestTab(tabId, currentRaces, currentSonTestMeta);
+                        }).catch(function(err) {
+                            setTestTabLoadingHtml(tabId, '<div class="info-box">❌ ' + escapeHtml(err.message) + '</div>');
+                        });
+                    }
+                }
             });
         });
         
@@ -1597,12 +1683,13 @@
 
         async function refreshTestTabs(races, meta) {
             if (meta?.hipodrom) currentHipodrom = meta.hipodrom;
-            await sonTestGoster(races, meta);
-            await atSayisiTestGoster(races, meta);
-            sehirTestGoster(races, meta);
-            for (const cfg of DIMENSION_TEST_TABS) {
-                dimensionTestGoster(races, meta, cfg.key);
-            }
+            const gen = ++testTabsRenderGen;
+            resetTestTabsRendered(meta);
+            const activeTab = getActiveTestTabId();
+            setTestTabLoadingHtml(activeTab, '<div class="info-box">⏳ Kayıt yükleniyor...</div>');
+            await ensureSharedTestCalibration();
+            if (gen !== testTabsRenderGen) return;
+            await renderOneTestTab(activeTab, races, meta);
         }
 
         function formatTestTabsMeta(meta) {
@@ -1616,7 +1703,8 @@
             return parts.join(' · ') || '—';
         }
 
-        async function sonTestGoster(races, meta) {
+        async function sonTestGoster(races, meta, opts) {
+            opts = opts || {};
             const el = document.getElementById('sonTestContent');
             if (!el) return;
             if (meta) testTabsSetMeta(formatTestTabsMeta(meta));
@@ -1624,15 +1712,21 @@
                 el.innerHTML = '<div class="info-box">📋 Veri bulunamadı</div>';
                 return;
             }
-            if (typeof AtestSonRenkTahmin !== 'undefined' || typeof AtestSonPtestTahmin !== 'undefined') {
-                el.innerHTML = '<div class="info-box">⏳ PUANLAMA TEST kalibrasyonu yükleniyor…</div>';
-            }
             let ptestCalibrated = false;
             let renkCalibrated = false;
             let renkScenarioCols = [];
             let ptestCols = [];
+            if (!opts.skipCalibration
+                && (typeof AtestSonRenkTahmin !== 'undefined' || typeof AtestSonPtestTahmin !== 'undefined')) {
+                el.innerHTML = '<div class="info-box">⏳ PUANLAMA TEST kalibrasyonu yükleniyor…</div>';
+            }
             if (typeof AtestSonPtestTahmin !== 'undefined') {
-                ptestCalibrated = await AtestSonPtestTahmin.ensureCalibration();
+                if (opts.skipCalibration) {
+                    ptestCalibrated = AtestSonPtestTahmin.isCalibrated?.()
+                        || (typeof GostergeScoringEngine !== 'undefined' && GostergeScoringEngine.isCalibrated?.());
+                } else {
+                    ptestCalibrated = await AtestSonPtestTahmin.ensureCalibration();
+                }
                 ptestCols = AtestSonPtestTahmin.getColumns();
             }
             if (typeof AtestSonRenkTahmin !== 'undefined') {
@@ -2289,13 +2383,8 @@
 
         async function loadSonTestKayit(id) {
             const loadingHtml = '<div class="info-box">⏳ Kayıt yükleniyor...</div>';
-            document.getElementById('sonTestContent').innerHTML = loadingHtml;
-            document.getElementById('atSayisiContent').innerHTML = loadingHtml;
-            document.getElementById('sehirContent').innerHTML = loadingHtml;
-            for (const cfg of DIMENSION_TEST_TABS) {
-                const el = document.getElementById(cfg.contentId);
-                if (el) el.innerHTML = loadingHtml;
-            }
+            const activeTab = getActiveTestTabId();
+            setTestTabLoadingHtml(activeTab, loadingHtml);
             statusDiv.innerHTML = '<div class="status status-loading">⏳ Kayıt #' + id + ' yükleniyor...</div>';
             try {
                 const response = await fetch('/api/hesaplama-kayit/' + id);
