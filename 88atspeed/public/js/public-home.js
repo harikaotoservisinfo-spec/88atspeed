@@ -328,6 +328,9 @@
             stopMuhtPolling();
             pauseTjkTv();
         }
+        if (panelId === 'kazanc') {
+            window.pubKazanc?.init();
+        }
     }
 
     function getTjkSources() {

@@ -200,6 +200,8 @@ a { color: inherit; text-decoration: none; }
     gap: 24px;
 }
 
+.pub-header-brand { min-width: 0; }
+
 /* Logo ultra */
 .pub-logo-ultra {
     display: inline-flex;
@@ -2413,4 +2415,387 @@ a { color: inherit; text-decoration: none; }
 @media (max-width: 640px) {
     .pub-muht-toolbar { flex-direction: column; align-items: flex-start; }
     .pub-muht-race-top { flex-direction: column; align-items: flex-start; }
+}
+
+/* Kazanç — Hipodrom.com bağlantısı */
+.pub-kazanc-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.pub-kazanc-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 22px;
+    border-radius: var(--pub-radius);
+    background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 45%, #388e3c 100%);
+    color: #fff;
+    box-shadow: 0 8px 28px rgba(46, 125, 50, 0.35);
+    overflow: hidden;
+    position: relative;
+}
+
+.pub-kazanc-hero::after {
+    content: '';
+    position: absolute;
+    top: -40%;
+    right: -10%;
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.pub-kazanc-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    margin-bottom: 8px;
+}
+
+.pub-kazanc-hero h2 {
+    font-size: 1.35rem;
+    font-weight: 900;
+    margin-bottom: 6px;
+}
+
+.pub-kazanc-hero p {
+    font-size: 13px;
+    opacity: 0.9;
+    max-width: 480px;
+}
+
+.pub-kazanc-hero-logo {
+    width: 72px;
+    height: 72px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.15);
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    font-weight: 900;
+    color: #fff;
+    flex-shrink: 0;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.pub-kazanc-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: start;
+}
+
+.pub-kazanc-card {
+    background: #fff;
+    border-radius: var(--pub-radius);
+    border: 1px solid var(--pub-border);
+    box-shadow: var(--pub-shadow);
+    overflow: hidden;
+}
+
+.pub-kazanc-card-hdr {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 20px 0;
+}
+
+.pub-kazanc-card-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(145deg, #e8f5e9, #c8e6c9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+}
+
+.pub-kazanc-card-hdr h3 {
+    font-size: 1.05rem;
+    font-weight: 800;
+}
+
+.pub-kazanc-card-hdr p {
+    font-size: 12px;
+    color: var(--pub-muted);
+    margin-top: 2px;
+}
+
+.pub-kazanc-alert {
+    margin: 14px 20px 0;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.pub-kazanc-alert-error {
+    background: #ffebee;
+    color: #b71c1c;
+    border: 1px solid #ffcdd2;
+}
+
+.pub-kazanc-alert-warn {
+    background: #fff8e1;
+    color: #e65100;
+    border: 1px solid #ffe082;
+}
+
+.pub-kazanc-alert a { color: inherit; font-weight: 700; text-decoration: underline; }
+
+.pub-kazanc-form {
+    padding: 18px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.pub-kazanc-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.pub-kazanc-field span {
+    font-size: 12px;
+    font-weight: 700;
+    color: #444;
+}
+
+.pub-kazanc-field input {
+    padding: 12px 14px;
+    border: 1px solid var(--pub-border);
+    border-radius: 10px;
+    font-size: 14px;
+    font-family: inherit;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.pub-kazanc-field input:focus {
+    outline: none;
+    border-color: #2e7d32;
+    box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.15);
+}
+
+.pub-kazanc-submit {
+    position: relative;
+    margin-top: 4px;
+    padding: 14px 20px;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 800;
+    color: #fff;
+    cursor: pointer;
+    background: linear-gradient(145deg, #43a047, #2e7d32);
+    box-shadow: 0 4px 16px rgba(46, 125, 50, 0.4);
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.pub-kazanc-submit:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(46, 125, 50, 0.5);
+}
+
+.pub-kazanc-submit:disabled { opacity: 0.7; cursor: wait; }
+
+.pub-kazanc-submit-glow {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.2) 50%, transparent 60%);
+    animation: pub-cta-shimmer 4s ease-in-out infinite;
+}
+
+.pub-kazanc-links {
+    display: flex;
+    gap: 16px;
+    padding: 0 20px 18px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.pub-kazanc-links a {
+    color: var(--pub-green);
+    text-decoration: none;
+}
+
+.pub-kazanc-links a:hover { text-decoration: underline; }
+
+.pub-kazanc-preview-hdr {
+    padding: 12px 16px;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: #f5f5f5;
+    border-bottom: 1px solid var(--pub-border);
+    color: #666;
+}
+
+.pub-kazanc-iframe-wrap {
+    position: relative;
+    height: 420px;
+    background: #f0f0f0;
+}
+
+.pub-kazanc-iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: #fff;
+}
+
+.pub-kazanc-iframe-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: linear-gradient(160deg, #eceff1, #cfd8dc);
+    transition: opacity 0.3s;
+}
+
+.pub-kazanc-iframe-overlay.is-hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.pub-kazanc-iframe-overlay p {
+    font-size: 13px;
+    color: #546e7a;
+    font-weight: 600;
+}
+
+.pub-kazanc-connected {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #2e7d32;
+    margin: 18px 20px 0;
+}
+
+.pub-kazanc-connected-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #69f0ae;
+    box-shadow: 0 0 8px #69f0ae;
+    animation: pub-live-pulse 1.5s ease-out infinite;
+}
+
+.pub-kazanc-account-card h3 {
+    font-size: 1.2rem;
+    font-weight: 900;
+    padding: 8px 20px 0;
+}
+
+.pub-kazanc-member {
+    font-size: 12px;
+    color: var(--pub-muted);
+    padding: 4px 20px 0;
+}
+
+.pub-kazanc-balances {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 16px 20px;
+}
+
+.pub-kazanc-balance {
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: #f8f9fa;
+    border: 1px solid #eee;
+}
+
+.pub-kazanc-balance span {
+    display: block;
+    font-size: 11px;
+    color: var(--pub-muted);
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.pub-kazanc-balance strong {
+    font-size: 1rem;
+    font-weight: 900;
+    color: #1a1a1a;
+}
+
+.pub-kazanc-balance-main {
+    grid-column: 1 / -1;
+    background: linear-gradient(145deg, #e8f5e9, #f1f8e9);
+    border-color: #c8e6c9;
+}
+
+.pub-kazanc-balance-main strong {
+    font-size: 1.35rem;
+    color: #1b5e20;
+}
+
+.pub-kazanc-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 0 20px 12px;
+}
+
+.pub-kazanc-action {
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    transition: transform 0.15s;
+}
+
+.pub-kazanc-action:hover { transform: translateY(-1px); }
+
+.pub-kazanc-action-primary {
+    background: linear-gradient(145deg, #d0261b, #b71c1c);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(208, 38, 27, 0.35);
+}
+
+.pub-kazanc-action-ghost {
+    background: #f5f5f5;
+    color: #444;
+    border: 1px solid #e0e0e0;
+}
+
+.pub-kazanc-note {
+    font-size: 12px;
+    color: var(--pub-muted);
+    padding: 0 20px 18px;
+    line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+    .pub-kazanc-grid { grid-template-columns: 1fr; }
+    .pub-kazanc-hero-logo { display: none; }
 }

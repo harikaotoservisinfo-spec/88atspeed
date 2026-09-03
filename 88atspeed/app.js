@@ -9,6 +9,7 @@ const adminAuth = require('./lib/admin-auth');
 const publicProgram = require('./lib/public-program');
 const muhtemellerFetch = require('./lib/muhtemeller-fetch');
 const tjkTvProxy = require('./lib/tjk-tv-proxy');
+const hipodromAuth = require('./lib/hipodrom-auth');
 const app = express();
 const PORT = 3023;
 
@@ -185,6 +186,77 @@ app.get('/api/public/tjk-tv', async (req, res) => {
         console.error('public/tjk-tv:', err.message);
         res.status(502).send('TJK TV proxy hatası');
     }
+});
+
+/** Hipodrom.com hesap bağlantısı — Kazanç sekmesi */
+app.get('/api/public/hipodrom/session', async (req, res) => {
+    try {
+        const session = hipodromAuth.getSession(req);
+        if (!session) {
+            return res.json({ success: true, loggedIn: false });
+        }
+        let user = session.user;
+        if (!user && session.accessToken) {
+            try {
+                user = await hipodromAuth.fetchUserDetails(session.accessToken);
+                const balance = await hipodromAuth.fetchUserBalance(session.accessToken);
+                if (balance) user = { ...user, ...balance };
+                session.user = user;
+            } catch (err) {
+                console.warn('hipodrom/session refresh:', err.message);
+                hipodromAuth.destroySession(session.sid);
+                hipodromAuth.clearSessionCookie(req, res);
+                return res.json({ success: true, loggedIn: false, expired: true });
+            }
+        }
+        res.json({ success: true, ...hipodromAuth.publicUser(session) });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.post('/api/public/hipodrom/login', async (req, res) => {
+    const username = req.body?.username;
+    const password = req.body?.password;
+    const recaptchaCode = req.body?.recaptchaCode || req.body?.recaptcha || null;
+    if (!username || !password) {
+        return res.status(400).json({ success: false, error: 'Kullanıcı adı ve şifre gerekli' });
+    }
+    try {
+        const tokens = await hipodromAuth.login(username, password, recaptchaCode);
+        let user = null;
+        try {
+            user = await hipodromAuth.fetchUserDetails(tokens.accessToken);
+            const balance = await hipodromAuth.fetchUserBalance(tokens.accessToken);
+            if (balance) user = { ...user, ...balance };
+        } catch (err) {
+            console.warn('hipodrom login user fetch:', err.message);
+        }
+        const sid = hipodromAuth.createSession(tokens, user);
+        hipodromAuth.setSessionCookie(req, res, sid);
+        res.json({
+            success: true,
+            ...hipodromAuth.publicUser({ user })
+        });
+    } catch (err) {
+        const status = err.needsCaptcha ? 428 : 401;
+        res.status(status).json({
+            success: false,
+            error: err.message || 'Giriş başarısız',
+            needsCaptcha: !!err.needsCaptcha,
+            code: err.code || null
+        });
+    }
+});
+
+app.post('/api/public/hipodrom/logout', async (req, res) => {
+    const session = hipodromAuth.getSession(req);
+    if (session?.accessToken) {
+        await hipodromAuth.logoutApi(session.accessToken);
+        hipodromAuth.destroySession(session.sid);
+    }
+    hipodromAuth.clearSessionCookie(req, res);
+    res.json({ success: true });
 });
 
 app.post('/api/admin/public-program-cek', async (req, res) => {
