@@ -11,7 +11,11 @@ const SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const RECAPTCHA_SITE_KEY = '6LcbHRcpAAAAAB8y4h6w4rlK06g2JaPuxKBWkaCB';
 const sessions = new Map();
-let browserPromise = null;
+let browserFactory = null;
+
+function setBrowserFactory(fn) {
+    browserFactory = fn;
+}
 
 function getSecret() {
     return process.env.HIPODROM_SESSION_SECRET || process.env.ADMIN_SESSION_SECRET || '88atspeed-hipodrom-dev-secret';
@@ -133,6 +137,14 @@ function extractError(data) {
     if (!err) return 'İşlem başarısız';
     if (Array.isArray(err)) {
         const first = err[0];
+        const code = first?.code || '';
+        const map = {
+            'hipodrom.102031': 'Kullanıcı adı veya şifre hatalı.',
+            'hipodrom.102036': 'Güvenlik doğrulaması gerekli.',
+            'hipodrom.102037': 'Güvenlik doğrulaması gerekli.',
+            'hipodrom.exception.0002': 'Oturum gerekli. Lütfen tekrar giriş yapın.'
+        };
+        if (code && map[code]) return map[code];
         if (typeof first === 'string') return first;
         if (first?.message) return first.message;
     }
@@ -154,36 +166,40 @@ function shouldTryBrowserLogin(errOrData) {
 }
 
 async function getBrowser() {
-    if (browserPromise) {
-        try {
-            const b = await browserPromise;
-            if (b.isConnected()) return b;
-        } catch (_) { /* yeniden başlat */ }
+    if (browserFactory) {
+        return browserFactory();
     }
+    const puppeteer = require('puppeteer');
     const paths = [
         process.env.PUPPETEER_EXECUTABLE_PATH,
+        process.env.CHROME_PATH,
         '/usr/bin/chromium',
         '/usr/bin/chromium-browser',
         '/usr/bin/google-chrome'
     ].filter(Boolean);
     const launchOptions = {
         headless: 'new',
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--lang=tr-TR']
     };
     for (const p of paths) {
         try {
-            browserPromise = puppeteer.launch({ ...launchOptions, executablePath: p });
-            return await browserPromise;
+            return await puppeteer.launch({ ...launchOptions, executablePath: p });
         } catch (_) { /* sonraki */ }
     }
-    browserPromise = puppeteer.launch(launchOptions);
-    return browserPromise;
+    return puppeteer.launch(launchOptions);
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function loginWithBrowser(username, password) {
-    const browser = await getBrowser();
+    let browser;
+    try {
+        browser = await getBrowser();
+    } catch (err) {
+        const e = new Error('Sunucuda tarayıcı modülü başlatılamadı. Chromium kurulu olduğundan emin olun.');
+        e.code = 'browser_unavailable';
+        throw e;
+    }
     const page = await browser.newPage();
     try {
         await page.setUserAgent(BROWSER_UA);
@@ -305,6 +321,20 @@ async function loginAuto(username, password, recaptchaCode) {
     }
 }
 
+function loginWithTimeout(username, password, recaptchaCode, timeoutMs) {
+    const ms = timeoutMs || 55000;
+    return Promise.race([
+        loginAuto(username, password, recaptchaCode),
+        new Promise((_, reject) => {
+            setTimeout(() => {
+                const e = new Error('Giriş zaman aşımına uğradı. Lütfen tekrar deneyin.');
+                e.code = 'login_timeout';
+                reject(e);
+            }, ms);
+        })
+    ]);
+}
+
 async function fetchUserDetails(accessToken) {
     const { data } = await hipodromApi('/user/details', { token: accessToken });
     if (!data?.success) throw new Error(extractError(data));
@@ -348,7 +378,9 @@ module.exports = {
     destroySession,
     login,
     loginAuto,
+    loginWithTimeout,
     loginWithBrowser,
+    setBrowserFactory,
     fetchUserDetails,
     fetchUserBalance,
     logoutApi,

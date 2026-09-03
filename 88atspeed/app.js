@@ -223,6 +223,7 @@ app.get('/api/public/hipodrom/session', async (req, res) => {
 });
 
 app.post('/api/public/hipodrom/login', async (req, res) => {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
     const username = req.body?.username;
     const password = req.body?.password;
     const recaptchaCode = req.body?.recaptchaCode || req.body?.recaptcha || null;
@@ -230,7 +231,7 @@ app.post('/api/public/hipodrom/login', async (req, res) => {
         return res.status(400).json({ success: false, error: 'Kullanıcı adı ve şifre gerekli' });
     }
     try {
-        const { tokens, method } = await hipodromAuth.loginAuto(username, password, recaptchaCode);
+        const { tokens, method } = await hipodromAuth.loginWithTimeout(username, password, recaptchaCode, 55000);
         let user = null;
         try {
             user = await hipodromAuth.fetchUserDetails(tokens.accessToken);
@@ -247,13 +248,16 @@ app.post('/api/public/hipodrom/login', async (req, res) => {
             ...hipodromAuth.publicUser({ user })
         });
     } catch (err) {
+        console.error('hipodrom/login:', err.message);
         const status = err.needsCaptcha ? 428 : 401;
-        res.status(status).json({
-            success: false,
-            error: err.message || 'Giriş başarısız',
-            needsCaptcha: !!err.needsCaptcha,
-            code: err.code || null
-        });
+        if (!res.headersSent) {
+            res.status(status).json({
+                success: false,
+                error: err.message || 'Giriş başarısız',
+                needsCaptcha: !!err.needsCaptcha,
+                code: err.code || null
+            });
+        }
     }
 });
 
@@ -369,6 +373,8 @@ async function getBrowserInstance() {
     }
     return browser;
 }
+
+hipodromAuth.setBrowserFactory(getBrowserInstance);
 
 async function gotoWithHeaders(page, url) {
     await page.setExtraHTTPHeaders(getBrowserHeaders());
@@ -1364,6 +1370,13 @@ process.on('SIGINT', async () => {
 });
 
 // ==================== SUNUCU BAŞLAT ====================
+
+app.use((req, res) => {
+    if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ success: false, error: 'API endpoint bulunamadı: ' + req.path });
+    }
+    res.status(404).send('Sayfa bulunamadı');
+});
 
 app.listen(PORT, async () => {
     console.log(`\n✅ 88ATSPEED Sunucusu çalışıyor:`);
