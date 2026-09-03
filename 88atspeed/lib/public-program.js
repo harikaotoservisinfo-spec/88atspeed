@@ -466,8 +466,9 @@ function summarizeDayStatus(tarih, dbRows, tjkRows) {
     }
 
     let durum = 'bos';
-    if (kayitli.length && !eksik.length && domesticTjk.length) durum = 'tam';
+    if (kayitli.length && !eksik.length && !fazla.length && domesticTjk.length) durum = 'tam';
     else if (kayitli.length && eksik.length) durum = 'eksik';
+    else if (kayitli.length && !eksik.length && fazla.length) durum = 'kayitli';
     else if (kayitli.length && !domesticTjk.length) durum = 'kayitli';
     else if (!kayitli.length && domesticTjk.length) durum = 'bos';
 
