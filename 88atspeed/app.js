@@ -20,6 +20,7 @@ const PORT = 3023;
 
 fs.mkdirSync(path.join(__dirname, 'data'), { recursive: true });
 fs.mkdirSync(path.join(__dirname, 'data', 'bitalih-jobs'), { recursive: true });
+fs.mkdirSync(path.join(__dirname, 'data', 'bitalih-queue'), { recursive: true });
 
 process.on('uncaughtException', (err) => {
     console.error('uncaughtException:', err.stack || err.message);
@@ -375,8 +376,9 @@ app.get('/api/public/bitalih/auto/health', (req, res) => {
         scriptsOk,
         chromePath,
         chromeInstalled: !!chromePath,
+        workerAlive: bitalihBet.isWorkerAlive(),
         dataDirWritable: fs.existsSync(path.join(__dirname, 'data')),
-        pm2Mode: process.env.exec_mode || 'fork'
+        pm2Mode: 'fork'
     });
 });
 
@@ -405,20 +407,8 @@ app.post('/api/public/bitalih/auto/login', (req, res) => {
             error: current.error || null,
             code: current.code || null
         });
-        if (prep.ssn && prep.password && prep.chromePath) {
-            const jobId = prep.job.id;
-            const ssn = prep.ssn;
-            const pass = prep.password;
-            const chrome = prep.chromePath;
-            setTimeout(() => {
-                try {
-                    bitalihBet.runLoginJob(jobId, ssn, pass, chrome);
-                } catch (err) {
-                    console.error('bitalih/login spawn:', err.message);
-                    const jobs = require('./lib/bitalih-jobs');
-                    jobs.failJob(jobId, err.message, 'spawn_failed');
-                }
-            }, 300);
+        if (prep.ssn && prep.password) {
+            bitalihBet.runLoginJob(prep.job.id, prep.ssn, prep.password);
         }
     } catch (err) {
         console.error('bitalih/auto/login:', err.message);
@@ -452,17 +442,7 @@ app.post('/api/public/bitalih/auto/bet/fixed', (req, res) => {
             code: current.code || null
         });
         if (prep.chromePath) {
-            const jobId = prep.job.id;
-            const chrome = prep.chromePath;
-            setTimeout(() => {
-                try {
-                    bitalihBet.runBetJob(jobId, betOpts, chrome);
-                } catch (err) {
-                    console.error('bitalih/bet spawn:', err.message);
-                    const jobs = require('./lib/bitalih-jobs');
-                    jobs.failJob(jobId, err.message, 'spawn_failed');
-                }
-            }, 300);
+            bitalihBet.runBetJob(prep.job.id, betOpts);
         }
     } catch (err) {
         console.error('bitalih/auto/bet:', err.message);

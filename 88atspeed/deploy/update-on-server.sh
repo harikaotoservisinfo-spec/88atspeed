@@ -38,6 +38,7 @@ npm rebuild sqlite3
 
 echo "🔧 PM2 (fork modu, ecosystem.config.js)..."
 pm2 delete 88atspeed 2>/dev/null || true
+pm2 delete 88atspeed-bitalih 2>/dev/null || true
 pm2 start ecosystem.config.js
 pm2 save
 

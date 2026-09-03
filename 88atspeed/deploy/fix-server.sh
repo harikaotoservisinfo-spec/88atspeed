@@ -43,11 +43,13 @@ swapon --show 2>/dev/null || true
 # 2) PM2 — cluster modundan çık, ecosystem ile başlat
 echo "🔧 PM2 yeniden yapılandırılıyor (fork modu)..."
 pm2 delete 88atspeed 2>/dev/null || true
+pm2 delete 88atspeed-bitalih 2>/dev/null || true
 pm2 start "$APP_DIR/ecosystem.config.js"
 pm2 save
 pm2 reset 88atspeed 2>/dev/null || true
+pm2 reset 88atspeed-bitalih 2>/dev/null || true
 sleep 2
-pm2 status 88atspeed
+pm2 status
 
 # 3) Nginx — SSL yoksa HTTP kullan (SSL config nginx'i kırar)
 echo "🌐 Nginx yapılandırması..."
@@ -70,6 +72,7 @@ echo ""
 echo "🔍 Sağlık:"
 curl -s "http://127.0.0.1:3023/api/public/bitalih/auto/health" || echo "(yanıt yok)"
 echo ""
+pm2 status 88atspeed-bitalih 2>/dev/null || true
 echo ""
 echo "✅ Onarım tamam. PM2 restart sayısı (↺) birkaç dakika içinde artmamalı."
 echo "   Hâlâ artıyorsa: pm2 logs 88atspeed --lines 80"

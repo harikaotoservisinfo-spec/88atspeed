@@ -162,9 +162,9 @@
                     const health = await parseJsonResponse(healthRes);
                     if (health.ok && health.data?.chromeInstalled) break;
                     if (h < 2) await new Promise((r) => setTimeout(r, 3000));
-                    if (h === 2 && (!health.ok || !health.data?.chromeInstalled)) {
+                    if (h === 2 && (!health.ok || !health.data?.chromeInstalled || !health.data?.workerAlive)) {
                         updateSystemMessages({
-                            autoError: 'Sunucu hazır değil. SSH: bash /var/www/88atspeed/deploy/fix-server.sh'
+                            autoError: 'Bi\'Talih worker hazır değil. SSH: bash /var/www/88atspeed/deploy/fix-server.sh'
                         });
                         return;
                     }
@@ -193,8 +193,8 @@
                 });
                 if (!polled.ok || !polled.data?.success) {
                     let err = polled.error || polled.data?.error || 'Giriş başarısız';
-                    if (polled.code === 'no_chrome') {
-                        err = 'Sunucuda Chrome yok. SSH: bash /var/www/88atspeed/deploy/fix-server.sh';
+                    if (polled.code === 'no_chrome' || polled.code === 'worker_down') {
+                        err = 'SSH: bash /var/www/88atspeed/deploy/fix-server.sh';
                     }
                     updateSystemMessages({ autoError: err });
                     return;

@@ -15,43 +15,30 @@ const jobs = require('./bitalih-jobs');
 const { resolveChromePath } = require('./chrome-path');
 
 const FIXED_ODDS_URL = bitalihAuth.FIXED_ODDS_URL;
+const QUEUE_DIR = path.join(DATA_DIR, 'bitalih-queue');
+const HEARTBEAT_FILE = path.join(DATA_DIR, 'bitalih-worker-heartbeat.json');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function ensureDataDir() {
     fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.mkdirSync(QUEUE_DIR, { recursive: true });
     jobs.pruneOldJobs();
 }
 
-function childEnv(jobId, chromePath, creds) {
-    const env = {
-        NODE_ENV: process.env.NODE_ENV || 'production',
-        PATH: process.env.PATH || '/usr/bin:/bin',
-        HOME: process.env.HOME || '/root',
-        BITALIH_JOB_ID: jobId,
-        PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: '1',
-        PUPPETEER_SKIP_DOWNLOAD: '1',
-        CHROME_PATH: chromePath || '',
-        PUPPETEER_EXECUTABLE_PATH: chromePath || ''
-    };
-    if (creds?.ssn) env.BITALIH_SSN = String(creds.ssn);
-    if (creds?.password) env.BITALIH_PASS = String(creds.password);
-    return env;
+function isWorkerAlive() {
+    try {
+        const hb = JSON.parse(fs.readFileSync(HEARTBEAT_FILE, 'utf8'));
+        return Date.now() - (hb.at || 0) < 25000;
+    } catch (_) {
+        return false;
+    }
 }
 
-function startBackgroundScript(scriptName, args, jobId, chromePath, creds) {
+function enqueueTask(task) {
     ensureDataDir();
-    const script = path.join(__dirname, '..', 'scripts', scriptName);
-    const child = spawn(process.execPath, [script, ...args], {
-        cwd: path.join(__dirname, '..'),
-        detached: true,
-        stdio: 'ignore',
-        env: childEnv(jobId, chromePath, creds)
-    });
-    child.on('error', (err) => {
-        jobs.failJob(jobId, 'Alt süreç başlatılamadı: ' + err.message, 'spawn_failed');
-    });
-    child.unref();
-    jobs.updateJob(jobId, { meta: { pid: child.pid || null, chromePath: chromePath || null, spawn: 'exec' } });
+    const file = path.join(QUEUE_DIR, task.jobId + '.json');
+    fs.writeFileSync(file, JSON.stringify(task), { mode: 0o600 });
+    jobs.updateJob(task.jobId, { meta: { queued: true } });
 }
 
 function prepareLoginJob(ssn, password) {
@@ -65,18 +52,19 @@ function prepareLoginJob(ssn, password) {
         );
         return { job, chromePath: null, ssn: null, password: null };
     }
+    if (!isWorkerAlive()) {
+        jobs.failJob(
+            job.id,
+            'Bi\'Talih worker çalışmıyor. SSH: bash /var/www/88atspeed/deploy/fix-server.sh',
+            'worker_down'
+        );
+        return { job, chromePath: null, ssn: null, password: null };
+    }
     return { job, chromePath, ssn: String(ssn).trim(), password: String(password) };
 }
 
-function runLoginJob(jobId, ssn, password, chromePath) {
-    const creds = { ssn, password };
-    startBackgroundScript(
-        'bitalih-browser-login.js',
-        [ssn, password],
-        jobId,
-        chromePath,
-        creds
-    );
+function runLoginJob(jobId, ssn, password) {
+    enqueueTask({ type: 'login', jobId, ssn, password });
 }
 
 function prepareBetJob(opts) {
@@ -86,17 +74,21 @@ function prepareBetJob(opts) {
         jobs.failJob(job.id, 'Sunucuda Chrome yok. fix-server.sh çalıştırın.', 'no_chrome');
         return { job, chromePath: null };
     }
+    if (!isWorkerAlive()) {
+        jobs.failJob(job.id, 'Bi\'Talih worker çalışmıyor. fix-server.sh çalıştırın.', 'worker_down');
+        return { job, chromePath: null };
+    }
     return { job, chromePath };
 }
 
-function runBetJob(jobId, opts, chromePath) {
-    startBackgroundScript('bitalih-bet-worker.js', [JSON.stringify(opts || {})], jobId, chromePath, null);
+function runBetJob(jobId, opts) {
+    enqueueTask({ type: 'bet', jobId, opts: opts || {} });
 }
 
 function startLoginJob(ssn, password) {
     const prep = prepareLoginJob(ssn, password);
     if (prep.ssn && prep.password) {
-        runLoginJob(prep.job.id, prep.ssn, prep.password, prep.chromePath);
+        runLoginJob(prep.job.id, prep.ssn, prep.password);
     }
     return prep.job;
 }
@@ -104,9 +96,24 @@ function startLoginJob(ssn, password) {
 function startBetJob(opts) {
     const prep = prepareBetJob(opts);
     if (prep.chromePath) {
-        runBetJob(prep.job.id, opts, prep.chromePath);
+        runBetJob(prep.job.id, opts);
     }
     return prep.job;
+}
+
+function childEnv(chromePath, creds) {
+    const env = {
+        NODE_ENV: process.env.NODE_ENV || 'production',
+        PATH: process.env.PATH || '/usr/bin:/bin',
+        HOME: process.env.HOME || '/root',
+        PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: '1',
+        PUPPETEER_SKIP_DOWNLOAD: '1',
+        CHROME_PATH: chromePath || '',
+        PUPPETEER_EXECUTABLE_PATH: chromePath || ''
+    };
+    if (creds?.ssn) env.BITALIH_SSN = String(creds.ssn);
+    if (creds?.password) env.BITALIH_PASS = String(creds.password);
+    return env;
 }
 
 function runChildScriptSync(scriptName, args, timeoutMs) {
@@ -115,7 +122,7 @@ function runChildScriptSync(scriptName, args, timeoutMs) {
     return new Promise((resolve, reject) => {
         const child = spawn(process.execPath, [script, ...args], {
             cwd: path.join(__dirname, '..'),
-            env: childEnv('sync', chromePath),
+            env: childEnv(chromePath, { ssn: args[0], password: args[1] }),
             stdio: ['ignore', 'pipe', 'pipe']
         });
         let out = '';
@@ -361,5 +368,6 @@ module.exports = {
     runBetJob,
     startLoginJob,
     startBetJob,
-    getJob
+    getJob,
+    isWorkerAlive
 };
