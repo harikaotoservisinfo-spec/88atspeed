@@ -54,10 +54,14 @@ async function getBrowser() {
     };
     for (const p of uniquePaths) {
         try {
-            return await puppeteer.launch({ ...launchOptions, executablePath: p });
+            if (fs.existsSync(p)) {
+                return await puppeteer.launch({ ...launchOptions, executablePath: p });
+            }
         } catch (_) { /* */ }
     }
-    return puppeteer.launch(launchOptions);
+    const e = new Error('Chrome bulunamadı. Sunucuda: bash /var/www/88atspeed/deploy/fix-server.sh');
+    e.code = 'no_chrome';
+    throw e;
 }
 
 function loadJson(file) {

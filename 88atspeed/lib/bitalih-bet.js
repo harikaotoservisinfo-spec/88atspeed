@@ -12,6 +12,7 @@ const {
     restoreSession
 } = require('./bitalih-browser');
 const jobs = require('./bitalih-jobs');
+const { resolveChromePath } = require('./chrome-path');
 
 const FIXED_ODDS_URL = bitalihAuth.FIXED_ODDS_URL;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -24,16 +25,35 @@ function ensureDataDir() {
 function startBackgroundScript(scriptName, args, jobId) {
     ensureDataDir();
     const script = path.join(__dirname, '..', 'scripts', scriptName);
+    const chromePath = resolveChromePath();
+    const logPath = path.join(jobs.JOBS_DIR, jobId + '.log');
+    let logFd = null;
+    try {
+        logFd = fs.openSync(logPath, 'a');
+        fs.writeSync(logFd, '\n--- ' + new Date().toISOString() + ' start ' + scriptName + ' ---\n');
+    } catch (_) { /* */ }
+
+    const env = {
+        ...process.env,
+        BITALIH_JOB_ID: jobId
+    };
+    if (chromePath) {
+        env.CHROME_PATH = chromePath;
+        env.PUPPETEER_EXECUTABLE_PATH = chromePath;
+    }
+
+    const stdio = logFd != null ? ['ignore', logFd, logFd] : 'ignore';
     const child = spawn(process.execPath, [script, ...args], {
         cwd: path.join(__dirname, '..'),
         detached: true,
-        stdio: 'ignore',
-        env: {
-            ...process.env,
-            BITALIH_JOB_ID: jobId
-        }
+        stdio,
+        env
     });
     child.unref();
+    if (logFd != null) {
+        try { fs.closeSync(logFd); } catch (_) { /* */ }
+    }
+    jobs.updateJob(jobId, { meta: { pid: child.pid, chromePath: chromePath || null } });
 }
 
 function runChildScriptSync(scriptName, args, timeoutMs) {
@@ -79,13 +99,27 @@ async function profileFromSession() {
 }
 
 function startLoginJob(ssn, password) {
+    const chromePath = resolveChromePath();
     const job = jobs.createJob('login');
+    if (!chromePath) {
+        jobs.failJob(
+            job.id,
+            'Sunucuda Chrome yok. SSH ile çalıştırın: bash /var/www/88atspeed/deploy/fix-server.sh',
+            'no_chrome'
+        );
+        return job;
+    }
     startBackgroundScript('bitalih-browser-login.js', [ssn, password], job.id);
     return job;
 }
 
 function startBetJob(opts) {
+    const chromePath = resolveChromePath();
     const job = jobs.createJob('bet', opts);
+    if (!chromePath) {
+        jobs.failJob(job.id, 'Sunucuda Chrome yok. fix-server.sh çalıştırın.', 'no_chrome');
+        return job;
+    }
     startBackgroundScript('bitalih-bet-worker.js', [JSON.stringify(opts || {})], job.id);
     return job;
 }

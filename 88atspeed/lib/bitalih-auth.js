@@ -16,6 +16,19 @@ const {
 const API_BASE = ORIGIN + '/api';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+function withTimeout(promise, ms, label) {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => {
+            setTimeout(() => {
+                const e = new Error((label || 'İşlem') + ' zaman aşımına uğradı (' + Math.round(ms / 1000) + ' sn).');
+                e.code = 'timeout';
+                reject(e);
+            }, ms);
+        })
+    ]);
+}
+
 async function dismissCookieBanner(page) {
     await page.evaluate(() => {
         const btns = [...document.querySelectorAll('button, a')];
@@ -32,6 +45,10 @@ async function openLoginModal(page) {
 }
 
 async function loginWithBrowser(ssn, password) {
+    return withTimeout(loginWithBrowserInner(ssn, password), 60000, 'Bi\'Talih giriş');
+}
+
+async function loginWithBrowserInner(ssn, password) {
     let browser;
     try {
         browser = await getBrowser();

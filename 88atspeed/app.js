@@ -392,7 +392,14 @@ app.post('/api/public/bitalih/auto/login', (req, res) => {
     }
     try {
         const job = bitalihBet.startLoginJob(username, password);
-        res.json({ success: true, jobId: job.id, status: 'running' });
+        const current = bitalihBet.getJob(job.id) || job;
+        res.json({
+            success: current.status !== 'failed',
+            jobId: job.id,
+            status: current.status,
+            error: current.error || null,
+            code: current.code || null
+        });
     } catch (err) {
         console.error('bitalih/auto/login:', err.message);
         res.status(500).json({ success: false, error: err.message, code: err.code || null });

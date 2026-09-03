@@ -7,6 +7,23 @@ const crypto = require('crypto');
 
 const JOBS_DIR = path.join(__dirname, '..', 'data', 'bitalih-jobs');
 const JOB_TTL_MS = 30 * 60 * 1000;
+const LOGIN_JOB_TIMEOUT_MS = 90000;
+const BET_JOB_TIMEOUT_MS = 180000;
+
+function jobTimeoutMs(job) {
+    if (!job) return LOGIN_JOB_TIMEOUT_MS;
+    return job.type === 'bet' ? BET_JOB_TIMEOUT_MS : LOGIN_JOB_TIMEOUT_MS;
+}
+
+function expireRunningJob(job) {
+    if (!job || job.status !== 'running') return job;
+    const limit = jobTimeoutMs(job);
+    if (Date.now() - (job.createdAt || 0) <= limit) return job;
+    const msg = job.type === 'login'
+        ? 'Giriş zaman aşımı (90 sn). Sunucuda Chrome kurulu değil olabilir — SSH: bash /var/www/88atspeed/deploy/fix-server.sh'
+        : 'Bahis zaman aşımı (3 dk).';
+    return failJob(job.id, msg, 'timeout');
+}
 
 function ensureJobsDir() {
     fs.mkdirSync(JOBS_DIR, { recursive: true });
@@ -36,7 +53,7 @@ function readJob(id) {
     if (!id) return null;
     try {
         const raw = fs.readFileSync(jobPath(id), 'utf8');
-        return JSON.parse(raw);
+        return expireRunningJob(JSON.parse(raw));
     } catch (_) {
         return null;
     }
@@ -84,5 +101,8 @@ module.exports = {
     updateJob,
     completeJob,
     failJob,
-    pruneOldJobs
+    pruneOldJobs,
+    expireRunningJob,
+    LOGIN_JOB_TIMEOUT_MS,
+    BET_JOB_TIMEOUT_MS
 };

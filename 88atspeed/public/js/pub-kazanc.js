@@ -132,20 +132,21 @@
     }
 
     async function pollJob(jobId, label, onTick) {
-        const maxAttempts = 90;
+        const maxAttempts = 50;
         for (let i = 0; i < maxAttempts; i++) {
             await new Promise((r) => setTimeout(r, 2000));
             const res = await fetch('/api/public/bitalih/auto/job/' + encodeURIComponent(jobId));
             const parsed = await parseJsonResponse(res);
             if (!parsed.ok) return { ok: false, error: parsed.error };
             const job = parsed.data;
-            if (onTick) onTick(job, i);
+            const secs = (i + 1) * 2;
+            if (onTick) onTick(job, secs);
             if (job.status === 'done') return { ok: true, data: job.result || {} };
             if (job.status === 'failed') {
-                return { ok: false, error: job.error || (label + ' başarısız') };
+                return { ok: false, error: job.error || (label + ' başarısız'), code: job.code };
             }
         }
-        return { ok: false, error: label + ' zaman aşımına uğradı (3 dk). pm2 restart sonrası tekrar deneyin.' };
+        return { ok: false, error: label + ' zaman aşımı (100 sn). Sunucuda fix-server.sh çalıştırın.' };
     }
 
     function bindSystemPlay(root) {
@@ -154,8 +155,17 @@
             const username = $('#pubAutoUser', root)?.value?.trim();
             const password = $('#pubAutoPass', root)?.value;
             if (!username || !password) return;
-            if (btn) { btn.disabled = true; btn.textContent = 'Giriş başlatılıyor…'; }
+            if (btn) { btn.disabled = true; btn.textContent = 'Kontrol ediliyor…'; }
             try {
+                const healthRes = await fetch('/api/public/bitalih/auto/health');
+                const health = await parseJsonResponse(healthRes);
+                if (health.ok && health.data && !health.data.chromeInstalled) {
+                    updateSystemMessages({
+                        autoError: 'Sunucuda Chrome yok. SSH: bash /var/www/88atspeed/deploy/fix-server.sh'
+                    });
+                    return;
+                }
+                if (btn) btn.textContent = 'Giriş başlatılıyor…';
                 const res = await fetch('/api/public/bitalih/auto/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -170,11 +180,19 @@
                     updateSystemMessages({ autoError: 'Sunucu güncel değil — deploy gerekli.' });
                     return;
                 }
-                const polled = await pollJob(parsed.data.jobId, 'Giriş', () => {
-                    if (btn) btn.textContent = 'Giriş yapılıyor… (15–60 sn)';
+                if (parsed.data.status === 'failed' || parsed.data.error) {
+                    updateSystemMessages({ autoError: parsed.data.error || 'Giriş başarısız' });
+                    return;
+                }
+                const polled = await pollJob(parsed.data.jobId, 'Giriş', (_job, secs) => {
+                    if (btn) btn.textContent = 'Giriş yapılıyor… (' + secs + ' sn)';
                 });
                 if (!polled.ok || !polled.data?.success) {
-                    updateSystemMessages({ autoError: polled.error || polled.data?.error || 'Giriş başarısız' });
+                    let err = polled.error || polled.data?.error || 'Giriş başarısız';
+                    if (polled.code === 'no_chrome') {
+                        err = 'Sunucuda Chrome yok. SSH: bash /var/www/88atspeed/deploy/fix-server.sh';
+                    }
+                    updateSystemMessages({ autoError: err });
                     return;
                 }
                 autoStatus = polled.data;
@@ -210,8 +228,8 @@
                     updateSystemMessages({ autoError: 'Sunucu güncel değil — deploy gerekli.' });
                     return;
                 }
-                const polled = await pollJob(parsed.data.jobId, dryRun ? 'Test' : 'Bahis', () => {
-                    if (playBtn) playBtn.textContent = dryRun ? 'Test yapılıyor…' : 'Oynanıyor… (30–90 sn)';
+                const polled = await pollJob(parsed.data.jobId, dryRun ? 'Test' : 'Bahis', (_job, secs) => {
+                    if (playBtn) playBtn.textContent = (dryRun ? 'Test' : 'Oynanıyor') + '… (' + secs + ' sn)';
                 });
                 if (!polled.ok || polled.data?.success === false) {
                     updateSystemMessages({ autoError: polled.error || polled.data?.error || 'Bahis başarısız' });
