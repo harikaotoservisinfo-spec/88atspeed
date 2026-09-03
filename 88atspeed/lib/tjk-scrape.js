@@ -847,6 +847,7 @@ module.exports = {
     KOSU_KRITIK,
     KOSU_TUM_ALANLAR,
     getBrowserHeaders,
+    fetchHtml,
     fetchHipodromlarForDate,
     parseHipodromlarFromHtml,
     launchBrowser,

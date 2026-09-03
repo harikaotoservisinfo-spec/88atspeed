@@ -6,6 +6,18 @@ const tjkScrape = require('./tjk-scrape');
 
 const DOMESTIC_HINT = /(ankara|izmir|istanbul|bursa|adana|elaz|diyarbak|kocaeli|antalya|şanlıurfa|urfa|karma)/i;
 
+/** TJK yanıt vermezse denenecek yerli hipodromlar */
+const FALLBACK_HIPODROMS = [
+    { id: '5', name: 'Ankara' },
+    { id: '2', name: 'İzmir' },
+    { id: '3', name: 'İstanbul' },
+    { id: '4', name: 'Bursa' },
+    { id: '6', name: 'Adana' },
+    { id: '9', name: 'Kocaeli' },
+    { id: '10', name: 'Elazığ' },
+    { id: '17', name: 'Karma' }
+];
+
 function formatTrDate(d) {
     const dd = String(d.getDate()).padStart(2, '0');
     const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -48,6 +60,10 @@ function isDomesticHipodrom(name) {
     if (/\(YD\s*\d*\)/i.test(name)) return false;
     if (/ABD|Krallık|Afrika|Avustralya|Fransa|Almanya/i.test(name)) return false;
     return DOMESTIC_HINT.test(name) || name === 'Karma';
+}
+
+function sleep(ms) {
+    return new Promise((r) => setTimeout(r, ms));
 }
 
 function parseRaceMetaFromText(text) {
@@ -121,34 +137,79 @@ function parseRaceProgramFromHtml(html) {
     return races;
 }
 
-async function fetchHtml(url) {
+async function fetchHtmlRetry(url, opts = {}) {
+    const maxAttempts = opts.maxAttempts || 4;
+    const timeoutMs = opts.timeoutMs || 60000;
     const headers = tjkScrape.getBrowserHeaders();
-    const https = require('https');
-    return new Promise((resolve, reject) => {
-        const req = https.get(url, { headers }, (res) => {
-            let body = '';
-            res.on('data', (c) => { body += c; });
-            res.on('end', () => {
-                if (res.statusCode >= 200 && res.statusCode < 300) resolve(body);
-                else reject(new Error('TJK HTTP ' + res.statusCode));
-            });
-        });
-        req.on('error', reject);
-        req.setTimeout(35000, () => {
-            req.destroy();
-            reject(new Error('TJK zaman aşımı'));
-        });
-    });
+    let lastError = null;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            return await tjkScrape.fetchHtml(url, headers, 3, timeoutMs);
+        } catch (err) {
+            lastError = err;
+            if (attempt < maxAttempts) await sleep(1500 * attempt);
+        }
+    }
+    throw lastError || new Error('TJK zaman aşımı');
 }
 
-async function fetchHipodromProgram(tarih, hipodrom) {
+async function fetchHipodromProgram(tarih, hipodrom, opts = {}) {
     const url = 'https://www.tjk.org/TR/YarisSever/Info/Sehir/GunlukYarisProgrami'
         + `?SehirId=${encodeURIComponent(hipodrom.id)}`
         + `&QueryParameter_Tarih=${encodeURIComponent(tarih)}`
         + `&SehirAdi=${encodeURIComponent(hipodrom.name)}&Era=today`;
-    const html = await fetchHtml(url);
+    const html = await fetchHtmlRetry(url, opts);
     const races = parseRaceProgramFromHtml(html);
+    if (!races.length) throw new Error('Koşu tablosu bulunamadı');
     return { ...hipodrom, races, kosuSayisi: races.length };
+}
+
+function queryHipodromlarFromDb(db, tarih) {
+    return new Promise((resolve, reject) => {
+        const sql = `
+            SELECT DISTINCT hipodrom_id AS id, hipodrom AS name FROM at_verileri
+            WHERE tarih = ? AND hipodrom_id IS NOT NULL AND hipodrom_id != ''
+            UNION
+            SELECT DISTINCT hipodrom_id AS id, hipodrom AS name FROM hesaplama_kayitlari
+            WHERE tarih = ? AND hipodrom_id IS NOT NULL AND hipodrom_id != ''
+            ORDER BY name`;
+        db.all(sql, [tarih, tarih], (err, rows) => {
+            if (err) return reject(err);
+            resolve((rows || []).filter((r) => r.id && r.name));
+        });
+    });
+}
+
+async function resolveHipodromList(db, tarih, opts = {}) {
+    const fetchOpts = {
+        maxAttempts: opts.maxAttempts || 5,
+        timeoutMs: opts.timeoutMs || 60000
+    };
+    let source = 'tjk';
+    let hipodromlar = [];
+
+    try {
+        hipodromlar = await tjkScrape.fetchHipodromlarForDate(tarih, fetchOpts);
+    } catch (err) {
+        console.warn('⚠️ TJK hipodrom listesi:', err.message);
+    }
+
+    if (!hipodromlar.length) {
+        try {
+            hipodromlar = await queryHipodromlarFromDb(db, tarih);
+            if (hipodromlar.length) source = 'db';
+        } catch (err) {
+            console.warn('⚠️ DB hipodrom listesi:', err.message);
+        }
+    }
+
+    if (!hipodromlar.length) {
+        hipodromlar = FALLBACK_HIPODROMS.slice();
+        source = 'fallback';
+        console.warn('⚠️ Sabit yedek hipodrom listesi kullanılıyor');
+    }
+
+    return { hipodromlar, source };
 }
 
 function ensureTables(db) {
@@ -211,13 +272,21 @@ async function buildPublicProgram(db, tarih, opts = {}) {
     await ensureTables(db);
     const onlyDomestic = opts.onlyDomestic !== false;
     const publish = opts.publish !== false;
-    const hipodromlar = await tjkScrape.fetchHipodromlarForDate(tarih);
+    const hipDelayMs = opts.hipDelayMs ?? 2500;
+    const fetchOpts = {
+        maxAttempts: opts.maxAttempts || 5,
+        timeoutMs: opts.timeoutMs || 60000
+    };
+
+    const { hipodromlar, source: hipSource } = await resolveHipodromList(db, tarih, fetchOpts);
     const selected = hipodromlar.filter((h) => !onlyDomestic || isDomesticHipodrom(h.name));
 
     const results = [];
-    for (const hip of selected) {
+    for (let i = 0; i < selected.length; i++) {
+        const hip = selected[i];
+        if (i > 0 && hipDelayMs > 0) await sleep(hipDelayMs);
         try {
-            const prog = await fetchHipodromProgram(tarih, hip);
+            const prog = await fetchHipodromProgram(tarih, hip, fetchOpts);
             const row = {
                 tarih,
                 hipodromId: hip.id,
@@ -228,11 +297,21 @@ async function buildPublicProgram(db, tarih, opts = {}) {
             };
             await saveProgramRow(db, row);
             results.push({ hipodrom: hip.name, kosuSayisi: prog.kosuSayisi, ok: true });
+            console.log('  ✓', hip.name, '—', prog.kosuSayisi, 'koşu');
         } catch (err) {
             results.push({ hipodrom: hip.name, ok: false, error: err.message });
+            console.warn('  ✗', hip.name, '—', err.message);
         }
     }
-    return { tarih, hipodromSayisi: selected.length, results };
+
+    const okCount = results.filter((r) => r.ok).length;
+    return {
+        tarih,
+        hipodromKaynagi: hipSource,
+        hipodromSayisi: selected.length,
+        basarili: okCount,
+        results
+    };
 }
 
 function getPublicVitrin(db, tarih) {
@@ -271,8 +350,11 @@ module.exports = {
     tomorrowTr,
     todayTr,
     isDomesticHipodrom,
+    FALLBACK_HIPODROMS,
     ensureTables,
     buildPublicProgram,
     getPublicVitrin,
-    fetchHipodromProgram
+    fetchHipodromProgram,
+    resolveHipodromList,
+    queryHipodromlarFromDb
 };
