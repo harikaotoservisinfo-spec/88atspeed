@@ -38,46 +38,51 @@ async function readSessionState(page) {
     });
 }
 
+async function apiLoginToPage(page, username, password) {
+    const tokens = await hipodromAuth.login(username, password);
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(TOKENS_FILE, JSON.stringify({
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken || null
+    }));
+    await page.goto(HOME_URL, { waitUntil: 'domcontentloaded', timeout: 35000 });
+    await page.evaluate((t) => {
+        localStorage.setItem('auth._token.local', t.accessToken);
+        if (t.refreshToken) localStorage.setItem('auth._refresh_token.local', t.refreshToken);
+    }, tokens);
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 35000 });
+    await sleep(1500);
+    return tokens;
+}
+
 async function ensureLoggedIn(page, username, password) {
-    await page.goto(HOME_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
-    await sleep(2500);
+    await page.goto(HOME_URL, { waitUntil: 'domcontentloaded', timeout: 35000 });
+    await sleep(1500);
     await dismissCookieBanner(page);
-    await sleep(800);
+    await sleep(500);
 
     let state = await readSessionState(page);
     if (state.loggedIn) return state;
 
-    if (!username || !password) {
-        const err = new Error('Hipodrom oturumu yok. Sunucuda giriş yapın (TC/üye no + şifre).');
-        err.code = 'not_logged_in';
-        throw err;
+    const user = username || process.env.HIPODROM_USER || null;
+    const pass = password || process.env.HIPODROM_PASS || null;
+
+    if (user && pass) {
+        try {
+            await apiLoginToPage(page, user, pass);
+            state = await readSessionState(page);
+            if (state.loggedIn) return state;
+        } catch (apiErr) {
+            const err = new Error(apiErr.message || 'API girişi başarısız');
+            err.code = apiErr.code || 'login_failed';
+            err.needsCaptcha = apiErr.needsCaptcha;
+            throw err;
+        }
     }
 
-    await page.waitForSelector('button.loginBtn, button.btn.login', { timeout: 15000 }).catch(() => {});
-    await page.evaluate(() => {
-        const login = document.querySelector('button.loginBtn') || document.querySelector('button.btn.login');
-        if (login) login.click();
-    });
-    await sleep(1200);
-    await page.waitForSelector('#username', { timeout: 15000 });
-    await page.click('#username', { clickCount: 3 });
-    await page.type('#username', String(username).trim(), { delay: 20 });
-    await page.click('#password', { clickCount: 3 });
-    await page.type('#password', String(password), { delay: 20 });
-    await page.evaluate(() => {
-        const btn = document.querySelector('button[type="submit"]')
-            || [...document.querySelectorAll('button')].find((b) => /giriş/i.test(b.textContent || ''));
-        if (btn) btn.click();
-    });
-    await sleep(4000);
-    await dismissCookieBanner(page);
-    state = await readSessionState(page);
-    if (!state.loggedIn) {
-        const err = new Error('Hipodrom girişi başarısız. TC/üye no ve şifreyi kontrol edin.');
-        err.code = 'login_failed';
-        throw err;
-    }
-    return state;
+    const err = new Error('Hipodrom oturumu yok. Önce Sunucuda Giriş Yapın.');
+    err.code = 'not_logged_in';
+    throw err;
 }
 
 async function clickByText(page, pattern, rootSelector) {
@@ -107,30 +112,25 @@ async function getAutoStatus() {
 }
 
 async function saveLogin(username, password) {
+    const tokens = await hipodromAuth.login(username, password);
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(TOKENS_FILE, JSON.stringify({
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken || null
+    }));
+    let user = null;
+    let balance = null;
     try {
-        const { tokens, method } = await hipodromAuth.loginWithTimeout(username, password, null, 55000);
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-        fs.writeFileSync(TOKENS_FILE, JSON.stringify({
-            accessToken: tokens.accessToken,
-            refreshToken: tokens.refreshToken || null
-        }));
-        let user = null;
-        let balance = null;
-        try {
-            user = await hipodromAuth.fetchUserDetails(tokens.accessToken);
-            balance = await hipodromAuth.fetchUserBalance(tokens.accessToken);
-        } catch (_) { /* */ }
-        return {
-            success: true,
-            loggedIn: true,
-            displayName: user?.name || user?.firstName || user?.loginName || 'Üye',
-            balance: balance?.totalAmount ?? balance?.amount ?? null,
-            method
-        };
-    } catch (apiErr) {
-        const state = await withPage(async (page) => ensureLoggedIn(page, username, password), 120000);
-        return { success: true, ...state, method: 'browser' };
-    }
+        user = await hipodromAuth.fetchUserDetails(tokens.accessToken);
+        balance = await hipodromAuth.fetchUserBalance(tokens.accessToken);
+    } catch (_) { /* */ }
+    return {
+        success: true,
+        loggedIn: true,
+        displayName: user?.name || user?.firstName || user?.loginName || 'Üye',
+        balance: balance?.totalAmount ?? balance?.amount ?? null,
+        method: 'api'
+    };
 }
 
 async function placeFixedOddsBet(opts = {}) {

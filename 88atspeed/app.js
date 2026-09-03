@@ -295,9 +295,14 @@ app.post('/api/public/hipodrom/auto/login', async (req, res) => {
         res.json({ success: true, ...state });
     } catch (err) {
         console.error('hipodrom/auto/login:', err.message);
-        const status = err.code === 'timeout' ? 504 : 401;
+        const status = err.needsCaptcha ? 428 : (err.code === 'timeout' ? 504 : 401);
         if (!res.headersSent) {
-            res.status(status).json({ success: false, error: err.message, code: err.code || null });
+            res.status(status).json({
+                success: false,
+                error: err.message,
+                code: err.code || null,
+                needsCaptcha: !!err.needsCaptcha
+            });
         }
     }
 });
