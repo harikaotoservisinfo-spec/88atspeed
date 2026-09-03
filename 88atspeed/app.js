@@ -8,6 +8,7 @@ const { buildCalibrationBundle, clearCalibrationBundleCache } = require('./lib/c
 const adminAuth = require('./lib/admin-auth');
 const publicProgram = require('./lib/public-program');
 const muhtemellerFetch = require('./lib/muhtemeller-fetch');
+const tjkTvProxy = require('./lib/tjk-tv-proxy');
 const app = express();
 const PORT = 3023;
 
@@ -174,6 +175,15 @@ app.get('/api/public/muhtemeller', async (req, res) => {
     } catch (err) {
         console.error('public/muhtemeller:', err.message);
         res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.get('/api/public/tjk-tv', async (req, res) => {
+    try {
+        await tjkTvProxy.serve(res, req.query.f);
+    } catch (err) {
+        console.error('public/tjk-tv:', err.message);
+        res.status(502).send('TJK TV proxy hatası');
     }
 });
 

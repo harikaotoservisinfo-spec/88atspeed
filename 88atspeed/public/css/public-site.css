@@ -731,6 +731,22 @@ a { color: inherit; text-decoration: none; }
     background: #000;
 }
 
+.pub-tjk-tv-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: #ccc;
+    background: #111;
+    font-size: 13px;
+}
+
+.pub-tjk-tv-loading[hidden],
+.pub-tjk-tv-fallback[hidden] { display: none !important; }
+
 .pub-tjk-tv-fallback {
     position: absolute;
     inset: 0;

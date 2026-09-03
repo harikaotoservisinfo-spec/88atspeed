@@ -24,7 +24,7 @@
 
     const MUHT_REFRESH_SEC = 15;
     const MUHT_SELECT_RESET_MS = 30000;
-    const TJK_TV_HLS = 'https://tjktv-live.tjk.org/tjktv.m3u8';
+    const TJK_TV_HLS = '/api/public/tjk-tv?f=tjktv.m3u8';
     let muhtPollTimer = null;
     let muhtSelectTimer = null;
     let tjkTvLoaded = false;
@@ -268,7 +268,22 @@
         }
     }
 
+    function hideTjkTvLoading() {
+        const el = document.getElementById('pubTjkTvLoading');
+        if (el) el.hidden = true;
+    }
+
+    function showTjkTvLoading() {
+        const el = document.getElementById('pubTjkTvLoading');
+        const fb = document.getElementById('pubTjkTvFallback');
+        const video = document.getElementById('pubTjkTvVideo');
+        if (el) el.hidden = false;
+        if (fb) fb.hidden = true;
+        if (video) video.style.display = '';
+    }
+
     function showTjkTvFallback() {
+        hideTjkTvLoading();
         const fb = document.getElementById('pubTjkTvFallback');
         const video = document.getElementById('pubTjkTvVideo');
         if (fb) fb.hidden = false;
@@ -287,6 +302,7 @@
             video.load();
             video.style.display = '';
         }
+        hideTjkTvLoading();
         const fb = document.getElementById('pubTjkTvFallback');
         if (fb) fb.hidden = true;
         tjkTvLoaded = false;
@@ -296,13 +312,21 @@
         const video = document.getElementById('pubTjkTvVideo');
         if (!video || tjkTvLoaded) return;
         tjkTvLoaded = true;
+        showTjkTvLoading();
 
-        const tryPlay = () => video.play().catch(() => {});
+        const onReady = () => {
+            hideTjkTvLoading();
+            video.play().catch(() => {});
+        };
+
+        const onError = () => {
+            showTjkTvFallback();
+        };
 
         if (video.canPlayType('application/vnd.apple.mpegurl')) {
             video.src = TJK_TV_HLS;
-            video.addEventListener('loadedmetadata', tryPlay, { once: true });
-            video.addEventListener('error', showTjkTvFallback, { once: true });
+            video.addEventListener('loadedmetadata', onReady, { once: true });
+            video.addEventListener('error', onError, { once: true });
             return;
         }
 
@@ -310,14 +334,19 @@
             tjkHls = new Hls({ enableWorker: true, lowLatencyMode: true });
             tjkHls.loadSource(TJK_TV_HLS);
             tjkHls.attachMedia(video);
-            tjkHls.on(Hls.Events.MANIFEST_PARSED, tryPlay);
+            tjkHls.on(Hls.Events.MANIFEST_PARSED, onReady);
             tjkHls.on(Hls.Events.ERROR, (_evt, data) => {
-                if (data.fatal) showTjkTvFallback();
+                if (data.fatal) onError();
             });
             return;
         }
 
-        showTjkTvFallback();
+        onError();
+    }
+
+    function retryTjkTv() {
+        destroyTjkTv();
+        ensureTjkTvEmbed();
     }
 
     function formatClock(d) {
@@ -802,6 +831,7 @@
             state.muhtCountdown = MUHT_REFRESH_SEC;
             silentRefreshCurrentRace();
         });
+        $('#pubTjkTvRetry')?.addEventListener('click', retryTjkTv);
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
                 stopMuhtPolling();

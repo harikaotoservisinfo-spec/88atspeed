@@ -7,7 +7,7 @@
     <title>88 AT SPEED | Günlük Yarış Programı & Tahminler</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link href="css/public-site.css?v=20260903tjktv2" rel="stylesheet">
+    <link href="css/public-site.css?v=20260903tjktv3" rel="stylesheet">
 </head>
 <body class="pub-body">
     <div class="pub-strip">
@@ -103,11 +103,15 @@
                         </div>
                     </div>
                     <div class="pub-tjk-tv-player">
-                        <video id="pubTjkTvVideo" class="pub-tjk-tv-video" controls playsinline muted preload="none" poster=""></video>
+                        <video id="pubTjkTvVideo" class="pub-tjk-tv-video" controls playsinline muted preload="none"></video>
+                        <div id="pubTjkTvLoading" class="pub-tjk-tv-loading">
+                            <div class="pub-spinner"></div>
+                            <span>Yayın yükleniyor…</span>
+                        </div>
                         <div id="pubTjkTvFallback" class="pub-tjk-tv-fallback" hidden>
                             <p>Yayın şu an yüklenemedi.</p>
-                            <p class="pub-tjk-tv-fallback-hint">Yayın yalnızca Türkiye içinden izlenebilir.</p>
-                            <a class="pub-btn pub-btn-white" href="https://www.tjk.org/TR/YarisSever/Static/Canli" target="_blank" rel="noopener noreferrer">TJK Canlı Yayın</a>
+                            <p class="pub-tjk-tv-fallback-hint">Bağlantınızı kontrol edip tekrar deneyin.</p>
+                            <button type="button" class="pub-btn pub-btn-white" id="pubTjkTvRetry">Yeniden dene</button>
                         </div>
                     </div>
                 </div>
@@ -248,6 +252,6 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js" crossorigin="anonymous"></script>
-    <script src="js/public-home.js?v=20260903tjktv2"></script>
+    <script src="js/public-home.js?v=20260903tjktv3"></script>
 </body>
 </html>
