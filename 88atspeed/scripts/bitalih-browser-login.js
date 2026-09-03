@@ -11,21 +11,29 @@ const jobId = process.env.BITALIH_JOB_ID || '';
 let finished = false;
 
 function readCredentials() {
+    const fromEnv = {
+        ssn: process.env.BITALIH_SSN || process.env.BITALIH_USER || '',
+        password: process.env.BITALIH_PASS || ''
+    };
+    if (fromEnv.ssn && fromEnv.password) return fromEnv;
+
+    const fromArgv = {
+        ssn: process.argv[2] || '',
+        password: process.argv[3] || ''
+    };
+    if (fromArgv.ssn && fromArgv.password) return fromArgv;
+
     const credIdx = process.argv.indexOf('--cred-file');
     if (credIdx >= 0 && process.argv[credIdx + 1]) {
         const credPath = process.argv[credIdx + 1];
         try {
             const data = JSON.parse(fs.readFileSync(credPath, 'utf8'));
-            fs.unlinkSync(credPath);
-            return { ssn: data.ssn, password: data.password };
-        } catch (_) {
-            return { ssn: '', password: '' };
-        }
+            try { fs.unlinkSync(credPath); } catch (_) { /* */ }
+            return { ssn: data.ssn || '', password: data.password || '' };
+        } catch (_) { /* */ }
     }
-    return {
-        ssn: process.argv[2] || process.env.BITALIH_USER || '',
-        password: process.argv[3] || process.env.BITALIH_PASS || ''
-    };
+
+    return { ssn: '', password: '' };
 }
 
 function emit(obj) {

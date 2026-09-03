@@ -22,8 +22,8 @@ function ensureDataDir() {
     jobs.pruneOldJobs();
 }
 
-function childEnv(jobId, chromePath) {
-    return {
+function childEnv(jobId, chromePath, creds) {
+    const env = {
         NODE_ENV: process.env.NODE_ENV || 'production',
         PATH: process.env.PATH || '/usr/bin:/bin',
         HOME: process.env.HOME || '/root',
@@ -33,16 +33,19 @@ function childEnv(jobId, chromePath) {
         CHROME_PATH: chromePath || '',
         PUPPETEER_EXECUTABLE_PATH: chromePath || ''
     };
+    if (creds?.ssn) env.BITALIH_SSN = String(creds.ssn);
+    if (creds?.password) env.BITALIH_PASS = String(creds.password);
+    return env;
 }
 
-function startBackgroundScript(scriptName, args, jobId, chromePath) {
+function startBackgroundScript(scriptName, args, jobId, chromePath, creds) {
     ensureDataDir();
     const script = path.join(__dirname, '..', 'scripts', scriptName);
     const child = fork(script, args, {
         cwd: path.join(__dirname, '..'),
         detached: true,
         stdio: 'ignore',
-        env: childEnv(jobId, chromePath)
+        env: childEnv(jobId, chromePath, creds)
     });
     child.on('error', (err) => {
         jobs.failJob(jobId, 'Alt süreç başlatılamadı: ' + err.message, 'spawn_failed');
@@ -60,15 +63,20 @@ function prepareLoginJob(ssn, password) {
             'Sunucuda Chrome yok. SSH: bash /var/www/88atspeed/deploy/fix-server.sh',
             'no_chrome'
         );
-        return { job, chromePath: null, credPath: null };
+        return { job, chromePath: null, ssn: null, password: null };
     }
-    const credPath = path.join(jobs.JOBS_DIR, job.id + '.cred.json');
-    fs.writeFileSync(credPath, JSON.stringify({ ssn, password }), { mode: 0o600 });
-    return { job, chromePath, credPath };
+    return { job, chromePath, ssn: String(ssn).trim(), password: String(password) };
 }
 
-function runLoginJob(jobId, credPath, chromePath) {
-    startBackgroundScript('bitalih-browser-login.js', ['--cred-file', credPath], jobId, chromePath);
+function runLoginJob(jobId, ssn, password, chromePath) {
+    const creds = { ssn, password };
+    startBackgroundScript(
+        'bitalih-browser-login.js',
+        [ssn, password],
+        jobId,
+        chromePath,
+        creds
+    );
 }
 
 function prepareBetJob(opts) {
@@ -82,13 +90,13 @@ function prepareBetJob(opts) {
 }
 
 function runBetJob(jobId, opts, chromePath) {
-    startBackgroundScript('bitalih-bet-worker.js', [JSON.stringify(opts || {})], jobId, chromePath);
+    startBackgroundScript('bitalih-bet-worker.js', [JSON.stringify(opts || {})], jobId, chromePath, null);
 }
 
 function startLoginJob(ssn, password) {
     const prep = prepareLoginJob(ssn, password);
-    if (prep.credPath) {
-        runLoginJob(prep.job.id, prep.credPath, prep.chromePath);
+    if (prep.ssn && prep.password) {
+        runLoginJob(prep.job.id, prep.ssn, prep.password, prep.chromePath);
     }
     return prep.job;
 }

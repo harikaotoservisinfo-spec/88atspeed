@@ -378,7 +378,7 @@ app.get('/api/public/bitalih/auto/health', (req, res) => {
         chromePath,
         chromeInstalled: !!chromePath,
         dataDirWritable: fs.existsSync(path.join(__dirname, 'data')),
-        pm2Mode: process.env.NODE_APP_INSTANCE != null ? 'cluster' : 'fork'
+        pm2Mode: process.env.exec_mode || 'fork'
     });
 });
 
@@ -407,10 +407,10 @@ app.post('/api/public/bitalih/auto/login', (req, res) => {
             error: current.error || null,
             code: current.code || null
         });
-        if (prep.credPath && prep.chromePath) {
+        if (prep.ssn && prep.password && prep.chromePath) {
             setImmediate(() => {
                 try {
-                    bitalihBet.runLoginJob(prep.job.id, prep.credPath, prep.chromePath);
+                    bitalihBet.runLoginJob(prep.job.id, prep.ssn, prep.password, prep.chromePath);
                 } catch (err) {
                     console.error('bitalih/login spawn:', err.message);
                     const jobs = require('./lib/bitalih-jobs');
