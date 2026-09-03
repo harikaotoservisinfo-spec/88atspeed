@@ -17,6 +17,8 @@ module.exports = {
       HOST: '127.0.0.1',
       CHROME_PATH: '/usr/bin/google-chrome-stable',
       PUPPETEER_EXECUTABLE_PATH: '/usr/bin/google-chrome-stable',
+      PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: '1',
+      PUPPETEER_SKIP_DOWNLOAD: '1',
       ADMIN_PASSWORD: 'yonetim2026',
       ADMIN_SESSION_SECRET: 'production-degistirin-guclu-bir-anahtar'
     }

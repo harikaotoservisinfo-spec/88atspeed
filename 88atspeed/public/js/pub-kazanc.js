@@ -25,8 +25,8 @@
                 return {
                     ok: false,
                     error: is502
-                        ? 'Sunucu yanıt veremedi (502). pm2 restart yapın ve tekrar deneyin — işlem 30–60 sn sürebilir.'
-                        : 'Sunucu HTML döndü (HTTP ' + res.status + '). Deploy veya pm2 restart gerekli.'
+                        ? 'Sunucu çöktü (502). SSH: bash /var/www/88atspeed/deploy/fix-server.sh — ardından Ctrl+F5'
+                        : 'Sunucu HTML döndü (HTTP ' + res.status + '). Deploy veya fix-server.sh gerekli.'
                 };
             }
             return { ok: false, error: 'Geçersiz sunucu yanıtı (HTTP ' + res.status + ')' };

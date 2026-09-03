@@ -32,6 +32,7 @@ echo "🔧 PM2 yeniden yapılandırılıyor (fork modu)..."
 pm2 delete 88atspeed 2>/dev/null || true
 pm2 start "$APP_DIR/ecosystem.config.js"
 pm2 save
+pm2 reset 88atspeed 2>/dev/null || true
 sleep 2
 pm2 status 88atspeed
 

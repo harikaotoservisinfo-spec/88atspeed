@@ -2,12 +2,31 @@
 /**
  * İzole süreçte Bi'Talih tarayıcı girişi.
  */
+const fs = require('fs');
 const bitalihAuth = require('../lib/bitalih-auth');
 const jobs = require('../lib/bitalih-jobs');
 const { resolveChromePath } = require('../lib/chrome-path');
 
 const jobId = process.env.BITALIH_JOB_ID || '';
 let finished = false;
+
+function readCredentials() {
+    const credIdx = process.argv.indexOf('--cred-file');
+    if (credIdx >= 0 && process.argv[credIdx + 1]) {
+        const credPath = process.argv[credIdx + 1];
+        try {
+            const data = JSON.parse(fs.readFileSync(credPath, 'utf8'));
+            fs.unlinkSync(credPath);
+            return { ssn: data.ssn, password: data.password };
+        } catch (_) {
+            return { ssn: '', password: '' };
+        }
+    }
+    return {
+        ssn: process.argv[2] || process.env.BITALIH_USER || '',
+        password: process.argv[3] || process.env.BITALIH_PASS || ''
+    };
+}
 
 function emit(obj) {
     if (!jobId) process.stdout.write(JSON.stringify(obj) + '\n');
@@ -35,8 +54,7 @@ process.on('unhandledRejection', (err) => {
 (async () => {
     if (jobId) jobs.updateJob(jobId, { meta: { phase: 'starting', chromePath: resolveChromePath() } });
 
-    const ssn = process.argv[2] || process.env.BITALIH_USER || '';
-    const password = process.argv[3] || process.env.BITALIH_PASS || '';
+    const { ssn, password } = readCredentials();
     if (!ssn || !password) {
         finish({ success: false, error: 'TC ve şifre gerekli', code: 'missing_credentials' });
         process.exit(2);

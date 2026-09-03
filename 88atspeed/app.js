@@ -23,6 +23,13 @@ const PORT = 3023;
 fs.mkdirSync(path.join(__dirname, 'data'), { recursive: true });
 fs.mkdirSync(path.join(__dirname, 'data', 'bitalih-jobs'), { recursive: true });
 
+process.on('uncaughtException', (err) => {
+    console.error('uncaughtException:', err.stack || err.message);
+});
+process.on('unhandledRejection', (err) => {
+    console.error('unhandledRejection:', err && (err.stack || err.message));
+});
+
 // Nginx X-Forwarded-Proto ile HTTPS algısı (Secure çerez için)
 app.set('trust proxy', 1);
 
@@ -391,18 +398,31 @@ app.post('/api/public/bitalih/auto/login', (req, res) => {
         return res.status(400).json({ success: false, error: 'TC ve şifre gerekli' });
     }
     try {
-        const job = bitalihBet.startLoginJob(username, password);
-        const current = bitalihBet.getJob(job.id) || job;
+        const prep = bitalihBet.prepareLoginJob(username, password);
+        const current = bitalihBet.getJob(prep.job.id) || prep.job;
         res.json({
             success: current.status !== 'failed',
-            jobId: job.id,
+            jobId: prep.job.id,
             status: current.status,
             error: current.error || null,
             code: current.code || null
         });
+        if (prep.credPath && prep.chromePath) {
+            setImmediate(() => {
+                try {
+                    bitalihBet.runLoginJob(prep.job.id, prep.credPath, prep.chromePath);
+                } catch (err) {
+                    console.error('bitalih/login spawn:', err.message);
+                    const jobs = require('./lib/bitalih-jobs');
+                    jobs.failJob(prep.job.id, err.message, 'spawn_failed');
+                }
+            });
+        }
     } catch (err) {
         console.error('bitalih/auto/login:', err.message);
-        res.status(500).json({ success: false, error: err.message, code: err.code || null });
+        if (!res.headersSent) {
+            res.status(500).json({ success: false, error: err.message, code: err.code || null });
+        }
     }
 });
 
@@ -412,18 +432,39 @@ app.post('/api/public/bitalih/auto/bet/fixed', (req, res) => {
     if (!(horseName || at)) {
         return res.status(400).json({ success: false, error: 'At adı gerekli' });
     }
+    const betOpts = {
+        city,
+        raceNo: raceNo ?? kosuNo,
+        horseName: horseName || at,
+        stake: stake ?? misli,
+        dryRun: !!dryRun
+    };
     try {
-        const job = bitalihBet.startBetJob({
-            city,
-            raceNo: raceNo ?? kosuNo,
-            horseName: horseName || at,
-            stake: stake ?? misli,
-            dryRun: !!dryRun
+        const prep = bitalihBet.prepareBetJob(betOpts);
+        const current = bitalihBet.getJob(prep.job.id) || prep.job;
+        res.json({
+            success: current.status !== 'failed',
+            jobId: prep.job.id,
+            status: current.status,
+            error: current.error || null,
+            code: current.code || null
         });
-        res.json({ success: true, jobId: job.id, status: 'running' });
+        if (prep.chromePath) {
+            setImmediate(() => {
+                try {
+                    bitalihBet.runBetJob(prep.job.id, betOpts, prep.chromePath);
+                } catch (err) {
+                    console.error('bitalih/bet spawn:', err.message);
+                    const jobs = require('./lib/bitalih-jobs');
+                    jobs.failJob(prep.job.id, err.message, 'spawn_failed');
+                }
+            });
+        }
     } catch (err) {
         console.error('bitalih/auto/bet:', err.message);
-        res.status(500).json({ success: false, error: err.message, code: err.code || null });
+        if (!res.headersSent) {
+            res.status(500).json({ success: false, error: err.message, code: err.code || null });
+        }
     }
 });
 
