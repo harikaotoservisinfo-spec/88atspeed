@@ -57,20 +57,11 @@ function atCacheKey(atId) {
     return Number.isFinite(n) ? n : String(atId);
 }
 
-function loadSonTestStack() {
+function loadCalibrationEngines() {
     loadGostergeEngines();
     const files = [
-        ['at-meta-fields.js', 'AtMetaFields'],
-        ['field-size-stats-engine.js', 'FieldSizeStatsEngine'],
-        ['sehir-stats-engine.js', 'SehirStatsEngine'],
-        ['kosu-dimension-stats-engine.js', 'KosuDimensionStatsEngine'],
-        ['son800-depth-ui.js', 'Son800DepthUi'],
-        ['siklet-bas-delta-boost.js', 'SikletBasDeltaBoost'],
         ['basari-pct-scoring-engine.js', 'BasariPctScoringEngine'],
         ['hybrid-tahmin-scoring-engine.js', 'HybridTahminScoringEngine'],
-        ['dimension-tahmin-boost-engine.js', 'DimensionTahminBoostEngine'],
-        ['astest-son800-shared.js', 'AtestSon800Shared'],
-        ['astest-son-gosterim-cols.js', 'AtestSonGosterimCols'],
         ['astest-son-renk-tahmin.js', 'AtestSonRenkTahmin'],
         ['astest-son-gosterge1-tahmin.js', 'AtestSonGosterge1Tahmin'],
         ['astest-son-ptest-tahmin.js', 'AtestSonPtestTahmin']
@@ -80,24 +71,108 @@ function loadSonTestStack() {
     }
 }
 
-function seedFlatBuildFromDb(built) {
+function loadRenderEngines() {
+    const files = [
+        ['at-meta-fields.js', 'AtMetaFields'],
+        ['field-size-stats-engine.js', 'FieldSizeStatsEngine'],
+        ['sehir-stats-engine.js', 'SehirStatsEngine'],
+        ['kosu-dimension-stats-engine.js', 'KosuDimensionStatsEngine'],
+        ['son800-depth-ui.js', 'Son800DepthUi'],
+        ['siklet-bas-delta-boost.js', 'SikletBasDeltaBoost'],
+        ['dimension-tahmin-boost-engine.js', 'DimensionTahminBoostEngine'],
+        ['astest-son800-shared.js', 'AtestSon800Shared'],
+        ['astest-son-gosterim-cols.js', 'AtestSonGosterimCols']
+    ];
+    for (const [file, g] of files) {
+        eval(fs.readFileSync(path.join(ROOT, 'public/js', file), 'utf8') + '\n; global.' + g + ' = ' + g + ';');
+    }
+}
+
+function memLine(label) {
+    const m = process.memoryUsage();
+    line(label, 'heap ' + Math.round(m.heapUsed / 1048576) + 'MB / '
+        + Math.round(m.heapTotal / 1048576) + 'MB');
+}
+
+function stripPkgFromFlat(flatEntries) {
+    for (const entry of flatEntries || []) {
+        if (entry && entry._pkg) delete entry._pkg;
+    }
+}
+
+function installTerminalCalibrationPatches(built) {
     const G = global.GostergeScoringEngine;
     const payload = { flatEntries: built.flatEntries, bitisMap: built.bitisMap };
+    const sharedHost = makeGostergeHost(built.flatEntries, built.bitisMap);
+    let colorRowsOnce = null;
+
     G.buildFlatEntriesFromApi = async function () {
         return payload;
     };
     if (G.getCachedFlatBuild) {
         G.getCachedFlatBuild = function () { return payload; };
     }
+
     const origMakeBitisHost = G.makeBitisHost.bind(G);
     G.makeBitisHost = function (flatEntries, bitisMap, buildBitisStatsFromEntries) {
         const basic = origMakeBitisHost(flatEntries, bitisMap, buildBitisStatsFromEntries);
-        const full = makeGostergeHost(flatEntries, bitisMap);
-        return Object.assign({}, full, basic, {
-            buildBitisStatsFromEntries: buildBitisStatsFromEntries || full.buildBitisStatsFromEntries
+        return Object.assign({}, sharedHost, basic, {
+            buildBitisStatsFromEntries: buildBitisStatsFromEntries || sharedHost.buildBitisStatsFromEntries
         });
     };
-    return payload;
+
+    const origCalibrate = G.calibrate.bind(G);
+    G.calibrate = async function (flatEntries, host) {
+        if (G.isCalibrated?.()) return G.getCalibration?.();
+        return origCalibrate(flatEntries, host);
+    };
+
+    if (G.collectAllColorGostergeRows) {
+        const origCollect = G.collectAllColorGostergeRows.bind(G);
+        G.collectAllColorGostergeRows = function (flatEntries, host) {
+            if (colorRowsOnce) return colorRowsOnce;
+            colorRowsOnce = origCollect(flatEntries, host);
+            return colorRowsOnce;
+        };
+    }
+
+    return sharedHost;
+}
+
+async function runTerminalCalibration(built) {
+    const G = global.GostergeScoringEngine;
+    const host = installTerminalCalibrationPatches(built);
+    const flatEntries = built.flatEntries;
+    const timings = {};
+
+    const tRenk = Date.now();
+    await G.calibrate(flatEntries, host);
+    timings.gostergeCalibrate = msSince(tRenk);
+    memLine('Kalibrasyon sonrası bellek');
+
+    const tScenario = Date.now();
+    if (global.AtestSonRenkTahmin) {
+        await global.AtestSonRenkTahmin.ensureCalibration();
+    }
+    timings.renkScenario = msSince(tScenario);
+
+    const tPtest = Date.now();
+    if (global.HybridTahminScoringEngine) {
+        await global.HybridTahminScoringEngine.calibrateFromFlatEntries(
+            flatEntries, host.bitisValueForSort, { host: host });
+    }
+    if (global.AtestSonGosterge1Tahmin) {
+        global.AtestSonGosterge1Tahmin.calibrateFromFlatEntries(
+            flatEntries, host.bitisValueForSort);
+    }
+    timings.hybridG1 = msSince(tPtest);
+    timings.total = (parseFloat(timings.gostergeCalibrate)
+        + parseFloat(timings.renkScenario) + parseFloat(timings.hybridG1)).toFixed(2) + 's';
+    timings.ptestReady = !!G.isCalibrated?.()
+        && (!global.HybridTahminScoringEngine || global.HybridTahminScoringEngine.isCalibrated?.())
+        && (!global.AtestSonGosterge1Tahmin || global.AtestSonGosterge1Tahmin.isCalibrated?.());
+    timings.renkReady = !!G.isCalibrated?.();
+    return timings;
 }
 
 async function fetchKayitFromApi(kayitId) {
@@ -194,23 +269,18 @@ function astestComputeBasForSource(horse, race, meta, sourceKey, sonCtx, veriCac
     return st;
 }
 
-async function simulateSonTestGoster(races, meta, veriCache) {
+async function simulateSonTestGoster(races, meta, veriCache, calTimings) {
     global.veriCache = veriCache;
-    const timings = { races: [], totalHtmlChars: 0 };
+    const timings = {
+        races: [],
+        ptestCalibration: calTimings?.total || '0.00s',
+        calibrationDetail: calTimings || null
+    };
 
-    const tCal = Date.now();
-    let ptestCalibrated = false;
-    let renkCalibrated = false;
-    if (global.AtestSonPtestTahmin) {
-        ptestCalibrated = await global.AtestSonPtestTahmin.ensureCalibration();
-    }
-    timings.ptestCalibration = msSince(tCal);
-
-    const tRenkCheck = Date.now();
-    if (global.AtestSonRenkTahmin) {
-        renkCalibrated = global.GostergeScoringEngine.isCalibrated?.();
-    }
-    timings.renkReadyCheck = msSince(tRenkCheck);
+    const renkCalibrated = !!global.GostergeScoringEngine?.isCalibrated?.();
+    const ptestCalibrated = !!calTimings?.ptestReady;
+    timings.renkCalibrated = renkCalibrated;
+    timings.ptestCalibrated = ptestCalibrated;
 
     const renkScenarioCols = renkCalibrated && global.AtestSonRenkTahmin
         ? global.AtestSonRenkTahmin.getScenarioColumns() : [];
@@ -347,8 +417,9 @@ async function main() {
     line('Kayıt ID', cli.kayitId);
     line('DB', cli.dbPath);
     if (cli.baseUrl) line('API', cli.baseUrl);
+    memLine('Başlangıç bellek');
 
-    loadSonTestStack();
+    loadCalibrationEngines();
 
     hr('AŞAMA 1 — Kayıt yükleme (loadSonTestKayit fetch)');
     const tLoad = Date.now();
@@ -409,10 +480,11 @@ async function main() {
     hr('AŞAMA 2 — Flat entry build (kalibrasyon verisi, tüm kayıtlar)');
     const tFlat = Date.now();
     const built = await buildFlatEntriesFromDb(db, {});
-    seedFlatBuildFromDb(built);
+    stripPkgFromFlat(built.flatEntries);
     const flatElapsed = msSince(tFlat);
     line('Süre', flatElapsed);
     line('Flat satır', built.flatEntries.length);
+    memLine('Flat build sonrası');
 
     if (cli.skipCalibrate) {
         console.log('\n⏭  --skip-calibrate: kalibrasyon atlandı.');
@@ -420,16 +492,28 @@ async function main() {
         return;
     }
 
-    hr('AŞAMA 3 — SON TEST sekmesi (sonTestGoster)');
-    const tSon = Date.now();
-    const sonTimings = await simulateSonTestGoster(kayit.races, meta, veriCache);
-    line('Ptest kalibrasyon', sonTimings.ptestCalibration);
-    line('Renk hazır', sonTimings.renkCalibrated ? 'evet' : 'hayır');
-    line('Ptest hazır', sonTimings.ptestCalibrated ? 'evet' : 'hayır');
-    line('Tüm koşular render', sonTimings.allRaces);
-    line('Toplam (Aşama 3)', msSince(tSon));
+    hr('AŞAMA 3 — Kalibrasyon (bellek-dostu terminal yolu)');
+    const tCal = Date.now();
+    const calTimings = await runTerminalCalibration(built);
+    line('GostergeScoringEngine.calibrate', calTimings.gostergeCalibrate);
+    line('Renk senaryo cache', calTimings.renkScenario);
+    line('Hybrid + G1', calTimings.hybridG1);
+    line('Kalibrasyon toplam', calTimings.total);
+    line('Renk hazır', calTimings.renkReady ? 'evet' : 'hayır');
+    line('Ptest hazır', calTimings.ptestReady ? 'evet' : 'hayır');
+    memLine('Kalibrasyon bitiş');
 
-    hr('AŞAMA 4 — Koşu başına kırılım');
+    loadRenderEngines();
+    memLine('Render motorları yüklendi');
+
+    hr('AŞAMA 4 — SON TEST sekmesi (sonTestGoster — skorlama)');
+    const tSon = Date.now();
+    const sonTimings = await simulateSonTestGoster(kayit.races, meta, veriCache, calTimings);
+    line('Tüm koşular render', sonTimings.allRaces);
+    line('Toplam (Aşama 4)', msSince(tSon));
+    memLine('Render sonrası');
+
+    hr('AŞAMA 5 — Koşu başına kırılım');
     console.log('  ' + pad('KOŞU', 6) + pad('at', 5) + pad('ctx', 8) + pad('renk', 8)
         + pad('ptest', 9) + pad('gos', 8) + pad('BAŞ+', 8) + pad('TOPLAM', 9)
         + 'TAHMİN');
@@ -450,14 +534,14 @@ async function main() {
 
     hr('ÖZET');
     const grand = (parseFloat(loadElapsed) + parseFloat(flatElapsed)
-        + parseFloat(sonTimings.ptestCalibration) + parseFloat(sonTimings.allRaces)).toFixed(2) + 's';
+        + parseFloat(calTimings.total) + parseFloat(sonTimings.allRaces)).toFixed(2) + 's';
     line('Kayıt fetch', loadElapsed);
     line('Flat build', flatElapsed);
-    line('Kalibrasyon', sonTimings.ptestCalibration);
+    line('Kalibrasyon', calTimings.total);
     line('Koşu skorlama', sonTimings.allRaces);
     line('GENEL TOPLAM (tahmini)', grand);
     console.log('\n  Tarayıcıda loadSonTestKayit aynı kayıt için:');
-    console.log('    • Kalibrasyon (ilk sefer): ~' + sonTimings.ptestCalibration);
+    console.log('    • Kalibrasyon (ilk sefer): ~' + calTimings.total);
     console.log('    • SON TEST tablosu: ~' + sonTimings.allRaces);
     console.log('    • refreshTestTabs tüm sekmeleri sırayla çalıştırır → ~8× daha uzun sürebilir');
     if (cli.fullRefresh) {
