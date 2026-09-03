@@ -1598,10 +1598,26 @@ const GostergeScoringEngine = (function () {
         return String(kayitId) + '|' + raceNo + '|' + String(horseNo ?? '');
     }
 
+    let flatBuildPromise = null;
+    let cachedFlatBuild = null;
+
+    function getCachedFlatBuild() {
+        return cachedFlatBuild;
+    }
+
+    function clearFlatEntriesCache() {
+        cachedFlatBuild = null;
+        flatBuildPromise = null;
+    }
+
     /** PUANLAMA TEST bitiş + hesaplama kayıtlarından kalibrasyon verisi oluştur */
     async function buildFlatEntriesFromApi(options) {
-        const IE = options.IE || IstatistikEngine;
-        const bitisRes = await fetch('/api/puanlama-bitis-sonuclari');
+        if (cachedFlatBuild && !options?.forceRefresh) return cachedFlatBuild;
+        if (flatBuildPromise) return flatBuildPromise;
+        flatBuildPromise = (async function () {
+            try {
+                const IE = options?.IE || IstatistikEngine;
+                const bitisRes = await fetch('/api/puanlama-bitis-sonuclari');
         const bitisJson = await bitisRes.json();
         const store = bitisJson.sonuclar || {};
         const bitisMap = store.bitis || store;
@@ -1648,7 +1664,13 @@ const GostergeScoringEngine = (function () {
             }
             if (ki > 0 && ki % 3 === 0) await yieldToMain();
         }
-        return { flatEntries: flat, bitisMap };
+                cachedFlatBuild = { flatEntries: flat, bitisMap };
+                return cachedFlatBuild;
+            } finally {
+                flatBuildPromise = null;
+            }
+        })();
+        return flatBuildPromise;
     }
 
     function makeBitisHost(flatEntries, bitisMap, buildBitisStatsFromEntries) {
@@ -1904,6 +1926,8 @@ const GostergeScoringEngine = (function () {
         aggregateBucketTotals,
         loadAndCalibrateFromApi,
         buildFlatEntriesFromApi,
+        getCachedFlatBuild,
+        clearFlatEntriesCache,
         makeBitisHost,
         setSuccessBlend,
         setT9vScoreShare,

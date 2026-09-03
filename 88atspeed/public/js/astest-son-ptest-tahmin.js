@@ -104,6 +104,9 @@ const AtestSonPtestTahmin = (function () {
             && typeof HybridTahminScoringEngine !== 'undefined'
             && HybridTahminScoringEngine.isCalibrated?.()
             && AtestSonGosterge1Tahmin?.isCalibrated?.()) {
+            if (typeof AtestSonRenkTahmin !== 'undefined') {
+                await AtestSonRenkTahmin.ensureCalibration();
+            }
             return true;
         }
         if (calPromise) return calPromise;
@@ -112,7 +115,10 @@ const AtestSonPtestTahmin = (function () {
                 if (typeof AtestSonRenkTahmin !== 'undefined') {
                     await AtestSonRenkTahmin.ensureCalibration();
                 }
-                const built = await GostergeScoringEngine.buildFlatEntriesFromApi({ IE: IstatistikEngine });
+                let built = GostergeScoringEngine.getCachedFlatBuild?.();
+                if (!built?.flatEntries?.length) {
+                    built = await GostergeScoringEngine.buildFlatEntriesFromApi({ IE: IstatistikEngine });
+                }
                 const flatEntries = built.flatEntries || [];
                 const bitisMap = built.bitisMap || {};
                 const host = GostergeScoringEngine.makeBitisHost(
