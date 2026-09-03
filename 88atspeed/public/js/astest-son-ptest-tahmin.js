@@ -6,6 +6,7 @@ const AtestSonPtestTahmin = (function () {
     const METRIC_SWEEP = { id: 'son8001', pct: 10 };
 
     let calPromise = null;
+    let hybridCalPromise = null;
     let adaptiveProfiles = null;
 
     const COLUMNS = [
@@ -95,6 +96,52 @@ const AtestSonPtestTahmin = (function () {
         return GostergeScoringEngine.lookupFieldProfileBySize?.(adaptiveProfiles.bySize, fieldSize) || null;
     }
 
+    async function ensureHybridAndG1Calibration() {
+        if (typeof GostergeScoringEngine === 'undefined'
+            || typeof IstatistikEngine === 'undefined') {
+            return false;
+        }
+        if (typeof HybridTahminScoringEngine !== 'undefined'
+            && HybridTahminScoringEngine.isCalibrated?.()
+            && AtestSonGosterge1Tahmin?.isCalibrated?.()) {
+            return true;
+        }
+        if (!GostergeScoringEngine.isCalibrated?.()) {
+            return ensureCalibration();
+        }
+        if (hybridCalPromise) return hybridCalPromise;
+        hybridCalPromise = (async function() {
+            try {
+                let built = GostergeScoringEngine.getCachedFlatBuild?.();
+                if (!built?.flatEntries?.length) {
+                    built = await GostergeScoringEngine.buildFlatEntriesFromApi({ IE: IstatistikEngine });
+                }
+                const flatEntries = built.flatEntries || [];
+                const bitisMap = built.bitisMap || {};
+                const host = GostergeScoringEngine.makeBitisHost(
+                    flatEntries, bitisMap, buildBitisStatsFromEntries);
+
+                if (typeof HybridTahminScoringEngine !== 'undefined') {
+                    await HybridTahminScoringEngine.calibrateFromFlatEntries(
+                        flatEntries, host.bitisValueForSort, { host: host });
+                    adaptiveProfiles = HybridTahminScoringEngine.getGostergeProfiles?.() || null;
+                }
+
+                if (typeof AtestSonGosterge1Tahmin !== 'undefined') {
+                    AtestSonGosterge1Tahmin.calibrateFromFlatEntries(
+                        flatEntries, host.bitisValueForSort);
+                }
+                return !!(HybridTahminScoringEngine?.isCalibrated?.()
+                    && AtestSonGosterge1Tahmin?.isCalibrated?.());
+            } catch (err) {
+                console.warn('AtestSonPtestTahmin: hybrid kalibrasyon başarısız', err);
+                hybridCalPromise = null;
+                return false;
+            }
+        })();
+        return hybridCalPromise;
+    }
+
     async function ensureCalibration() {
         if (typeof GostergeScoringEngine === 'undefined'
             || typeof IstatistikEngine === 'undefined') {
@@ -153,6 +200,25 @@ const AtestSonPtestTahmin = (function () {
             }
         })();
         return calPromise;
+    }
+
+    function isGostergeReady() {
+        return !!GostergeScoringEngine?.isCalibrated?.();
+    }
+
+    function isHybridReady() {
+        return typeof HybridTahminScoringEngine !== 'undefined'
+            && HybridTahminScoringEngine.isCalibrated?.();
+    }
+
+    function isColumnReady(colId) {
+        if (colId === 'hyb') return isHybridReady();
+        if (colId === 'g1side' || colId === 'g1pair') {
+            return isGostergeReady()
+                && typeof AtestSonGosterge1Tahmin !== 'undefined'
+                && AtestSonGosterge1Tahmin.isCalibrated?.();
+        }
+        return isGostergeReady();
     }
 
     function scoreRaceAll(race, meta, resolveKosular) {
@@ -228,8 +294,12 @@ const AtestSonPtestTahmin = (function () {
     return {
         COLUMNS,
         ensureCalibration,
+        ensureHybridAndG1Calibration,
         scoreRaceAll,
         getColumns,
-        isCalibrated
+        isCalibrated,
+        isGostergeReady,
+        isHybridReady,
+        isColumnReady
     };
 })();
