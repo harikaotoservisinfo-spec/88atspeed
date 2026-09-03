@@ -2,8 +2,15 @@
     'use strict';
 
     const HIPODROM_URL = 'https://www.hipodrom.com/';
+    const HIPODROM_LINKS = [
+        { label: 'Sabit İhtimalli Bahis', url: 'https://www.hipodrom.com/at-yarisi/sabit-ihtimalli-bahis', accent: '#c62828' },
+        { label: 'Bahis Yap', url: 'https://www.hipodrom.com/at-yarisi/bahis-yap', accent: '#1565c0' },
+        { label: 'Biletlerim', url: 'https://www.hipodrom.com/biletlerim', accent: '#2e7d32' },
+        { label: 'Ana Sayfa', url: HIPODROM_URL, accent: '#455a64' }
+    ];
     let sessionCache = null;
-    let iframeLoaded = false;
+    let iframeLoaded = true;
+    let iframeSrc = HIPODROM_LINKS[0].url;
 
     const $ = (sel, root) => (root || document).querySelector(sel);
 
@@ -43,17 +50,17 @@
         return n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₺';
     }
 
-    function renderInfoBanner() {
+    function renderInfoBanner(user) {
+        const connected = !!(user?.loggedIn || user?.displayName);
         return '<div class="pub-kazanc-info">'
-            + '<span class="pub-kazanc-info-icon">⚠️</span>'
+            + '<span class="pub-kazanc-info-icon">🎯</span>'
             + '<div>'
-            + '<strong>Hipodrom\'u başka sekmede açmak bu sayfaya bağlanmaz.</strong>'
-            + '<p class="pub-kazanc-info-p">Orada giriş yapsanız bile bakiye ve kuponlar burada görünmez — tarayıcı güvenliği gereği oturumlar paylaşılmaz.</p>'
-            + '<ol class="pub-kazanc-steps">'
-            + '<li>Aşağıdaki forma <strong>Hipodrom kullanıcı adı ve şifrenizi</strong> girin</li>'
-            + '<li><strong>Hesaba Bağlan</strong> — 15–30 sn sürebilir</li>'
-            + '<li>Bağlandıktan sonra adınız ve bakiyeniz üst şeritte görünür</li>'
-            + '</ol>'
+            + '<strong>Bahis oynamak:</strong> Alttaki Hipodrom panelinde giriş yapıp <em>Sabit İhtimalli Bahis</em> üzerinden at seçin, misli girin ve <strong>HEMEN OYNA</strong> deyin.'
+            + '<p class="pub-kazanc-info-p">'
+            + (connected
+                ? 'Üst şeritte bakiyeniz 88 AT SPEED\'e bağlı. Bahis yine Hipodrom panelinden oynanır — kupon orada kesilir.'
+                : 'Panelde Hipodrom\'a giriş yapmanız gerekir (üstteki Hesaba Bağlan ayrıca bakiye takibi içindir).')
+            + '</p>'
             + '</div></div>';
     }
 
@@ -91,32 +98,53 @@
             + '</div>';
     }
 
+    function renderQuickNav() {
+        return '<div class="pub-kazanc-quicknav">'
+            + HIPODROM_LINKS.map((l) => {
+                const active = iframeSrc === l.url ? ' pub-kazanc-quicknav-active' : '';
+                return '<button type="button" class="pub-kazanc-quicknav-btn' + active + '" data-hip-url="' + l.url + '" style="--qn-accent:' + l.accent + '">' + escapeHtml(l.label) + '</button>';
+            }).join('')
+            + '</div>';
+    }
+
     function renderIframeBlock() {
         const expanded = iframeLoaded;
-        return '<div class="pub-kazanc-embed pub-kazanc-embed-optional">'
+        return '<div class="pub-kazanc-embed pub-kazanc-embed-play">'
             + '<div class="pub-kazanc-embed-hdr">'
             + '<div class="pub-kazanc-embed-hdr-left">'
-            + '<span>Hipodrom.com önizleme</span>'
-            + '<span class="pub-kazanc-embed-warn">Ayrı oturum — bağlantı kurmaz</span>'
+            + '<span>Hipodrom — Bahis Oyna</span>'
+            + '<span class="pub-kazanc-embed-warn">Giriş panel içinden · HEMEN OYNA ile oynanır</span>'
             + '</div>'
             + '<button type="button" class="pub-kazanc-strip-btn pub-kazanc-strip-btn-ghost" id="pubKazancToggleIframe">'
-            + (expanded ? 'Gizle' : 'Siteyi göster')
+            + (expanded ? 'Gizle' : 'Göster')
             + '</button>'
             + '</div>'
             + (expanded
-                ? '<div class="pub-kazanc-embed-body">'
-                + '<iframe id="pubKazancIframe" class="pub-kazanc-iframe-full" src="' + HIPODROM_URL + '" title="Hipodrom.com"></iframe>'
+                ? renderQuickNav()
+                + '<div class="pub-kazanc-embed-body">'
+                + '<iframe id="pubKazancIframe" class="pub-kazanc-iframe-full" src="' + escapeHtml(iframeSrc) + '" title="Hipodrom.com"></iframe>'
                 + '<div class="pub-kazanc-embed-actions">'
                 + '<button type="button" class="pub-kazanc-strip-btn pub-kazanc-strip-btn-ghost" id="pubKazancReloadIframe">↻ Yenile</button>'
+                + '<span class="pub-kazanc-embed-tip">At seç → Misli (ör. 20) → HEMEN OYNA</span>'
                 + '</div></div>'
-                : '<div class="pub-kazanc-embed-collapsed">Sadece görüntüleme içindir. Bahis ve bakiye için üstteki <strong>Hesaba Bağlan</strong> kullanın.</div>')
+                : '<div class="pub-kazanc-embed-collapsed">Sabit ihtimalli bahis ve diğer oyunlar için paneli açın.</div>')
             + '</div>';
     }
 
     function renderKazancLayout(user, opts) {
-        return renderInfoBanner()
+        return renderInfoBanner(user)
             + renderAccountStrip(user, opts)
             + renderIframeBlock();
+    }
+
+    function navigateIframe(url) {
+        iframeSrc = url || HIPODROM_URL;
+        iframeLoaded = true;
+        const iframe = document.getElementById('pubKazancIframe');
+        if (iframe) iframe.src = iframeSrc;
+        document.querySelectorAll('.pub-kazanc-quicknav-btn').forEach((btn) => {
+            btn.classList.toggle('pub-kazanc-quicknav-active', btn.dataset.hipUrl === iframeSrc);
+        });
     }
 
     function bindLoginForm(root) {
@@ -183,9 +211,12 @@
             iframeLoaded = !iframeLoaded;
             renderKazanc(sessionCache?.loggedIn ? { user: sessionCache } : {});
         });
+        root.querySelectorAll('.pub-kazanc-quicknav-btn').forEach((btn) => {
+            btn.addEventListener('click', () => navigateIframe(btn.dataset.hipUrl));
+        });
         $('#pubKazancReloadIframe', root)?.addEventListener('click', () => {
             const iframe = $('#pubKazancIframe', root);
-            if (iframe) iframe.src = HIPODROM_URL;
+            if (iframe) iframe.src = iframeSrc;
         });
     }
 
