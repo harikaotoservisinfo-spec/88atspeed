@@ -104,6 +104,9 @@ const AtestSonPtestTahmin = (function () {
             && typeof HybridTahminScoringEngine !== 'undefined'
             && HybridTahminScoringEngine.isCalibrated?.()
             && AtestSonGosterge1Tahmin?.isCalibrated?.()) {
+            if (typeof AtestSonRenkTahmin !== 'undefined') {
+                await AtestSonRenkTahmin.ensureCalibration();
+            }
             return true;
         }
         if (calPromise) return calPromise;

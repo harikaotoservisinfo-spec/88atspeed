@@ -111,7 +111,10 @@ const AtestSonRenkTahmin = (function () {
         if (calPromise) return calPromise;
         calPromise = (async function () {
             try {
-                const built = await GostergeScoringEngine.buildFlatEntriesFromApi({ IE: IstatistikEngine });
+                let built = GostergeScoringEngine.getCachedFlatBuild?.();
+                if (!built?.flatEntries?.length) {
+                    built = await GostergeScoringEngine.buildFlatEntriesFromApi({ IE: IstatistikEngine });
+                }
                 const flatEntries = built.flatEntries || [];
                 const bitisMap = built.bitisMap || {};
                 const host = GostergeScoringEngine.makeBitisHost(
