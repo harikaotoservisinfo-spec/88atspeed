@@ -694,7 +694,7 @@
     <script src="js/astest-son-ptest-tahmin.js?v=20260901a"></script>
     <script src="js/gosterim-headers.js?v=20260901a"></script>
     <script src="js/astest-son-gosterim-cols.js?v=20260902f"></script>
-    <script src="js/astest-t1dr-test1-match.js?v=20260903a"></script>
+    <script src="js/astest-t1dr-test1-match.js?v=20260903b"></script>
     <script>
         const RECENT_WINDOWS = FieldSizeStatsEngine.RECENT_WINDOWS;
 
@@ -1502,7 +1502,7 @@
                 hesaplamaGoster(currentRaces);
                 sonTestKayitSource = 'getir';
                 currentSonTestKayitId = null;
-                refreshTestTabs(currentRaces, {
+                await refreshTestTabs(currentRaces, {
                     source: 'getir',
                     tarih: tarih,
                     hipodrom: hipodromText
@@ -1595,14 +1595,33 @@
             document.getElementById('tab-hesaplama').innerHTML = genelHtml;
         }
 
+        async function renderOneTestTab(tabId, races, meta) {
+            if (tabId === 'son-test') {
+                await sonTestGoster(races, meta);
+            } else if (tabId === 'at-sayisi-test') {
+                await atSayisiTestGoster(races, meta);
+            } else if (tabId === 'sehir-test') {
+                sehirTestGoster(races, meta);
+            } else {
+                const cfg = DIMENSION_TEST_TABS.find(function (t) { return t.tabId === tabId; });
+                if (cfg) dimensionTestGoster(races, meta, cfg.key);
+            }
+        }
+
+        /** Aktif sekme önce render edilir; diğerleri arka planda dolar (yavaş kalibrasyon bloklamaz). */
         async function refreshTestTabs(races, meta) {
             if (meta?.hipodrom) currentHipodrom = meta.hipodrom;
-            await sonTestGoster(races, meta);
-            await atSayisiTestGoster(races, meta);
-            sehirTestGoster(races, meta);
-            for (const cfg of DIMENSION_TEST_TABS) {
-                dimensionTestGoster(races, meta, cfg.key);
-            }
+            const activeTab = getActiveTabId();
+            await renderOneTestTab(activeTab, races, meta);
+
+            const tabIds = ['son-test', 'at-sayisi-test', 'sehir-test']
+                .concat(DIMENSION_TEST_TABS.map(function (c) { return c.tabId; }));
+            const others = tabIds.filter(function (id) { return id !== activeTab; });
+            Promise.all(others.map(function (id) {
+                return renderOneTestTab(id, races, meta);
+            })).catch(function (err) {
+                console.error('refreshTestTabs arka plan', err);
+            });
         }
 
         function formatTestTabsMeta(meta) {
@@ -1824,7 +1843,6 @@
                 return;
             }
             if (atSayisiSubView === 't1dr-test1' && typeof AtestT1drTest1Match !== 'undefined') {
-                el.innerHTML = '<div class="info-box">⏳ T1×DR=TEST1 eşleşmeleri ve GÖ/HYB kalibrasyonu yükleniyor…</div>';
                 try {
                     el.innerHTML = await AtestT1drTest1Match.renderRaces(
                         races, meta, resolveHorseKosular, escapeHtml);
@@ -2318,7 +2336,7 @@
                         });
                     }
                 }
-                refreshTestTabs(currentRaces, {
+                await refreshTestTabs(currentRaces, {
                     source: 'kayit',
                     kayitId: id,
                     tarih: kayit.tarih,

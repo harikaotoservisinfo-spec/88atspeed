@@ -7,6 +7,10 @@ const AtestT1drTest1Match = (function () {
         'fieldSize', 'sehir', 'kcins_kosu', 'taki', 'pist', 'hp', 'siklet'
     ];
 
+    let calibDone = false;
+    const raceScoreCache = new Map();
+    let renderCtx = null;
+
     function horseKey(h) {
         if (h?.atId != null && h.atId !== '') return String(h.atId);
         if (h?.no != null && h.no !== '') return 'no:' + String(h.no);
@@ -48,6 +52,24 @@ const AtestT1drTest1Match = (function () {
         return null;
     }
 
+    function cacheKey(meta, race) {
+        return (meta?.kayitId || meta?.tarih || '') + '|' + (race?.raceNo ?? '');
+    }
+
+    function resetScoreCache() {
+        raceScoreCache.clear();
+        calibDone = false;
+        renderCtx = null;
+    }
+
+    async function ensurePtestCalibration() {
+        if (calibDone) return !!AtestSonPtestTahmin?.isCalibrated?.();
+        if (typeof AtestSonPtestTahmin === 'undefined') return false;
+        const ok = await AtestSonPtestTahmin.ensureCalibration();
+        calibDone = !!ok;
+        return calibDone;
+    }
+
     function computeBasForSource(horse, race, meta, sourceKey, sonCtx, resolveKosular) {
         const kosular = resolveKosular ? resolveKosular(horse) : (horse.kosular || []);
         const programTarih = meta?.tarih || null;
@@ -73,6 +95,9 @@ const AtestT1drTest1Match = (function () {
 
     /** Koşu başına at → TAHMİN / GÖ / HYB skor haritaları */
     async function buildRaceScoreMaps(race, meta, resolveKosular) {
+        const key = cacheKey(meta, race);
+        if (raceScoreCache.has(key)) return raceScoreCache.get(key);
+
         const tahminMap = new Map();
         const goMap = new Map();
         const hybMap = new Map();
@@ -94,8 +119,8 @@ const AtestT1drTest1Match = (function () {
         const horseRows = horses.map(function (h) {
             const basBySource = {};
             for (let i = 0; i < SON_TEST_BAS_KEYS.length; i++) {
-                const key = SON_TEST_BAS_KEYS[i];
-                basBySource[key] = computeBasForSource(h, race, meta, key, sonCtx, resolveKosular);
+                const sk = SON_TEST_BAS_KEYS[i];
+                basBySource[sk] = computeBasForSource(h, race, meta, sk, sonCtx, resolveKosular);
             }
             const pcts = SON_TEST_BAS_KEYS.map(function (k) {
                 return basBySource[k]?.basSuccess?.pct;
@@ -124,22 +149,22 @@ const AtestT1drTest1Match = (function () {
         }
 
         for (let i = 0; i < horseRows.length; i++) {
-            const key = horseKey(horseRows[i].h);
-            if (key && horseRows[i].tahmin) tahminMap.set(key, horseRows[i].tahmin);
+            const hk = horseKey(horseRows[i].h);
+            if (hk && horseRows[i].tahmin) tahminMap.set(hk, horseRows[i].tahmin);
         }
 
-        if (typeof AtestSonPtestTahmin !== 'undefined') {
-            calibrated = await AtestSonPtestTahmin.ensureCalibration();
-            if (calibrated) {
-                const ptestByCol = AtestSonPtestTahmin.scoreRaceAll(race, meta, resolveKosular);
-                const go = ptestByCol.go || new Map();
-                const hyb = ptestByCol.hyb || new Map();
-                go.forEach(function (v, k) { goMap.set(k, v); });
-                hyb.forEach(function (v, k) { hybMap.set(k, v); });
-            }
+        calibrated = await ensurePtestCalibration();
+        if (calibrated && typeof AtestSonPtestTahmin !== 'undefined') {
+            const ptestByCol = AtestSonPtestTahmin.scoreRaceAll(race, meta, resolveKosular);
+            const go = ptestByCol.go || new Map();
+            const hyb = ptestByCol.hyb || new Map();
+            go.forEach(function (v, k) { goMap.set(k, v); });
+            hyb.forEach(function (v, k) { hybMap.set(k, v); });
         }
 
-        return { tahminMap: tahminMap, goMap: goMap, hybMap: hybMap, calibrated: calibrated };
+        const result = { tahminMap: tahminMap, goMap: goMap, hybMap: hybMap, calibrated: calibrated };
+        raceScoreCache.set(key, result);
+        return result;
     }
 
     function collectMatchRows(race, meta, resolveKosular) {
@@ -162,7 +187,6 @@ const AtestT1drTest1Match = (function () {
             if (!horse) continue;
             out.push({
                 horse: horse,
-                gosRow: row,
                 gSira: row.values[COL.SIRA_NO] || '—',
                 tarih: row.values[COL.TARIH] || '—',
                 sehir: row.values[COL.SEHIR] || '—',
@@ -174,7 +198,10 @@ const AtestT1drTest1Match = (function () {
         return out;
     }
 
-    function formatRankPctCell(tahmin, calibrated, cls, missingTitle) {
+    function formatRankPctCell(tahmin, calibrated, cls, missingTitle, loading) {
+        if (loading) {
+            return '<td class="' + cls + ' t1dr-score-pending" title="Hesaplanıyor…">…</td>';
+        }
         if (!calibrated) {
             return '<td class="' + cls + '" title="' + (missingTitle || 'Kalibrasyon gerekli') + '">—</td>';
         }
@@ -201,10 +228,40 @@ const AtestT1drTest1Match = (function () {
         return '<td class="' + cls + '" title="' + tip + '">' + display + '</td>';
     }
 
-    async function renderRaces(races, meta, resolveKosular, escapeHtml) {
-        if (!races || !races.length) {
-            return '<div class="info-box">📋 Veri bulunamadı</div>';
+    function buildMatchTableBody(matches, scores, escapeHtml, pending) {
+        let html = '';
+        for (let mi = 0; mi < matches.length; mi++) {
+            const m = matches[mi];
+            const hk = horseKey(m.horse);
+            const bitis = extractBitis(m.horse);
+            const tahmin = hk && scores ? scores.tahminMap.get(hk) : null;
+            const go = hk && scores ? scores.goMap.get(hk) : null;
+            const hyb = hk && scores ? scores.hybMap.get(hk) : null;
+            const horseLabel = m.horse?.no != null
+                ? '#' + m.horse.no + ' ' + (m.horse?.name || '').replace(/\(\d+\)\s*$/, '').trim()
+                : (m.horse?.name || '—');
+
+            html += '<tr data-horse-key="' + escapeHtml(hk || '') + '">';
+            html += formatBitisCell(bitis);
+            html += '<td class="col-name">' + escapeHtml(horseLabel) + '</td>';
+            html += '<td class="t1dr-match-gsira">' + escapeHtml(String(m.gSira)) + '</td>';
+            html += '<td>' + escapeHtml(String(m.tarih)) + '</td>';
+            html += '<td>' + escapeHtml(String(m.sehir)) + '</td>';
+            html += '<td>' + escapeHtml(String(m.mesafe)) + '</td>';
+            html += '<td class="t1dr-match-val t1dr-match-val-t1dr">' + escapeHtml(String(m.t1dr)) + '</td>';
+            html += '<td class="t1dr-match-val t1dr-match-val-test1">' + escapeHtml(String(m.test1)) + '</td>';
+            html += formatRankPctCell(tahmin, true, 't1dr-match-tahmin', 'TAHMİN hesaplanamadı', pending);
+            html += formatRankPctCell(go, scores?.calibrated, 't1dr-match-go', 'PUANLAMA TEST kalibrasyonu gerekli', pending);
+            html += formatRankPctCell(hyb, scores?.calibrated, 't1dr-match-hyb', 'PUANLAMA TEST kalibrasyonu gerekli', pending);
+            html += '</tr>';
         }
+        return html;
+    }
+
+    function renderRacesShell(races, meta, resolveKosular, escapeHtml) {
+        const matchCache = races.map(function (r) {
+            return collectMatchRows(r, meta, resolveKosular);
+        });
 
         let html = '<div class="son-test-wrap t1dr-test1-wrap">';
         if (races.length > 1) {
@@ -226,24 +283,11 @@ const AtestT1drTest1Match = (function () {
             + '<strong>BİTİŞ</strong> = bugünkü koşu bitiş sırası · '
             + '<strong>G.SIRA</strong> = geçmiş satır numarası · '
             + '<strong>TAHMİN / GÖ / HYB</strong> = bugünkü koşu motor sıraları. '
-            + '<span id="t1drMatchCalibNote"></span></p>';
-
-        const scoreCache = [];
-        for (let ri = 0; ri < races.length; ri++) {
-            scoreCache[ri] = await buildRaceScoreMaps(races[ri], meta, resolveKosular);
-        }
-
-        const anyCalibrated = scoreCache.some(function (s) { return s.calibrated; });
-        const calibNote = anyCalibrated
-            ? ''
-            : '<span style="color:#c62828"> GÖ/HYB kalibrasyonu arka planda yükleniyor veya kayıt+bitiş gerekli.</span>';
-
-        html = html.replace('<span id="t1drMatchCalibNote"></span>', calibNote);
+            + '<span id="t1drMatchCalibNote" class="t1dr-calib-note"></span></p>';
 
         for (let ri = 0; ri < races.length; ri++) {
             const race = races[ri];
-            const matches = collectMatchRows(race, meta, resolveKosular);
-            const scores = scoreCache[ri];
+            const matches = matchCache[ri];
             const header = typeof AtMetaFields !== 'undefined'
                 ? AtMetaFields.formatRaceHeader(race)
                 : ((race.mesafe || '?') + ' ' + (race.pist || '')).trim();
@@ -274,54 +318,85 @@ const AtestT1drTest1Match = (function () {
             html += '<th class="t1dr-match-th-tahmin">TAHMİN</th>';
             html += '<th class="t1dr-match-th-go">GÖ</th>';
             html += '<th class="t1dr-match-th-hyb">HYB</th>';
-            html += '</tr></thead><tbody>';
-
-            for (let mi = 0; mi < matches.length; mi++) {
-                const m = matches[mi];
-                const hk = horseKey(m.horse);
-                const bitis = extractBitis(m.horse);
-                const tahmin = hk ? scores.tahminMap.get(hk) : null;
-                const go = hk ? scores.goMap.get(hk) : null;
-                const hyb = hk ? scores.hybMap.get(hk) : null;
-                const horseLabel = m.horse?.no != null
-                    ? '#' + m.horse.no + ' ' + (m.horse?.name || '').replace(/\(\d+\)\s*$/, '').trim()
-                    : (m.horse?.name || '—');
-
-                html += '<tr>';
-                html += formatBitisCell(bitis);
-                html += '<td class="col-name">' + escapeHtml(horseLabel) + '</td>';
-                html += '<td class="t1dr-match-gsira">' + escapeHtml(String(m.gSira)) + '</td>';
-                html += '<td>' + escapeHtml(String(m.tarih)) + '</td>';
-                html += '<td>' + escapeHtml(String(m.sehir)) + '</td>';
-                html += '<td>' + escapeHtml(String(m.mesafe)) + '</td>';
-                html += '<td class="t1dr-match-val t1dr-match-val-t1dr">' + escapeHtml(String(m.t1dr)) + '</td>';
-                html += '<td class="t1dr-match-val t1dr-match-val-test1">' + escapeHtml(String(m.test1)) + '</td>';
-                html += formatRankPctCell(
-                    tahmin, true, 't1dr-match-tahmin', 'TAHMİN hesaplanamadı');
-                html += formatRankPctCell(
-                    go, scores.calibrated, 't1dr-match-go', 'PUANLAMA TEST kalibrasyonu gerekli');
-                html += formatRankPctCell(
-                    hyb, scores.calibrated, 't1dr-match-hyb', 'PUANLAMA TEST kalibrasyonu gerekli');
-                html += '</tr>';
-            }
-
+            html += '</tr></thead>';
+            html += '<tbody data-race-body="' + ri + '">';
+            html += buildMatchTableBody(matches, null, escapeHtml, true);
             html += '</tbody></table></div></div>';
         }
 
         html += '</div>';
-        return html;
+        return { html: html, matchCache: matchCache };
     }
 
-    function bindRaceSelector(root) {
+    function updateRaceScoreCells(host, raceIdx, matches, scores, escapeHtml) {
+        const tbody = host.querySelector('tbody[data-race-body="' + raceIdx + '"]');
+        if (!tbody) return;
+        tbody.innerHTML = buildMatchTableBody(matches, scores, escapeHtml, false);
+    }
+
+    function updateCalibNote(host, calibrated) {
+        const note = host.querySelector('.t1dr-calib-note');
+        if (!note) return;
+        note.innerHTML = calibrated
+            ? ''
+            : '<span style="color:#c62828"> GÖ/HYB kalibrasyonu arka planda yükleniyor veya kayıt+bitiş gerekli.</span>';
+    }
+
+    async function hydrateRaceScores(host, raceIdx) {
+        if (!renderCtx) return;
+        const race = renderCtx.races[raceIdx];
+        if (!race) return;
+        const matches = renderCtx.matchCache[raceIdx] || [];
+        if (!matches.length) return;
+
+        const tbody = host.querySelector('tbody[data-race-body="' + raceIdx + '"]');
+        if (tbody && !tbody.querySelector('.t1dr-score-pending')) return;
+
+        try {
+            const scores = await buildRaceScoreMaps(race, renderCtx.meta, renderCtx.resolveKosular);
+            updateRaceScoreCells(host, raceIdx, matches, scores, renderCtx.escapeHtml);
+            if (scores.calibrated) updateCalibNote(host, true);
+        } catch (err) {
+            console.error('T1DR score hydrate failed', err);
+            if (tbody) {
+                tbody.querySelectorAll('.t1dr-score-pending').forEach(function (td) {
+                    td.textContent = '—';
+                    td.title = 'Skor yüklenemedi';
+                });
+            }
+        }
+    }
+
+    async function renderRaces(races, meta, resolveKosular, escapeHtml) {
+        resetScoreCache();
+        renderCtx = { races: races, meta: meta, resolveKosular: resolveKosular, escapeHtml: escapeHtml, matchCache: [] };
+
+        const shell = renderRacesShell(races, meta, resolveKosular, escapeHtml);
+        renderCtx.matchCache = shell.matchCache;
+        return shell.html;
+    }
+
+    async function hydrateVisibleRace(host) {
+        if (!renderCtx || !host) return;
+        const sel = host.querySelector('#t1drRaceSelect');
+        const raceIdx = sel ? parseInt(sel.value, 10) : 0;
+        await hydrateRaceScores(host, isNaN(raceIdx) ? 0 : raceIdx);
+    }
+
+    function bindRaceSelector(root, races, meta, resolveKosular, escapeHtml) {
         const host = root || document;
         const sel = host.querySelector ? host.querySelector('#t1drRaceSelect') : null;
-        if (!sel) return;
-        sel.addEventListener('change', function () {
-            const idx = String(sel.value);
+
+        async function onRaceChange() {
+            const idx = sel ? String(sel.value) : '0';
             host.querySelectorAll('.t1dr-test1-race').forEach(function (el) {
                 el.style.display = el.getAttribute('data-race-idx') === idx ? '' : 'none';
             });
-        });
+            await hydrateRaceScores(host, parseInt(idx, 10) || 0);
+        }
+
+        if (sel) sel.addEventListener('change', onRaceChange);
+        hydrateVisibleRace(host);
     }
 
     return {
@@ -329,7 +404,9 @@ const AtestT1drTest1Match = (function () {
         collectMatchRows,
         buildRaceScoreMaps,
         renderRaces,
+        hydrateVisibleRace,
         bindRaceSelector,
+        resetScoreCache,
         horseKey
     };
 })();
