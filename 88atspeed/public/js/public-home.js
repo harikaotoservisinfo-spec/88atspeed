@@ -380,7 +380,7 @@
                     + '<td class="pub-tahmin-pct">' + (t.pct != null ? '%' + t.pct : '—') + '</td>'
                     + '<td>' + escapeHtml(t.label || '') + '</td>'
                     + '</tr>').join('')
-                : '<tr><td colspan="5" style="text-align:center;color:#888">Tahmin hazırlanıyor</td></tr>';
+                : '<tr><td colspan="5" style="text-align:center;color:#888">Tahmin henüz üretilmedi</td></tr>';
 
             const atRows = (race.horses || []).slice(0, 8).map((h) =>
                 '<tr><td>' + escapeHtml(h.no) + '</td><td>' + escapeHtml(h.name) + '</td>'

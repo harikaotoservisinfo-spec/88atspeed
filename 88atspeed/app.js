@@ -14,6 +14,7 @@ const hipodromBet = require('./lib/hipodrom-bet');
 const hipodromBrowser = require('./lib/hipodrom-browser');
 const bitalihBet = require('./lib/bitalih-bet');
 const { resolveChromePath } = require('./lib/chrome-path');
+const publicTahminBuild = require('./lib/public-tahmin-build');
 const app = express();
 const PORT = Number(process.env.PORT) || 3023;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -485,6 +486,24 @@ app.post('/api/admin/public-program-cek', async (req, res) => {
         res.json({ success: true, ...built, sync });
     } catch (err) {
         console.error('public-program-cek:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.post('/api/admin/public-tahmin-build', async (req, res) => {
+    if (!adminAuth.isAuthenticated(req)) {
+        return res.status(401).json({ success: false, error: 'Yönetici oturumu gerekli' });
+    }
+    const tarih = req.body?.tarih || publicProgram.tomorrowTr();
+    try {
+        const built = await publicTahminBuild.buildPublicTahmin(db, tarih, {
+            hipodrom: req.body?.hipodrom || null,
+            raceNo: req.body?.raceNo || null,
+            save: req.body?.save !== false
+        });
+        res.json({ success: true, ...built });
+    } catch (err) {
+        console.error('public-tahmin-build:', err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 });

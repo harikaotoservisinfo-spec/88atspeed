@@ -3,6 +3,7 @@
  */
 const cheerio = require('cheerio');
 const tjkScrape = require('./tjk-scrape');
+const { mergeTahminIntoKosular } = require('./public-tahmin-build');
 
 const DOMESTIC_HINT = /(ankara|izmir|istanbul|bursa|adana|elaz|diyarbak|kocaeli|antalya|şanlıurfa|urfa|karma)/i;
 
@@ -346,7 +347,10 @@ function getPublicVitrin(db, tarih) {
                 kosuSayisi: r.kosu_sayisi,
                 ilkKosuSaat: r.ilk_kosu_saat,
                 durum: r.durum,
-                kosular: JSON.parse(r.program_json || '[]'),
+                kosular: mergeTahminIntoKosular(
+                    JSON.parse(r.program_json || '[]'),
+                    r.tahmin_json
+                ),
                 tahminler: r.tahmin_json ? JSON.parse(r.tahmin_json) : null,
                 yayinTarihi: r.yayin_tarihi,
                 cekilmeTarihi: r.cekilme_tarihi

@@ -64,7 +64,9 @@
     "test:son-test-kayit-open": "node --max-old-space-size=4096 scripts/test-son-test-kayit-open.js --db atlar.db --kayit 162",
     "fetch:public-program": "node scripts/fetch-public-program.js",
     "fetch:public-program-bugun": "node scripts/fetch-public-program.js --bugun",
-    "fetch:public-program-ankara": "node scripts/fetch-public-program.js --bugun --hipodrom Ankara"
+    "fetch:public-program-ankara": "node scripts/fetch-public-program.js --bugun --hipodrom Ankara",
+    "build:public-tahmin": "node --max-old-space-size=1024 scripts/build-public-tahmin.js",
+    "build:public-tahmin-bugun": "node --max-old-space-size=1024 scripts/build-public-tahmin.js --bugun"
   },
   "dependencies": {
     "cheerio": "^1.2.0",
