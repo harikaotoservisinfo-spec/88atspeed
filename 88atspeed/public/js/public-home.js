@@ -153,24 +153,36 @@
         return d.toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
     }
 
-    function syncBadgeClass(durum) {
+    function syncBadgeClass(durum, day) {
         if (durum === 'tam') return 'pub-program-sync-badge-ok';
+        if (durum === 'kayitli' && day && !(day.eksik || []).length) return 'pub-program-sync-badge-ok';
         if (durum === 'eksik' || durum === 'kayitli') return 'pub-program-sync-badge-warn';
         return 'pub-program-sync-badge-empty';
     }
 
     function syncBadgeLabel(day) {
-        if (day.durum === 'tam') return 'Tamam';
-        if (day.durum === 'eksik') return 'Eksik';
-        if (day.durum === 'kayitli') return 'Kayıtlı';
-        if (day.durum === 'bos') return 'Boş';
-        return day.durum || '—';
+        const durum = day.durum;
+        if (durum === 'tam') return 'Tamam';
+        if (durum === 'kayitli' && !(day.eksik || []).length) return 'Tamam';
+        if (durum === 'eksik') return 'Eksik';
+        if (durum === 'kayitli') return 'Kayıtlı';
+        if (durum === 'bos') return 'Boş';
+        return durum || '—';
+    }
+
+    function formatSyncCountLabel(day) {
+        const db = day.dbCount || 0;
+        const tjk = day.tjkDomesticCount || 0;
+        const eksik = day.eksik || [];
+        const fazla = day.fazla || [];
+        if (!tjk) return db + ' hipodrom kayıtlı';
+        if (eksik.length) return db + '/' + tjk + ' hipodrom';
+        if (fazla.length || db > tjk) return db + ' hipodrom kayıtlı';
+        return db + '/' + tjk + ' hipodrom';
     }
 
     function renderProgramSyncDay(day) {
-        const countLabel = day.tjkDomesticCount
-            ? (day.dbCount + '/' + day.tjkDomesticCount + ' hipodrom')
-            : (day.dbCount + ' hipodrom kayıtlı');
+        const countLabel = formatSyncCountLabel(day);
         const kayitli = (day.kayitli || []).map((h) =>
             h.name + ' (' + h.kosuSayisi + ' koşu)'
         ).join(' · ') || '—';
@@ -188,7 +200,7 @@
         return '<div class="pub-program-sync-day">'
             + '<div class="pub-program-sync-day-hdr">'
             + '<span class="pub-program-sync-day-title">' + escapeHtml(day.label || day.tarih) + '</span>'
-            + '<span class="pub-program-sync-badge ' + syncBadgeClass(day.durum) + '">' + syncBadgeLabel(day) + '</span>'
+            + '<span class="pub-program-sync-badge ' + syncBadgeClass(day.durum, day) + '">' + syncBadgeLabel(day) + '</span>'
             + '</div>'
             + '<div class="pub-program-sync-meta">' + escapeHtml(countLabel)
             + (day.lastFetch ? ' · Son çekim: ' + escapeHtml(formatSyncTime(day.lastFetch)) : '')
