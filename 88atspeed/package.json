@@ -59,7 +59,9 @@
     "test:near-miss-race": "node scripts/test-near-miss-report.js --db atlar.db --kayit 133 --race 6 --verbose",
     "test:son-test-calib": "node scripts/test-son-test-calibration-diagnose.js --db atlar.db",
     "test:son-test-calib-parallel": "node scripts/test-son-test-calibration-diagnose.js --db atlar.db --simulate-parallel",
-    "test:son-test-calib-kayit": "node scripts/test-son-test-calibration-diagnose.js --db atlar.db --kayit 161 --verbose"
+    "test:son-test-calib-kayit": "node scripts/test-son-test-calibration-diagnose.js --db atlar.db --kayit 161 --verbose",
+    "test:son-test-kayit-162": "node scripts/test-son-test-kayit-open.js --db atlar.db --kayit 162 --verbose",
+    "test:son-test-kayit-open": "node scripts/test-son-test-kayit-open.js --db atlar.db --kayit 162"
   },
   "dependencies": {
     "cheerio": "^1.2.0",
