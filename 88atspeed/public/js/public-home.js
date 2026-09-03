@@ -24,8 +24,10 @@
 
     const MUHT_REFRESH_SEC = 15;
     const MUHT_SELECT_RESET_MS = 30000;
+    const TJK_TV_CHANNEL_ID = 'UCNLO4lpteIloZ4IKb9L2DoA';
     let muhtPollTimer = null;
     let muhtSelectTimer = null;
+    let tjkTvLoaded = false;
 
     const $ = (sel) => document.querySelector(sel);
     const $$ = (sel) => document.querySelectorAll(sel);
@@ -252,6 +254,7 @@
             if (el) el.scrollIntoView({ behavior: 'smooth' });
         }
         if (panelId === 'muhtemeller') {
+            ensureTjkTvEmbed();
             const iso = state.iso || localTodayIso();
             if (!state.muhtemeller || state.muhtIso !== iso) {
                 loadMuhtemeller(iso);
@@ -261,6 +264,14 @@
         } else {
             stopMuhtPolling();
         }
+    }
+
+    function ensureTjkTvEmbed() {
+        const frame = document.getElementById('pubTjkTvFrame');
+        if (!frame || tjkTvLoaded) return;
+        frame.src = 'https://www.youtube.com/embed/live_stream?channel=' + TJK_TV_CHANNEL_ID
+            + '&autoplay=0&mute=0&rel=0&modestbranding=1';
+        tjkTvLoaded = true;
     }
 
     function formatClock(d) {
