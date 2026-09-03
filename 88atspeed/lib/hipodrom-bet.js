@@ -1,7 +1,12 @@
 /**
  * Hipodrom sabit ihtimalli bahis — sunucu tarafı otomasyon (kalıcı profil).
  */
-const { withPage } = require('./hipodrom-browser');
+const hipodromAuth = require('./hipodrom-auth');
+const { withPage, DATA_DIR } = require('./hipodrom-browser');
+const fs = require('fs');
+const path = require('path');
+
+const TOKENS_FILE = path.join(DATA_DIR, 'hipodrom-tokens.json');
 
 const FIXED_ODDS_URL = 'https://www.hipodrom.com/at-yarisi/sabit-ihtimalli-bahis';
 const HOME_URL = 'https://www.hipodrom.com/';
@@ -90,6 +95,42 @@ async function clickByText(page, pattern, rootSelector) {
         el.click();
         return true;
     }, pattern, rootSelector || '');
+}
+
+async function getAutoStatus() {
+    return withPage(async (page) => {
+        await page.goto(HOME_URL, { waitUntil: 'domcontentloaded', timeout: 35000 });
+        await sleep(1500);
+        await dismissCookieBanner(page);
+        return readSessionState(page);
+    }, 45000);
+}
+
+async function saveLogin(username, password) {
+    try {
+        const { tokens, method } = await hipodromAuth.loginWithTimeout(username, password, null, 55000);
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+        fs.writeFileSync(TOKENS_FILE, JSON.stringify({
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken || null
+        }));
+        let user = null;
+        let balance = null;
+        try {
+            user = await hipodromAuth.fetchUserDetails(tokens.accessToken);
+            balance = await hipodromAuth.fetchUserBalance(tokens.accessToken);
+        } catch (_) { /* */ }
+        return {
+            success: true,
+            loggedIn: true,
+            displayName: user?.name || user?.firstName || user?.loginName || 'Üye',
+            balance: balance?.totalAmount ?? balance?.amount ?? null,
+            method
+        };
+    } catch (apiErr) {
+        const state = await withPage(async (page) => ensureLoggedIn(page, username, password), 120000);
+        return { success: true, ...state, method: 'browser' };
+    }
 }
 
 async function placeFixedOddsBet(opts = {}) {
@@ -244,21 +285,7 @@ async function placeFixedOddsBet(opts = {}) {
             apiCalls,
             playResponse: playBody
         };
-    });
-}
-
-async function getAutoStatus() {
-    return withPage(async (page) => {
-        await page.goto(HOME_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
-        await sleep(2500);
-        await dismissCookieBanner(page);
-        return readSessionState(page);
-    });
-}
-
-async function saveLogin(username, password) {
-    const state = await withPage(async (page) => ensureLoggedIn(page, username, password));
-    return { success: true, ...state };
+    }, 150000);
 }
 
 module.exports = {

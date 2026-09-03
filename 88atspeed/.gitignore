@@ -2,6 +2,8 @@
 node_modules/
 data/
 hipodrom-profile/
+hipodrom-cookies.json
+hipodrom-tokens.json
 .DS_Store
 *.log
 .env

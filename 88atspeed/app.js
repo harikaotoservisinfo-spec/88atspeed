@@ -11,6 +11,7 @@ const muhtemellerFetch = require('./lib/muhtemeller-fetch');
 const tjkTvProxy = require('./lib/tjk-tv-proxy');
 const hipodromAuth = require('./lib/hipodrom-auth');
 const hipodromBet = require('./lib/hipodrom-bet');
+const hipodromBrowser = require('./lib/hipodrom-browser');
 const app = express();
 const PORT = 3023;
 
@@ -294,7 +295,10 @@ app.post('/api/public/hipodrom/auto/login', async (req, res) => {
         res.json({ success: true, ...state });
     } catch (err) {
         console.error('hipodrom/auto/login:', err.message);
-        res.status(401).json({ success: false, error: err.message, code: err.code || null });
+        const status = err.code === 'timeout' ? 504 : 401;
+        if (!res.headersSent) {
+            res.status(status).json({ success: false, error: err.message, code: err.code || null });
+        }
     }
 });
 
@@ -314,12 +318,15 @@ app.post('/api/public/hipodrom/auto/bet/fixed', async (req, res) => {
         res.json(result);
     } catch (err) {
         console.error('hipodrom/auto/bet:', err.message);
-        res.status(400).json({
-            success: false,
-            error: err.message,
-            code: err.code || null,
-            detail: err.detail || null
-        });
+        const status = err.code === 'timeout' ? 504 : 400;
+        if (!res.headersSent) {
+            res.status(status).json({
+                success: false,
+                error: err.message,
+                code: err.code || null,
+                detail: err.detail || null
+            });
+        }
     }
 });
 
@@ -427,6 +434,7 @@ async function getBrowserInstance() {
 }
 
 hipodromAuth.setBrowserFactory(getBrowserInstance);
+hipodromBrowser.setBrowserFactory(getBrowserInstance);
 
 async function gotoWithHeaders(page, url) {
     await page.setExtraHTTPHeaders(getBrowserHeaders());

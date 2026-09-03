@@ -22,6 +22,15 @@
         try {
             return { ok: true, data: JSON.parse(text) };
         } catch (_) {
+            if (text.trim().startsWith('<')) {
+                const is502 = res.status === 502 || /502 Bad Gateway/i.test(text);
+                return {
+                    ok: false,
+                    error: is502
+                        ? 'Sunucu yanıt veremedi (502). pm2 restart yapın ve tekrar deneyin — işlem 30–60 sn sürebilir.'
+                        : 'Sunucu HTML döndü (HTTP ' + res.status + '). Deploy veya pm2 restart gerekli.'
+                };
+            }
             return { ok: false, error: 'Geçersiz sunucu yanıtı (HTTP ' + res.status + ')' };
         }
     }
