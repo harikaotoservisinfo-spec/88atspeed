@@ -24,10 +24,11 @@
 
     const MUHT_REFRESH_SEC = 15;
     const MUHT_SELECT_RESET_MS = 30000;
-    const TJK_TV_CHANNEL_ID = 'UCNLO4lpteIloZ4IKb9L2DoA';
+    const TJK_TV_HLS = 'https://tjktv-live.tjk.org/tjktv.m3u8';
     let muhtPollTimer = null;
     let muhtSelectTimer = null;
     let tjkTvLoaded = false;
+    let tjkHls = null;
 
     const $ = (sel) => document.querySelector(sel);
     const $$ = (sel) => document.querySelectorAll(sel);
@@ -263,15 +264,60 @@
             }
         } else {
             stopMuhtPolling();
+            destroyTjkTv();
         }
     }
 
+    function showTjkTvFallback() {
+        const fb = document.getElementById('pubTjkTvFallback');
+        const video = document.getElementById('pubTjkTvVideo');
+        if (fb) fb.hidden = false;
+        if (video) video.style.display = 'none';
+    }
+
+    function destroyTjkTv() {
+        if (tjkHls) {
+            tjkHls.destroy();
+            tjkHls = null;
+        }
+        const video = document.getElementById('pubTjkTvVideo');
+        if (video) {
+            video.pause();
+            video.removeAttribute('src');
+            video.load();
+            video.style.display = '';
+        }
+        const fb = document.getElementById('pubTjkTvFallback');
+        if (fb) fb.hidden = true;
+        tjkTvLoaded = false;
+    }
+
     function ensureTjkTvEmbed() {
-        const frame = document.getElementById('pubTjkTvFrame');
-        if (!frame || tjkTvLoaded) return;
-        frame.src = 'https://www.youtube.com/embed/live_stream?channel=' + TJK_TV_CHANNEL_ID
-            + '&autoplay=0&mute=0&rel=0&modestbranding=1';
+        const video = document.getElementById('pubTjkTvVideo');
+        if (!video || tjkTvLoaded) return;
         tjkTvLoaded = true;
+
+        const tryPlay = () => video.play().catch(() => {});
+
+        if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = TJK_TV_HLS;
+            video.addEventListener('loadedmetadata', tryPlay, { once: true });
+            video.addEventListener('error', showTjkTvFallback, { once: true });
+            return;
+        }
+
+        if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+            tjkHls = new Hls({ enableWorker: true, lowLatencyMode: true });
+            tjkHls.loadSource(TJK_TV_HLS);
+            tjkHls.attachMedia(video);
+            tjkHls.on(Hls.Events.MANIFEST_PARSED, tryPlay);
+            tjkHls.on(Hls.Events.ERROR, (_evt, data) => {
+                if (data.fatal) showTjkTvFallback();
+            });
+            return;
+        }
+
+        showTjkTvFallback();
     }
 
     function formatClock(d) {

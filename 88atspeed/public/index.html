@@ -7,7 +7,7 @@
     <title>88 AT SPEED | Günlük Yarış Programı & Tahminler</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link href="css/public-site.css?v=20260903tjktv" rel="stylesheet">
+    <link href="css/public-site.css?v=20260903tjktv2" rel="stylesheet">
 </head>
 <body class="pub-body">
     <div class="pub-strip">
@@ -97,16 +97,18 @@
                 <div class="pub-tjk-tv-wrap" id="pubTjkTvWrap">
                     <div class="pub-tjk-tv-hdr">
                         <span class="pub-tjk-tv-title"><span class="pub-tjk-tv-dot"></span> TJK TV Canlı Yayın</span>
-                        <a class="pub-tjk-tv-link" href="https://www.youtube.com/@TJKTVCANLIYAYIN" target="_blank" rel="noopener noreferrer">YouTube'da aç ↗</a>
+                        <div class="pub-tjk-tv-links">
+                            <a class="pub-tjk-tv-link" href="https://www.tjk.org/TR/YarisSever/Static/Canli" target="_blank" rel="noopener noreferrer">TJK resmi ↗</a>
+                            <a class="pub-tjk-tv-link" href="https://www.youtube.com/@TJKTVCANLIYAYIN" target="_blank" rel="noopener noreferrer">YouTube ↗</a>
+                        </div>
                     </div>
                     <div class="pub-tjk-tv-player">
-                        <iframe
-                            id="pubTjkTvFrame"
-                            title="TJK TV Canlı Yayın"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                            allowfullscreen
-                            loading="lazy"
-                            referrerpolicy="strict-origin-when-cross-origin"></iframe>
+                        <video id="pubTjkTvVideo" class="pub-tjk-tv-video" controls playsinline muted preload="none" poster=""></video>
+                        <div id="pubTjkTvFallback" class="pub-tjk-tv-fallback" hidden>
+                            <p>Yayın şu an yüklenemedi.</p>
+                            <p class="pub-tjk-tv-fallback-hint">Yayın yalnızca Türkiye içinden izlenebilir.</p>
+                            <a class="pub-btn pub-btn-white" href="https://www.tjk.org/TR/YarisSever/Static/Canli" target="_blank" rel="noopener noreferrer">TJK Canlı Yayın</a>
+                        </div>
                     </div>
                 </div>
                 <div class="pub-muht-wrap">
@@ -245,6 +247,7 @@
         <div class="pub-footer-bottom">© 2026 88 AT SPEED · Tüm hakları saklıdır</div>
     </footer>
 
-    <script src="js/public-home.js?v=20260903tjktv"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js" crossorigin="anonymous"></script>
+    <script src="js/public-home.js?v=20260903tjktv2"></script>
 </body>
 </html>
