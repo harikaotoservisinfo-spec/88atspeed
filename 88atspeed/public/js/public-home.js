@@ -331,7 +331,32 @@
         return map;
     }
 
-    function renderMuhtemelBetPanel(bet, flashKeys) {
+    function parseOdd(val) {
+        const v = parseFloat(String(val || '').replace(',', '.'));
+        return isNaN(v) || v <= 0 ? null : v;
+    }
+
+    function findLeaderHorseNo(bahisler) {
+        const ganyanBet = (bahisler || []).find((b) => b.isGanyan || b.B === 'GANYAN');
+        if (!ganyanBet?.muhtemeller?.length) return null;
+        let leaderNo = null;
+        let minOdd = Infinity;
+        ganyanBet.muhtemeller.forEach((row) => {
+            const v = parseOdd(row.G);
+            if (v != null && v < minOdd) {
+                minOdd = v;
+                leaderNo = String(row.S1);
+            }
+        });
+        return leaderNo;
+    }
+
+    function comboIncludesHorse(row, horseNo) {
+        if (!horseNo) return false;
+        return String(row.S1) === horseNo || String(row.S2) === horseNo;
+    }
+
+    function renderMuhtemelBetPanel(bet, flashKeys, leaderNo) {
         const isOpen = (bet.D || '').toUpperCase() === 'AÇIK';
         const cnt = (bet.muhtemeller || []).length;
         const isGanyan = bet.isGanyan || bet.B === 'GANYAN';
@@ -347,27 +372,28 @@
             html += '<table class="pub-muht-table pub-muht-table-ganyan"><thead><tr>'
                 + '<th>#</th><th>At</th><th>G</th><th>S</th></tr></thead><tbody>';
             (bet.muhtemeller || []).forEach((row) => {
-                const fav = row.A ? ' pub-muht-fav' : '';
+                const isLeader = leaderNo && String(row.S1) === leaderNo;
                 const oddKey = bet.B + '|' + (row.S1 || '') + '||';
                 const flash = flashKeys?.[oddKey] || '';
                 const atAd = row.atAdi || row.T || '';
-                html += '<tr class="' + fav + '" data-odd-key="' + escapeHtml(oddKey) + '" title="' + escapeHtml(atAd) + '">'
-                    + '<td><span class="pub-muht-no-sm">' + escapeHtml(row.S1) + '</span></td>'
-                    + '<td class="pub-muht-at-cell">' + escapeHtml(atAd) + '</td>'
-                    + '<td class="pub-muht-ganyan' + flash + '">' + escapeHtml(row.G || '—') + '</td>'
+                html += '<tr class="' + (isLeader ? 'pub-muht-leader-row' : '') + '" data-odd-key="' + escapeHtml(oddKey) + '" title="' + escapeHtml(atAd) + '">'
+                    + '<td><span class="pub-muht-no-sm' + (isLeader ? ' pub-muht-leader-no' : '') + '">' + escapeHtml(row.S1) + '</span></td>'
+                    + '<td class="pub-muht-at-cell' + (isLeader ? ' pub-muht-leader-at' : '') + '">' + escapeHtml(atAd) + '</td>'
+                    + '<td class="pub-muht-ganyan' + flash + (isLeader ? ' pub-muht-leader-odd' : '') + '">' + escapeHtml(row.G || '—') + '</td>'
                     + '<td class="pub-muht-sira">' + escapeHtml(row.R || '—') + '</td></tr>';
             });
             html += '</tbody></table>';
         } else {
             html += '<table class="pub-muht-table pub-muht-table-combo"><thead><tr><th>Komb.</th><th>Oran</th></tr></thead><tbody>';
             (bet.muhtemeller || []).forEach((row) => {
+                const isLinked = comboIncludesHorse(row, leaderNo);
                 const oddKey = bet.B + '|' + (row.S1 || '') + '|' + (row.S2 || '') + '|';
                 const flash = flashKeys?.[oddKey] || '';
                 const label = (row.S1 && row.S2) ? (row.S1 + '-' + row.S2) : (row.T || '—');
                 const full = row.T || label;
-                html += '<tr data-odd-key="' + escapeHtml(oddKey) + '" title="' + escapeHtml(full) + '">'
-                    + '<td class="pub-muht-komb">' + escapeHtml(label) + '</td>'
-                    + '<td class="pub-muht-ganyan' + flash + '">' + escapeHtml(row.G || '—') + '</td></tr>';
+                html += '<tr class="' + (isLinked ? 'pub-muht-linked-row' : '') + '" data-odd-key="' + escapeHtml(oddKey) + '" title="' + escapeHtml(full) + '">'
+                    + '<td class="pub-muht-komb' + (isLinked ? ' pub-muht-linked-cell' : '') + '">' + escapeHtml(label) + '</td>'
+                    + '<td class="pub-muht-ganyan' + flash + (isLinked ? ' pub-muht-linked-cell' : '') + '">' + escapeHtml(row.G || '—') + '</td></tr>';
             });
             html += '</tbody></table>';
         }
@@ -381,20 +407,22 @@
             return '<div class="pub-empty"><p>Bu koşu için muhtemel verisi yok.</p></div>';
         }
 
+        const leaderNo = findLeaderHorseNo(bahisler);
         const title = escapeHtml(muht.key) + ' · ' + muht.no + '. Koşu';
         const sub = [muht.pist, muht.saat].filter(Boolean).join(' · ');
 
-        let html = '<div class="pub-muht-race-card">'
+        let html = '<div class="pub-muht-race-card"' + (leaderNo ? ' data-leader-no="' + escapeHtml(leaderNo) + '"' : '') + '>'
             + '<div class="pub-muht-race-top">'
             + '<div class="pub-muht-race-title"><strong>' + title + '</strong>'
             + (sub ? '<span>' + escapeHtml(sub) + '</span>' : '') + '</div>'
             + '<div class="pub-muht-race-meta">'
             + '<span class="pub-badge ' + pistBadgeClass(muht.pist) + '">' + escapeHtml(muht.pist || '') + '</span>'
             + '<span class="pub-muht-durum pub-muht-durum-' + (muht.isOpen ? 'acik' : 'resmi') + '">' + escapeHtml(muht.durum || '') + '</span>'
+            + (leaderNo ? '<span class="pub-muht-fav-badge">★ Favori #' + escapeHtml(leaderNo) + '</span>' : '')
             + '</div></div>';
 
         html += '<div class="pub-muht-bet-board">';
-        bahisler.forEach((bet) => { html += renderMuhtemelBetPanel(bet, flashKeys); });
+        bahisler.forEach((bet) => { html += renderMuhtemelBetPanel(bet, flashKeys, leaderNo); });
         html += '</div></div>';
 
         return html;

@@ -1085,6 +1085,40 @@ a { color: inherit; text-decoration: none; }
 .pub-muht-table tr.pub-muht-fav { background: #fff8e1; }
 .pub-muht-table tr.pub-muht-fav td:first-child { box-shadow: inset 2px 0 0 #ffc107; }
 
+.pub-muht-leader-odd {
+    background: #a5d6a7 !important;
+    color: #1b5e20 !important;
+    font-weight: 900;
+}
+
+.pub-muht-leader-row .pub-muht-leader-no {
+    background: #2e7d32;
+    color: #fff;
+    border-radius: 4px;
+    padding: 1px 5px;
+}
+
+.pub-muht-leader-at {
+    color: #1b5e20;
+    font-weight: 800;
+}
+
+.pub-muht-linked-row .pub-muht-linked-cell {
+    background: #e8f5e9 !important;
+    color: #2e7d32;
+    font-weight: 700;
+}
+
+.pub-muht-fav-badge {
+    font-size: 10px;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: #fff8e1;
+    color: #f57f17;
+    border: 1px solid #ffcc80;
+}
+
 @media (max-width: 900px) {
     .pub-muht-bet-board {
         grid-template-columns: repeat(4, minmax(155px, 1fr));
