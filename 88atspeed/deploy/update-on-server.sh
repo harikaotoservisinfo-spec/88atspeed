@@ -37,6 +37,10 @@ npm install --production
 npm rebuild sqlite3
 pm2 restart 88atspeed
 
+echo "🔍 Bi'Talih sağlık:"
+curl -s http://127.0.0.1:3023/api/public/bitalih/auto/health || true
+echo ""
+
 echo "✅ Güncelleme tamamlandı"
 echo "📦 Branch: $BRANCH | Commit: $COMMIT_SHA"
 echo "🔍 Doğrulama:"

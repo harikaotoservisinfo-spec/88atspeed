@@ -9,6 +9,14 @@ const COOKIES_FILE = path.join(DATA_DIR, 'bitalih-cookies.json');
 const SESSION_FILE = path.join(DATA_DIR, 'bitalih-session.json');
 const ORIGIN = 'https://www.bitalih.com';
 const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+const LAUNCH_ARGS = [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-gpu',
+    '--disable-software-rasterizer',
+    '--lang=tr-TR'
+];
 
 let browserFactory = null;
 let queue = Promise.resolve();
@@ -38,7 +46,7 @@ async function getBrowser() {
     ].filter(Boolean);
     const launchOptions = {
         headless: 'new',
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--lang=tr-TR']
+        args: LAUNCH_ARGS
     };
     for (const p of paths) {
         try {
@@ -144,6 +152,7 @@ module.exports = {
     SESSION_FILE,
     ORIGIN,
     BROWSER_UA,
+    LAUNCH_ARGS,
     setBrowserFactory,
     usesSharedBrowser,
     getBrowser,

@@ -1,5 +1,5 @@
 /**
- * Bi'Talih sabit ihtimalli bahis — sunucu tarafı otomasyon.
+ * Bi'Talih sabit ihtimalli bahis — sunucu tarafı otomasyon (arka plan işleri).
  */
 const fs = require('fs');
 const path = require('path');
@@ -9,14 +9,34 @@ const {
     withPage,
     DATA_DIR,
     COOKIES_FILE,
-    restoreSession,
-    cookieHeaderFromFile
+    restoreSession
 } = require('./bitalih-browser');
+const jobs = require('./bitalih-jobs');
 
 const FIXED_ODDS_URL = bitalihAuth.FIXED_ODDS_URL;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function runChildScript(scriptName, args, timeoutMs) {
+function ensureDataDir() {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    jobs.pruneOldJobs();
+}
+
+function startBackgroundScript(scriptName, args, jobId) {
+    ensureDataDir();
+    const script = path.join(__dirname, '..', 'scripts', scriptName);
+    const child = spawn(process.execPath, [script, ...args], {
+        cwd: path.join(__dirname, '..'),
+        detached: true,
+        stdio: 'ignore',
+        env: {
+            ...process.env,
+            BITALIH_JOB_ID: jobId
+        }
+    });
+    child.unref();
+}
+
+function runChildScriptSync(scriptName, args, timeoutMs) {
     const script = path.join(__dirname, '..', 'scripts', scriptName);
     return new Promise((resolve, reject) => {
         const child = spawn(process.execPath, [script, ...args], {
@@ -58,8 +78,20 @@ async function profileFromSession() {
     return { success: true, loggedIn: true, ...bitalihAuth.publicProfile(session), method: 'browser' };
 }
 
+function startLoginJob(ssn, password) {
+    const job = jobs.createJob('login');
+    startBackgroundScript('bitalih-browser-login.js', [ssn, password], job.id);
+    return job;
+}
+
+function startBetJob(opts) {
+    const job = jobs.createJob('bet', opts);
+    startBackgroundScript('bitalih-bet-worker.js', [JSON.stringify(opts || {})], job.id);
+    return job;
+}
+
 async function saveLogin(ssn, password) {
-    const result = await runChildScript('bitalih-browser-login.js', [ssn, password], 120000);
+    const result = await runChildScriptSync('bitalih-browser-login.js', [ssn, password], 120000);
     if (!result.success) {
         const e = new Error(result.error || 'Giriş başarısız');
         e.code = result.code || 'login_failed';
@@ -96,9 +128,8 @@ async function ensureLoggedIn(page) {
     await page.goto(FIXED_ODDS_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
     await sleep(2000);
     await dismissCookieBanner(page);
-    let state = await readSessionState(page);
+    const state = await readSessionState(page);
     if (state.loggedIn) return state;
-
     const err = new Error('Bi\'Talih oturumu yok. Önce Sunucuda Giriş Yapın (TC ile).');
     err.code = 'not_logged_in';
     throw err;
@@ -134,14 +165,14 @@ async function placeFixedOddsBetInternal(opts = {}) {
     const city = String(opts.city || 'İzmir').trim();
     const raceNo = Number(opts.raceNo || opts.kosuNo || 4);
     const horseName = String(opts.horseName || opts.at || '').trim();
-    const stake = Number(opts.stake || opts.misli || 20);
+    const stake = Number(opts.stake || opts.misli || 3);
     const dryRun = !!opts.dryRun;
     if (!horseName) throw new Error('At adı gerekli');
 
     return withPage(async (page) => {
         const session = await ensureLoggedIn(page);
 
-        await page.goto(FIXED_ODDS_URL, { waitUntil: 'networkidle2', timeout: 60000 });
+        await page.goto(FIXED_ODDS_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
         await sleep(2500);
         await dismissCookieBanner(page);
 
@@ -243,7 +274,7 @@ async function placeFixedOddsBetInternal(opts = {}) {
 }
 
 async function placeFixedOddsBet(opts) {
-    const result = await runChildScript('bitalih-bet-worker.js', [JSON.stringify(opts || {})], 200000);
+    const result = await runChildScriptSync('bitalih-bet-worker.js', [JSON.stringify(opts || {})], 200000);
     if (!result.success) {
         const e = new Error(result.error || 'Bahis başarısız');
         e.code = result.code;
@@ -253,9 +284,16 @@ async function placeFixedOddsBet(opts) {
     return result;
 }
 
+function getJob(jobId) {
+    return jobs.readJob(jobId);
+}
+
 module.exports = {
     placeFixedOddsBet,
     placeFixedOddsBetInternal,
     getAutoStatus,
-    saveLogin
+    saveLogin,
+    startLoginJob,
+    startBetJob,
+    getJob
 };

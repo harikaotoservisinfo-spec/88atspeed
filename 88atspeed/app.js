@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const puppeteer = require('puppeteer');
 const sqlite3 = require('sqlite3').verbose();
 const tjkScrape = require('./lib/tjk-scrape');
@@ -17,6 +18,9 @@ const bitalihBet = require('./lib/bitalih-bet');
 const bitalihBrowser = require('./lib/bitalih-browser');
 const app = express();
 const PORT = 3023;
+
+fs.mkdirSync(path.join(__dirname, 'data'), { recursive: true });
+fs.mkdirSync(path.join(__dirname, 'data', 'bitalih-jobs'), { recursive: true });
 
 // Nginx X-Forwarded-Proto ile HTTPS algısı (Secure çerez için)
 app.set('trust proxy', 1);
@@ -356,7 +360,26 @@ app.get('/api/public/bitalih/auto/status', async (req, res) => {
     }
 });
 
-app.post('/api/public/bitalih/auto/login', async (req, res) => {
+app.get('/api/public/bitalih/auto/health', (req, res) => {
+    const scriptsOk = fs.existsSync(path.join(__dirname, 'scripts', 'bitalih-browser-login.js'))
+        && fs.existsSync(path.join(__dirname, 'scripts', 'bitalih-bet-worker.js'));
+    res.json({
+        success: true,
+        scriptsOk,
+        chromePath: process.env.CHROME_PATH || process.env.PUPPETEER_EXECUTABLE_PATH || null,
+        dataDirWritable: fs.existsSync(path.join(__dirname, 'data'))
+    });
+});
+
+app.get('/api/public/bitalih/auto/job/:id', (req, res) => {
+    const job = bitalihBet.getJob(req.params.id);
+    if (!job) {
+        return res.status(404).json({ success: false, error: 'İş bulunamadı' });
+    }
+    res.json({ success: true, ...job });
+});
+
+app.post('/api/public/bitalih/auto/login', (req, res) => {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     const username = req.body?.username || req.body?.ssn || process.env.BITALIH_USER;
     const password = req.body?.password || process.env.BITALIH_PASS;
@@ -364,44 +387,32 @@ app.post('/api/public/bitalih/auto/login', async (req, res) => {
         return res.status(400).json({ success: false, error: 'TC ve şifre gerekli' });
     }
     try {
-        const state = await bitalihBet.saveLogin(username, password);
-        res.json({ success: true, ...state });
+        const job = bitalihBet.startLoginJob(username, password);
+        res.json({ success: true, jobId: job.id, status: 'running' });
     } catch (err) {
         console.error('bitalih/auto/login:', err.message);
-        const status = err.code === 'timeout' ? 504 : 401;
-        if (!res.headersSent) {
-            res.status(status).json({
-                success: false,
-                error: err.message,
-                code: err.code || null
-            });
-        }
+        res.status(500).json({ success: false, error: err.message, code: err.code || null });
     }
 });
 
-app.post('/api/public/bitalih/auto/bet/fixed', async (req, res) => {
+app.post('/api/public/bitalih/auto/bet/fixed', (req, res) => {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     const { city, raceNo, kosuNo, horseName, at, stake, misli, dryRun } = req.body || {};
+    if (!(horseName || at)) {
+        return res.status(400).json({ success: false, error: 'At adı gerekli' });
+    }
     try {
-        const result = await bitalihBet.placeFixedOddsBet({
+        const job = bitalihBet.startBetJob({
             city,
             raceNo: raceNo ?? kosuNo,
             horseName: horseName || at,
             stake: stake ?? misli,
             dryRun: !!dryRun
         });
-        res.json(result);
+        res.json({ success: true, jobId: job.id, status: 'running' });
     } catch (err) {
         console.error('bitalih/auto/bet:', err.message);
-        const status = err.code === 'timeout' ? 504 : 400;
-        if (!res.headersSent) {
-            res.status(status).json({
-                success: false,
-                error: err.message,
-                code: err.code || null,
-                detail: err.detail || null
-            });
-        }
+        res.status(500).json({ success: false, error: err.message, code: err.code || null });
     }
 });
 

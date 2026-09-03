@@ -44,7 +44,7 @@ async function loginWithBrowser(ssn, password) {
     try {
         await page.setUserAgent(BROWSER_UA);
         await page.setViewport({ width: 1280, height: 900 });
-        await page.goto(ORIGIN + '/', { waitUntil: 'networkidle2', timeout: 60000 });
+        await page.goto(ORIGIN + '/', { waitUntil: 'domcontentloaded', timeout: 45000 });
         await sleep(2000);
         await dismissCookieBanner(page);
         await sleep(500);

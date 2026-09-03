@@ -131,13 +131,30 @@
         } catch (_) { /* */ }
     }
 
+    async function pollJob(jobId, label, onTick) {
+        const maxAttempts = 90;
+        for (let i = 0; i < maxAttempts; i++) {
+            await new Promise((r) => setTimeout(r, 2000));
+            const res = await fetch('/api/public/bitalih/auto/job/' + encodeURIComponent(jobId));
+            const parsed = await parseJsonResponse(res);
+            if (!parsed.ok) return { ok: false, error: parsed.error };
+            const job = parsed.data;
+            if (onTick) onTick(job, i);
+            if (job.status === 'done') return { ok: true, data: job.result || {} };
+            if (job.status === 'failed') {
+                return { ok: false, error: job.error || (label + ' başarısız') };
+            }
+        }
+        return { ok: false, error: label + ' zaman aşımına uğradı (3 dk). pm2 restart sonrası tekrar deneyin.' };
+    }
+
     function bindSystemPlay(root) {
         $('#pubAutoLoginBtn', root)?.addEventListener('click', async () => {
             const btn = $('#pubAutoLoginBtn', root);
             const username = $('#pubAutoUser', root)?.value?.trim();
             const password = $('#pubAutoPass', root)?.value;
             if (!username || !password) return;
-            if (btn) { btn.disabled = true; btn.textContent = 'Giriş… (15–30 sn)'; }
+            if (btn) { btn.disabled = true; btn.textContent = 'Giriş başlatılıyor…'; }
             try {
                 const res = await fetch('/api/public/bitalih/auto/login', {
                     method: 'POST',
@@ -149,7 +166,18 @@
                     updateSystemMessages({ autoError: parsed.ok ? parsed.data.error : parsed.error });
                     return;
                 }
-                autoStatus = parsed.data;
+                if (!parsed.data.jobId) {
+                    updateSystemMessages({ autoError: 'Sunucu güncel değil — deploy gerekli.' });
+                    return;
+                }
+                const polled = await pollJob(parsed.data.jobId, 'Giriş', () => {
+                    if (btn) btn.textContent = 'Giriş yapılıyor… (15–60 sn)';
+                });
+                if (!polled.ok || !polled.data?.success) {
+                    updateSystemMessages({ autoError: polled.error || polled.data?.error || 'Giriş başarısız' });
+                    return;
+                }
+                autoStatus = polled.data;
                 updateSystemMessages({ autoOk: 'Sunucu girişi başarılı — artık Sistem Oyna kullanabilirsiniz.' });
                 await refreshAutoStatus();
             } finally {
@@ -165,7 +193,7 @@
             const horseName = $('#pubBetHorse', root)?.value?.trim();
             const stake = Number($('#pubBetStake', root)?.value);
             if (!city || !horseName || !raceNo || !stake) return;
-            if (playBtn) { playBtn.disabled = true; playBtn.textContent = dryRun ? 'Test…' : 'Oynanıyor…'; }
+            if (playBtn) { playBtn.disabled = true; playBtn.textContent = dryRun ? 'Test başlatılıyor…' : 'Oynatılıyor…'; }
             if (dryBtn) dryBtn.disabled = true;
             try {
                 const res = await fetch('/api/public/bitalih/auto/bet/fixed', {
@@ -174,11 +202,22 @@
                     body: JSON.stringify({ city, raceNo, horseName, stake, dryRun })
                 });
                 const parsed = await parseJsonResponse(res);
-                if (!parsed.ok || parsed.data?.success === false) {
-                    updateSystemMessages({ autoError: parsed.ok ? (parsed.data.error || 'Bahis başarısız') : parsed.error });
+                if (!parsed.ok || !parsed.data?.success) {
+                    updateSystemMessages({ autoError: parsed.ok ? parsed.data.error : parsed.error });
                     return;
                 }
-                const msg = parsed.data.message || (dryRun ? 'Test tamam' : 'Kupon oynandı');
+                if (!parsed.data.jobId) {
+                    updateSystemMessages({ autoError: 'Sunucu güncel değil — deploy gerekli.' });
+                    return;
+                }
+                const polled = await pollJob(parsed.data.jobId, dryRun ? 'Test' : 'Bahis', () => {
+                    if (playBtn) playBtn.textContent = dryRun ? 'Test yapılıyor…' : 'Oynanıyor… (30–90 sn)';
+                });
+                if (!polled.ok || polled.data?.success === false) {
+                    updateSystemMessages({ autoError: polled.error || polled.data?.error || 'Bahis başarısız' });
+                    return;
+                }
+                const msg = polled.data.message || (dryRun ? 'Test tamam' : 'Kupon oynandı');
                 updateSystemMessages({ autoOk: msg + ' — ' + horseName + ' · ' + stake + ' TL' });
             } finally {
                 if (playBtn) { playBtn.disabled = false; playBtn.textContent = 'Sistem Oyna'; }
