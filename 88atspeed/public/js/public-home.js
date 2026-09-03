@@ -125,20 +125,15 @@
         renderMuhtemeller();
     }
 
-    function buildPlaceholderTahminler(race) {
-        if (!race.horses || !race.horses.length) return [];
-        return race.horses.slice(0, 3).map((h, i) => ({
-            rank: i + 1,
-            horseNo: h.no,
-            horseName: h.name,
-            pct: null,
-            label: 'Program'
-        }));
+    function getRaceTahminler(race) {
+        if (Array.isArray(race.tahminler)) return race.tahminler;
+        return [];
     }
 
-    function getRaceTahminler(race) {
-        if (race.tahminler && race.tahminler.length) return race.tahminler;
-        return buildPlaceholderTahminler(race);
+    function formatTahminSkor(t) {
+        if (t.pct != null && t.pct > 0) return '%' + t.pct;
+        if (t.score != null && t.score > 0) return String(t.score);
+        return '—';
     }
 
     function formatTahminPicks(tahminler) {
@@ -377,7 +372,7 @@
                     + '<td><span class="pub-tahmin-rank">' + t.rank + '</span></td>'
                     + '<td><strong>' + escapeHtml(t.horseNo) + '</strong></td>'
                     + '<td>' + escapeHtml(t.horseName) + '</td>'
-                    + '<td class="pub-tahmin-pct">' + (t.pct != null ? '%' + t.pct : '—') + '</td>'
+                    + '<td class="pub-tahmin-pct">' + escapeHtml(formatTahminSkor(t)) + '</td>'
                     + '<td>' + escapeHtml(t.label || '') + '</td>'
                     + '</tr>').join('')
                 : '<tr><td colspan="5" style="text-align:center;color:#888">Tahmin henüz üretilmedi</td></tr>';

@@ -65,8 +65,8 @@
     "fetch:public-program": "node scripts/fetch-public-program.js",
     "fetch:public-program-bugun": "node scripts/fetch-public-program.js --bugun",
     "fetch:public-program-ankara": "node scripts/fetch-public-program.js --bugun --hipodrom Ankara",
-    "build:public-tahmin": "node --max-old-space-size=1024 scripts/build-public-tahmin.js",
-    "build:public-tahmin-bugun": "node --max-old-space-size=1024 scripts/build-public-tahmin.js --bugun"
+    "build:public-tahmin": "node --max-old-space-size=3072 scripts/build-public-tahmin.js",
+    "build:public-tahmin-bugun": "node --max-old-space-size=3072 scripts/build-public-tahmin.js --bugun"
   },
   "dependencies": {
     "cheerio": "^1.2.0",

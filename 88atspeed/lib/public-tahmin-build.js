@@ -150,11 +150,8 @@ function mapScoreMapToTahminler(race, scoreMap, label) {
             || scoreMap.get('no:' + String(h.no))
             || scoreMap.get('name:' + String(h.name));
         if (!t) continue;
-        rows.push({
-            horse: h,
-            score: t.score != null ? Number(t.score) : (t.pct != null ? Number(t.pct) : 0),
-            tahmin: t
-        });
+        const rawScore = t.score != null ? Number(t.score) : (t.pct != null ? Number(t.pct) : 0);
+        rows.push({ horse: h, score: rawScore, tahmin: t, ineligible: !!t.ineligible });
     }
     if (!rows.length) return null;
     rows.sort((a, b) => b.score - a.score);
@@ -162,22 +159,41 @@ function mapScoreMapToTahminler(race, scoreMap, label) {
         rank: i + 1,
         horseNo: r.horse.no,
         horseName: r.horse.name,
-        pct: r.tahmin.pct != null ? Math.round(Number(r.tahmin.pct)) : null,
-        score: r.tahmin.score != null ? Math.round(Number(r.tahmin.score) * 10) / 10 : null,
-        label: label || 'Hibrit'
+        pct: r.tahmin.pct != null && r.tahmin.pct > 0 ? Math.round(Number(r.tahmin.pct)) : null,
+        score: r.score > 0 ? Math.round(r.score * 10) / 10 : null,
+        label: r.ineligible ? 'Veri yok' : (label || 'Hibrit')
     }));
+}
+
+function mergeHybridAndHp(race, hybridList) {
+    const out = (hybridList || []).slice();
+    const used = new Set(out.map((t) => String(t.horseNo)));
+    const hpRows = hpFallbackTahminler(race).filter((t) => !used.has(String(t.horseNo)));
+    let rank = out.length;
+    for (const t of hpRows) {
+        rank++;
+        out.push(Object.assign({}, t, { rank, label: 'HP sırası' }));
+        if (out.length >= 4) break;
+    }
+    return out;
 }
 
 function scorePublicRace(race, meta, veriCache) {
     const resolveKos = (h) => resolveHorseKosular(veriCache, h);
-    if (!global.AtestSonPtestTahmin?.isCalibrated?.()) {
+    const calibrated = global.GostergeScoringEngine?.isCalibrated?.()
+        && global.HybridTahminScoringEngine?.isCalibrated?.();
+    if (!calibrated) {
         return { tahminler: hpFallbackTahminler(race), engine: 'hp-fallback' };
     }
     const cols = global.AtestSonPtestTahmin.scoreRaceAll(race, meta, resolveKos);
     const hyb = mapScoreMapToTahminler(race, cols.hyb, 'Hibrit');
-    if (hyb?.length) return { tahminler: hyb, engine: 'hybrid' };
+    if (hyb?.length) {
+        return { tahminler: mergeHybridAndHp(race, hyb), engine: 'hybrid' };
+    }
     const go = mapScoreMapToTahminler(race, cols.go, 'Gösterge');
-    if (go?.length) return { tahminler: go, engine: 'gosterge' };
+    if (go?.length) {
+        return { tahminler: mergeHybridAndHp(race, go), engine: 'gosterge' };
+    }
     return { tahminler: hpFallbackTahminler(race), engine: 'hp-fallback' };
 }
 
@@ -229,7 +245,6 @@ async function buildTahminForHipodrom(db, tarih, hipodromRow, opts = {}) {
     let scored = 0;
 
     for (const race of races) {
-        if (raceFilter && Number(race.raceNo) !== raceFilter) continue;
         const panelRace = programRaceToPanel(race);
         const result = scorePublicRace(panelRace, meta, veriCache);
         byRace[String(race.raceNo)] = result.tahminler;
