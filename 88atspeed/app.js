@@ -16,6 +16,7 @@ const hipodromBrowser = require('./lib/hipodrom-browser');
 const bitalihAuth = require('./lib/bitalih-auth');
 const bitalihBet = require('./lib/bitalih-bet');
 const bitalihBrowser = require('./lib/bitalih-browser');
+const { resolveChromePath } = require('./lib/chrome-path');
 const app = express();
 const PORT = 3023;
 
@@ -363,11 +364,14 @@ app.get('/api/public/bitalih/auto/status', async (req, res) => {
 app.get('/api/public/bitalih/auto/health', (req, res) => {
     const scriptsOk = fs.existsSync(path.join(__dirname, 'scripts', 'bitalih-browser-login.js'))
         && fs.existsSync(path.join(__dirname, 'scripts', 'bitalih-bet-worker.js'));
+    const chromePath = resolveChromePath();
     res.json({
         success: true,
         scriptsOk,
-        chromePath: process.env.CHROME_PATH || process.env.PUPPETEER_EXECUTABLE_PATH || null,
-        dataDirWritable: fs.existsSync(path.join(__dirname, 'data'))
+        chromePath,
+        chromeInstalled: !!chromePath,
+        dataDirWritable: fs.existsSync(path.join(__dirname, 'data')),
+        pm2Mode: process.env.NODE_APP_INSTANCE != null ? 'cluster' : 'fork'
     });
 });
 

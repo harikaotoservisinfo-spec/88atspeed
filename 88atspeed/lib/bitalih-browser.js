@@ -3,6 +3,7 @@
  */
 const fs = require('fs');
 const path = require('path');
+const { resolveChromePath } = require('./chrome-path');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const COOKIES_FILE = path.join(DATA_DIR, 'bitalih-cookies.json');
@@ -36,7 +37,9 @@ function ensureDataDir() {
 async function getBrowser() {
     if (browserFactory) return browserFactory();
     const puppeteer = require('puppeteer');
+    const resolved = resolveChromePath();
     const paths = [
+        resolved,
         process.env.CHROME_PATH,
         process.env.PUPPETEER_EXECUTABLE_PATH,
         '/usr/bin/google-chrome-stable',
@@ -44,11 +47,12 @@ async function getBrowser() {
         '/usr/bin/chromium-browser',
         '/usr/bin/chromium'
     ].filter(Boolean);
+    const uniquePaths = [...new Set(paths)];
     const launchOptions = {
         headless: 'new',
         args: LAUNCH_ARGS
     };
-    for (const p of paths) {
+    for (const p of uniquePaths) {
         try {
             return await puppeteer.launch({ ...launchOptions, executablePath: p });
         } catch (_) { /* */ }

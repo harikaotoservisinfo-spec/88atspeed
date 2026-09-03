@@ -35,7 +35,22 @@ rm -rf "$TMP"
 cd "$APP_DIR"
 npm install --production
 npm rebuild sqlite3
-pm2 restart 88atspeed
+
+echo "🔧 PM2 (fork modu, ecosystem.config.js)..."
+pm2 delete 88atspeed 2>/dev/null || true
+pm2 start ecosystem.config.js
+pm2 save
+
+echo "🌐 Nginx..."
+if [ -f "/etc/letsencrypt/live/88atspeed.lerta.tr/fullchain.pem" ]; then
+  cp "$APP_DIR/deploy/nginx-88atspeed.conf" /etc/nginx/sites-available/88atspeed.conf
+else
+  cp "$APP_DIR/deploy/nginx-88atspeed-http.conf" /etc/nginx/sites-available/88atspeed.conf
+fi
+cp "$APP_DIR/deploy/nginx-ip-default.conf" /etc/nginx/sites-available/88atspeed-ip.conf
+ln -sf /etc/nginx/sites-available/88atspeed.conf /etc/nginx/sites-enabled/88atspeed.conf
+ln -sf /etc/nginx/sites-available/88atspeed-ip.conf /etc/nginx/sites-enabled/88atspeed-ip.conf
+nginx -t && systemctl reload nginx || echo "⚠️  Nginx reload atlandı — bash deploy/fix-server.sh çalıştırın"
 
 echo "🔍 Bi'Talih sağlık:"
 curl -s http://127.0.0.1:3023/api/public/bitalih/auto/health || true
