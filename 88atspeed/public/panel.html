@@ -2445,8 +2445,9 @@
             statusDiv.innerHTML = '<div class="status status-loading">⏳ Kamu program yükleniyor: '
                 + escapeHtml(tarih) + ' …</div>';
             try {
-                const response = await fetch('/api/kamu-program-kayit/'
-                    + encodeURIComponent(tarih) + '/' + encodeURIComponent(hipodromId));
+                const response = await fetch('/api/kamu-program-kayit?'
+                    + 'tarih=' + encodeURIComponent(tarih)
+                    + '&hipodromId=' + encodeURIComponent(hipodromId));
                 const result = await response.json();
                 if (!result.success) throw new Error(result.error);
                 const kayit = result.kayit;

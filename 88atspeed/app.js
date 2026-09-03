@@ -1246,9 +1246,14 @@ app.get('/api/kamu-program-kayitlar', async (req, res) => {
     }
 });
 
-app.get('/api/kamu-program-kayit/:tarih/:hipodromId', async (req, res) => {
+app.get('/api/kamu-program-kayit', async (req, res) => {
     try {
-        const kayit = await publicProgram.getPublicProgramKayit(db, req.params.tarih, req.params.hipodromId);
+        const tarih = req.query.tarih;
+        const hipodromId = req.query.hipodromId || req.query.hipodrom_id;
+        if (!tarih || !hipodromId) {
+            return res.status(400).json({ success: false, error: 'tarih ve hipodromId gerekli' });
+        }
+        const kayit = await publicProgram.getPublicProgramKayit(db, tarih, hipodromId);
         if (!kayit) {
             return res.json({ success: false, error: 'Kamu program kaydı bulunamadı' });
         }

@@ -311,7 +311,7 @@ const AtSpeedUtils = {
 
     bindHesaplamaKayitList(container, onLoad, onChange) {
         if (!container) return;
-        container.querySelectorAll('.kayit-item').forEach(item => {
+        container.querySelectorAll('.kayit-item:not(.kamu-program-item)').forEach(item => {
             const deleteBtn = item.querySelector('[data-action="delete"]');
             if (deleteBtn) {
                 deleteBtn.onclick = async (e) => {
