@@ -305,13 +305,30 @@ async function buildPublicProgram(db, tarih, opts = {}) {
     }
 
     const okCount = results.filter((r) => r.ok).length;
-    return {
+    const summary = {
         tarih,
         hipodromKaynagi: hipSource,
         hipodromSayisi: selected.length,
         basarili: okCount,
         results
     };
+
+    if (opts.log !== false) {
+        try {
+            await logFetchRun(db, {
+                tarih,
+                trigger: opts.trigger || 'api',
+                hipodromSayisi: selected.length,
+                basarili: okCount,
+                results,
+                ok: okCount > 0
+            });
+        } catch (err) {
+            console.warn('program fetch log:', err.message);
+        }
+    }
+
+    return summary;
 }
 
 function getPublicVitrin(db, tarih) {
@@ -331,7 +348,8 @@ function getPublicVitrin(db, tarih) {
                 durum: r.durum,
                 kosular: JSON.parse(r.program_json || '[]'),
                 tahminler: r.tahmin_json ? JSON.parse(r.tahmin_json) : null,
-                yayinTarihi: r.yayin_tarihi
+                yayinTarihi: r.yayin_tarihi,
+                cekilmeTarihi: r.cekilme_tarihi
             }));
             resolve({
                 tarih,
@@ -340,6 +358,173 @@ function getPublicVitrin(db, tarih) {
             });
         });
     });
+}
+
+const tjkListCache = new Map();
+const TJK_CACHE_MS = 90000;
+
+async function getTjkHipodromlarCached(tarih, fetchOpts = {}) {
+    const entry = tjkListCache.get(tarih);
+    if (entry && Date.now() - entry.at < TJK_CACHE_MS) {
+        return { hipodromlar: entry.hipodromlar, cached: true };
+    }
+    const hipodromlar = await tjkScrape.fetchHipodromlarForDate(tarih, fetchOpts);
+    tjkListCache.set(tarih, { at: Date.now(), hipodromlar });
+    return { hipodromlar, cached: false };
+}
+
+function ensureFetchLogTable(db) {
+    return new Promise((resolve, reject) => {
+        db.run(`CREATE TABLE IF NOT EXISTS public_program_fetch_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            finished_at DATETIME,
+            tarih TEXT NOT NULL,
+            trigger_name TEXT DEFAULT 'cli',
+            hipodrom_sayisi INTEGER DEFAULT 0,
+            basarili INTEGER DEFAULT 0,
+            results_json TEXT,
+            ok INTEGER DEFAULT 1
+        )`, (err) => err ? reject(err) : resolve());
+    });
+}
+
+function logFetchRun(db, entry) {
+    return new Promise((resolve, reject) => {
+        ensureFetchLogTable(db).then(() => {
+            const sql = `INSERT INTO public_program_fetch_log
+                (started_at, finished_at, tarih, trigger_name, hipodrom_sayisi, basarili, results_json, ok)
+                VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?)`;
+            db.run(sql, [
+                entry.startedAt || new Date().toISOString(),
+                entry.tarih,
+                entry.trigger || 'cli',
+                entry.hipodromSayisi || 0,
+                entry.basarili || 0,
+                JSON.stringify(entry.results || []),
+                entry.ok === false ? 0 : 1
+            ], function(err) {
+                if (err) reject(err);
+                else resolve(this.lastID);
+            });
+        }).catch(reject);
+    });
+}
+
+function getLastFetchRuns(db, limit = 10) {
+    return new Promise((resolve, reject) => {
+        ensureFetchLogTable(db).then(() => {
+            db.all(
+                `SELECT id, started_at, finished_at, tarih, trigger_name, hipodrom_sayisi, basarili, results_json, ok
+                 FROM public_program_fetch_log ORDER BY id DESC LIMIT ?`,
+                [limit],
+                (err, rows) => {
+                    if (err) return reject(err);
+                    resolve((rows || []).map((r) => ({
+                        id: r.id,
+                        startedAt: r.started_at,
+                        finishedAt: r.finished_at,
+                        tarih: r.tarih,
+                        trigger: r.trigger_name,
+                        hipodromSayisi: r.hipodrom_sayisi,
+                        basarili: r.basarili,
+                        ok: !!r.ok,
+                        results: r.results_json ? JSON.parse(r.results_json) : []
+                    })));
+                }
+            );
+        }).catch(reject);
+    });
+}
+
+function summarizeDayStatus(tarih, dbRows, tjkRows) {
+    const domesticTjk = (tjkRows || []).filter((h) => isDomesticHipodrom(h.name));
+    const dbById = new Map((dbRows || []).map((r) => [String(r.id), r]));
+    const tjkById = new Map(domesticTjk.map((h) => [String(h.id), h]));
+
+    const kayitli = (dbRows || []).map((r) => ({
+        id: r.id,
+        name: r.name,
+        kosuSayisi: r.kosuSayisi,
+        ilkKosuSaat: r.ilkKosuSaat || '',
+        cekilmeTarihi: r.cekilmeTarihi || null
+    }));
+
+    const eksik = domesticTjk
+        .filter((h) => !dbById.has(String(h.id)))
+        .map((h) => ({ id: h.id, name: h.name }));
+
+    const fazla = (dbRows || [])
+        .filter((r) => !tjkById.has(String(r.id)))
+        .map((r) => ({ id: r.id, name: r.name }));
+
+    let lastFetch = null;
+    for (const r of dbRows || []) {
+        if (r.cekilmeTarihi && (!lastFetch || r.cekilmeTarihi > lastFetch)) {
+            lastFetch = r.cekilmeTarihi;
+        }
+    }
+
+    let durum = 'bos';
+    if (kayitli.length && !eksik.length && domesticTjk.length) durum = 'tam';
+    else if (kayitli.length && eksik.length) durum = 'eksik';
+    else if (kayitli.length && !domesticTjk.length) durum = 'kayitli';
+    else if (!kayitli.length && domesticTjk.length) durum = 'bos';
+
+    return {
+        tarih,
+        iso: trToIso(tarih),
+        yayinli: kayitli.length > 0,
+        dbCount: kayitli.length,
+        tjkDomesticCount: domesticTjk.length,
+        kayitli,
+        eksik,
+        fazla,
+        lastFetch,
+        durum
+    };
+}
+
+async function getProgramSyncForDate(db, tarih, opts = {}) {
+    const vitrin = await getPublicVitrin(db, tarih);
+    let tjkRows = [];
+    let tjkError = null;
+    let tjkCached = false;
+
+    if (opts.live !== false) {
+        try {
+            const tjk = await getTjkHipodromlarCached(tarih, {
+                maxAttempts: opts.maxAttempts || 3,
+                timeoutMs: opts.timeoutMs || 25000
+            });
+            tjkRows = tjk.hipodromlar;
+            tjkCached = tjk.cached;
+        } catch (err) {
+            tjkError = err.message;
+        }
+    }
+
+    return {
+        ...summarizeDayStatus(tarih, vitrin.hipodromlar, tjkRows),
+        tjkError,
+        tjkCached
+    };
+}
+
+async function getProgramSyncOverview(db, opts = {}) {
+    const today = todayTr();
+    const tomorrow = tomorrowTr();
+    const [todayStatus, tomorrowStatus, lastRuns] = await Promise.all([
+        getProgramSyncForDate(db, today, opts),
+        getProgramSyncForDate(db, tomorrow, opts),
+        getLastFetchRuns(db, opts.logLimit || 8)
+    ]);
+    return {
+        generatedAt: new Date().toISOString(),
+        today: { ...todayStatus, label: 'bugün' },
+        tomorrow: { ...tomorrowStatus, label: 'yarın' },
+        lastRuns
+    };
 }
 
 module.exports = {
@@ -356,5 +541,9 @@ module.exports = {
     getPublicVitrin,
     fetchHipodromProgram,
     resolveHipodromList,
-    queryHipodromlarFromDb
+    queryHipodromlarFromDb,
+    logFetchRun,
+    getLastFetchRuns,
+    getProgramSyncForDate,
+    getProgramSyncOverview
 };

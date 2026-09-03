@@ -146,6 +146,88 @@
         return tahminler.slice(0, 4).map((t) => t.horseNo || '?').join(' / ');
     }
 
+    function formatSyncTime(isoOrSql) {
+        if (!isoOrSql) return '—';
+        const d = new Date(isoOrSql);
+        if (Number.isNaN(d.getTime())) return isoOrSql;
+        return d.toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function syncBadgeClass(durum) {
+        if (durum === 'tam') return 'pub-program-sync-badge-ok';
+        if (durum === 'eksik' || durum === 'kayitli') return 'pub-program-sync-badge-warn';
+        return 'pub-program-sync-badge-empty';
+    }
+
+    function syncBadgeLabel(day) {
+        if (day.durum === 'tam') return 'Tamam';
+        if (day.durum === 'eksik') return 'Eksik';
+        if (day.durum === 'kayitli') return 'Kayıtlı';
+        if (day.durum === 'bos') return 'Boş';
+        return day.durum || '—';
+    }
+
+    function renderProgramSyncDay(day) {
+        const countLabel = day.tjkDomesticCount
+            ? (day.dbCount + '/' + day.tjkDomesticCount + ' hipodrom')
+            : (day.dbCount + ' hipodrom kayıtlı');
+        const kayitli = (day.kayitli || []).map((h) =>
+            h.name + ' (' + h.kosuSayisi + ' koşu)'
+        ).join(' · ') || '—';
+        const eksik = (day.eksik || []).map((h) => h.name).join(', ');
+        const eksikLine = eksik
+            ? '<div class="pub-program-sync-meta" style="color:#e65100">TJK\'da var, bizde yok: <strong>' + escapeHtml(eksik) + '</strong></div>'
+            : '';
+        const tjkWarn = day.tjkError
+            ? '<div class="pub-program-sync-meta" style="color:#c62828">TJK kontrolü: ' + escapeHtml(day.tjkError) + '</div>'
+            : '';
+        return '<div class="pub-program-sync-day">'
+            + '<div class="pub-program-sync-day-hdr">'
+            + '<span class="pub-program-sync-day-title">' + escapeHtml(day.label || day.tarih) + '</span>'
+            + '<span class="pub-program-sync-badge ' + syncBadgeClass(day.durum) + '">' + syncBadgeLabel(day) + '</span>'
+            + '</div>'
+            + '<div class="pub-program-sync-meta">' + escapeHtml(countLabel)
+            + (day.lastFetch ? ' · Son çekim: ' + escapeHtml(formatSyncTime(day.lastFetch)) : '')
+            + '</div>'
+            + '<div class="pub-program-sync-hips">' + escapeHtml(kayitli) + '</div>'
+            + eksikLine + tjkWarn
+            + '</div>';
+    }
+
+    function renderProgramSync(data) {
+        const el = $('#pubProgramSyncBody');
+        if (!el) return;
+        if (!data || !data.success) {
+            el.innerHTML = '<div class="pub-program-sync-meta">Durum alınamadı.</div>';
+            return;
+        }
+        let html = '<div class="pub-program-sync-grid">'
+            + renderProgramSyncDay({ ...data.today, label: 'Bugün · ' + (data.today.tarih || '') })
+            + renderProgramSyncDay({ ...data.tomorrow, label: 'Yarın · ' + (data.tomorrow.tarih || '') })
+            + '</div>';
+        if (data.lastRuns && data.lastRuns.length) {
+            const last = data.lastRuns[0];
+            html += '<div class="pub-program-sync-log">Son işlem: '
+                + escapeHtml(formatSyncTime(last.startedAt))
+                + ' · ' + escapeHtml(last.tarih)
+                + ' · ' + (last.basarili || 0) + '/' + (last.hipodromSayisi || 0)
+                + ' hipodrom (' + escapeHtml(last.trigger || 'cli') + ')</div>';
+        }
+        el.innerHTML = html;
+    }
+
+    async function loadProgramSync() {
+        const el = $('#pubProgramSyncBody');
+        if (!el) return;
+        try {
+            const res = await fetch('/api/public/program-sync');
+            const data = await res.json();
+            renderProgramSync(data);
+        } catch (err) {
+            el.innerHTML = '<div class="pub-program-sync-meta">Bağlantı hatası: ' + escapeHtml(err.message || '') + '</div>';
+        }
+    }
+
     async function loadVitrin(iso) {
         const raceList = $('#pubRaceList');
         const hipTabs = $('#pubHipTabs');
@@ -1100,6 +1182,12 @@
             }
         });
         loadVitrin(iso);
+        loadProgramSync();
+        $('#pubProgramSyncRefresh')?.addEventListener('click', () => {
+            const body = $('#pubProgramSyncBody');
+            if (body) body.innerHTML = '<div class="pub-loading pub-program-sync-loading"><div class="pub-spinner"></div> Durum kontrol ediliyor…</div>';
+            loadProgramSync();
+        });
     }
 
     initTabs();

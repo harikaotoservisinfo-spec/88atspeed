@@ -178,6 +178,19 @@ app.get('/api/public/vitrin', async (req, res) => {
     }
 });
 
+/** Kamu program çekim durumu — bugün/yarın TJK vs veritabanı */
+app.get('/api/public/program-sync', async (req, res) => {
+    try {
+        const overview = await publicProgram.getProgramSyncOverview(db, {
+            live: req.query.live !== '0'
+        });
+        res.json({ success: true, ...overview });
+    } catch (err) {
+        console.error('public/program-sync:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 app.get('/api/public/muhtemeller', async (req, res) => {
     try {
         let iso = req.query.iso;
@@ -465,11 +478,31 @@ app.post('/api/admin/public-program-cek', async (req, res) => {
     try {
         const built = await publicProgram.buildPublicProgram(db, tarih, {
             onlyDomestic,
-            publish: req.body?.publish !== false
+            publish: req.body?.publish !== false,
+            trigger: 'admin'
         });
-        res.json({ success: true, ...built });
+        const sync = await publicProgram.getProgramSyncForDate(db, tarih);
+        res.json({ success: true, ...built, sync });
     } catch (err) {
         console.error('public-program-cek:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.get('/api/admin/public-program-status', async (req, res) => {
+    if (!adminAuth.isAuthenticated(req)) {
+        return res.status(401).json({ success: false, error: 'Yönetici oturumu gerekli' });
+    }
+    try {
+        if (req.query.tarih) {
+            const sync = await publicProgram.getProgramSyncForDate(db, req.query.tarih);
+            const lastRuns = await publicProgram.getLastFetchRuns(db, 15);
+            return res.json({ success: true, sync, lastRuns });
+        }
+        const overview = await publicProgram.getProgramSyncOverview(db, { logLimit: 15 });
+        res.json({ success: true, ...overview });
+    } catch (err) {
+        console.error('public-program-status:', err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 });

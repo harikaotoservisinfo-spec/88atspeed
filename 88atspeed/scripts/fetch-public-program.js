@@ -30,6 +30,7 @@ const opts = {
 
 (async function main() {
     console.log('📡 Kamu programı çekiliyor:', tarih);
+    const startedAt = new Date().toISOString();
     if (hipodromFilter) {
         const hip = publicProgram.FALLBACK_HIPODROMS.find((h) =>
             h.name.toLowerCase().includes(hipodromFilter.toLowerCase()));
@@ -54,11 +55,20 @@ const opts = {
             ], (err) => err ? reject(err) : resolve());
         });
         console.log('✅', hip.name, '—', prog.kosuSayisi, 'koşu kaydedildi');
+        await publicProgram.logFetchRun(db, {
+            startedAt,
+            tarih,
+            trigger: 'cli-single',
+            hipodromSayisi: 1,
+            basarili: 1,
+            results: [{ hipodrom: hip.name, kosuSayisi: prog.kosuSayisi, ok: true }],
+            ok: true
+        });
         db.close();
         process.exit(0);
     }
 
-    const result = await publicProgram.buildPublicProgram(db, tarih, opts);
+    const result = await publicProgram.buildPublicProgram(db, tarih, { ...opts, trigger: 'cli' });
     console.log('📋 Hipodrom kaynağı:', result.hipodromKaynagi);
     console.log('✅ Tamamlandı:', result.basarili + '/' + result.hipodromSayisi, 'hipodrom');
 

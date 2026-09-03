@@ -1202,6 +1202,105 @@ a { color: inherit; text-decoration: none; }
     font-weight: 600;
 }
 
+/* Program çekim durumu */
+.pub-program-sync {
+    background: var(--pub-card);
+    border-radius: var(--pub-radius);
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    box-shadow: var(--pub-shadow);
+    border: 1px solid rgba(21, 101, 192, 0.12);
+}
+
+.pub-program-sync-hdr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--pub-text);
+    margin-bottom: 10px;
+}
+
+.pub-program-sync-refresh {
+    border: 1px solid var(--pub-border);
+    background: #fff;
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+}
+
+.pub-program-sync-refresh:hover { background: #f5f5f5; }
+
+.pub-program-sync-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 10px;
+}
+
+.pub-program-sync-day {
+    border: 1px solid var(--pub-border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: #fafbfc;
+}
+
+.pub-program-sync-day-hdr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.pub-program-sync-day-title {
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--pub-muted);
+}
+
+.pub-program-sync-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 999px;
+}
+
+.pub-program-sync-badge-ok { background: #e8f5e9; color: #2e7d32; }
+.pub-program-sync-badge-warn { background: #fff3e0; color: #e65100; }
+.pub-program-sync-badge-empty { background: #eceff1; color: #546e7a; }
+
+.pub-program-sync-meta {
+    font-size: 12px;
+    color: var(--pub-muted);
+    line-height: 1.45;
+}
+
+.pub-program-sync-hips {
+    margin-top: 6px;
+    font-size: 11px;
+    color: #37474f;
+}
+
+.pub-program-sync-log {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--pub-border);
+    font-size: 11px;
+    color: var(--pub-muted);
+}
+
+.pub-program-sync-loading {
+    padding: 8px 0;
+    font-size: 12px;
+}
+
 /* Hipodrom sekmeleri */
 .pub-hip-tabs {
     display: flex;
