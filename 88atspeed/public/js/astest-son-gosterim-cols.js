@@ -419,8 +419,8 @@ const AtestSonGosterimCols = (function () {
         }
         tahmin.gosterimBonus = (tahmin.gosterimBonus ?? 0) + delta;
         tahmin.gosterimBonusTerms = (tahmin.gosterimBonusTerms || []).concat(terms);
-        tahmin.pct = (tahmin.pct ?? 0) + delta;
-        tahmin.score = (tahmin.score ?? 0) + delta;
+        tahmin.pct = Math.max(0, (tahmin.pct ?? 0) + delta);
+        tahmin.score = Math.max(0, (tahmin.score ?? 0) + delta);
         if (!tahmin.topTerms) tahmin.topTerms = [];
         tahmin.topTerms = terms.concat(tahmin.topTerms).slice(0, 10);
     }
@@ -479,7 +479,8 @@ const AtestSonGosterimCols = (function () {
         for (let i = 0; i < horseRows.length; i++) {
             const row = horseRows[i];
             const tahmin = row.tahmin;
-            if (!tahmin || tahmin.rank == null) continue;
+            if (!tahmin || tahmin.rank == null || tahmin.ineligible) continue;
+            if ((tahmin.score ?? 0) <= 0 && (tahmin.pct ?? 0) <= 0) continue;
 
             const key = horseKey(row.h);
             if (!key) continue;

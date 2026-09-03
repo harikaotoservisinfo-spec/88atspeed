@@ -1026,7 +1026,7 @@
         }
 
         function astestSonTestTahminCell(tahmin) {
-            if (!tahmin || tahmin.rank == null || tahmin.pct == null) {
+            if (!tahmin || tahmin.rank == null || tahmin.pct == null || tahmin.pct <= 0) {
                 return '<td class="col-tahmin">—</td>';
             }
             let title = 'TAHMİN · ' + tahmin.rank + '. sıra · skor ' + (tahmin.score ?? '?');
@@ -2483,12 +2483,25 @@
                     }
                 }
                 currentRaces = await enrichRacesWithHorseHistory(currentRaces);
+                syncVeriCacheFromRaces(currentRaces);
+                currentHorses = [];
+                for (let i = 0; i < currentRaces.length; i++) {
+                    for (let j = 0; j < (currentRaces[i].horses || []).length; j++) {
+                        currentHorses.push({
+                            ...currentRaces[i].horses[j],
+                            raceNo: currentRaces[i].raceNo
+                        });
+                    }
+                }
                 await refreshTestTabs(currentRaces, {
                     source: 'kayit',
                     kayitId: id,
                     tarih: kayit.tarih,
                     hipodrom: kayit.hipodrom
                 });
+                if (getActiveTestTabId() === 'son-test') {
+                    await sonTestGoster(currentRaces, currentSonTestMeta, { skipCalibration: false });
+                }
                 statusDiv.innerHTML = '<div class="status status-success">✅ Kayıt #' + id + ' yüklendi — '
                     + (kayit.hipodrom || '') + ' ' + (kayit.tarih || '') + '</div>';
             } catch (error) {

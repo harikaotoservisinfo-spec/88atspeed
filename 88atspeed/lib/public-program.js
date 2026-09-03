@@ -215,8 +215,15 @@ function parseRaceProgramFromHtml(html) {
         if (!kosuMatch) continue;
         const kosuNo = parseInt(kosuMatch[1], 10);
         const headerLine = blok.match(/\d+\.\s*Koşu\s+\d+\.\d+\s*\n([^\n]+)/);
-        const meta = parseRaceMetaFromText(headerLine ? headerLine[1] : blok.slice(0, 200));
-        meta.saat = meta.saat || kosuMatch[2];
+        const parsed = tjkScrape.parseRaceHeaderLine(headerLine ? headerLine[1] : blok.slice(0, 200));
+        const meta = {
+            baslik: (headerLine ? headerLine[1] : blok.slice(0, 200)).replace(/\s+/g, ' ').trim().slice(0, 120),
+            mesafe: parsed.mesafe || '',
+            pist: parsed.pist_kosu || '',
+            kcins_kosu: parsed.kcins_kosu || '',
+            kategori: parsed.kategori || '',
+            saat: kosuMatch[2]
+        };
         metaByNo[kosuNo] = meta;
     }
 
@@ -253,6 +260,8 @@ function parseRaceProgramFromHtml(html) {
             saat: meta.saat || '',
             mesafe: meta.mesafe || '',
             pist: meta.pist || '',
+            kcins_kosu: meta.kcins_kosu || '',
+            kategori: meta.kategori || '',
             baslik: meta.baslik || `${raceNo}. Koşu`,
             horses,
             tahminler: [],
