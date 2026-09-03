@@ -1,9 +1,11 @@
 const express = require('express');
+const path = require('path');
 const puppeteer = require('puppeteer');
 const sqlite3 = require('sqlite3').verbose();
 const tjkScrape = require('./lib/tjk-scrape');
 const { buildCalibrationFlat, clearCalibrationFlatCache } = require('./lib/calibration-flat-build');
 const { buildCalibrationBundle, clearCalibrationBundleCache } = require('./lib/calibration-bundle');
+const adminAuth = require('./lib/admin-auth');
 const app = express();
 const PORT = 3023;
 
@@ -77,6 +79,36 @@ db.run(`CREATE TABLE IF NOT EXISTS puanlama_bitis_sonuclari (
     guncelleme DATETIME DEFAULT CURRENT_TIMESTAMP
 )`);
 
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+app.post('/api/admin/login', (req, res) => {
+    const password = req.body?.password;
+    if (!password || password !== adminAuth.getAdminPassword()) {
+        return res.status(401).json({ success: false, error: 'Geçersiz yönetici şifresi' });
+    }
+    adminAuth.setSessionCookie(res);
+    res.json({ success: true });
+});
+
+app.get('/api/admin/session', (req, res) => {
+    res.json({ success: true, authenticated: adminAuth.isAuthenticated(req) });
+});
+
+app.post('/api/admin/logout', (req, res) => {
+    adminAuth.clearSessionCookie(res);
+    res.json({ success: true });
+});
+
+app.get('/yonetim', (req, res) => {
+    if (adminAuth.isAuthenticated(req)) {
+        return res.redirect('/panel.html');
+    }
+    res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.use(adminAuth.guardAdminPage);
+
 app.use(express.static('public', {
     setHeaders(res, filePath) {
         if (filePath.endsWith('.html') || filePath.endsWith('.css') || filePath.endsWith('.js')) {
@@ -86,9 +118,6 @@ app.use(express.static('public', {
         }
     }
 }));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
-
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -346,6 +375,8 @@ async function parseKosuDetayFromPage(page, atIsmi) {
         return { birinciDerece, atDereceDetay, son800 };
     }, atIsmi);
 }
+
+app.use('/api', adminAuth.guardAdminApi);
 
 app.get('/api/scrape-test', async (req, res) => {
     const atId = req.query.id || '99891';

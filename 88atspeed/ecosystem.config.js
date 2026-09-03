@@ -11,7 +11,9 @@ module.exports = {
       NODE_ENV: 'production',
       PORT: 3023,
       HOST: '127.0.0.1',
-      CHROME_PATH: '/usr/bin/google-chrome-stable'
+      CHROME_PATH: '/usr/bin/google-chrome-stable',
+      ADMIN_PASSWORD: 'yonetim2026',
+      ADMIN_SESSION_SECRET: 'production-degistirin-guclu-bir-anahtar'
     }
   }]
 };
