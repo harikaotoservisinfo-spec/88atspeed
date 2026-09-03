@@ -13,7 +13,6 @@
         muhtKosuNo: null,
         muhtRaceCache: {},
         muhtRaceLoading: false,
-        muhtBetKey: null,
         muhtAutoRefresh: true,
         muhtRefreshSec: 15,
         muhtCountdown: 15,
@@ -334,8 +333,10 @@
 
     function renderMuhtemelBetPanel(bet, flashKeys) {
         const isOpen = (bet.D || '').toUpperCase() === 'AÇIK';
-        let html = '<div class="pub-muht-bet-status' + (isOpen ? ' open' : '') + '">'
-            + '<span>' + escapeHtml(bet.B) + '</span>'
+        const cnt = (bet.muhtemeller || []).length;
+        let html = '<div class="pub-muht-bet-section">'
+            + '<div class="pub-muht-bet-status' + (isOpen ? ' open' : '') + '">'
+            + '<span>' + escapeHtml(bet.B) + ' <em class="pub-muht-bet-cnt">' + cnt + '</em></span>'
             + '<span>' + escapeHtml(bet.D || '') + '</span></div>';
 
         if (bet.isGanyan || bet.B === 'GANYAN') {
@@ -353,18 +354,15 @@
             html += '</tbody></table>';
         } else {
             html += '<div class="pub-muht-ikili-grid"><table class="pub-muht-table pub-muht-table-compact"><thead><tr><th>Kombinasyon</th><th>Oran</th></tr></thead><tbody>';
-            const rows = (bet.muhtemeller || []).slice(0, 40);
-            rows.forEach((row) => {
+            (bet.muhtemeller || []).forEach((row) => {
                 const oddKey = bet.B + '|' + (row.S1 || '') + '|' + (row.S2 || '') + '|';
                 const flash = flashKeys?.[oddKey] || '';
                 html += '<tr data-odd-key="' + escapeHtml(oddKey) + '"><td>' + escapeHtml(row.T || (row.S1 + '-' + row.S2)) + '</td>'
                     + '<td class="pub-muht-ganyan' + flash + '">' + escapeHtml(row.G || '—') + '</td></tr>';
             });
             html += '</tbody></table></div>';
-            if ((bet.muhtemeller || []).length > 40) {
-                html += '<div class="pub-muht-more">+ ' + ((bet.muhtemeller.length - 40)) + ' kombinasyon daha</div>';
-            }
         }
+        html += '</div>';
         return html;
     }
 
@@ -374,13 +372,11 @@
             return '<div class="pub-empty"><p>Bu koşu için muhtemel verisi yok.</p></div>';
         }
 
-        if (!state.muhtBetKey || !bahisler.find((b) => b.B === state.muhtBetKey)) {
-            state.muhtBetKey = bahisler[0].B;
-        }
-        const activeBet = bahisler.find((b) => b.B === state.muhtBetKey) || bahisler[0];
-
         const title = escapeHtml(muht.key) + ' · ' + muht.no + '. Koşu';
         const sub = [muht.pist, muht.saat].filter(Boolean).join(' · ');
+
+        const ganyan = bahisler.filter((b) => b.isGanyan || b.B === 'GANYAN');
+        const combos = bahisler.filter((b) => !b.isGanyan && b.B !== 'GANYAN');
 
         let html = '<div class="pub-muht-race-card">'
             + '<div class="pub-muht-race-top">'
@@ -391,38 +387,16 @@
             + '<span class="pub-muht-durum pub-muht-durum-' + (muht.isOpen ? 'acik' : 'resmi') + '">' + escapeHtml(muht.durum || '') + '</span>'
             + '</div></div>';
 
-        html += '<div class="pub-muht-bet-tabs" role="tablist">';
-        bahisler.forEach((bet) => {
-            const sel = bet.B === activeBet.B;
-            const cnt = (bet.muhtemeller || []).length;
-            html += '<button type="button" class="pub-muht-bet-tab' + (sel ? ' active' : '') + '" data-muht-bet="' + escapeHtml(bet.B) + '" role="tab">'
-                + escapeHtml(bet.B) + '<span class="pub-muht-bet-cnt">' + cnt + '</span></button>';
-        });
-        html += '</div>';
-
-        html += '<div class="pub-muht-bet-panel" id="pubMuhtBetPanel">'
-            + renderMuhtemelBetPanel(activeBet, flashKeys)
-            + '</div></div>';
+        html += '<div class="pub-muht-bet-stack">';
+        ganyan.forEach((bet) => { html += renderMuhtemelBetPanel(bet, flashKeys); });
+        if (combos.length) {
+            html += '<div class="pub-muht-combo-grid">';
+            combos.forEach((bet) => { html += renderMuhtemelBetPanel(bet, flashKeys); });
+            html += '</div>';
+        }
+        html += '</div></div>';
 
         return html;
-    }
-
-    function bindMuhtemelRaceEvents(muht) {
-        $('#pubMuhtContent')?.querySelectorAll('[data-muht-bet]').forEach((btn) => {
-            btn.addEventListener('click', () => {
-                state.muhtBetKey = btn.dataset.muhtBet;
-                const cacheKey = (state.muhtIso || state.iso) + ':' + getCurrentRunKey();
-                const cached = state.muhtRaceCache[cacheKey];
-                if (cached?.muhtemel) {
-                    $('#pubMuhtBetPanel').innerHTML = renderMuhtemelBetPanel(
-                        cached.muhtemel.bahisler.find((b) => b.B === state.muhtBetKey) || cached.muhtemel.bahisler[0]
-                    );
-                    $('#pubMuhtContent').querySelectorAll('.pub-muht-bet-tab').forEach((t) => {
-                        t.classList.toggle('active', t.dataset.muhtBet === state.muhtBetKey);
-                    });
-                }
-            });
-        });
     }
 
     function computeFlashKeys(prevOdds, nextOdds) {
@@ -454,7 +428,6 @@
         }
         if (cached?.muhtemel) {
             content.innerHTML = renderMuhtemelRaceBody(cached.muhtemel, flashKeys);
-            bindMuhtemelRaceEvents(cached.muhtemel);
             updateMuhtToolbar(isCurrentRaceOpen());
             return;
         }
@@ -494,7 +467,6 @@
             btn.addEventListener('click', () => {
                 state.muhtHipKey = btn.dataset.muhtHip;
                 state.muhtKosuNo = null;
-                state.muhtBetKey = null;
                 stopMuhtPolling();
                 renderMuhtemeller();
             });
@@ -515,7 +487,6 @@
         kosuTabs.querySelectorAll('[data-muht-kosu]').forEach((btn) => {
             btn.addEventListener('click', () => {
                 state.muhtKosuNo = btn.dataset.muhtKosu;
-                state.muhtBetKey = null;
                 stopMuhtPolling();
                 renderMuhtemeller();
             });
@@ -634,7 +605,6 @@
             state.muhtHipKey = null;
             state.muhtKosuNo = null;
             state.muhtRaceCache = {};
-            state.muhtBetKey = null;
             state.muhtLastUpdate = null;
             renderMuhtemeller();
             startMuhtPolling();
