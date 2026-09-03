@@ -41,6 +41,31 @@ const AtestT1drTest1Match = (function () {
         return false;
     }
 
+    function bitisRowKey(kayitId, raceNo, horseNo) {
+        return String(kayitId) + '|' + raceNo + '|' + String(horseNo ?? '');
+    }
+
+    async function loadBitisMap() {
+        try {
+            const res = await fetch('/api/puanlama-bitis-sonuclari');
+            const json = await res.json();
+            if (json.success) return json.sonuclar || {};
+        } catch (_) { /* ignore */ }
+        return {};
+    }
+
+    function resolveHorseBitis(horse, race, meta, bitisMap) {
+        const kayitId = meta?.kayitId;
+        const raceNo = race?.raceNo;
+        const horseNo = horse?.no;
+        if (kayitId != null && raceNo != null && horseNo != null && bitisMap) {
+            const key = bitisRowKey(kayitId, raceNo, horseNo);
+            const saved = bitisMap[key];
+            if (saved != null && saved >= 1) return saved;
+        }
+        return extractBitis(horse);
+    }
+
     function extractBitis(h) {
         if (typeof AtSpeedUtils !== 'undefined') {
             return AtSpeedUtils.extractBitisFromHorseName(h?.name);
@@ -238,6 +263,7 @@ const AtestT1drTest1Match = (function () {
         for (let ri = 0; ri < races.length; ri++) {
             scoreCache[ri] = await buildRaceScoreMaps(races[ri], meta, resolveKosular);
         }
+        const bitisMap = await loadBitisMap();
 
         const anyCalibrated = scoreCache.some(function (s) { return s.calibrated; });
         const calibNote = anyCalibrated
@@ -285,7 +311,7 @@ const AtestT1drTest1Match = (function () {
             for (let mi = 0; mi < matches.length; mi++) {
                 const m = matches[mi];
                 const hk = horseKey(m.horse);
-                const bitis = extractBitis(m.horse);
+                const bitis = resolveHorseBitis(m.horse, race, meta, bitisMap);
                 const tahmin = hk ? scores.tahminMap.get(hk) : null;
                 const go = hk ? scores.goMap.get(hk) : null;
                 const hyb = hk ? scores.hybMap.get(hk) : null;
