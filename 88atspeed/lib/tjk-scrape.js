@@ -2,6 +2,9 @@
  * TJK scrape yardımcıları — alan parse, kalite kontrol, retry
  */
 const puppeteer = require('puppeteer');
+const cheerio = require('cheerio');
+const https = require('https');
+const http = require('http');
 
 const KOSU_KRITIK = ['at_derece', 'birinci_derece', 'son800_bir'];
 const KOSU_TUM_ALANLAR = [
@@ -17,6 +20,68 @@ function getBrowserHeaders() {
         'Accept-Language': 'tr-TR,tr;q=0.9,en;q=0.8',
         'Referer': 'https://www.tjk.org/'
     };
+}
+
+function fetchHtml(url, headers, redirectsLeft = 3) {
+    return new Promise((resolve, reject) => {
+        const lib = url.startsWith('https') ? https : http;
+        const req = lib.get(url, { headers }, (res) => {
+            if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirectsLeft > 0) {
+                const next = res.headers.location.startsWith('http')
+                    ? res.headers.location
+                    : new URL(res.headers.location, url).href;
+                res.resume();
+                fetchHtml(next, headers, redirectsLeft - 1).then(resolve).catch(reject);
+                return;
+            }
+            let body = '';
+            res.on('data', (chunk) => { body += chunk; });
+            res.on('end', () => {
+                if (res.statusCode >= 200 && res.statusCode < 300) resolve(body);
+                else reject(new Error('TJK HTTP ' + res.statusCode));
+            });
+        });
+        req.on('error', reject);
+        req.setTimeout(45000, () => {
+            req.destroy();
+            reject(new Error('TJK isteği zaman aşımı'));
+        });
+    });
+}
+
+function parseHipodromlarFromHtml(html) {
+    const result = [];
+    const seen = new Set();
+    const $ = cheerio.load(html);
+    $('ul.gunluk-tabs > li > a').each((_, el) => {
+        const id = $(el).attr('data-sehir-id');
+        let name = $(el).text().trim();
+        name = name.replace(/\(\d+\.\s*Y\.G\.\)/, '').trim();
+        if (id && name && !seen.has(id)) {
+            seen.add(id);
+            result.push({ id, name });
+        }
+    });
+    if (result.length) return result;
+    const re = /data-sehir-id="(\d+)"[^>]*>([^<]+)/g;
+    let match;
+    while ((match = re.exec(html)) !== null) {
+        const id = match[1];
+        let name = match[2].trim().replace(/\(\d+\.\s*Y\.G\.\)/, '').trim();
+        if (id && name && !seen.has(id)) {
+            seen.add(id);
+            result.push({ id, name });
+        }
+    }
+    return result;
+}
+
+/** Puppeteer olmadan günlük yarış programı hipodrom sekmelerini çeker. */
+async function fetchHipodromlarForDate(tarih) {
+    const url = 'https://www.tjk.org/TR/YarisSever/Info/Page/GunlukYarisProgrami'
+        + '?QueryParameter_Tarih=' + encodeURIComponent(tarih) + '&Era=today';
+    const html = await fetchHtml(url, getBrowserHeaders());
+    return parseHipodromlarFromHtml(html);
 }
 
 function resolveChromeExecutable() {
@@ -765,6 +830,8 @@ module.exports = {
     KOSU_KRITIK,
     KOSU_TUM_ALANLAR,
     getBrowserHeaders,
+    fetchHipodromlarForDate,
+    parseHipodromlarFromHtml,
     launchBrowser,
     gotoWithHeaders,
     gotoKosuSonucSayfasi,

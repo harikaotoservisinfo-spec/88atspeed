@@ -440,35 +440,34 @@ app.get('/api/scrape-test', async (req, res) => {
     }
 });
 
-// API 1: Hipodromları getir
+// API 1: Hipodromları getir (önce hafif HTTP; Puppeteer yedek)
 app.get('/api/hipodromlar', async (req, res) => {
     const tarih = req.query.tarih;
     console.log('📡 Hipodrom isteği - Tarih:', tarih);
-    
+
     try {
-        const browserInstance = await getBrowserInstance();
-        const page = await browserInstance.newPage();
-        const url = `https://www.tjk.org/TR/YarisSever/Info/Page/GunlukYarisProgrami?QueryParameter_Tarih=${tarih}&Era=today`;
-        await gotoWithHeaders(page, url);
-        
-        const hipodromlar = await page.evaluate(() => {
-            const tabs = document.querySelectorAll('ul.gunluk-tabs > li > a');
-            const result = [];
-            for (let i = 0; i < tabs.length; i++) {
-                const tab = tabs[i];
-                const id = tab.getAttribute('data-sehir-id');
-                let name = tab.innerText.trim();
-                name = name.replace(/\(\d+\.\s*Y\.G\.\)/, '').trim();
-                if (id && name) {
-                    result.push({ id: id, name: name });
+        let hipodromlar = await tjkScrape.fetchHipodromlarForDate(tarih);
+        if (!hipodromlar.length) {
+            console.log('⚠️ HTTP hipodrom boş, Puppeteer deneniyor…');
+            const browserInstance = await getBrowserInstance();
+            const page = await browserInstance.newPage();
+            const url = `https://www.tjk.org/TR/YarisSever/Info/Page/GunlukYarisProgrami?QueryParameter_Tarih=${tarih}&Era=today`;
+            await gotoWithHeaders(page, url);
+            hipodromlar = await page.evaluate(() => {
+                const tabs = document.querySelectorAll('ul.gunluk-tabs > li > a');
+                const result = [];
+                for (let i = 0; i < tabs.length; i++) {
+                    const tab = tabs[i];
+                    const id = tab.getAttribute('data-sehir-id');
+                    let name = tab.innerText.trim();
+                    name = name.replace(/\(\d+\.\s*Y\.G\.\)/, '').trim();
+                    if (id && name) result.push({ id, name });
                 }
-            }
-            return result;
-        });
-        
-        await page.close();
-        res.json({ success: true, hipodromlar: hipodromlar });
-        
+                return result;
+            });
+            await page.close();
+        }
+        res.json({ success: true, hipodromlar });
     } catch (error) {
         console.error('Hipodrom hatası:', error.message);
         res.json({ success: false, error: error.message, hipodromlar: [] });

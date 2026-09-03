@@ -1569,8 +1569,18 @@
             hipodromSelect.innerHTML = '<option value="">Hipodromlar yükleniyor...</option>';
             statusDiv.innerHTML = '<div class="status status-loading">⏳ ' + tarih + ' tarihi için hipodromlar listeleniyor...</div>';
             try {
-                let response = await fetch('/api/hipodromlar?tarih=' + tarih);
-                let result = await response.json();
+                let response = await fetch('/api/hipodromlar?tarih=' + encodeURIComponent(tarih), { credentials: 'same-origin' });
+                if (response.status === 401) {
+                    hipodromSelect.innerHTML = '<option value="">Oturum gerekli</option>';
+                    statusDiv.innerHTML = '<div class="status status-error">❌ Oturum süresi doldu — <a href="/yonetim">tekrar giriş yapın</a></div>';
+                    return;
+                }
+                let result;
+                try {
+                    result = await response.json();
+                } catch (parseErr) {
+                    throw new Error('Sunucu geçersiz yanıt döndü (HTTP ' + response.status + ')');
+                }
                 if (result.success && result.hipodromlar && result.hipodromlar.length > 0) {
                     hipodromSelect.innerHTML = '<option value="">Hipodrom seçin</option>';
                     for (let i = 0; i < result.hipodromlar.length; i++) {
@@ -1582,11 +1592,12 @@
                     statusDiv.innerHTML = '<div class="status status-success">✅ ' + tarih + ' tarihinde ' + result.hipodromlar.length + ' hipodromda yarış var</div>';
                 } else {
                     hipodromSelect.innerHTML = '<option value="">Hipodrom bulunamadı</option>';
-                    statusDiv.innerHTML = '<div class="status status-error">⚠️ ' + tarih + ' tarihinde yarış bulunamadı</div>';
+                    const errMsg = result.error ? (' — ' + result.error) : '';
+                    statusDiv.innerHTML = '<div class="status status-error">⚠️ ' + tarih + ' tarihinde yarış bulunamadı' + errMsg + '</div>';
                 }
             } catch(e) {
                 hipodromSelect.innerHTML = '<option value="">Bağlantı hatası</option>';
-                statusDiv.innerHTML = '<div class="status status-error">❌ Sunucuya bağlanılamıyor</div>';
+                statusDiv.innerHTML = '<div class="status status-error">❌ Sunucuya bağlanılamıyor' + (e.message ? ' — ' + e.message : '') + '</div>';
             }
         }
         
