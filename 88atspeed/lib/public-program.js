@@ -56,11 +56,17 @@ function todayTr() {
     return formatTrDate(new Date());
 }
 
+function normalizeHipodromName(name) {
+    return String(name || '').trim().toLocaleLowerCase('tr-TR');
+}
+
 function isDomesticHipodrom(name) {
     if (!name) return false;
-    if (/\(YD\s*\d*\)/i.test(name)) return false;
-    if (/ABD|Krallık|Afrika|Avustralya|Fransa|Almanya/i.test(name)) return false;
-    return DOMESTIC_HINT.test(name) || name === 'Karma';
+    const n = String(name).trim();
+    if (/\(YD\s*\d*\)/i.test(n)) return false;
+    const lower = normalizeHipodromName(n);
+    if (/abd|krallık|afrika|avustralya|fransa|almanya|kanada|guney afrika/.test(lower)) return false;
+    return DOMESTIC_HINT.test(lower) || lower === 'karma';
 }
 
 function sleep(ms) {
