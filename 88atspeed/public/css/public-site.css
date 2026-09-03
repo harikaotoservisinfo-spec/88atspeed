@@ -2430,16 +2430,16 @@ a { color: inherit; text-decoration: none; }
     align-items: flex-start;
     padding: 14px 16px;
     border-radius: 10px;
-    background: linear-gradient(135deg, #fff3e0, #ffebee);
-    border: 1px solid #ffab91;
+    background: linear-gradient(135deg, #e8f5e9, #f1f8e9);
+    border: 1px solid #a5d6a7;
     font-size: 13px;
     line-height: 1.5;
-    color: #bf360c;
+    color: #1b5e20;
 }
 
 .pub-kazanc-info-p {
     margin: 6px 0 0;
-    color: #5d4037;
+    color: #33691e;
 }
 
 .pub-kazanc-steps {
