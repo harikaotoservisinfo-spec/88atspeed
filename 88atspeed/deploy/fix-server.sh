@@ -68,8 +68,21 @@ systemctl reload nginx
 echo "   Nginx OK"
 
 # 4) Sağlık kontrolü
+wait_for_app() {
+  for i in $(seq 1 30); do
+    if curl -sf "http://127.0.0.1:3023/api/public/ping" >/dev/null 2>&1; then
+      echo "✅ Uygulama hazır (${i}x2sn)"
+      return 0
+    fi
+    sleep 2
+  done
+  echo "⚠️  Uygulama 3023 portunda yanıt vermiyor — pm2 logs 88atspeed --lines 80"
+  return 1
+}
+
 echo ""
 echo "🔍 Sağlık:"
+wait_for_app || true
 curl -s "http://127.0.0.1:3023/api/public/bitalih/auto/health" || echo "(yanıt yok)"
 echo ""
 pm2 status 88atspeed-bitalih 2>/dev/null || true

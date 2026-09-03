@@ -1,7 +1,6 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const puppeteer = require('puppeteer');
 const sqlite3 = require('sqlite3').verbose();
 const tjkScrape = require('./lib/tjk-scrape');
 const { buildCalibrationFlat, clearCalibrationFlatCache } = require('./lib/calibration-flat-build');
@@ -16,7 +15,8 @@ const hipodromBrowser = require('./lib/hipodrom-browser');
 const bitalihBet = require('./lib/bitalih-bet');
 const { resolveChromePath } = require('./lib/chrome-path');
 const app = express();
-const PORT = 3023;
+const PORT = Number(process.env.PORT) || 3023;
+const HOST = process.env.HOST || '0.0.0.0';
 
 fs.mkdirSync(path.join(__dirname, 'data'), { recursive: true });
 fs.mkdirSync(path.join(__dirname, 'data', 'bitalih-jobs'), { recursive: true });
@@ -367,6 +367,10 @@ app.get('/api/public/bitalih/auto/status', async (req, res) => {
     }
 });
 
+app.get('/api/public/ping', (req, res) => {
+    res.json({ ok: true, ts: Date.now() });
+});
+
 app.get('/api/public/bitalih/auto/health', (req, res) => {
     const scriptsOk = fs.existsSync(path.join(__dirname, 'scripts', 'bitalih-browser-login.js'))
         && fs.existsSync(path.join(__dirname, 'scripts', 'bitalih-bet-worker.js'));
@@ -540,6 +544,7 @@ async function getBrowserInstance() {
         }
     }
     if (browser) return browser;
+    const puppeteer = require('puppeteer');
     const launchOptions = buildLaunchOptions();
     try {
         browser = await puppeteer.launch(launchOptions);
@@ -1560,26 +1565,34 @@ app.use((req, res) => {
     res.status(404).send('Sayfa bulunamadı');
 });
 
-app.listen(PORT, async () => {
+app.listen(PORT, HOST, () => {
     console.log(`\n✅ 88ATSPEED Sunucusu çalışıyor:`);
-    console.log(`📍 http://localhost:${PORT}`);
+    console.log(`📍 http://${HOST}:${PORT}`);
     console.log(`💾 SQLite veritabanı hazır: atlar.db`);
-    console.log(`🐎 API\'ler aktif!\n`);
-    console.log(`🔒 Stealth plugin ile 403 engeli aşıldı.\n`);
-    buildCalibrationFlat()
-        .then(function(b) {
-            console.log('🔥 Kalibrasyon flat önbellek: ' + b.flatCount + ' satır (' + b.buildMs + 'ms)');
-        })
-        .catch(function(err) {
-            console.warn('Kalibrasyon flat önbellek ısıtma atlandı:', err.message);
-        });
-    buildCalibrationBundle()
-        .then(function(b) {
-            console.log('🔥 Kalibrasyon bundle önbellek: ' + b.flatCount + ' satır (' + b.buildMs + 'ms)');
-        })
-        .catch(function(err) {
-            console.warn('Kalibrasyon bundle ısıtma atlandı:', err.message);
-        });
+    console.log(`🐎 API'ler aktif!\n`);
+    if (process.env.WARM_CALIBRATION === '1') {
+        setTimeout(() => {
+            buildCalibrationFlat()
+                .then(function(b) {
+                    console.log('🔥 Kalibrasyon flat önbellek: ' + b.flatCount + ' satır (' + b.buildMs + 'ms)');
+                })
+                .catch(function(err) {
+                    console.warn('Kalibrasyon flat önbellek ısıtma atlandı:', err.message);
+                });
+            buildCalibrationBundle()
+                .then(function(b) {
+                    console.log('🔥 Kalibrasyon bundle önbellek: ' + b.flatCount + ' satır (' + b.buildMs + 'ms)');
+                })
+                .catch(function(err) {
+                    console.warn('Kalibrasyon bundle ısıtma atlandı:', err.message);
+                });
+        }, 15000);
+    } else {
+        console.log('Kalibrasyon ısıtma kapalı (ilk istekte önbelleklenir). WARM_CALIBRATION=1 ile açılır.');
+    }
+}).on('error', (err) => {
+    console.error('Sunucu başlatılamadı:', err.message);
+    process.exit(1);
 });
 
 module.exports = { db };

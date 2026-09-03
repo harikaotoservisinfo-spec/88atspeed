@@ -155,21 +155,8 @@
             const username = $('#pubAutoUser', root)?.value?.trim();
             const password = $('#pubAutoPass', root)?.value;
             if (!username || !password) return;
-            if (btn) { btn.disabled = true; btn.textContent = 'Kontrol ediliyor…'; }
+            if (btn) { btn.disabled = true; btn.textContent = 'Giriş başlatılıyor…'; }
             try {
-                for (let h = 0; h < 3; h++) {
-                    const healthRes = await fetch('/api/public/bitalih/auto/health');
-                    const health = await parseJsonResponse(healthRes);
-                    if (health.ok && health.data?.chromeInstalled) break;
-                    if (h < 2) await new Promise((r) => setTimeout(r, 3000));
-                    if (h === 2 && (!health.ok || !health.data?.chromeInstalled || !health.data?.workerAlive)) {
-                        updateSystemMessages({
-                            autoError: 'Bi\'Talih worker hazır değil. SSH: bash /var/www/88atspeed/deploy/fix-server.sh'
-                        });
-                        return;
-                    }
-                }
-                if (btn) btn.textContent = 'Giriş başlatılıyor…';
                 const res = await fetch('/api/public/bitalih/auto/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

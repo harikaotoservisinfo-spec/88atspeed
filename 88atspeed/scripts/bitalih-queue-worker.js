@@ -76,12 +76,13 @@ async function processOne() {
 }
 
 writeHeartbeat(false);
+setInterval(() => writeHeartbeat(busy), 10000);
 setInterval(() => {
     processOne().catch((err) => {
         console.error('bitalih-worker:', err.message);
         busy = false;
         writeHeartbeat(false);
     });
-}, 1500);
+}, 1000);
 
 console.log('Bi\'Talih queue worker started (pid ' + process.pid + ')');

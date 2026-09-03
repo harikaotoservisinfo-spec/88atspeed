@@ -23,7 +23,7 @@ module.exports = {
     env: {
       ...CHROME_ENV,
       PORT: 3023,
-      HOST: '127.0.0.1',
+      HOST: '0.0.0.0',
       ADMIN_PASSWORD: 'yonetim2026',
       ADMIN_SESSION_SECRET: 'production-degistirin-guclu-bir-anahtar'
     }

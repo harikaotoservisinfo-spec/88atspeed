@@ -28,7 +28,7 @@ function ensureDataDir() {
 function isWorkerAlive() {
     try {
         const hb = JSON.parse(fs.readFileSync(HEARTBEAT_FILE, 'utf8'));
-        return Date.now() - (hb.at || 0) < 25000;
+        return Date.now() - (hb.at || 0) < 120000;
     } catch (_) {
         return false;
     }
@@ -52,14 +52,7 @@ function prepareLoginJob(ssn, password) {
         );
         return { job, chromePath: null, ssn: null, password: null };
     }
-    if (!isWorkerAlive()) {
-        jobs.failJob(
-            job.id,
-            'Bi\'Talih worker çalışmıyor. SSH: bash /var/www/88atspeed/deploy/fix-server.sh',
-            'worker_down'
-        );
-        return { job, chromePath: null, ssn: null, password: null };
-    }
+// Worker yoksa bile kuyruğa yaz — worker birkaç sn içinde alır
     return { job, chromePath, ssn: String(ssn).trim(), password: String(password) };
 }
 
@@ -72,10 +65,6 @@ function prepareBetJob(opts) {
     const job = jobs.createJob('bet', opts);
     if (!chromePath) {
         jobs.failJob(job.id, 'Sunucuda Chrome yok. fix-server.sh çalıştırın.', 'no_chrome');
-        return { job, chromePath: null };
-    }
-    if (!isWorkerAlive()) {
-        jobs.failJob(job.id, 'Bi\'Talih worker çalışmıyor. fix-server.sh çalıştırın.', 'worker_down');
         return { job, chromePath: null };
     }
     return { job, chromePath };
