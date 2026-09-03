@@ -292,6 +292,17 @@ textarea { height: auto; min-height: 80px; }
     color: var(--text-primary);
 }
 
+.kayit-listesi-note {
+    margin: -6px 0 12px;
+    font-size: 12px;
+    color: var(--text-muted, #666);
+    line-height: 1.4;
+}
+
+.kamu-program-item {
+    border-left: 3px solid #1565c0;
+}
+
 .kayit-item {
     display: flex;
     justify-content: space-between;

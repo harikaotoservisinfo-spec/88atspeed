@@ -538,6 +538,50 @@ async function getProgramSyncOverview(db, opts = {}) {
     };
 }
 
+function listPublicProgramKayitlar(db, opts = {}) {
+    return new Promise((resolve, reject) => {
+        let sql = `SELECT tarih, hipodrom_id, hipodrom, kosu_sayisi, ilk_kosu_saat, cekilme_tarihi, durum
+            FROM public_gunluk_program WHERE durum = 'yayinda'`;
+        const params = [];
+        if (opts.tarih) {
+            sql += ' AND tarih = ?';
+            params.push(opts.tarih);
+        }
+        sql += ' ORDER BY tarih DESC, hipodrom';
+        if (opts.limit) {
+            sql += ' LIMIT ?';
+            params.push(opts.limit);
+        }
+        db.all(sql, params, (err, rows) => err ? reject(err) : resolve(rows || []));
+    });
+}
+
+function getPublicProgramKayit(db, tarih, hipodromId) {
+    return new Promise((resolve, reject) => {
+        db.get(
+            `SELECT tarih, hipodrom_id, hipodrom, kosu_sayisi, program_json, tahmin_json, cekilme_tarihi
+             FROM public_gunluk_program WHERE tarih = ? AND hipodrom_id = ? AND durum = 'yayinda'`,
+            [tarih, String(hipodromId)],
+            (err, row) => {
+                if (err) return reject(err);
+                if (!row) return resolve(null);
+                let races = [];
+                try {
+                    races = JSON.parse(row.program_json || '[]');
+                } catch (_) { /* */ }
+                resolve({
+                    tarih: row.tarih,
+                    hipodromId: row.hipodrom_id,
+                    hipodrom: row.hipodrom,
+                    raceCount: row.kosu_sayisi || races.length,
+                    races,
+                    cekilmeTarihi: row.cekilme_tarihi
+                });
+            }
+        );
+    });
+}
+
 module.exports = {
     formatTrDate,
     parseTrDate,
@@ -556,5 +600,7 @@ module.exports = {
     logFetchRun,
     getLastFetchRuns,
     getProgramSyncForDate,
-    getProgramSyncOverview
+    getProgramSyncOverview,
+    listPublicProgramKayitlar,
+    getPublicProgramKayit
 };

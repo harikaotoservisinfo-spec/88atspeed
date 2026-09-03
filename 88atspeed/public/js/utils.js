@@ -349,6 +349,30 @@ const AtSpeedUtils = {
             '</div></div>';
     },
 
+    kamuProgramKayitListItemHtml(k) {
+        const label = (k.tarih || '') + ' · ' + (k.hipodrom || '');
+        const meta = '🏁 ' + (k.kosu_sayisi ?? '—') + ' koşu | 📡 Kamu vitrin | 🕐 '
+            + AtSpeedUtils.escapeHtml(k.cekilme_tarihi || '');
+        return '<div class="kayit-item kamu-program-item" data-tarih="' + AtSpeedUtils.escapeHtml(k.tarih) + '"'
+            + ' data-hipodrom-id="' + AtSpeedUtils.escapeHtml(k.hipodrom_id) + '"'
+            + ' data-label="' + AtSpeedUtils.escapeHtml(label) + '">'
+            + '<span>📅 ' + AtSpeedUtils.escapeHtml(k.tarih) + ' | 🏟️ ' + AtSpeedUtils.escapeHtml(k.hipodrom)
+            + ' | ' + meta + '</span>'
+            + '<div class="kayit-item-actions">'
+            + '<button type="button" class="kayit-load-btn" data-action="load">Yükle →</button>'
+            + '</div></div>';
+    },
+
+    bindKamuProgramKayitList(container, onLoad) {
+        if (!container) return;
+        container.querySelectorAll('.kamu-program-item').forEach((item) => {
+            item.onclick = async (e) => {
+                if (e.target.closest('[data-action="delete"]')) return;
+                await onLoad(item.dataset.tarih, item.dataset.hipodromId, item);
+            };
+        });
+    },
+
     /** Eşit TAHMİN skorunda ikincil sıra: SON800-1 → TEST1 → T1×DR derinlik % */
     depthTieBreakScore(row) {
         if (!row) return -1;

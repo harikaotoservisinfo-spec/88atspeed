@@ -1232,6 +1232,33 @@ app.get('/api/hesaplama-kayitlar', (req, res) => {
     });
 });
 
+/** Kamu vitrini günlük program kayıtları (public_gunluk_program — hesaplama_kayitlari değil) */
+app.get('/api/kamu-program-kayitlar', async (req, res) => {
+    try {
+        const kayitlar = await publicProgram.listPublicProgramKayitlar(db, {
+            tarih: req.query.tarih || null,
+            limit: req.query.limit ? Number(req.query.limit) : 60
+        });
+        res.json({ success: true, kayitlar });
+    } catch (err) {
+        console.error('kamu-program-kayitlar:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.get('/api/kamu-program-kayit/:tarih/:hipodromId', async (req, res) => {
+    try {
+        const kayit = await publicProgram.getPublicProgramKayit(db, req.params.tarih, req.params.hipodromId);
+        if (!kayit) {
+            return res.json({ success: false, error: 'Kamu program kaydı bulunamadı' });
+        }
+        res.json({ success: true, kayit });
+    } catch (err) {
+        console.error('kamu-program-kayit:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 /** Kalibrasyon paketi — sunucuda kalibre edilmiş motor durumu (~0.5MB, tarayıcıya flat gönderilmez) */
 app.get('/api/calibration-bundle', async (req, res) => {
     try {
