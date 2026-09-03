@@ -553,6 +553,7 @@ const GostergeScoringEngine = (function () {
     }
 
     async function calibrate(flatEntries, host) {
+        if (isCalibrated()) return calibration;
         if (!flatEntries?.length) {
             calibration = null;
             return null;

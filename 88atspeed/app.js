@@ -1139,6 +1139,13 @@ app.listen(PORT, async () => {
     console.log(`💾 SQLite veritabanı hazır: atlar.db`);
     console.log(`🐎 API\'ler aktif!\n`);
     console.log(`🔒 Stealth plugin ile 403 engeli aşıldı.\n`);
+    buildCalibrationFlat()
+        .then(function(b) {
+            console.log('🔥 Kalibrasyon flat önbellek: ' + b.flatCount + ' satır (' + b.buildMs + 'ms)');
+        })
+        .catch(function(err) {
+            console.warn('Kalibrasyon flat önbellek ısıtma atlandı:', err.message);
+        });
 });
 
 module.exports = { db };
