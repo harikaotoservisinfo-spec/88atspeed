@@ -52,10 +52,11 @@
             + '</span></div>'
             + '<p class="pub-kazanc-system-desc">88 AT SPEED sunucusu sizin adınıza Hipodrom\'da sabit ihtimalli kupon oynar. İlk seferde sunucu girişi yapın; sonra tek tıkla oynatın.</p>'
             + '<div class="pub-kazanc-system-login" id="pubKazancAutoLogin">'
-            + '<input type="text" id="pubAutoUser" autocomplete="username" placeholder="TC / üye no (83196393)">'
+            + '<input type="text" id="pubAutoUser" autocomplete="username" placeholder="Üye no (83196393) veya TC">'
             + '<input type="password" id="pubAutoPass" autocomplete="current-password" placeholder="Şifre">'
             + '<button type="button" class="pub-kazanc-strip-btn pub-kazanc-strip-btn-primary" id="pubAutoLoginBtn">Sunucuda Giriş Yap</button>'
             + '</div>'
+            + '<p class="pub-kazanc-system-hint">Panelde giriş yaptıysanız <strong>üye numaranızı</strong> (83196393) kullanın — TC çalışmayabilir. Tarayıcı girişi 30–60 sn sürebilir.</p>'
             + '<form id="pubKazancBetForm" class="pub-kazanc-system-form">'
             + '<input type="text" id="pubBetCity" value="İzmir" placeholder="Şehir">'
             + '<input type="number" id="pubBetRace" value="3" min="1" max="15" placeholder="Koşu">'
@@ -138,7 +139,7 @@
             const username = $('#pubAutoUser', root)?.value?.trim();
             const password = $('#pubAutoPass', root)?.value;
             if (!username || !password) return;
-            if (btn) { btn.disabled = true; btn.textContent = 'Giriş…'; }
+            if (btn) { btn.disabled = true; btn.textContent = 'Giriş… (30–60 sn)'; }
             try {
                 const res = await fetch('/api/public/hipodrom/auto/login', {
                     method: 'POST',

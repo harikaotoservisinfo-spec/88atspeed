@@ -1,17 +1,134 @@
 /**
- * Hipodrom sabit ihtimalli bahis — sunucu tarafı otomasyon (kalıcı profil).
+ * Hipodrom sabit ihtimalli bahis — sunucu tarafı otomasyon.
  */
 const hipodromAuth = require('./hipodrom-auth');
-const { withPage, DATA_DIR } = require('./hipodrom-browser');
+const { withPage, DATA_DIR, restoreSession } = require('./hipodrom-browser');
 const fs = require('fs');
 const path = require('path');
+const { spawn } = require('child_process');
 
 const TOKENS_FILE = path.join(DATA_DIR, 'hipodrom-tokens.json');
-
 const FIXED_ODDS_URL = 'https://www.hipodrom.com/at-yarisi/sabit-ihtimalli-bahis';
 const HOME_URL = 'https://www.hipodrom.com/';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function loginCandidates(username) {
+    const u = String(username || '').trim();
+    const out = [u];
+    if (u.startsWith('0') && u.length > 10) out.push(u.replace(/^0/, ''));
+    if (u.startsWith('90') && u.length > 11) out.push(u.slice(2));
+    if (u.length === 11 && u.startsWith('05')) out.push(u.slice(1));
+    return [...new Set(out.filter(Boolean))];
+}
+
+function runChildScript(scriptName, args, timeoutMs) {
+    const script = path.join(__dirname, '..', 'scripts', scriptName);
+    return new Promise((resolve, reject) => {
+        const child = spawn(process.execPath, [script, ...args], {
+            cwd: path.join(__dirname, '..'),
+            env: { ...process.env },
+            stdio: ['ignore', 'pipe', 'pipe']
+        });
+        let out = '';
+        let errOut = '';
+        const timer = setTimeout(() => {
+            child.kill('SIGTERM');
+            const e = new Error('İşlem zaman aşımına uğradı');
+            e.code = 'timeout';
+            reject(e);
+        }, timeoutMs || 120000);
+        child.stdout.on('data', (d) => { out += d.toString(); });
+        child.stderr.on('data', (d) => { errOut += d.toString(); });
+        child.on('close', () => {
+            clearTimeout(timer);
+            const line = out.trim().split('\n').filter(Boolean).pop();
+            try {
+                resolve(JSON.parse(line || '{}'));
+            } catch (_) {
+                reject(new Error(errOut || out || 'Alt süreç yanıt vermedi'));
+            }
+        });
+        child.on('error', (e) => {
+            clearTimeout(timer);
+            reject(e);
+        });
+    });
+}
+
+async function profileFromTokens(method) {
+    let user = null;
+    let balance = null;
+    try {
+        const tokens = JSON.parse(fs.readFileSync(TOKENS_FILE, 'utf8'));
+        if (tokens?.accessToken) {
+            user = await hipodromAuth.fetchUserDetails(tokens.accessToken);
+            balance = await hipodromAuth.fetchUserBalance(tokens.accessToken);
+        }
+    } catch (_) { /* */ }
+    return {
+        success: true,
+        loggedIn: true,
+        displayName: user?.name || user?.firstName || user?.loginName || 'Üye',
+        balance: balance?.totalAmount ?? balance?.amount ?? null,
+        method: method || 'api'
+    };
+}
+
+async function saveLoginApi(username, password) {
+    const tokens = await hipodromAuth.login(username, password);
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(TOKENS_FILE, JSON.stringify({
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken || null
+    }));
+    return profileFromTokens('api');
+}
+
+async function saveLoginBrowser(username, password) {
+    const result = await runChildScript('hipodrom-browser-login.js', [username, password], 120000);
+    if (!result.success) {
+        const e = new Error(result.error || 'Tarayıcı girişi başarısız');
+        e.code = result.code || 'login_failed';
+        e.needsCaptcha = !!result.needsCaptcha;
+        throw e;
+    }
+    return profileFromTokens('browser');
+}
+
+async function saveLogin(username, password) {
+    const candidates = loginCandidates(username);
+    let lastErr = null;
+
+    for (const user of candidates) {
+        try {
+            return await saveLoginApi(user, password);
+        } catch (err) {
+            lastErr = err;
+            const retryable = err.needsCaptcha
+                || ['hipodrom.102031', 'hipodrom.102005', 'hipodrom.102036', 'hipodrom.102037'].includes(err.code);
+            if (!retryable) throw err;
+        }
+    }
+
+    for (const user of candidates) {
+        try {
+            return await saveLoginBrowser(user, password);
+        } catch (err) {
+            lastErr = err;
+        }
+    }
+
+    if (lastErr?.code === 'hipodrom.102031' || lastErr?.needsCaptcha) {
+        const e = new Error(
+            'Sunucudan giriş reddedildi. Üye numaranızı deneyin (83196393) — TC yerine üye no gerekebilir.'
+        );
+        e.code = lastErr.code;
+        e.needsCaptcha = lastErr.needsCaptcha;
+        throw e;
+    }
+    throw lastErr || new Error('Giriş başarısız');
+}
 
 async function dismissCookieBanner(page) {
     await page.evaluate(() => {
@@ -38,72 +155,57 @@ async function readSessionState(page) {
     });
 }
 
-async function apiLoginToPage(page, username, password) {
-    const tokens = await hipodromAuth.login(username, password);
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(TOKENS_FILE, JSON.stringify({
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken || null
-    }));
-    await page.goto(HOME_URL, { waitUntil: 'domcontentloaded', timeout: 35000 });
-    await page.evaluate((t) => {
-        localStorage.setItem('auth._token.local', t.accessToken);
-        if (t.refreshToken) localStorage.setItem('auth._refresh_token.local', t.refreshToken);
-    }, tokens);
-    await page.reload({ waitUntil: 'domcontentloaded', timeout: 35000 });
-    await sleep(1500);
-    return tokens;
-}
-
 async function ensureLoggedIn(page, username, password) {
+    await restoreSession(page);
     await page.goto(HOME_URL, { waitUntil: 'domcontentloaded', timeout: 35000 });
     await sleep(1500);
     await dismissCookieBanner(page);
-    await sleep(500);
-
     let state = await readSessionState(page);
     if (state.loggedIn) return state;
 
-    const user = username || process.env.HIPODROM_USER || null;
-    const pass = password || process.env.HIPODROM_PASS || null;
-
-    if (user && pass) {
-        try {
-            await apiLoginToPage(page, user, pass);
-            state = await readSessionState(page);
-            if (state.loggedIn) return state;
-        } catch (apiErr) {
-            const err = new Error(apiErr.message || 'API girişi başarısız');
-            err.code = apiErr.code || 'login_failed';
-            err.needsCaptcha = apiErr.needsCaptcha;
-            throw err;
-        }
+    if (fs.existsSync(TOKENS_FILE)) {
+        await page.reload({ waitUntil: 'domcontentloaded', timeout: 35000 });
+        await sleep(1500);
+        state = await readSessionState(page);
+        if (state.loggedIn) return state;
     }
 
-    const err = new Error('Hipodrom oturumu yok. Önce Sunucuda Giriş Yapın.');
+    const err = new Error('Hipodrom oturumu yok. Önce Sunucuda Giriş Yapın (üye no: 83196393).');
     err.code = 'not_logged_in';
     throw err;
 }
 
-async function clickByText(page, pattern, rootSelector) {
-    return page.evaluate((pat, rootSel) => {
+async function clickByText(page, pattern) {
+    return page.evaluate((pat) => {
         const re = new RegExp(pat, 'i');
-        const root = rootSel ? document.querySelector(rootSel) : document;
-        const scope = root || document;
-        const nodes = [...scope.querySelectorAll('button, a, span, div, li')];
+        const nodes = [...document.querySelectorAll('button, a, span, div, li')];
         const el = nodes.find((n) => {
             const t = (n.textContent || '').trim();
-            if (!t || t.length > 80) return false;
-            return re.test(t);
+            return t && t.length <= 80 && re.test(t);
         });
         if (!el) return false;
         el.click();
         return true;
-    }, pattern, rootSelector || '');
+    }, pattern);
 }
 
 async function getAutoStatus() {
+    if (fs.existsSync(TOKENS_FILE)) {
+        try {
+            const tokens = JSON.parse(fs.readFileSync(TOKENS_FILE, 'utf8'));
+            if (tokens?.accessToken) {
+                const user = await hipodromAuth.fetchUserDetails(tokens.accessToken);
+                const balance = await hipodromAuth.fetchUserBalance(tokens.accessToken);
+                return {
+                    loggedIn: true,
+                    displayName: user?.name || user?.firstName || 'Üye',
+                    balance: balance?.totalAmount ?? balance?.amount ?? null
+                };
+            }
+        } catch (_) { /* token expired */ }
+    }
     return withPage(async (page) => {
+        await restoreSession(page);
         await page.goto(HOME_URL, { waitUntil: 'domcontentloaded', timeout: 35000 });
         await sleep(1500);
         await dismissCookieBanner(page);
@@ -111,185 +213,110 @@ async function getAutoStatus() {
     }, 45000);
 }
 
-async function saveLogin(username, password) {
-    const tokens = await hipodromAuth.login(username, password);
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(TOKENS_FILE, JSON.stringify({
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken || null
-    }));
-    let user = null;
-    let balance = null;
-    try {
-        user = await hipodromAuth.fetchUserDetails(tokens.accessToken);
-        balance = await hipodromAuth.fetchUserBalance(tokens.accessToken);
-    } catch (_) { /* */ }
-    return {
-        success: true,
-        loggedIn: true,
-        displayName: user?.name || user?.firstName || user?.loginName || 'Üye',
-        balance: balance?.totalAmount ?? balance?.amount ?? null,
-        method: 'api'
-    };
-}
-
-async function placeFixedOddsBet(opts = {}) {
+async function placeFixedOddsBetInternal(opts = {}) {
     const city = String(opts.city || 'İzmir').trim();
     const raceNo = Number(opts.raceNo || opts.kosuNo || 3);
     const horseName = String(opts.horseName || opts.at || '').trim();
     const stake = Number(opts.stake || opts.misli || 20);
-    const username = opts.username || process.env.HIPODROM_USER || null;
-    const password = opts.password || process.env.HIPODROM_PASS || null;
     const dryRun = !!opts.dryRun;
-
     if (!horseName) throw new Error('At adı gerekli');
 
     return withPage(async (page) => {
-        const apiCalls = [];
-        page.on('response', async (res) => {
-            const u = res.url();
-            if (!u.includes('api.hipodrom.com')) return;
-            if (!/bet|ante|ticket|bilet|play|coupon|slip/i.test(u)) return;
-            let body = '';
-            try { body = (await res.text()).slice(0, 500); } catch (_) { /* */ }
-            apiCalls.push({
-                method: res.request().method(),
-                url: u.replace('https://api.hipodrom.com', ''),
-                status: res.status(),
-                body
-            });
-        });
-
-        const session = await ensureLoggedIn(page, username, password);
+        const session = await ensureLoggedIn(page);
 
         await page.goto(FIXED_ODDS_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
-        await sleep(3000);
+        await sleep(2500);
         await dismissCookieBanner(page);
-        await sleep(500);
 
-        const is404 = await page.evaluate(() => /404|bulunamadı/i.test(document.body?.innerText || ''));
-        if (is404) {
-            await page.goto(HOME_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
-            await sleep(2000);
+        if (await page.evaluate(() => /404|bulunamadı/i.test(document.body?.innerText || ''))) {
+            await page.goto(HOME_URL, { waitUntil: 'domcontentloaded', timeout: 35000 });
+            await sleep(1500);
             await clickByText(page, 'sabit ihtimalli');
-            await sleep(2500);
+            await sleep(2000);
         }
 
-        const cityClicked = await clickByText(page, '^' + city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-        if (!cityClicked) {
+        if (!await clickByText(page, '^' + city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))) {
             const err = new Error('Şehir bulunamadı: ' + city);
             err.code = 'city_not_found';
             throw err;
         }
-        await sleep(1500);
+        await sleep(1200);
 
-        const raceClicked = await page.evaluate((no) => {
-            const nodes = [...document.querySelectorAll('button, div, span, a')];
-            const el = nodes.find((n) => (n.textContent || '').trim() === String(no));
-            if (el) { el.click(); return true; }
-            return false;
+        const raceOk = await page.evaluate((no) => {
+            const el = [...document.querySelectorAll('button, div, span, a')]
+                .find((n) => (n.textContent || '').trim() === String(no));
+            if (!el) return false;
+            el.click();
+            return true;
         }, raceNo);
-        if (!raceClicked) {
+        if (!raceOk) {
             const err = new Error('Koşu bulunamadı: ' + raceNo);
             err.code = 'race_not_found';
             throw err;
         }
-        await sleep(2000);
+        await sleep(1500);
 
-        const horseClicked = await page.evaluate((name) => {
-            const rows = [...document.querySelectorAll('tr, [class*="horse"], [class*="runner"]')];
-            const row = rows.find((r) => new RegExp(name, 'i').test(r.textContent || ''));
+        const horseOk = await page.evaluate((name) => {
+            const row = [...document.querySelectorAll('tr, [class*="horse"], [class*="runner"]')]
+                .find((r) => new RegExp(name, 'i').test(r.textContent || ''));
             if (!row) return false;
-            const odds = [...row.querySelectorAll('button, div, span')].filter((el) => /^\d+\.\d+$/.test((el.textContent || '').trim()));
-            if (odds[0]) { odds[0].click(); return true; }
-            row.click();
+            const odds = [...row.querySelectorAll('button, div, span')]
+                .find((el) => /^\d+\.\d+$/.test((el.textContent || '').trim()));
+            (odds || row).click();
             return true;
         }, horseName);
-        if (!horseClicked) {
+        if (!horseOk) {
             const err = new Error('At bulunamadı: ' + horseName);
             err.code = 'horse_not_found';
             throw err;
         }
-        await sleep(1500);
+        await sleep(1200);
 
         await page.evaluate((amount) => {
-            const inputs = [...document.querySelectorAll('input')];
-            const misli = inputs.find((i) => {
-                const ph = (i.placeholder || '').toLowerCase();
-                const label = (i.closest('label')?.textContent || '').toLowerCase();
-                return ph.includes('misli') || label.includes('misli') || i.type === 'number';
-            });
+            const misli = [...document.querySelectorAll('input')].find((i) => i.type === 'number' || /misli/i.test(i.placeholder || ''));
             if (misli) {
-                misli.focus();
                 misli.value = String(amount);
                 misli.dispatchEvent(new Event('input', { bubbles: true }));
                 misli.dispatchEvent(new Event('change', { bubbles: true }));
             }
         }, stake);
-        await sleep(800);
+        await sleep(600);
 
         if (dryRun) {
-            return {
-                success: true,
-                dryRun: true,
-                message: 'Kupon hazır (test modu — oynanmadı)',
-                session,
-                city,
-                raceNo,
-                horseName,
-                stake
-            };
+            return { success: true, dryRun: true, message: 'Kupon hazır (test)', session, city, raceNo, horseName, stake };
         }
 
-        const playPromise = page.waitForResponse(
-            (res) => res.url().includes('api.hipodrom.com') && res.request().method() === 'POST',
-            { timeout: 30000 }
-        ).catch(() => null);
-
-        const playClicked = await clickByText(page, 'hemen oyna');
-        if (!playClicked) {
+        if (!await clickByText(page, 'hemen oyna')) {
             const err = new Error('HEMEN OYNA butonu bulunamadı');
             err.code = 'play_button_not_found';
             throw err;
         }
-
-        const playRes = await playPromise;
-        await sleep(2000);
-
-        let playBody = null;
-        if (playRes) {
-            try { playBody = await playRes.json(); } catch (_) { /* */ }
-        }
+        await sleep(2500);
 
         const pageText = await page.evaluate(() => document.body?.innerText?.slice(0, 2000) || '');
-        const success = playBody?.success === true
-            || /başarı|kabul edildi|biletiniz|oynanmıştır/i.test(pageText);
-
-        if (!success && playBody && playBody.success === false) {
-            const err0 = playBody?.error?.[0];
-            const msg = err0?.message || err0?.code || 'Bahis oynanamadı';
-            const err = new Error(msg);
-            err.code = 'bet_rejected';
-            err.detail = playBody;
-            throw err;
-        }
-
+        const ok = /başarı|kabul|biletiniz|oynanmıştır/i.test(pageText);
         return {
             success: true,
-            message: success ? 'Bahis oynandı' : 'İşlem gönderildi — sonucu panelden kontrol edin',
-            session,
-            city,
-            raceNo,
-            horseName,
-            stake,
-            apiCalls,
-            playResponse: playBody
+            message: ok ? 'Bahis oynandı' : 'İşlem gönderildi — panelden kontrol edin',
+            session, city, raceNo, horseName, stake
         };
     }, 150000);
 }
 
+async function placeFixedOddsBet(opts) {
+    const result = await runChildScript('hipodrom-bet-worker.js', [JSON.stringify(opts || {})], 180000);
+    if (!result.success) {
+        const e = new Error(result.error || 'Bahis başarısız');
+        e.code = result.code;
+        e.detail = result.detail;
+        throw e;
+    }
+    return result;
+}
+
 module.exports = {
     placeFixedOddsBet,
+    placeFixedOddsBetInternal,
     getAutoStatus,
     saveLogin
 };
