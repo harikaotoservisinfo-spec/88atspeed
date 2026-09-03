@@ -12,6 +12,9 @@ const tjkTvProxy = require('./lib/tjk-tv-proxy');
 const hipodromAuth = require('./lib/hipodrom-auth');
 const hipodromBet = require('./lib/hipodrom-bet');
 const hipodromBrowser = require('./lib/hipodrom-browser');
+const bitalihAuth = require('./lib/bitalih-auth');
+const bitalihBet = require('./lib/bitalih-bet');
+const bitalihBrowser = require('./lib/bitalih-browser');
 const app = express();
 const PORT = 3023;
 
@@ -335,6 +338,73 @@ app.post('/api/public/hipodrom/auto/bet/fixed', async (req, res) => {
     }
 });
 
+app.get('/api/public/bitalih/config', (req, res) => {
+    res.json({
+        success: true,
+        bitalihUrl: 'https://www.bitalih.com/',
+        fixedOddsUrl: 'https://www.bitalih.com/at-yarisi/tjk-sabit-ihtimalli-bahis'
+    });
+});
+
+app.get('/api/public/bitalih/auto/status', async (req, res) => {
+    try {
+        const state = await bitalihBet.getAutoStatus();
+        res.json({ success: true, ...state });
+    } catch (err) {
+        console.error('bitalih/auto/status:', err.message);
+        res.status(500).json({ success: false, error: err.message, loggedIn: false });
+    }
+});
+
+app.post('/api/public/bitalih/auto/login', async (req, res) => {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    const username = req.body?.username || req.body?.ssn || process.env.BITALIH_USER;
+    const password = req.body?.password || process.env.BITALIH_PASS;
+    if (!username || !password) {
+        return res.status(400).json({ success: false, error: 'TC ve şifre gerekli' });
+    }
+    try {
+        const state = await bitalihBet.saveLogin(username, password);
+        res.json({ success: true, ...state });
+    } catch (err) {
+        console.error('bitalih/auto/login:', err.message);
+        const status = err.code === 'timeout' ? 504 : 401;
+        if (!res.headersSent) {
+            res.status(status).json({
+                success: false,
+                error: err.message,
+                code: err.code || null
+            });
+        }
+    }
+});
+
+app.post('/api/public/bitalih/auto/bet/fixed', async (req, res) => {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    const { city, raceNo, kosuNo, horseName, at, stake, misli, dryRun } = req.body || {};
+    try {
+        const result = await bitalihBet.placeFixedOddsBet({
+            city,
+            raceNo: raceNo ?? kosuNo,
+            horseName: horseName || at,
+            stake: stake ?? misli,
+            dryRun: !!dryRun
+        });
+        res.json(result);
+    } catch (err) {
+        console.error('bitalih/auto/bet:', err.message);
+        const status = err.code === 'timeout' ? 504 : 400;
+        if (!res.headersSent) {
+            res.status(status).json({
+                success: false,
+                error: err.message,
+                code: err.code || null,
+                detail: err.detail || null
+            });
+        }
+    }
+});
+
 app.post('/api/admin/public-program-cek', async (req, res) => {
     if (!adminAuth.isAuthenticated(req)) {
         return res.status(401).json({ success: false, error: 'Yönetici oturumu gerekli' });
@@ -440,6 +510,8 @@ async function getBrowserInstance() {
 
 hipodromAuth.setBrowserFactory(getBrowserInstance);
 hipodromBrowser.setBrowserFactory(getBrowserInstance);
+bitalihAuth.setBrowserFactory(getBrowserInstance);
+bitalihBrowser.setBrowserFactory(getBrowserInstance);
 
 async function gotoWithHeaders(page, url) {
     await page.setExtraHTTPHeaders(getBrowserHeaders());

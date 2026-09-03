@@ -1,16 +1,14 @@
 (function() {
     'use strict';
 
-    const HIPODROM_URL = 'https://www.hipodrom.com/';
-    const HIPODROM_LINKS = [
-        { label: 'Sabit İhtimalli', url: 'https://www.hipodrom.com/at-yarisi/sabit-ihtimalli-bahis', accent: '#c62828' },
-        { label: 'Bahis Yap', url: 'https://www.hipodrom.com/at-yarisi/bahis-yap', accent: '#1565c0' },
-        { label: 'Biletlerim', url: 'https://www.hipodrom.com/biletlerim', accent: '#2e7d32' },
-        { label: 'Ana Sayfa', url: HIPODROM_URL, accent: '#455a64' }
+    const BITALIH_URL = 'https://www.bitalih.com/';
+    const BITALIH_LINKS = [
+        { label: 'Sabit İhtimalli', url: 'https://www.bitalih.com/at-yarisi/tjk-sabit-ihtimalli-bahis', accent: '#c62828' },
+        { label: 'Bahis Yap', url: 'https://www.bitalih.com/at-yarisi', accent: '#1565c0' },
+        { label: 'Kuponlarım', url: 'https://www.bitalih.com/kuponlarim', accent: '#2e7d32' },
+        { label: 'Ana Sayfa', url: BITALIH_URL, accent: '#455a64' }
     ];
-    let sessionCache = null;
-    let iframeSrc = HIPODROM_LINKS[0].url;
-    let apiPanelOpen = false;
+    let iframeSrc = BITALIH_LINKS[0].url;
     let shellReady = false;
     let autoStatus = null;
 
@@ -47,21 +45,21 @@
             + '<div class="pub-kazanc-system-hdr">'
             + '<span>⚡ Sistem Oyna</span>'
             + '<span class="pub-kazanc-system-status" id="pubKazancAutoStatus">'
-            + (st.loggedIn ? ('Sunucu oturumu: ' + escapeHtml(st.displayName || 'açık') + (st.balance ? ' · ' + escapeHtml(st.balance) + ' TL' : ''))
+            + (st.loggedIn ? ('Sunucu oturumu: ' + escapeHtml(st.displayName || 'açık') + (st.balance ? ' · ' + escapeHtml(st.balance) : ''))
                 : 'Sunucuda giriş gerekli (bir kez)')
             + '</span></div>'
-            + '<p class="pub-kazanc-system-desc">88 AT SPEED sunucusu sizin adınıza Hipodrom\'da sabit ihtimalli kupon oynar. İlk seferde sunucu girişi yapın; sonra tek tıkla oynatın.</p>'
+            + '<p class="pub-kazanc-system-desc">88 AT SPEED sunucusu sizin adınıza Bi\'Talih\'te sabit ihtimalli kupon oynar. İlk seferde sunucu girişi yapın; sonra tek tıkla oynatın.</p>'
             + '<div class="pub-kazanc-system-login" id="pubKazancAutoLogin">'
-            + '<input type="text" id="pubAutoUser" autocomplete="username" placeholder="Üye no (83196393) veya TC">'
+            + '<input type="text" id="pubAutoUser" autocomplete="username" placeholder="TC kimlik no">'
             + '<input type="password" id="pubAutoPass" autocomplete="current-password" placeholder="Şifre">'
             + '<button type="button" class="pub-kazanc-strip-btn pub-kazanc-strip-btn-primary" id="pubAutoLoginBtn">Sunucuda Giriş Yap</button>'
             + '</div>'
-            + '<p class="pub-kazanc-system-hint">Panelde giriş yaptıysanız <strong>üye numaranızı</strong> (83196393) kullanın — TC çalışmayabilir. Tarayıcı girişi 30–60 sn sürebilir.</p>'
+            + '<p class="pub-kazanc-system-hint">Bi\'Talih için <strong>TC kimlik numaranızı</strong> kullanın. Tarayıcı girişi 15–30 sn sürebilir.</p>'
             + '<form id="pubKazancBetForm" class="pub-kazanc-system-form">'
             + '<input type="text" id="pubBetCity" value="İzmir" placeholder="Şehir">'
-            + '<input type="number" id="pubBetRace" value="3" min="1" max="15" placeholder="Koşu">'
-            + '<input type="text" id="pubBetHorse" value="ÇENGER" placeholder="At adı">'
-            + '<input type="number" id="pubBetStake" value="20" min="1" step="1" placeholder="Misli TL">'
+            + '<input type="number" id="pubBetRace" value="4" min="1" max="15" placeholder="Koşu">'
+            + '<input type="text" id="pubBetHorse" value="" placeholder="At adı">'
+            + '<input type="number" id="pubBetStake" value="3" min="1" step="1" placeholder="Misli TL">'
             + '<button type="submit" class="pub-kazanc-strip-btn pub-kazanc-strip-btn-primary pub-kazanc-system-play" id="pubBetPlayBtn">Sistem Oyna</button>'
             + '<button type="button" class="pub-kazanc-strip-btn" id="pubBetDryBtn">Test (oynama)</button>'
             + '</form>'
@@ -75,14 +73,14 @@
             + '<span class="pub-kazanc-info-icon">🎯</span>'
             + '<div><strong>İki yol:</strong> '
             + '<em>Sistem Oyna</em> — sunucu otomatik kupon keser. '
-            + 'veya alttaki <em>Hipodrom paneli</em> — elle HEMEN OYNA.</div></div>';
+            + 'veya alttaki <em>Bi\'Talih paneli</em> — elle oyna.</div></div>';
     }
 
     function renderQuickNav() {
         return '<div class="pub-kazanc-quicknav" id="pubKazancQuicknav">'
-            + HIPODROM_LINKS.map((l) => {
+            + BITALIH_LINKS.map((l) => {
                 const active = iframeSrc === l.url ? ' pub-kazanc-quicknav-active' : '';
-                return '<button type="button" class="pub-kazanc-quicknav-btn' + active + '" data-hip-url="' + l.url + '" style="--qn-accent:' + l.accent + '">' + escapeHtml(l.label) + '</button>';
+                return '<button type="button" class="pub-kazanc-quicknav-btn' + active + '" data-bitalih-url="' + l.url + '" style="--qn-accent:' + l.accent + '">' + escapeHtml(l.label) + '</button>';
             }).join('')
             + '</div>';
     }
@@ -91,14 +89,14 @@
         return '<div class="pub-kazanc-embed pub-kazanc-embed-play" id="pubKazancEmbed">'
             + '<div class="pub-kazanc-embed-hdr">'
             + '<div class="pub-kazanc-embed-hdr-left">'
-            + '<span>Hipodrom Paneli</span>'
+            + '<span>Bi\'Talih Paneli</span>'
             + '<span class="pub-kazanc-embed-warn">Manuel oyun · giriş buradan da yapılır</span>'
             + '</div>'
             + '<button type="button" class="pub-kazanc-strip-btn pub-kazanc-strip-btn-ghost" id="pubKazancReloadIframe">↻</button>'
             + '</div>'
             + renderQuickNav()
             + '<div class="pub-kazanc-embed-body" id="pubKazancEmbedBody">'
-            + '<iframe id="pubKazancIframe" class="pub-kazanc-iframe-full" src="' + escapeHtml(iframeSrc) + '" title="Hipodrom.com"></iframe>'
+            + '<iframe id="pubKazancIframe" class="pub-kazanc-iframe-full" src="' + escapeHtml(iframeSrc) + '" title="Bi\'Talih"></iframe>'
             + '</div></div>';
     }
 
@@ -109,24 +107,24 @@
     }
 
     function navigateIframe(url) {
-        iframeSrc = url || HIPODROM_URL;
+        iframeSrc = url || BITALIH_URL;
         const iframe = document.getElementById('pubKazancIframe');
         if (iframe) iframe.src = iframeSrc;
         document.querySelectorAll('.pub-kazanc-quicknav-btn').forEach((btn) => {
-            btn.classList.toggle('pub-kazanc-quicknav-active', btn.dataset.hipUrl === iframeSrc);
+            btn.classList.toggle('pub-kazanc-quicknav-active', btn.dataset.bitalihUrl === iframeSrc);
         });
     }
 
     async function refreshAutoStatus() {
         try {
-            const res = await fetch('/api/public/hipodrom/auto/status');
+            const res = await fetch('/api/public/bitalih/auto/status');
             const parsed = await parseJsonResponse(res);
             if (parsed.ok) {
                 autoStatus = parsed.data;
                 const el = document.getElementById('pubKazancAutoStatus');
                 if (el) {
                     el.textContent = autoStatus.loggedIn
-                        ? ('Sunucu oturumu: ' + (autoStatus.displayName || 'açık') + (autoStatus.balance ? ' · ' + autoStatus.balance + ' TL' : ''))
+                        ? ('Sunucu oturumu: ' + (autoStatus.displayName || 'açık') + (autoStatus.balance ? ' · ' + autoStatus.balance : ''))
                         : 'Sunucuda giriş gerekli (bir kez)';
                 }
             }
@@ -139,9 +137,9 @@
             const username = $('#pubAutoUser', root)?.value?.trim();
             const password = $('#pubAutoPass', root)?.value;
             if (!username || !password) return;
-            if (btn) { btn.disabled = true; btn.textContent = 'Giriş… (30–60 sn)'; }
+            if (btn) { btn.disabled = true; btn.textContent = 'Giriş… (15–30 sn)'; }
             try {
-                const res = await fetch('/api/public/hipodrom/auto/login', {
+                const res = await fetch('/api/public/bitalih/auto/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
@@ -170,7 +168,7 @@
             if (playBtn) { playBtn.disabled = true; playBtn.textContent = dryRun ? 'Test…' : 'Oynanıyor…'; }
             if (dryBtn) dryBtn.disabled = true;
             try {
-                const res = await fetch('/api/public/hipodrom/auto/bet/fixed', {
+                const res = await fetch('/api/public/bitalih/auto/bet/fixed', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ city, raceNo, horseName, stake, dryRun })
@@ -195,7 +193,7 @@
         $('#pubBetDryBtn', root)?.addEventListener('click', () => submitBet(true));
 
         root.querySelectorAll('.pub-kazanc-quicknav-btn').forEach((btn) => {
-            btn.addEventListener('click', () => navigateIframe(btn.dataset.hipUrl));
+            btn.addEventListener('click', () => navigateIframe(btn.dataset.bitalihUrl));
         });
         $('#pubKazancReloadIframe', root)?.addEventListener('click', () => {
             const iframe = $('#pubKazancIframe', root);
