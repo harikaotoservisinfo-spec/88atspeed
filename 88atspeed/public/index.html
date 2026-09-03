@@ -694,7 +694,7 @@
     <script src="js/astest-son-ptest-tahmin.js?v=20260903a"></script>
     <script src="js/gosterim-headers.js?v=20260901a"></script>
     <script src="js/astest-son-gosterim-cols.js?v=20260902f"></script>
-    <script src="js/astest-t1dr-test1-match.js?v=20260903d"></script>
+    <script src="js/astest-t1dr-test1-match.js?v=20260903e"></script>
     <script>
         const RECENT_WINDOWS = FieldSizeStatsEngine.RECENT_WINDOWS;
 
@@ -1882,13 +1882,14 @@
                 return;
             }
             if (atSayisiSubView === 't1dr-test1' && typeof AtestT1drTest1Match !== 'undefined') {
-                el.innerHTML = '<div class="info-box">⏳ T1×DR=TEST1 eşleşmeleri ve GÖ/HYB kalibrasyonu yükleniyor…</div>';
+                el.innerHTML = '<div class="info-box">⏳ T1×DR=TEST1 eşleşmeleri taranıyor…</div>';
                 try {
                     const html = await AtestT1drTest1Match.renderRaces(
                         races, meta, resolveHorseKosular, escapeHtml);
                     if (isRenderStale(renderGen)) return;
                     el.innerHTML = html;
                     AtestT1drTest1Match.bindRaceSelector(el);
+                    await AtestT1drTest1Match.hydrateVisibleRace(el);
                 } catch (err) {
                     console.error(err);
                     if (isRenderStale(renderGen)) return;
