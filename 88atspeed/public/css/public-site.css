@@ -2454,9 +2454,54 @@ a { color: inherit; text-decoration: none; }
 
 .pub-kazanc-info-icon { font-size: 18px; flex-shrink: 0; }
 
-.pub-kazanc-account-strip-login {
+.pub-kazanc-api-panel {
+    margin-top: 10px;
+    background: #fff;
+    border: 1px dashed #ccc;
+    border-radius: var(--pub-radius);
+    padding: 10px 14px;
+}
+
+.pub-kazanc-api-panel-collapsed {
+    background: #fafafa;
+}
+
+.pub-kazanc-api-hdr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #666;
+}
+
+.pub-kazanc-api-optional {
+    font-weight: 500;
+    color: #999;
+    font-style: normal;
+}
+
+.pub-kazanc-api-toggle {
+    border: none;
+    background: transparent;
+    color: #1565c0;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.pub-kazanc-api-collapsed-hint,
+.pub-kazanc-api-note {
+    margin: 8px 0 0;
+    font-size: 11px;
+    color: #888;
+    line-height: 1.4;
+}
+
+.pub-kazanc-api-panel-on {
+    border-style: solid;
     border-color: #a5d6a7;
-    background: linear-gradient(180deg, #fff, #f9fff9);
 }
 
 .pub-kazanc-login-hdr {
