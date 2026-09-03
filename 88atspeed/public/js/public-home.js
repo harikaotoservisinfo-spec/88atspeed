@@ -310,6 +310,7 @@
             const pid = p.id.replace(/^panel-/, '');
             p.classList.toggle('active', pid === panelId);
         });
+        updateTabIndicator();
         if (panelId === 'tahminler') {
             const el = document.getElementById('panel-tahminler');
             if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -1019,6 +1020,22 @@
         });
     }
 
+    function updateTabIndicator() {
+        const track = $('#pubTabTrack');
+        const indicator = $('#pubTabIndicator');
+        const active = track?.querySelector('.pub-tab.active');
+        if (!track || !indicator || !active) return;
+        const trackRect = track.getBoundingClientRect();
+        const tabRect = active.getBoundingClientRect();
+        indicator.style.width = tabRect.width + 'px';
+        indicator.style.transform = 'translateX(' + (tabRect.left - trackRect.left) + 'px)';
+        const accent = active.dataset.accent;
+        if (accent) {
+            indicator.style.background = 'linear-gradient(135deg, ' + accent + ' 0%, ' + accent + 'cc 100%)';
+            indicator.style.boxShadow = '0 4px 16px ' + accent + '66, inset 0 1px 0 rgba(255,255,255,0.25)';
+        }
+    }
+
     function formatHeaderClock(d) {
         return d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     }
@@ -1029,11 +1046,15 @@
 
     function updateHeaderClock() {
         const el = $('#pubHeaderClock');
+        const dateEl = $('#pubHeaderDate');
         if (!el) return;
         const now = new Date();
         el.textContent = formatHeaderClock(now);
         el.setAttribute('datetime', now.toISOString());
         el.setAttribute('title', formatHeaderDate(now));
+        if (dateEl) {
+            dateEl.textContent = now.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+        }
     }
 
     function initTabs() {
@@ -1048,6 +1069,8 @@
             e.preventDefault();
             switchTab('muhtemeller');
         });
+        updateTabIndicator();
+        window.addEventListener('resize', updateTabIndicator);
     }
 
     function initHeader() {

@@ -6,68 +6,117 @@
     <meta name="description" content="88 AT SPEED — Günlük at yarışı programı, tahminler ve premium analiz.">
     <title>88 AT SPEED | Günlük Yarış Programı & Tahminler</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link href="css/public-site.css?v=20260903hdr-lerta" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@700;800;900&display=swap" rel="stylesheet">
+    <link href="css/public-site.css?v=20260903ultra" rel="stylesheet">
 </head>
 <body class="pub-body">
-    <div class="pub-strip">
-        <span>🏇 TJK günlük program · Veri odaklı tahmin platformu</span>
-        <a href="/yonetim">Yönetici Girişi</a>
+    <div class="pub-strip pub-strip-premium">
+        <div class="pub-strip-marquee" aria-hidden="true">
+            <div class="pub-strip-marquee-inner">
+                <span>🏇 TJK günlük program</span><span class="pub-strip-dot">◆</span>
+                <span>Veri odaklı tahmin platformu</span><span class="pub-strip-dot">◆</span>
+                <span>Canlı muhtemeller</span><span class="pub-strip-dot">◆</span>
+                <span>AI destekli analiz</span><span class="pub-strip-dot">◆</span>
+            </div>
+            <div class="pub-strip-marquee-inner" aria-hidden="true">
+                <span>🏇 TJK günlük program</span><span class="pub-strip-dot">◆</span>
+                <span>Veri odaklı tahmin platformu</span><span class="pub-strip-dot">◆</span>
+                <span>Canlı muhtemeller</span><span class="pub-strip-dot">◆</span>
+                <span>AI destekli analiz</span><span class="pub-strip-dot">◆</span>
+            </div>
+        </div>
+        <a href="/yonetim" class="pub-strip-admin">Yönetici Girişi <span>→</span></a>
     </div>
 
-    <header class="pub-header pub-header-premium">
+    <header class="pub-header pub-header-ultra">
         <div class="pub-header-bg" aria-hidden="true">
-            <div class="pub-header-glow"></div>
+            <div class="pub-header-mesh"></div>
+            <div class="pub-header-orb pub-header-orb-1"></div>
+            <div class="pub-header-orb pub-header-orb-2"></div>
+            <div class="pub-header-orb pub-header-orb-3"></div>
+            <div class="pub-header-rays"></div>
             <div class="pub-header-stripe"></div>
         </div>
         <div class="pub-header-inner">
             <div class="pub-header-brand">
-                <a href="/" class="pub-logo pub-logo-premium" aria-label="88 AT SPEED">
-                    <span class="pub-logo-emblem">
-                        <span class="n88">88</span>
-                        <span class="pub-logo-shine"></span>
-                    </span>
-                    <span class="pub-logo-wordmark">
-                        <span class="nat">AT</span><span class="nsp">SPEED</span>
-                    </span>
+                <a href="/" class="pub-logo-ultra" aria-label="88 AT SPEED">
+                    <div class="pub-logo-ring">
+                        <div class="pub-logo-orbit"></div>
+                        <div class="pub-logo-core">
+                            <span class="pub-logo-num">88</span>
+                            <span class="pub-logo-core-shine"></span>
+                        </div>
+                    </div>
+                    <div class="pub-logo-type">
+                        <span class="pub-logo-at">AT</span><span class="pub-logo-speed">SPEED</span>
+                        <span class="pub-logo-underline" aria-hidden="true"></span>
+                    </div>
                 </a>
-                <p class="pub-header-tagline">TJK günlük program · Veri odaklı tahmin platformu</p>
+                <p class="pub-header-tagline">
+                    <span class="pub-tagline-badge">⚡ PRO</span>
+                    TJK günlük program · Veri odaklı tahmin platformu
+                </p>
             </div>
-            <div class="pub-header-center">
-                <div class="pub-header-live-chip">
-                    <span class="pub-header-live-dot"></span>
-                    <span class="pub-header-live-label">Canlı program</span>
-                    <time id="pubHeaderClock" class="pub-header-clock" datetime="">—</time>
+            <div class="pub-header-mid">
+                <div class="pub-live-panel">
+                    <div class="pub-live-status">
+                        <span class="pub-live-ring"><span class="pub-live-dot"></span></span>
+                        <div class="pub-live-text">
+                            <span class="pub-live-title">Canlı Program</span>
+                            <span class="pub-live-sub">Anlık veri akışı</span>
+                        </div>
+                    </div>
+                    <div class="pub-live-clock-wrap">
+                        <time id="pubHeaderClock" class="pub-header-clock" datetime="">—</time>
+                        <span id="pubHeaderDate" class="pub-header-date"></span>
+                    </div>
                 </div>
             </div>
             <div class="pub-header-actions">
-                <a href="#gunun-kosulari" class="pub-header-btn pub-header-btn-ghost">
-                    <span class="pub-header-btn-icon" aria-hidden="true">🏁</span>
-                    <span class="pub-header-btn-copy">
+                <a href="#gunun-kosulari" class="pub-cta pub-cta-glass">
+                    <span class="pub-cta-icon-wrap"><span class="pub-cta-icon">🏁</span></span>
+                    <span class="pub-cta-text">
                         <strong>Günün Koşuları</strong>
                         <small>Program &amp; saatler</small>
                     </span>
+                    <span class="pub-cta-shimmer" aria-hidden="true"></span>
                 </a>
-                <a href="#panel-tahminler" class="pub-header-btn pub-header-btn-primary" id="pubHeaderTahminBtn">
-                    <span class="pub-header-btn-icon" aria-hidden="true">🎯</span>
-                    <span class="pub-header-btn-copy">
+                <a href="#panel-tahminler" class="pub-cta pub-cta-fire" id="pubHeaderTahminBtn">
+                    <span class="pub-cta-icon-wrap"><span class="pub-cta-icon">🎯</span></span>
+                    <span class="pub-cta-text">
                         <strong>Tahminleri Gör</strong>
                         <small>Analiz &amp; sıralama</small>
                     </span>
-                    <span class="pub-header-btn-glow" aria-hidden="true"></span>
+                    <span class="pub-cta-glow" aria-hidden="true"></span>
                 </a>
             </div>
         </div>
     </header>
 
-    <nav class="pub-subnav" aria-label="Ana sekmeler">
+    <nav class="pub-subnav pub-subnav-premium" aria-label="Ana sekmeler">
+        <div class="pub-subnav-glow" aria-hidden="true"></div>
         <div class="pub-subnav-inner">
-            <button type="button" class="pub-tab active" data-panel="kosular">🏁 Günün Koşuları</button>
-            <button type="button" class="pub-tab" data-panel="tahminler">🎯 Tahminler</button>
-            <button type="button" class="pub-tab" data-panel="muhtemeller">💰 Muhtemeller</button>
-            <button type="button" class="pub-tab" data-panel="hazir">📋 Hazır Kupon</button>
-            <button type="button" class="pub-tab" data-panel="sonuclar">🏆 Sonuçlar</button>
-            <button type="button" class="pub-tab" data-panel="rehber">📖 Rehber</button>
+            <div class="pub-tab-track" id="pubTabTrack">
+                <div class="pub-tab-indicator" id="pubTabIndicator" aria-hidden="true"></div>
+                <button type="button" class="pub-tab pub-tab-premium active" data-panel="kosular" data-accent="#e53935">
+                    <span class="pub-tab-ico">🏁</span><span class="pub-tab-label">Günün Koşuları</span>
+                </button>
+                <button type="button" class="pub-tab pub-tab-premium" data-panel="tahminler" data-accent="#7b1fa2">
+                    <span class="pub-tab-ico">🎯</span><span class="pub-tab-label">Tahminler</span>
+                </button>
+                <button type="button" class="pub-tab pub-tab-premium" data-panel="muhtemeller" data-accent="#f57c00">
+                    <span class="pub-tab-ico">💰</span><span class="pub-tab-label">Muhtemeller</span>
+                </button>
+                <button type="button" class="pub-tab pub-tab-premium" data-panel="hazir" data-accent="#00897b">
+                    <span class="pub-tab-ico">📋</span><span class="pub-tab-label">Hazır Kupon</span>
+                </button>
+                <button type="button" class="pub-tab pub-tab-premium" data-panel="sonuclar" data-accent="#1565c0">
+                    <span class="pub-tab-ico">🏆</span><span class="pub-tab-label">Sonuçlar</span>
+                </button>
+                <button type="button" class="pub-tab pub-tab-premium" data-panel="rehber" data-accent="#455a64">
+                    <span class="pub-tab-ico">📖</span><span class="pub-tab-label">Rehber</span>
+                </button>
+            </div>
         </div>
     </nav>
 
@@ -285,7 +334,7 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js" crossorigin="anonymous"></script>
-    <script src="js/pub-ads.js?v=20260903hdr-lerta"></script>
-    <script src="js/public-home.js?v=20260903hdr-lerta"></script>
+    <script src="js/pub-ads.js?v=20260903ultra"></script>
+    <script src="js/public-home.js?v=20260903ultra"></script>
 </body>
 </html>
