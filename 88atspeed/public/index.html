@@ -433,6 +433,40 @@
         }
         .siklet-son800-table tbody tr:hover td.istat-gap-son8001-t1dr-low-neon { background: #b2ff59 !important; }
         .siklet-son800-table tbody tr:hover td.istat-gap-son8001-t1dr-low-neon .istat-pct { background: #b2ff59 !important; }
+        /* KOŞU AT SAYISI — alt sekme */
+        .astest-sub-tabs {
+            display: flex; flex-wrap: wrap; gap: 8px;
+            margin: 0 0 14px; padding: 0 4px;
+        }
+        .astest-sub-tab {
+            padding: 8px 16px; font-size: 12px; font-weight: 600;
+            border-radius: 20px; cursor: pointer; border: 1px solid #ce93d8;
+            background: #f3e5f5; color: #4a148c; font-family: inherit;
+        }
+        .astest-sub-tab:hover { background: #e1bee7; }
+        .astest-sub-tab.active {
+            background: linear-gradient(135deg, #7b1fa2, #4a148c);
+            color: #fff; border-color: transparent;
+        }
+        /* T1×DR=TEST1 eşleşme tablosu */
+        .t1dr-test1-table { min-width: 960px !important; }
+        .t1dr-test1-table th.t1dr-match-th-bitis { background: #fff59d; color: #f57f17; }
+        .t1dr-test1-table th.t1dr-match-th-gsira { background: #e8eaf6; color: #283593; }
+        .t1dr-test1-table th.t1dr-match-th-t1dr,
+        .t1dr-test1-table th.t1dr-match-th-test1 { background: #bbdefb; color: #0d47a1; }
+        .t1dr-test1-table th.t1dr-match-th-tahmin { background: #ffe0b2; color: #e65100; }
+        .t1dr-test1-table th.t1dr-match-th-go,
+        .t1dr-test1-table th.t1dr-match-th-hyb { background: #e1bee7; color: #4a148c; }
+        .t1dr-test1-table td.t1dr-match-val-t1dr,
+        .t1dr-test1-table td.t1dr-match-val-test1 {
+            font-weight: 800; color: #1565c0; background: #e3f2fd;
+        }
+        .t1dr-test1-table td.t1dr-match-tahmin { background: #fff3e0; }
+        .t1dr-test1-table td.t1dr-match-go,
+        .t1dr-test1-table td.t1dr-match-hyb { background: #f3e5f5; color: #4a148c; }
+        .t1dr-test1-table td.t1dr-match-bitis-win { font-weight: 900; color: #f57f17; }
+        .t1dr-test1-table .t1dr-match-horse-no { color: #7b1fa2; font-weight: 700; margin-right: 4px; }
+        .t1dr-match-summary { font-size: 12px; color: #546e7a; margin: 0 16px 10px; font-weight: 600; }
         /* GÖSTERİM renklendirme */
         .siklet-son800-table td[class*="istat-gos-"] .istat-pct { background: transparent !important; }
         .siklet-son800-table td.istat-gos-kirmizi-kenar { box-shadow: inset 0 0 0 2px #d50000, 0 0 8px rgba(255, 23, 68, 0.35); }
@@ -571,6 +605,10 @@
                 <button type="button" id="atSayisiKayitBtn" class="son-test-btn">📋 Kayıtlardan Seç</button>
                 <span id="atSayisiMeta" class="son-test-meta">Geçmiş koşulardaki at sayısı istatistikleri (çıkan/koşmaz hariç)</span>
             </div>
+            <div class="astest-sub-tabs" id="atSayisiSubTabs">
+                <button type="button" class="astest-sub-tab active" data-sub="field-size">📊 Alan İstatistikleri</button>
+                <button type="button" class="astest-sub-tab" data-sub="t1dr-test1">🔗 T1×DR=TEST1</button>
+            </div>
             <div id="atSayisiKayitListesi" class="kayit-listesi" style="display:none"></div>
             <div id="atSayisiContent"><div class="info-box">👥 KOŞU AT SAYISI — GETİR veya kayıtlardan seçin</div></div>
         </div>
@@ -651,6 +689,7 @@
     <script src="js/astest-son-ptest-tahmin.js?v=20260901a"></script>
     <script src="js/gosterim-headers.js?v=20260901a"></script>
     <script src="js/astest-son-gosterim-cols.js?v=20260902f"></script>
+    <script src="js/astest-t1dr-test1-match.js?v=20260903a"></script>
     <script>
         const RECENT_WINDOWS = FieldSizeStatsEngine.RECENT_WINDOWS;
 
@@ -1119,6 +1158,9 @@
         let sonTestKayitSource = null;
         let currentSonTestMeta = null;
         let currentHipodrom = null;
+        let atSayisiSubView = 'field-size';
+        let atSayisiCachedRaces = null;
+        let atSayisiCachedMeta = null;
         
         function createStatusDiv() {
             let statusDiv = document.getElementById('status');
@@ -1156,6 +1198,19 @@
         document.getElementById('kaydetBtn').onclick = veriKaydet;
         document.getElementById('sonTestKayitBtn').onclick = () => sonTestListKayitlar('sonTest');
         document.getElementById('atSayisiKayitBtn').onclick = () => sonTestListKayitlar('atSayisi');
+        document.querySelectorAll('#atSayisiSubTabs .astest-sub-tab').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const sub = this.dataset.sub || 'field-size';
+                if (sub === atSayisiSubView) return;
+                atSayisiSubView = sub;
+                document.querySelectorAll('#atSayisiSubTabs .astest-sub-tab').forEach(function(b) {
+                    b.classList.toggle('active', b.dataset.sub === sub);
+                });
+                if (atSayisiCachedRaces) {
+                    atSayisiTestGoster(atSayisiCachedRaces, atSayisiCachedMeta);
+                }
+            });
+        });
         document.getElementById('sehirKayitBtn').onclick = () => sonTestListKayitlar('sehir');
         for (const cfg of DIMENSION_TEST_TABS) {
             const btn = document.getElementById(cfg.kayitBtn);
@@ -1538,7 +1593,7 @@
         async function refreshTestTabs(races, meta) {
             if (meta?.hipodrom) currentHipodrom = meta.hipodrom;
             await sonTestGoster(races, meta);
-            atSayisiTestGoster(races, meta);
+            await atSayisiTestGoster(races, meta);
             sehirTestGoster(races, meta);
             for (const cfg of DIMENSION_TEST_TABS) {
                 dimensionTestGoster(races, meta, cfg.key);
@@ -1753,16 +1808,30 @@
             el.innerHTML = html;
         }
 
-        function atSayisiTestGoster(races, meta) {
+        async function atSayisiTestGoster(races, meta) {
             const el = document.getElementById('atSayisiContent');
             if (!el) return;
+            atSayisiCachedRaces = races;
+            atSayisiCachedMeta = meta;
             if (meta) testTabsSetMeta(formatTestTabsMeta(meta));
-            const programTarih = meta?.tarih || null;
-            const L = FieldSizeStatsEngine.FS_LABELS;
             if (!races || !races.length) {
                 el.innerHTML = '<div class="info-box">📋 Veri bulunamadı</div>';
                 return;
             }
+            if (atSayisiSubView === 't1dr-test1' && typeof AtestT1drTest1Match !== 'undefined') {
+                el.innerHTML = '<div class="info-box">⏳ T1×DR=TEST1 eşleşmeleri ve GÖ/HYB kalibrasyonu yükleniyor…</div>';
+                try {
+                    el.innerHTML = await AtestT1drTest1Match.renderRaces(
+                        races, meta, resolveHorseKosular, escapeHtml);
+                } catch (err) {
+                    console.error(err);
+                    el.innerHTML = '<div class="info-box">❌ T1×DR=TEST1 yüklenemedi: '
+                        + escapeHtml(err.message || String(err)) + '</div>';
+                }
+                return;
+            }
+            const programTarih = meta?.tarih || null;
+            const L = FieldSizeStatsEngine.FS_LABELS;
             let html = '<div class="son-test-wrap">';
             html += '<p class="astest-note">Geçmiş koşulardaki at sayıları TJK sonuç tablosundan (koşmaz/çekildi hariç). '
                 + 'GETİR ile diğer test sekmeleriyle <strong>aynı anda</strong> dolar. '
