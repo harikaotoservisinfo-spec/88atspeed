@@ -188,7 +188,14 @@ app.get('/api/public/tjk-tv', async (req, res) => {
     }
 });
 
-/** Hipodrom.com hesap bağlantısı — Kazanç sekmesi */
+app.get('/api/public/hipodrom/config', (req, res) => {
+    res.json({
+        success: true,
+        recaptchaSiteKey: hipodromAuth.RECAPTCHA_SITE_KEY,
+        hipodromUrl: 'https://www.hipodrom.com/'
+    });
+});
+
 app.get('/api/public/hipodrom/session', async (req, res) => {
     try {
         const session = hipodromAuth.getSession(req);
@@ -223,7 +230,7 @@ app.post('/api/public/hipodrom/login', async (req, res) => {
         return res.status(400).json({ success: false, error: 'Kullanıcı adı ve şifre gerekli' });
     }
     try {
-        const tokens = await hipodromAuth.login(username, password, recaptchaCode);
+        const { tokens, method } = await hipodromAuth.loginAuto(username, password, recaptchaCode);
         let user = null;
         try {
             user = await hipodromAuth.fetchUserDetails(tokens.accessToken);
@@ -236,6 +243,7 @@ app.post('/api/public/hipodrom/login', async (req, res) => {
         hipodromAuth.setSessionCookie(req, res, sid);
         res.json({
             success: true,
+            loginMethod: method,
             ...hipodromAuth.publicUser({ user })
         });
     } catch (err) {

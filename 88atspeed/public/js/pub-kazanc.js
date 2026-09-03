@@ -28,7 +28,7 @@
             + '<div><h3>Hipodrom Girişi</h3><p>Resmi Hipodrom.com hesabınızla bağlanın</p></div>'
             + '</div>'
             + (err ? '<div class="pub-kazanc-alert pub-kazanc-alert-error">' + escapeHtml(err) + '</div>' : '')
-            + (needsCaptcha ? '<div class="pub-kazanc-alert pub-kazanc-alert-warn">Güvenlik doğrulaması gerekebilir. Sorun devam ederse '
+            + (needsCaptcha ? '<div class="pub-kazanc-alert pub-kazanc-alert-warn">Güvenlik doğrulaması gerekli. Lütfen tekrar deneyin veya '
                 + '<a href="' + HIPODROM_URL + '" target="_blank" rel="noopener">hipodrom.com</a> üzerinden giriş yapın.</div>' : '')
             + '<form id="pubKazancLoginForm" class="pub-kazanc-form" autocomplete="on">'
             + '<label class="pub-kazanc-field"><span>Kullanıcı adı / E-posta / TC</span>'
@@ -113,14 +113,18 @@
             const password = $('#pubKazancPass', root)?.value;
             if (!username || !password) return;
             btn.disabled = true;
-            btn.textContent = 'Bağlanıyor…';
+            btn.textContent = 'Hipodrom doğrulanıyor…';
             try {
+                const controller = new AbortController();
+                const tid = setTimeout(() => controller.abort(), 90000);
                 const res = await fetch('/api/public/hipodrom/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'same-origin',
+                    signal: controller.signal,
                     body: JSON.stringify({ username, password })
                 });
+                clearTimeout(tid);
                 const data = await res.json();
                 if (!data.success) {
                     renderKazanc({ error: data.error, needsCaptcha: data.needsCaptcha });
@@ -129,7 +133,10 @@
                 sessionCache = data;
                 renderKazanc({ user: data });
             } catch (err) {
-                renderKazanc({ error: 'Bağlantı hatası: ' + (err.message || 'tekrar deneyin') });
+                const msg = err.name === 'AbortError'
+                    ? 'Giriş zaman aşımına uğradı. Hipodrom yanıt vermedi, tekrar deneyin.'
+                    : ('Bağlantı hatası: ' + (err.message || 'tekrar deneyin'));
+                renderKazanc({ error: msg });
             } finally {
                 if (btn) {
                     btn.disabled = false;
