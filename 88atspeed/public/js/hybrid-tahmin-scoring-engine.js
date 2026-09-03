@@ -826,6 +826,21 @@ const HybridTahminScoringEngine = (function () {
             + MIN_RACES_FOR_MODE + ' → global · boyut payı BİTİŞ verisinden kalibre · 10-at profili</span>';
     }
 
+    function importCalibrationBundle(bundle) {
+        if (!bundle?.blendBySize) return false;
+        calibration = bundle;
+        gostergeProfiles = bundle.gostergeProfiles || null;
+        if (gostergeProfiles) GostergeScoringEngine.setFieldAdaptiveProfiles?.(gostergeProfiles);
+        if (bundle.dimensionBlend?.dimWeight != null
+            && typeof DimensionTahminBoostEngine !== 'undefined') {
+            DimensionTahminBoostEngine.setBlendWeights(
+                bundle.dimensionBlend.hybridWeight ?? (1 - bundle.dimensionBlend.dimWeight),
+                bundle.dimensionBlend.dimWeight
+            );
+        }
+        return isCalibrated();
+    }
+
     if (typeof localStorage !== 'undefined') loadCalibration();
 
     return {
@@ -840,6 +855,7 @@ const HybridTahminScoringEngine = (function () {
         getCalibration,
         getGostergeProfiles,
         isCalibrated,
+        importCalibrationBundle,
         renderStatusHtml,
         loadCalibration,
         saveCalibration,

@@ -112,6 +112,13 @@ const AtestSonPtestTahmin = (function () {
         if (hybridCalPromise) return hybridCalPromise;
         hybridCalPromise = (async function() {
             try {
+                if (typeof GostergeScoringEngine.loadSharedCalibrationBundle === 'function') {
+                    const ok = await GostergeScoringEngine.loadSharedCalibrationBundle();
+                    if (ok && HybridTahminScoringEngine?.isCalibrated?.()
+                        && AtestSonGosterge1Tahmin?.isCalibrated?.()) {
+                        return true;
+                    }
+                }
                 let built = GostergeScoringEngine.getCachedFlatBuild?.();
                 if (!built?.flatEntries?.length) {
                     built = await GostergeScoringEngine.buildFlatEntriesFromApi({ IE: IstatistikEngine });
@@ -159,6 +166,10 @@ const AtestSonPtestTahmin = (function () {
         if (calPromise) return calPromise;
         calPromise = (async function() {
             try {
+                if (typeof GostergeScoringEngine.loadSharedCalibrationBundle === 'function') {
+                    const ok = await GostergeScoringEngine.loadSharedCalibrationBundle();
+                    if (ok) return true;
+                }
                 if (typeof AtestSonRenkTahmin !== 'undefined') {
                     await AtestSonRenkTahmin.ensureCalibration();
                 }

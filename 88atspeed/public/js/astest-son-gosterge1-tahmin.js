@@ -219,8 +219,26 @@ const AtestSonGosterge1Tahmin = (function () {
         return out;
     }
 
+    function importRates(rates) {
+        if (!rates) return false;
+        sideRates = rates.sideRates || null;
+        pairRates = rates.pairRates || null;
+        return !!(sideRates && pairRates);
+    }
+
+    function getSideRates() {
+        return sideRates;
+    }
+
+    function getPairRates() {
+        return pairRates;
+    }
+
     return {
         calibrateFromFlatEntries,
+        importRates,
+        getSideRates,
+        getPairRates,
         scoreSide,
         scorePair,
         isCalibrated: function() { return !!(sideRates && pairRates); }

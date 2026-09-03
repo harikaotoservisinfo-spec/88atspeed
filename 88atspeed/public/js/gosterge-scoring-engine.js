@@ -1625,18 +1625,31 @@ const GostergeScoringEngine = (function () {
         flatBuildPromise = (async function () {
             try {
                 try {
-                    const serverRes = await fetch('/api/calibration-flat-build');
+                    const serverRes = await fetch('/api/calibration-bundle');
                     if (serverRes.ok) {
                         const serverJson = await serverRes.json();
-                        if (serverJson.success && serverJson.flatEntries?.length) {
-                            cachedFlatBuild = {
-                                flatEntries: serverJson.flatEntries,
-                                bitisMap: serverJson.bitisMap || {}
-                            };
-                            return cachedFlatBuild;
+                        if (serverJson.success && serverJson.bundle?.gosterge) {
+                            importCalibrationBundle(serverJson.bundle.gosterge);
+                            if (typeof BasariPctScoringEngine !== 'undefined'
+                                && serverJson.bundle.basari?.weightsBySize) {
+                                BasariPctScoringEngine.importBundle?.(serverJson.bundle.basari);
+                            }
+                            if (typeof HybridTahminScoringEngine !== 'undefined'
+                                && serverJson.bundle.hybrid) {
+                                HybridTahminScoringEngine.importCalibrationBundle?.(
+                                    serverJson.bundle.hybrid);
+                            }
+                            if (typeof AtestSonGosterge1Tahmin !== 'undefined'
+                                && serverJson.bundle.g1) {
+                                AtestSonGosterge1Tahmin.importRates?.(serverJson.bundle.g1);
+                            }
+                            if (isCalibrated()) {
+                                cachedFlatBuild = { flatEntries: [], bitisMap: {} };
+                                return cachedFlatBuild;
+                            }
                         }
                     }
-                } catch (_) { /* sunucu yolu yoksa tarayıcı fallback */ }
+                } catch (_) { /* bundle yoksa tarayıcı fallback */ }
 
                 const IE = options?.IE || IstatistikEngine;
                 const bitisRes = await fetch('/api/puanlama-bitis-sonuclari');
@@ -1877,6 +1890,97 @@ const GostergeScoringEngine = (function () {
         return calibration;
     }
 
+    function makeCalibrationStubHost() {
+        return {
+            flatEntries: [],
+            buildBitisStatsFromEntries(entries) {
+                let withBitis = 0;
+                let b1 = 0;
+                let b12 = 0;
+                let b123 = 0;
+                for (const entry of entries || []) {
+                    let b = entry._bitisPos;
+                    if (b == null || b < 1) {
+                        b = AtSpeedUtils.extractBitisFromHorseName(entry.row?.name);
+                    }
+                    if (b == null || b < 1) continue;
+                    withBitis++;
+                    if (b === 1) b1++;
+                    if (b <= 2) b12++;
+                    if (b <= 3) b123++;
+                }
+                return { matchedRows: (entries || []).length, withBitis, b1, b12, b123 };
+            },
+            bitisValueForSort() {
+                return null;
+            }
+        };
+    }
+
+    function rehydrateCalibrationMatchers() {
+        if (!calibration?.metrics?.length) return;
+        const stubHost = makeCalibrationStubHost();
+        try {
+            calibration.liveMatchers = buildLiveMatchers(
+                calibration.metrics, stubHost, calibration.depthScales || {});
+        } catch (err) {
+            console.warn('rehydrateCalibrationMatchers', err);
+            calibration.liveMatchers = {};
+        }
+    }
+
+    function importCalibrationBundle(bundle) {
+        if (!bundle || !bundle.metrics?.length) return false;
+        calibration = bundle;
+        rehydrateCalibrationMatchers();
+        if (bundle.successBlend) {
+            setSuccessBlend(bundle.successBlend);
+        }
+        return isCalibrated();
+    }
+
+    let sharedBundlePromise = null;
+
+    async function loadSharedCalibrationBundle() {
+        if (typeof HybridTahminScoringEngine !== 'undefined'
+            && HybridTahminScoringEngine.isCalibrated?.()
+            && isCalibrated()
+            && typeof AtestSonGosterge1Tahmin !== 'undefined'
+            && AtestSonGosterge1Tahmin.isCalibrated?.()) {
+            return true;
+        }
+        if (sharedBundlePromise) return sharedBundlePromise;
+        sharedBundlePromise = (async function() {
+            try {
+                const res = await fetch('/api/calibration-bundle');
+                if (!res.ok) return false;
+                const json = await res.json();
+                if (!json.success || !json.bundle) return false;
+                const b = json.bundle;
+                if (!importCalibrationBundle(b.gosterge)) return false;
+
+                if (typeof BasariPctScoringEngine !== 'undefined' && b.basari?.weightsBySize) {
+                    BasariPctScoringEngine.importBundle?.(b.basari);
+                }
+                if (typeof HybridTahminScoringEngine !== 'undefined' && b.hybrid) {
+                    HybridTahminScoringEngine.importCalibrationBundle?.(b.hybrid);
+                }
+                if (typeof AtestSonGosterge1Tahmin !== 'undefined' && b.g1) {
+                    AtestSonGosterge1Tahmin.importRates?.(b.g1);
+                }
+                if (typeof AtestSonRenkTahmin !== 'undefined') {
+                    AtestSonRenkTahmin.onBundleLoaded?.();
+                }
+                return isCalibrated();
+            } catch (err) {
+                console.warn('loadSharedCalibrationBundle', err);
+                sharedBundlePromise = null;
+                return false;
+            }
+        })();
+        return sharedBundlePromise;
+    }
+
     function isCalibrated() {
         return !!(calibration && calibration.bitisRows >= MIN_RULE_SAMPLE);
     }
@@ -1996,6 +2100,9 @@ const GostergeScoringEngine = (function () {
         isScoringReady,
         getCalibration,
         isCalibrated,
+        importCalibrationBundle,
+        loadSharedCalibrationBundle,
+        rehydrateCalibrationMatchers,
         aggregateBucketTotals,
         loadAndCalibrateFromApi,
         buildFlatEntriesFromApi,

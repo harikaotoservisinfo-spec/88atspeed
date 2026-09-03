@@ -531,6 +531,16 @@ const BasariPctScoringEngine = (function () {
         return calibrateFromFlatEntries(flatEntries, host.bitisValueForSort);
     }
 
+    function importBundle(data) {
+        if (!data?.weightsBySize) return false;
+        weightsBySize = data.weightsBySize;
+        if (data.summary) {
+            calibrationSummary = data.summary;
+            if (data.summary.global) globalProfileWeights = data.summary.global;
+        }
+        return isCalibrated();
+    }
+
     function setWeightsBySize(map) {
         weightsBySize = map || null;
         if (map) {
@@ -627,6 +637,7 @@ const BasariPctScoringEngine = (function () {
         evaluateTahminSuccess,
         statCoverageInFieldSize,
         setWeightsBySize,
+        importBundle,
         loadWeights,
         saveWeights,
         getCalibrationSummary,

@@ -111,6 +111,13 @@ const AtestSonRenkTahmin = (function () {
         if (calPromise) return calPromise;
         calPromise = (async function () {
             try {
+                if (typeof GostergeScoringEngine.loadSharedCalibrationBundle === 'function') {
+                    const ok = await GostergeScoringEngine.loadSharedCalibrationBundle();
+                    if (ok && GostergeScoringEngine.isCalibrated?.()) {
+                        onBundleLoaded();
+                        return true;
+                    }
+                }
                 const built = await GostergeScoringEngine.buildFlatEntriesFromApi({ IE: IstatistikEngine });
                 const flatEntries = built.flatEntries || [];
                 const bitisMap = built.bitisMap || {};
@@ -186,6 +193,19 @@ const AtestSonRenkTahmin = (function () {
         return out;
     }
 
+    function onBundleLoaded() {
+        if (!GostergeScoringEngine?.isCalibrated?.()) {
+            scenarioCache = null;
+            return;
+        }
+        try {
+            allColorRowsCache = GostergeScoringEngine.getCachedAllColorRows?.() || [];
+        } catch (_) {
+            allColorRowsCache = [];
+        }
+        rebuildScenarioCache();
+    }
+
     function getDefaultScenario() {
         return getDisplayScenario();
     }
@@ -195,6 +215,7 @@ const AtestSonRenkTahmin = (function () {
         SON_TEST_COLUMN_LABEL,
         DEFAULT_SCENARIO,
         ensureCalibration,
+        onBundleLoaded,
         scoreRace,
         getDefaultScenario,
         getDisplayScenario,

@@ -676,14 +676,14 @@
     <script src="js/ptest-gosterge-engine.js?v=20260831z"></script>
     <script src="js/ptest-gosterge-depth-engine.js?v=20260831z"></script>
     <script src="js/ptest-color-gosterge-export.js?v=20260831z"></script>
-    <script src="js/gosterge-scoring-engine.js?v=20260903fix"></script>
-    <script src="js/basari-pct-scoring-engine.js?v=20260901a"></script>
+    <script src="js/gosterge-scoring-engine.js?v=20260903bundle"></script>
+    <script src="js/basari-pct-scoring-engine.js?v=20260903bundle"></script>
     <script src="js/ptest-field-factor-engine.js?v=20260901a"></script>
     <script src="js/ptest-field-adaptive-engine.js?v=20260901a"></script>
-    <script src="js/hybrid-tahmin-scoring-engine.js?v=20260901a"></script>
-    <script src="js/astest-son-renk-tahmin.js?v=20260901c"></script>
-    <script src="js/astest-son-gosterge1-tahmin.js?v=20260901a"></script>
-    <script src="js/astest-son-ptest-tahmin.js?v=20260903fix"></script>
+    <script src="js/hybrid-tahmin-scoring-engine.js?v=20260903bundle"></script>
+    <script src="js/astest-son-renk-tahmin.js?v=20260903bundle"></script>
+    <script src="js/astest-son-gosterge1-tahmin.js?v=20260903bundle"></script>
+    <script src="js/astest-son-ptest-tahmin.js?v=20260903bundle"></script>
     <script src="js/gosterim-headers.js?v=20260901a"></script>
     <script src="js/astest-son-gosterim-cols.js?v=20260902f"></script>
     <script src="js/astest-t1dr-test1-match.js?v=20260903a"></script>
@@ -1227,7 +1227,14 @@
             const mk = testTabsMetaKey(meta);
             (async function() {
                 try {
-                    if (typeof AtestSonRenkTahmin !== 'undefined'
+                    if (typeof GostergeScoringEngine !== 'undefined'
+                        && GostergeScoringEngine.loadSharedCalibrationBundle) {
+                        statusDiv.innerHTML = '<div class="status status-loading">⏳ GÖ · MTR · HYB skorları hazırlanıyor…</div>';
+                        await GostergeScoringEngine.loadSharedCalibrationBundle();
+                        if (testTabsMetaKey(currentSonTestMeta) === mk) {
+                            await refreshSonTestIfCurrent(meta);
+                        }
+                    } else if (typeof AtestSonRenkTahmin !== 'undefined'
                         && typeof GostergeScoringEngine !== 'undefined'
                         && !GostergeScoringEngine.isCalibrated?.()) {
                         statusDiv.innerHTML = '<div class="status status-loading">⏳ GÖ · MTR · R2 skorları hazırlanıyor…</div>';
@@ -1240,8 +1247,8 @@
                         await refreshSonTestIfCurrent(meta);
                     }
 
-                    if (typeof AtestSonPtestTahmin !== 'undefined'
-                        && !AtestSonPtestTahmin.isHybridReady?.()) {
+                    if (!isFullyTestCalibrated()
+                        && typeof AtestSonPtestTahmin !== 'undefined') {
                         statusDiv.innerHTML = '<div class="status status-loading">⏳ HYB skoru hazırlanıyor…</div>';
                         await AtestSonPtestTahmin.ensureHybridAndG1Calibration();
                         if (testTabsMetaKey(currentSonTestMeta) === mk) {
@@ -1265,16 +1272,20 @@
 
         function preloadTestCalibration() {
             if (isFullyTestCalibrated()) return;
-            fetch('/api/calibration-flat-build').catch(function() {});
-            (async function() {
-                if (typeof AtestSonRenkTahmin !== 'undefined') {
-                    await AtestSonRenkTahmin.ensureCalibration().catch(function() {});
-                }
-                if (typeof AtestSonPtestTahmin !== 'undefined'
-                    && !AtestSonPtestTahmin.isHybridReady?.()) {
-                    await AtestSonPtestTahmin.ensureHybridAndG1Calibration().catch(function() {});
-                }
-            })();
+            if (typeof GostergeScoringEngine !== 'undefined'
+                && GostergeScoringEngine.loadSharedCalibrationBundle) {
+                GostergeScoringEngine.loadSharedCalibrationBundle().then(function(ok) {
+                    if (!ok || !currentRaces?.length || !currentSonTestMeta) return;
+                    if (getActiveTestTabId() === 'son-test') {
+                        sonTestGoster(currentRaces, currentSonTestMeta, { skipCalibration: true });
+                    }
+                    if (!isFullyTestCalibrated()) {
+                        scheduleBackgroundCalibration(currentSonTestMeta);
+                    } else {
+                        statusDiv.innerHTML = '<div class="status status-success">✅ PUANLAMA TEST skorları hazır</div>';
+                    }
+                }).catch(function() {});
+            }
         }
 
         async function renderOneTestTab(tabId, races, meta) {

@@ -3,6 +3,7 @@ const puppeteer = require('puppeteer');
 const sqlite3 = require('sqlite3').verbose();
 const tjkScrape = require('./lib/tjk-scrape');
 const { buildCalibrationFlat, clearCalibrationFlatCache } = require('./lib/calibration-flat-build');
+const { buildCalibrationBundle, clearCalibrationBundleCache } = require('./lib/calibration-bundle');
 const app = express();
 const PORT = 3023;
 
@@ -757,6 +758,7 @@ app.post('/api/hesaplama-kaydet', (req, res) => {
         } else {
             console.log('✅ HESAPLAMA kayıt başarılı! ID:', this.lastID);
             clearCalibrationFlatCache();
+            clearCalibrationBundleCache();
             res.json({ success: true, id: this.lastID });
         }
     });
@@ -770,6 +772,22 @@ app.get('/api/hesaplama-kayitlar', (req, res) => {
             res.json({ success: true, kayitlar: rows });
         }
     });
+});
+
+/** Kalibrasyon paketi — sunucuda kalibre edilmiş motor durumu (~0.5MB, tarayıcıya flat gönderilmez) */
+app.get('/api/calibration-bundle', async (req, res) => {
+    try {
+        const built = await buildCalibrationBundle();
+        res.json({
+            success: true,
+            bundle: built.bundle,
+            flatCount: built.flatCount,
+            buildMs: built.buildMs
+        });
+    } catch (err) {
+        console.error('calibration-bundle:', err);
+        res.status(500).json({ success: false, error: err.message || String(err) });
+    }
 });
 
 /** Kalibrasyon için flat entry — sunucuda DB'den tek seferde (tarayıcı N+1 yerine) */
@@ -880,6 +898,7 @@ app.delete('/api/hesaplama-kayit/:id', (req, res) => {
             }
             console.log('🗑 Hesaplama kaydı silindi ID:', id);
             clearCalibrationFlatCache();
+            clearCalibrationBundleCache();
             res.json({ success: true, deletedId: parseInt(id, 10) });
         });
     });
@@ -1145,6 +1164,13 @@ app.listen(PORT, async () => {
         })
         .catch(function(err) {
             console.warn('Kalibrasyon flat önbellek ısıtma atlandı:', err.message);
+        });
+    buildCalibrationBundle()
+        .then(function(b) {
+            console.log('🔥 Kalibrasyon bundle önbellek: ' + b.flatCount + ' satır (' + b.buildMs + 'ms)');
+        })
+        .catch(function(err) {
+            console.warn('Kalibrasyon bundle ısıtma atlandı:', err.message);
         });
 });
 
