@@ -111,9 +111,14 @@ const AtestSonGosterge1Tahmin = (function () {
         const sideGroups = { up: [], down: [], eq: [] };
         const pairGroups = { same: [], diff: [] };
 
+        const raceAvgsCache = new Map();
+        for (const [rk, rows] of raceBuckets) {
+            raceAvgsCache.set(rk, raceStripAvgs(rows, strip));
+        }
+
         for (const entry of flatEntries) {
             const rk = String(entry.kayitId) + '|' + entry.raceNo;
-            const raceAvgs = raceStripAvgs(raceBuckets.get(rk) || [entry.row], strip);
+            const raceAvgs = raceAvgsCache.get(rk) || raceStripAvgs([entry.row], strip);
             const side = entrySide(entry.row, strip, metric, raceAvgs);
             if (side && sideGroups[side]) sideGroups[side].push(entry.row);
 

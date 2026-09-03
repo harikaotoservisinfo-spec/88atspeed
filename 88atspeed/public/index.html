@@ -675,7 +675,7 @@
     <script src="js/istatistik-gosterim-flags.js?v=20260831e"></script>
     <script src="js/son800-depth-ui.js?v=20260831f"></script>
     <script src="js/siklet-bas-delta-boost.js?v=20260831h"></script>
-    <script src="js/astest-son800-shared.js?v=20260831i"></script>
+    <script src="js/astest-son800-shared.js?v=20260903a"></script>
     <script src="js/field-size-stats-engine.js?v=20260831i"></script>
     <script src="js/sehir-stats-engine.js?v=20260831g"></script>
     <script src="js/kosu-dimension-stats-engine.js?v=20260831h"></script>
@@ -684,17 +684,17 @@
     <script src="js/ptest-gosterge-engine.js?v=20260831z"></script>
     <script src="js/ptest-gosterge-depth-engine.js?v=20260831z"></script>
     <script src="js/ptest-color-gosterge-export.js?v=20260831z"></script>
-    <script src="js/gosterge-scoring-engine.js?v=20260901d"></script>
+    <script src="js/gosterge-scoring-engine.js?v=20260903a"></script>
     <script src="js/basari-pct-scoring-engine.js?v=20260901a"></script>
     <script src="js/ptest-field-factor-engine.js?v=20260901a"></script>
     <script src="js/ptest-field-adaptive-engine.js?v=20260901a"></script>
     <script src="js/hybrid-tahmin-scoring-engine.js?v=20260901a"></script>
     <script src="js/astest-son-renk-tahmin.js?v=20260901c"></script>
-    <script src="js/astest-son-gosterge1-tahmin.js?v=20260901a"></script>
-    <script src="js/astest-son-ptest-tahmin.js?v=20260901a"></script>
+    <script src="js/astest-son-gosterge1-tahmin.js?v=20260903a"></script>
+    <script src="js/astest-son-ptest-tahmin.js?v=20260903a"></script>
     <script src="js/gosterim-headers.js?v=20260901a"></script>
     <script src="js/astest-son-gosterim-cols.js?v=20260902f"></script>
-    <script src="js/astest-t1dr-test1-match.js?v=20260903c"></script>
+    <script src="js/astest-t1dr-test1-match.js?v=20260903d"></script>
     <script>
         const RECENT_WINDOWS = FieldSizeStatsEngine.RECENT_WINDOWS;
 
@@ -1156,6 +1156,10 @@
             { key: 'hp', tabId: 'hp-test', contentId: 'hpContent', metaId: 'hpMeta', listId: 'hpKayitListesi', kayitBtn: 'hpKayitBtn' },
             { key: 'siklet', tabId: 'siklet-test', contentId: 'sikletContent', metaId: 'sikletMeta', listId: 'sikletKayitListesi', kayitBtn: 'sikletKayitBtn' }
         ];
+        const TEST_TAB_IDS = ['son-test', 'at-sayisi-test', 'sehir-test']
+            .concat(DIMENSION_TEST_TABS.map(function (c) { return c.tabId; }));
+        let testTabsRenderGen = 0;
+        const testTabsRendered = new Set();
         let veriCache = {};
         let currentRaces = null;
         let currentHorses = [];
@@ -1224,6 +1228,37 @@
         
         function getActiveTabId() {
             return document.querySelector('.tab-btn.active')?.dataset.tab || 'hesaplama';
+        }
+
+        function isTestTabId(tabId) {
+            return TEST_TAB_IDS.indexOf(tabId) >= 0;
+        }
+
+        function getTestTabContentId(tabId) {
+            if (tabId === 'son-test') return 'sonTestContent';
+            if (tabId === 'at-sayisi-test') return 'atSayisiContent';
+            if (tabId === 'sehir-test') return 'sehirContent';
+            const cfg = DIMENSION_TEST_TABS.find(function (t) { return t.tabId === tabId; });
+            return cfg ? cfg.contentId : null;
+        }
+
+        function setTestTabLoading(tabId, html) {
+            const cid = getTestTabContentId(tabId);
+            if (!cid) return;
+            const el = document.getElementById(cid);
+            if (el) el.innerHTML = html;
+        }
+
+        function isRenderStale(renderGen) {
+            return renderGen != null && renderGen !== testTabsRenderGen;
+        }
+
+        async function ensureTestTabRendered(tabId) {
+            if (!currentRaces || !isTestTabId(tabId) || testTabsRendered.has(tabId)) return;
+            const myGen = testTabsRenderGen;
+            setTestTabLoading(tabId, '<div class="info-box">⏳ Yükleniyor...</div>');
+            await renderOneTestTab(tabId, currentRaces, currentSonTestMeta, myGen);
+            if (!isRenderStale(myGen)) testTabsRendered.add(tabId);
         }
 
         function setActiveTabContentLoading(html) {
@@ -1378,6 +1413,9 @@
                 if (tabId === 'karsilastirma') {
                     const frame = document.getElementById('karsilastirmaFrame');
                     if (frame) frame.src = 'karsilastirma.html?v=' + Date.now();
+                }
+                if (isTestTabId(tabId)) {
+                    ensureTestTabRendered(tabId);
                 }
             });
         });
@@ -1595,33 +1633,36 @@
             document.getElementById('tab-hesaplama').innerHTML = genelHtml;
         }
 
-        async function renderOneTestTab(tabId, races, meta) {
+        async function renderOneTestTab(tabId, races, meta, renderGen) {
+            if (isRenderStale(renderGen)) return;
             if (tabId === 'son-test') {
-                await sonTestGoster(races, meta);
+                await sonTestGoster(races, meta, renderGen);
             } else if (tabId === 'at-sayisi-test') {
-                await atSayisiTestGoster(races, meta);
+                await atSayisiTestGoster(races, meta, renderGen);
             } else if (tabId === 'sehir-test') {
-                sehirTestGoster(races, meta);
+                sehirTestGoster(races, meta, renderGen);
             } else {
                 const cfg = DIMENSION_TEST_TABS.find(function (t) { return t.tabId === tabId; });
-                if (cfg) dimensionTestGoster(races, meta, cfg.key);
+                if (cfg) dimensionTestGoster(races, meta, cfg.key, renderGen);
             }
         }
 
-        /** Aktif sekme önce render edilir; diğerleri arka planda dolar (yavaş kalibrasyon bloklamaz). */
+        /** Yalnızca aktif test sekmesi yüklenir; diğerleri ilk tıklamada dolar. */
         async function refreshTestTabs(races, meta) {
             if (meta?.hipodrom) currentHipodrom = meta.hipodrom;
-            const activeTab = getActiveTabId();
-            await renderOneTestTab(activeTab, races, meta);
+            testTabsRenderGen++;
+            const myGen = testTabsRenderGen;
+            testTabsRendered.clear();
+            if (typeof AtestSon800Shared !== 'undefined' && AtestSon800Shared.clearRaceContextCache) {
+                AtestSon800Shared.clearRaceContextCache();
+            }
 
-            const tabIds = ['son-test', 'at-sayisi-test', 'sehir-test']
-                .concat(DIMENSION_TEST_TABS.map(function (c) { return c.tabId; }));
-            const others = tabIds.filter(function (id) { return id !== activeTab; });
-            Promise.all(others.map(function (id) {
-                return renderOneTestTab(id, races, meta);
-            })).catch(function (err) {
-                console.error('refreshTestTabs arka plan', err);
-            });
+            const activeTab = getActiveTabId();
+            if (isTestTabId(activeTab)) {
+                setTestTabLoading(activeTab, '<div class="info-box">⏳ Yükleniyor...</div>');
+                await renderOneTestTab(activeTab, races, meta, myGen);
+                if (!isRenderStale(myGen)) testTabsRendered.add(activeTab);
+            }
         }
 
         function formatTestTabsMeta(meta) {
@@ -1635,33 +1676,29 @@
             return parts.join(' · ') || '—';
         }
 
-        async function sonTestGoster(races, meta) {
+        async function sonTestGoster(races, meta, renderGen) {
             const el = document.getElementById('sonTestContent');
             if (!el) return;
+            if (isRenderStale(renderGen)) return;
             if (meta) testTabsSetMeta(formatTestTabsMeta(meta));
             if (!races || !races.length) {
                 el.innerHTML = '<div class="info-box">📋 Veri bulunamadı</div>';
                 return;
             }
-            if (typeof AtestSonRenkTahmin !== 'undefined' || typeof AtestSonPtestTahmin !== 'undefined') {
+            if (typeof AtestSonPtestTahmin !== 'undefined') {
                 el.innerHTML = '<div class="info-box">⏳ PUANLAMA TEST kalibrasyonu yükleniyor…</div>';
             }
             let ptestCalibrated = false;
             let renkScenarioCols = [];
             let ptestCols = [];
-            const calJobs = [];
             if (typeof AtestSonPtestTahmin !== 'undefined') {
-                calJobs.push(AtestSonPtestTahmin.ensureCalibration().then(function(ok) {
-                    ptestCalibrated = !!ok;
-                    ptestCols = AtestSonPtestTahmin.getColumns();
-                }));
+                ptestCalibrated = await AtestSonPtestTahmin.ensureCalibration();
+                if (isRenderStale(renderGen)) return;
+                ptestCols = AtestSonPtestTahmin.getColumns();
             }
-            if (typeof AtestSonRenkTahmin !== 'undefined') {
-                calJobs.push(AtestSonRenkTahmin.ensureCalibration().then(function(ok) {
-                    if (ok) renkScenarioCols = AtestSonRenkTahmin.getScenarioColumns();
-                }));
+            if (ptestCalibrated && typeof AtestSonRenkTahmin !== 'undefined') {
+                renkScenarioCols = AtestSonRenkTahmin.getScenarioColumns();
             }
-            if (calJobs.length) await Promise.all(calJobs);
             const extraTahminColCount = renkScenarioCols.length + ptestCols.length;
             const gosColCount = typeof AtestSonGosterimCols !== 'undefined'
                 ? AtestSonGosterimCols.getColumnCount()
@@ -1829,12 +1866,14 @@
                 html += '</tbody></table></div></div>';
             }
             html += '</div>';
+            if (isRenderStale(renderGen)) return;
             el.innerHTML = html;
         }
 
-        async function atSayisiTestGoster(races, meta) {
+        async function atSayisiTestGoster(races, meta, renderGen) {
             const el = document.getElementById('atSayisiContent');
             if (!el) return;
+            if (isRenderStale(renderGen)) return;
             atSayisiCachedRaces = races;
             atSayisiCachedMeta = meta;
             if (meta) testTabsSetMeta(formatTestTabsMeta(meta));
@@ -1845,11 +1884,14 @@
             if (atSayisiSubView === 't1dr-test1' && typeof AtestT1drTest1Match !== 'undefined') {
                 el.innerHTML = '<div class="info-box">⏳ T1×DR=TEST1 eşleşmeleri ve GÖ/HYB kalibrasyonu yükleniyor…</div>';
                 try {
-                    el.innerHTML = await AtestT1drTest1Match.renderRaces(
+                    const html = await AtestT1drTest1Match.renderRaces(
                         races, meta, resolveHorseKosular, escapeHtml);
+                    if (isRenderStale(renderGen)) return;
+                    el.innerHTML = html;
                     AtestT1drTest1Match.bindRaceSelector(el);
                 } catch (err) {
                     console.error(err);
+                    if (isRenderStale(renderGen)) return;
                     el.innerHTML = '<div class="info-box">❌ T1×DR=TEST1 yüklenemedi: '
                         + escapeHtml(err.message || String(err)) + '</div>';
                 }
@@ -1977,12 +2019,14 @@
                 html += '</div>';
             }
             html += '</div>';
+            if (isRenderStale(renderGen)) return;
             el.innerHTML = html;
         }
 
-        function sehirTestGoster(races, meta) {
+        function sehirTestGoster(races, meta, renderGen) {
             const el = document.getElementById('sehirContent');
             if (!el) return;
+            if (isRenderStale(renderGen)) return;
             if (meta) testTabsSetMeta(formatTestTabsMeta(meta));
             const hedefSehir = meta?.hipodrom || currentHipodrom || '';
             const programTarih = meta?.tarih || null;
@@ -2104,14 +2148,16 @@
                 html += '</div>';
             }
             html += '</div>';
+            if (isRenderStale(renderGen)) return;
             el.innerHTML = html;
         }
 
-        function dimensionTestGoster(races, meta, dimKey) {
+        function dimensionTestGoster(races, meta, dimKey, renderGen) {
             const dim = KosuDimensionStatsEngine.getDim(dimKey);
             const cfg = DIMENSION_TEST_TABS.find(t => t.key === dimKey);
             const el = cfg ? document.getElementById(cfg.contentId) : null;
             if (!el || !dim) return;
+            if (isRenderStale(renderGen)) return;
             if (meta) testTabsSetMeta(formatTestTabsMeta(meta));
             if (!races || !races.length) {
                 el.innerHTML = '<div class="info-box">📋 Veri bulunamadı</div>';
@@ -2208,9 +2254,9 @@
                         const kosular = veriCache[h.atId] || h.kosular || [];
                         const horseCtx = Object.assign({}, h, { kosular: kosular });
                         const hedef = dim.getTarget(horseCtx, race);
-                        const st = KosuDimensionStatsEngine.computeStats(kosular, dimKey, hedef, programTarih);
+                        let st = KosuDimensionStatsEngine.computeStats(kosular, dimKey, hedef, programTarih);
                         if (typeof AtestSon800Shared !== 'undefined') {
-                            AtestSon800Shared.applyBasDeltaBoost(st, h, sonCtx);
+                            st = AtestSon800Shared.applyBasDeltaBoost(st, h, sonCtx);
                         }
                         return { h: h, st: st, hedef: hedef };
                     });
@@ -2251,6 +2297,7 @@
                 html += '</div>';
             }
             html += '</div>';
+            if (isRenderStale(renderGen)) return;
             el.innerHTML = html;
         }
 
@@ -2309,12 +2356,9 @@
 
         async function loadSonTestKayit(id) {
             const loadingHtml = '<div class="info-box">⏳ Kayıt yükleniyor...</div>';
-            document.getElementById('sonTestContent').innerHTML = loadingHtml;
-            document.getElementById('atSayisiContent').innerHTML = loadingHtml;
-            document.getElementById('sehirContent').innerHTML = loadingHtml;
-            for (const cfg of DIMENSION_TEST_TABS) {
-                const el = document.getElementById(cfg.contentId);
-                if (el) el.innerHTML = loadingHtml;
+            const activeTab = getActiveTabId();
+            if (isTestTabId(activeTab)) {
+                setTestTabLoading(activeTab, loadingHtml);
             }
             statusDiv.innerHTML = '<div class="status status-loading">⏳ Kayıt #' + id + ' yükleniyor...</div>';
             try {

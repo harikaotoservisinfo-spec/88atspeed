@@ -316,8 +316,10 @@ const AtestT1drTest1Match = (function () {
         const host = root || document;
         const sel = host.querySelector ? host.querySelector('#t1drRaceSelect') : null;
         if (!sel) return;
-        sel.addEventListener('change', function () {
-            const idx = String(sel.value);
+        const fresh = sel.cloneNode(true);
+        sel.parentNode.replaceChild(fresh, sel);
+        fresh.addEventListener('change', function () {
+            const idx = String(fresh.value);
             host.querySelectorAll('.t1dr-test1-race').forEach(function (el) {
                 el.style.display = el.getAttribute('data-race-idx') === idx ? '' : 'none';
             });
