@@ -167,9 +167,12 @@ async function loadOverviewContext(refPath, tarih) {
 /** Hızlı özet — yalnızca hipodrom ve koşu listesi (~2 istek) */
 async function fetchMuhtemelOverview(opts = {}) {
     const refPath = resolveRefPath(opts);
+    const skipCache = opts.refresh === true || opts.refresh === '1' || opts.refresh === 'true';
     const cacheKey = 'overview|' + refPath;
-    const hit = cache.get(cacheKey);
-    if (hit && Date.now() - hit.at < CACHE_MS) return hit.data;
+    if (!skipCache) {
+        const hit = cache.get(cacheKey);
+        if (hit && Date.now() - hit.at < CACHE_MS) return hit.data;
+    }
 
     const ctx = await loadOverviewContext(refPath, opts.tarih);
     const hipodromlar = ctx.yarislar.map((y) => ({
@@ -206,9 +209,12 @@ async function fetchMuhtemelRace(opts = {}) {
     if (!raceKey) throw new Error('kosu parametresi gerekli (örn. ANKARA-1)');
 
     const refPath = resolveRefPath(opts);
+    const skipCache = opts.refresh === true || opts.refresh === '1' || opts.refresh === 'true';
     const cacheKey = 'race|' + refPath + '|' + raceKey;
-    const hit = cache.get(cacheKey);
-    if (hit && Date.now() - hit.at < RACE_CACHE_MS) return hit.data;
+    if (!skipCache) {
+        const hit = cache.get(cacheKey);
+        if (hit && Date.now() - hit.at < RACE_CACHE_MS) return hit.data;
+    }
 
     const ctx = await loadOverviewContext(refPath, opts.tarih);
     const hashes = ctx.checksum.runs?.[raceKey];

@@ -12,8 +12,17 @@
         muhtHipKey: null,
         muhtKosuNo: null,
         muhtRaceCache: {},
-        muhtRaceLoading: false
+        muhtRaceLoading: false,
+        muhtBetKey: null,
+        muhtAutoRefresh: true,
+        muhtRefreshSec: 15,
+        muhtCountdown: 15,
+        muhtLastUpdate: null,
+        muhtPrevOdds: {}
     };
+
+    const MUHT_REFRESH_SEC = 15;
+    let muhtPollTimer = null;
 
     const $ = (sel) => document.querySelector(sel);
     const $$ = (sel) => document.querySelectorAll(sel);
@@ -243,46 +252,213 @@
             const iso = state.iso || localTodayIso();
             if (!state.muhtemeller || state.muhtIso !== iso) {
                 loadMuhtemeller(iso);
+            } else {
+                startMuhtPolling();
             }
+        } else {
+            stopMuhtPolling();
         }
     }
 
-    function renderMuhtemelRaceBody(muht) {
-        let html = '<div class="pub-muht-race-hdr">'
-            + '<strong>' + escapeHtml(muht.key) + ' · ' + muht.no + '. Koşu</strong>'
-            + '<span class="pub-badge ' + pistBadgeClass(muht.pist) + '">' + escapeHtml((muht.pist || '') + ' ' + (muht.saat || '')) + '</span>'
-            + '<span class="pub-muht-durum pub-muht-durum-' + (muht.isOpen ? 'acik' : 'resmi') + '">' + escapeHtml(muht.durum || '') + '</span>'
-            + '</div>';
+    function formatClock(d) {
+        if (!d) return '—';
+        const dt = d instanceof Date ? d : new Date(d);
+        return dt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
 
-        (muht.bahisler || []).forEach((bet) => {
-            html += '<div class="pub-muht-bet-card">'
-                + '<div class="pub-muht-bet-hdr">' + escapeHtml(bet.B) + ' <span class="pub-muht-bet-durum">' + escapeHtml(bet.D || '') + '</span></div>';
-            if (bet.isGanyan || bet.B === 'GANYAN') {
-                html += '<table class="pub-muht-table"><thead><tr><th>No</th><th>At</th><th>Ganyan</th><th>Sıra</th></tr></thead><tbody>';
-                (bet.muhtemeller || []).forEach((row) => {
-                    const fav = row.A ? ' pub-muht-fav' : '';
-                    html += '<tr class="' + fav + '"><td><strong>' + escapeHtml(row.S1) + '</strong></td>'
-                        + '<td>' + escapeHtml(row.atAdi || row.T || '') + '</td>'
-                        + '<td class="pub-muht-ganyan">' + escapeHtml(row.G || '—') + '</td>'
-                        + '<td>' + escapeHtml(row.R || '—') + '</td></tr>';
-                });
-                html += '</tbody></table>';
-            } else {
-                html += '<table class="pub-muht-table pub-muht-table-compact"><thead><tr><th>Kombinasyon</th><th>Oran</th></tr></thead><tbody>';
-                const rows = (bet.muhtemeller || []).slice(0, 30);
-                rows.forEach((row) => {
-                    html += '<tr><td>' + escapeHtml(row.T || (row.S1 + '-' + row.S2)) + '</td>'
-                        + '<td class="pub-muht-ganyan">' + escapeHtml(row.G || '—') + '</td></tr>';
-                });
-                if ((bet.muhtemeller || []).length > 30) {
-                    html += '<tr><td colspan="2" style="text-align:center;color:#888">+ '
-                        + ((bet.muhtemeller.length - 30)) + ' kombinasyon daha</td></tr>';
-                }
-                html += '</tbody></table>';
+    function updateMuhtToolbar(isLive) {
+        const liveBadge = $('#pubMuhtLiveBadge');
+        const updated = $('#pubMuhtUpdated');
+        const countdown = $('#pubMuhtCountdown');
+        if (liveBadge) liveBadge.hidden = !isLive;
+        if (updated) {
+            updated.textContent = state.muhtLastUpdate
+                ? 'Güncellendi: ' + formatClock(state.muhtLastUpdate)
+                : '—';
+        }
+        if (countdown) {
+            countdown.textContent = state.muhtAutoRefresh ? state.muhtCountdown + 's' : 'kapalı';
+        }
+    }
+
+    function startMuhtPolling() {
+        stopMuhtPolling();
+        if (!state.muhtAutoRefresh) return;
+        if (!$('#panel-muhtemeller')?.classList.contains('active')) return;
+        state.muhtCountdown = MUHT_REFRESH_SEC;
+        updateMuhtToolbar(isCurrentRaceOpen());
+        muhtPollTimer = setInterval(() => {
+            if (document.hidden) return;
+            if (!state.muhtAutoRefresh) return;
+            state.muhtCountdown -= 1;
+            updateMuhtToolbar(isCurrentRaceOpen());
+            if (state.muhtCountdown <= 0) {
+                state.muhtCountdown = MUHT_REFRESH_SEC;
+                silentRefreshCurrentRace();
             }
-            html += '</div>';
+        }, 1000);
+    }
+
+    function stopMuhtPolling() {
+        if (muhtPollTimer) {
+            clearInterval(muhtPollTimer);
+            muhtPollTimer = null;
+        }
+    }
+
+    function isCurrentRaceOpen() {
+        const data = state.muhtemeller;
+        if (!data || !state.muhtHipKey || !state.muhtKosuNo) return false;
+        const hip = data.hipodromlar.find((h) => h.key === state.muhtHipKey);
+        const kosu = (hip?.kosular || []).find((k) => String(k.NO) === String(state.muhtKosuNo));
+        if (kosu?.DURUM === 'AÇIK') return true;
+        const cacheKey = (state.muhtIso || state.iso) + ':' + state.muhtHipKey + '-' + state.muhtKosuNo;
+        return !!state.muhtRaceCache[cacheKey]?.muhtemel?.isOpen;
+    }
+
+    function getCurrentRunKey() {
+        if (!state.muhtHipKey || !state.muhtKosuNo) return '';
+        return state.muhtHipKey + '-' + state.muhtKosuNo;
+    }
+
+    function collectOddsMap(muht) {
+        const map = {};
+        (muht?.bahisler || []).forEach((bet) => {
+            (bet.muhtemeller || []).forEach((row) => {
+                const key = bet.B + '|' + (row.S1 || '') + '|' + (row.S2 || '') + '|' + (row.T || '');
+                map[key] = row.G;
+            });
         });
+        return map;
+    }
+
+    function renderMuhtemelBetPanel(bet, flashKeys) {
+        const isOpen = (bet.D || '').toUpperCase() === 'AÇIK';
+        let html = '<div class="pub-muht-bet-status' + (isOpen ? ' open' : '') + '">'
+            + '<span>' + escapeHtml(bet.B) + '</span>'
+            + '<span>' + escapeHtml(bet.D || '') + '</span></div>';
+
+        if (bet.isGanyan || bet.B === 'GANYAN') {
+            html += '<table class="pub-muht-table"><thead><tr><th>No</th><th>At</th><th>Ganyan</th><th>Sıra</th></tr></thead><tbody>';
+            (bet.muhtemeller || []).forEach((row) => {
+                const fav = row.A ? ' pub-muht-fav' : '';
+                const oddKey = bet.B + '|' + (row.S1 || '') + '||';
+                const flash = flashKeys?.[oddKey] || '';
+                html += '<tr class="' + fav + '" data-odd-key="' + escapeHtml(oddKey) + '">'
+                    + '<td><span class="pub-muht-no-pill">' + escapeHtml(row.S1) + '</span></td>'
+                    + '<td><strong>' + escapeHtml(row.atAdi || row.T || '') + '</strong></td>'
+                    + '<td class="pub-muht-ganyan' + flash + '">' + escapeHtml(row.G || '—') + '</td>'
+                    + '<td>' + escapeHtml(row.R || '—') + '</td></tr>';
+            });
+            html += '</tbody></table>';
+        } else {
+            html += '<div class="pub-muht-ikili-grid"><table class="pub-muht-table pub-muht-table-compact"><thead><tr><th>Kombinasyon</th><th>Oran</th></tr></thead><tbody>';
+            const rows = (bet.muhtemeller || []).slice(0, 40);
+            rows.forEach((row) => {
+                const oddKey = bet.B + '|' + (row.S1 || '') + '|' + (row.S2 || '') + '|';
+                const flash = flashKeys?.[oddKey] || '';
+                html += '<tr data-odd-key="' + escapeHtml(oddKey) + '"><td>' + escapeHtml(row.T || (row.S1 + '-' + row.S2)) + '</td>'
+                    + '<td class="pub-muht-ganyan' + flash + '">' + escapeHtml(row.G || '—') + '</td></tr>';
+            });
+            html += '</tbody></table></div>';
+            if ((bet.muhtemeller || []).length > 40) {
+                html += '<div class="pub-muht-more">+ ' + ((bet.muhtemeller.length - 40)) + ' kombinasyon daha</div>';
+            }
+        }
         return html;
+    }
+
+    function renderMuhtemelRaceBody(muht, flashKeys) {
+        const bahisler = muht.bahisler || [];
+        if (!bahisler.length) {
+            return '<div class="pub-empty"><p>Bu koşu için muhtemel verisi yok.</p></div>';
+        }
+
+        if (!state.muhtBetKey || !bahisler.find((b) => b.B === state.muhtBetKey)) {
+            state.muhtBetKey = bahisler[0].B;
+        }
+        const activeBet = bahisler.find((b) => b.B === state.muhtBetKey) || bahisler[0];
+
+        const title = escapeHtml(muht.key) + ' · ' + muht.no + '. Koşu';
+        const sub = [muht.pist, muht.saat].filter(Boolean).join(' · ');
+
+        let html = '<div class="pub-muht-race-card">'
+            + '<div class="pub-muht-race-top">'
+            + '<div class="pub-muht-race-title"><strong>' + title + '</strong>'
+            + (sub ? '<span>' + escapeHtml(sub) + '</span>' : '') + '</div>'
+            + '<div class="pub-muht-race-meta">'
+            + '<span class="pub-badge ' + pistBadgeClass(muht.pist) + '">' + escapeHtml(muht.pist || '') + '</span>'
+            + '<span class="pub-muht-durum pub-muht-durum-' + (muht.isOpen ? 'acik' : 'resmi') + '">' + escapeHtml(muht.durum || '') + '</span>'
+            + '</div></div>';
+
+        html += '<div class="pub-muht-bet-tabs" role="tablist">';
+        bahisler.forEach((bet) => {
+            const sel = bet.B === activeBet.B;
+            const cnt = (bet.muhtemeller || []).length;
+            html += '<button type="button" class="pub-muht-bet-tab' + (sel ? ' active' : '') + '" data-muht-bet="' + escapeHtml(bet.B) + '" role="tab">'
+                + escapeHtml(bet.B) + '<span class="pub-muht-bet-cnt">' + cnt + '</span></button>';
+        });
+        html += '</div>';
+
+        html += '<div class="pub-muht-bet-panel" id="pubMuhtBetPanel">'
+            + renderMuhtemelBetPanel(activeBet, flashKeys)
+            + '</div></div>';
+
+        return html;
+    }
+
+    function bindMuhtemelRaceEvents(muht) {
+        $('#pubMuhtContent')?.querySelectorAll('[data-muht-bet]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                state.muhtBetKey = btn.dataset.muhtBet;
+                const cacheKey = (state.muhtIso || state.iso) + ':' + getCurrentRunKey();
+                const cached = state.muhtRaceCache[cacheKey];
+                if (cached?.muhtemel) {
+                    $('#pubMuhtBetPanel').innerHTML = renderMuhtemelBetPanel(
+                        cached.muhtemel.bahisler.find((b) => b.B === state.muhtBetKey) || cached.muhtemel.bahisler[0]
+                    );
+                    $('#pubMuhtContent').querySelectorAll('.pub-muht-bet-tab').forEach((t) => {
+                        t.classList.toggle('active', t.dataset.muhtBet === state.muhtBetKey);
+                    });
+                }
+            });
+        });
+    }
+
+    function computeFlashKeys(prevOdds, nextOdds) {
+        const flash = {};
+        Object.keys(nextOdds).forEach((key) => {
+            const oldV = parseFloat(String(prevOdds[key] || '').replace(',', '.'));
+            const newV = parseFloat(String(nextOdds[key] || '').replace(',', '.'));
+            if (!isNaN(oldV) && !isNaN(newV) && oldV !== newV) {
+                flash[key] = newV > oldV ? ' pub-muht-flash-up' : ' pub-muht-flash-down';
+            }
+        });
+        return flash;
+    }
+
+    function renderMuhtemelContent(cached, opts) {
+        const content = $('#pubMuhtContent');
+        if (!content) return;
+        const flashKeys = opts?.flashKeys || null;
+        if (cached?.error) {
+            content.innerHTML = '<div class="pub-empty"><div class="pub-empty-icon">⚠️</div>'
+                + '<h3>Koşu yüklenemedi</h3><p>' + escapeHtml(cached.error) + '</p>'
+                + '<button type="button" class="pub-btn pub-btn-white" id="pubMuhtRaceRetry" style="margin-top:12px">Tekrar dene</button></div>';
+            $('#pubMuhtRaceRetry')?.addEventListener('click', () => {
+                const iso = state.muhtIso || state.iso || localTodayIso();
+                delete state.muhtRaceCache[iso + ':' + getCurrentRunKey()];
+                loadMuhtemelRace(getCurrentRunKey(), iso);
+            });
+            return;
+        }
+        if (cached?.muhtemel) {
+            content.innerHTML = renderMuhtemelRaceBody(cached.muhtemel, flashKeys);
+            bindMuhtemelRaceEvents(cached.muhtemel);
+            updateMuhtToolbar(isCurrentRaceOpen());
+            return;
+        }
+        content.innerHTML = '<div class="pub-loading"><div class="pub-spinner"></div>Koşu muhtemelleri yükleniyor…</div>';
     }
 
     function renderMuhtemeller() {
@@ -318,6 +494,8 @@
             btn.addEventListener('click', () => {
                 state.muhtHipKey = btn.dataset.muhtHip;
                 state.muhtKosuNo = null;
+                state.muhtBetKey = null;
+                stopMuhtPolling();
                 renderMuhtemeller();
             });
         });
@@ -337,42 +515,71 @@
         kosuTabs.querySelectorAll('[data-muht-kosu]').forEach((btn) => {
             btn.addEventListener('click', () => {
                 state.muhtKosuNo = btn.dataset.muhtKosu;
+                state.muhtBetKey = null;
+                stopMuhtPolling();
                 renderMuhtemeller();
             });
         });
 
-        const runKey = state.muhtHipKey + '-' + state.muhtKosuNo;
+        const runKey = getCurrentRunKey();
         const iso = state.muhtIso || state.iso || localTodayIso();
         const cacheKey = iso + ':' + runKey;
         const cached = state.muhtRaceCache[cacheKey];
 
         if (state.muhtRaceLoading && !cached) {
-            content.innerHTML = '<div class="pub-loading"><div class="pub-spinner"></div>Koşu muhtemelleri yükleniyor…</div>';
+            renderMuhtemelContent(null);
             return;
         }
-        if (cached?.error) {
-            content.innerHTML = '<div class="pub-empty"><div class="pub-empty-icon">⚠️</div>'
-                + '<h3>Koşu yüklenemedi</h3><p>' + escapeHtml(cached.error) + '</p>'
-                + '<button type="button" class="pub-btn pub-btn-white" id="pubMuhtRaceRetry" style="margin-top:12px">Tekrar dene</button></div>';
-            $('#pubMuhtRaceRetry')?.addEventListener('click', () => {
-                delete state.muhtRaceCache[cacheKey];
-                loadMuhtemelRace(runKey, iso);
-            });
-            return;
+        renderMuhtemelContent(cached);
+        if (!cached && runKey) {
+            loadMuhtemelRace(runKey, iso);
+        } else if (cached?.muhtemel) {
+            startMuhtPolling();
         }
-        if (cached?.muhtemel) {
-            content.innerHTML = renderMuhtemelRaceBody(cached.muhtemel);
-            return;
-        }
-
-        content.innerHTML = '<div class="pub-loading"><div class="pub-spinner"></div>Koşu muhtemelleri yükleniyor…</div>';
-        loadMuhtemelRace(runKey, iso);
     }
 
-    async function loadMuhtemelRace(runKey, iso) {
+    async function silentRefreshCurrentRace() {
+        const runKey = getCurrentRunKey();
+        const iso = state.muhtIso || state.iso || localTodayIso();
+        if (!runKey || !$('#panel-muhtemeller')?.classList.contains('active')) return;
+
+        const btn = $('#pubMuhtRefreshBtn');
+        btn?.classList.add('is-syncing');
+        const cacheKey = iso + ':' + runKey;
+        const prev = state.muhtRaceCache[cacheKey]?.muhtemel;
+        const prevOdds = prev ? collectOddsMap(prev) : state.muhtPrevOdds[cacheKey] || {};
+
+        try {
+            const controller = new AbortController();
+            const tid = setTimeout(() => controller.abort(), 30000);
+            const res = await fetch(
+                '/api/public/muhtemeller?iso=' + encodeURIComponent(iso)
+                + '&kosu=' + encodeURIComponent(runKey) + '&refresh=1',
+                { signal: controller.signal }
+            );
+            clearTimeout(tid);
+            const data = await res.json();
+            if (!data.success || !data.muhtemel) return;
+
+            const nextOdds = collectOddsMap(data.muhtemel);
+            const flashKeys = computeFlashKeys(prevOdds, nextOdds);
+            state.muhtRaceCache[cacheKey] = data;
+            state.muhtPrevOdds[cacheKey] = nextOdds;
+            state.muhtLastUpdate = new Date();
+            renderMuhtemelContent(data, { flashKeys });
+        } catch (_err) {
+            /* sessiz yenileme — hata gösterme */
+        } finally {
+            btn?.classList.remove('is-syncing');
+            state.muhtCountdown = MUHT_REFRESH_SEC;
+            updateMuhtToolbar(isCurrentRaceOpen());
+        }
+    }
+
+    async function loadMuhtemelRace(runKey, iso, force) {
         if (!runKey) return;
         const cacheKey = iso + ':' + runKey;
-        if (state.muhtRaceCache[cacheKey]) {
+        if (!force && state.muhtRaceCache[cacheKey]) {
             renderMuhtemeller();
             return;
         }
@@ -382,13 +589,18 @@
             const controller = new AbortController();
             const tid = setTimeout(() => controller.abort(), 50000);
             const res = await fetch(
-                '/api/public/muhtemeller?iso=' + encodeURIComponent(iso) + '&kosu=' + encodeURIComponent(runKey),
+                '/api/public/muhtemeller?iso=' + encodeURIComponent(iso) + '&kosu=' + encodeURIComponent(runKey)
+                + (force ? '&refresh=1' : ''),
                 { signal: controller.signal }
             );
             clearTimeout(tid);
             const data = await res.json();
             if (!data.success) throw new Error(data.error || 'Yükleme hatası');
             state.muhtRaceCache[cacheKey] = data;
+            if (data.muhtemel) {
+                state.muhtPrevOdds[cacheKey] = collectOddsMap(data.muhtemel);
+                state.muhtLastUpdate = new Date();
+            }
         } catch (err) {
             state.muhtRaceCache[cacheKey] = {
                 error: err.name === 'AbortError' ? 'İstek zaman aşımına uğradı' : (err.message || 'Yüklenemedi')
@@ -396,6 +608,7 @@
         } finally {
             state.muhtRaceLoading = false;
             renderMuhtemeller();
+            startMuhtPolling();
         }
     }
 
@@ -421,7 +634,10 @@
             state.muhtHipKey = null;
             state.muhtKosuNo = null;
             state.muhtRaceCache = {};
+            state.muhtBetKey = null;
+            state.muhtLastUpdate = null;
             renderMuhtemeller();
+            startMuhtPolling();
         } catch (err) {
             const msg = err.name === 'AbortError' ? 'TJK yanıt vermedi (zaman aşımı)' : (err.message || 'Bağlantı hatası');
             content.innerHTML = '<div class="pub-empty"><div class="pub-empty-icon">⚠️</div>'
@@ -432,6 +648,30 @@
                 loadMuhtemeller(iso);
             });
         }
+    }
+
+    function initMuhtControls() {
+        $('#pubMuhtAutoRefresh')?.addEventListener('change', (e) => {
+            state.muhtAutoRefresh = e.target.checked;
+            if (state.muhtAutoRefresh) {
+                state.muhtCountdown = MUHT_REFRESH_SEC;
+                startMuhtPolling();
+            } else {
+                stopMuhtPolling();
+            }
+            updateMuhtToolbar(isCurrentRaceOpen());
+        });
+        $('#pubMuhtRefreshBtn')?.addEventListener('click', () => {
+            state.muhtCountdown = MUHT_REFRESH_SEC;
+            silentRefreshCurrentRace();
+        });
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                stopMuhtPolling();
+            } else if ($('#panel-muhtemeller')?.classList.contains('active')) {
+                startMuhtPolling();
+            }
+        });
     }
 
     function initTabs() {
@@ -466,5 +706,6 @@
     }
 
     initTabs();
+    initMuhtControls();
     initDate();
 })();

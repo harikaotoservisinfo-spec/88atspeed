@@ -7,7 +7,7 @@
     <title>88 AT SPEED | Günlük Yarış Programı & Tahminler</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link href="css/public-site.css?v=20260903muht" rel="stylesheet">
+    <link href="css/public-site.css?v=20260903muht2" rel="stylesheet">
 </head>
 <body class="pub-body">
     <div class="pub-strip">
@@ -96,10 +96,24 @@
             <section id="panel-muhtemeller" class="pub-tab-panel">
                 <div class="pub-muht-wrap">
                     <div class="pub-muht-toolbar">
-                        <p id="pubMuhtLabel">TJK resmi muhtemeller yükleniyor…</p>
-                        <span class="pub-muht-source">Kaynak: vhs.tjk.org</span>
+                        <div class="pub-muht-toolbar-left">
+                            <span class="pub-muht-live" id="pubMuhtLiveBadge" hidden aria-hidden="true">
+                                <span class="pub-live-dot"></span> CANLI
+                            </span>
+                            <p id="pubMuhtLabel">TJK resmi muhtemeller yükleniyor…</p>
+                        </div>
+                        <div class="pub-muht-toolbar-right">
+                            <span class="pub-muht-updated" id="pubMuhtUpdated" title="Son güncelleme">—</span>
+                            <label class="pub-muht-auto" title="Otomatik yenileme">
+                                <input type="checkbox" id="pubMuhtAutoRefresh" checked>
+                                <span class="pub-muht-auto-label">Otomatik</span>
+                                <span class="pub-muht-countdown" id="pubMuhtCountdown">15s</span>
+                            </label>
+                            <button type="button" class="pub-muht-refresh-btn" id="pubMuhtRefreshBtn" title="Şimdi yenile" aria-label="Şimdi yenile">↻</button>
+                            <span class="pub-muht-source">Kaynak: vhs.tjk.org</span>
+                        </div>
                     </div>
-                    <div id="pubMuhtHipTabs" class="pub-hip-tabs" role="tablist"></div>
+                    <div id="pubMuhtHipTabs" class="pub-hip-tabs pub-muht-hip-tabs" role="tablist"></div>
                     <div id="pubMuhtKosuTabs" class="pub-muht-kosu-tabs"></div>
                     <div id="pubMuhtContent" class="pub-muht-content">
                         <div class="pub-loading"><div class="pub-spinner"></div>Program listesi yükleniyor…</div>
@@ -216,6 +230,6 @@
         <div class="pub-footer-bottom">© 2026 88 AT SPEED · Tüm hakları saklıdır</div>
     </footer>
 
-    <script src="js/public-home.js?v=20260903muht"></script>
+    <script src="js/public-home.js?v=20260903muht2"></script>
 </body>
 </html>
