@@ -963,118 +963,153 @@ a { color: inherit; text-decoration: none; }
     flex-wrap: wrap;
 }
 
-.pub-muht-bet-tabs {
-    display: none; /* sekmeler kaldırıldı — tüm bahisler tek ekranda */
-}
-
-.pub-muht-bet-stack {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    padding: 14px;
+.pub-muht-bet-board {
+    display: grid;
+    grid-template-columns: minmax(168px, 1.15fr) repeat(3, minmax(130px, 1fr));
+    gap: 8px;
+    padding: 10px;
+    overflow-x: auto;
+    align-items: start;
 }
 
 .pub-muht-bet-section {
     border: 1px solid var(--pub-border);
-    border-radius: var(--pub-radius);
+    border-radius: 8px;
     overflow: hidden;
     background: #fff;
+    min-width: 0;
 }
 
-.pub-muht-combo-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 14px;
-}
-
-.pub-muht-combo-grid .pub-muht-bet-section {
-    height: 100%;
-}
-
-.pub-muht-combo-grid .pub-muht-ikili-grid {
-    max-height: 320px;
+.pub-muht-table-wrap {
+    max-height: 460px;
     overflow-y: auto;
+    overflow-x: hidden;
 }
-
-.pub-muht-bet-status em.pub-muht-bet-cnt {
-    font-style: normal;
-    font-size: 10px;
-    opacity: 0.75;
-    margin-left: 4px;
-}
-
-.pub-muht-bet-tabs-old {
-    display: flex;
-    gap: 4px;
-    padding: 10px 12px;
-    background: #f8f9fa;
-    border-bottom: 1px solid var(--pub-border);
-    overflow-x: auto;
-    scrollbar-width: none;
-}
-
-.pub-muht-bet-tabs::-webkit-scrollbar { display: none; }
-
-.pub-muht-bet-tab {
-    flex: 0 0 auto;
-    padding: 7px 14px;
-    border: 1px solid transparent;
-    border-radius: 999px;
-    background: transparent;
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0.3px;
-    color: var(--pub-muted);
-    cursor: pointer;
-    transition: all 0.15s;
-}
-
-.pub-muht-bet-tab:hover { background: #fff; color: var(--pub-text); }
-
-.pub-muht-bet-tab.active {
-    background: #fff;
-    border-color: var(--pub-red);
-    color: var(--pub-red);
-    box-shadow: 0 1px 4px rgba(198,40,40,0.12);
-}
-
-.pub-muht-bet-tab .pub-muht-bet-cnt {
-    margin-left: 4px;
-    font-size: 9px;
-    opacity: 0.7;
-}
-
-.pub-muht-bet-panel { padding: 0; }
 
 .pub-muht-bet-status {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 14px;
+    gap: 6px;
+    padding: 6px 8px;
+    font-size: 10px;
+    font-weight: 800;
+    background: #37474f;
+    color: #fff;
+    border-bottom: none;
+    white-space: nowrap;
+}
+
+.pub-muht-bet-status.open {
+    background: #2e7d32;
+    color: #fff;
+}
+
+.pub-muht-bet-status span:last-child {
+    font-size: 9px;
+    font-weight: 600;
+    opacity: 0.85;
+}
+
+.pub-muht-table {
+    width: 100%;
+    border-collapse: collapse;
     font-size: 11px;
-    font-weight: 700;
-    background: #fafafa;
-    border-bottom: 1px solid #f0f0f0;
+    table-layout: fixed;
+}
+
+.pub-muht-table th {
+    background: #f0f0f0;
+    padding: 5px 4px;
+    text-align: left;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
     color: var(--pub-muted);
 }
 
-.pub-muht-bet-status.open { color: var(--pub-green); background: #f1f8f1; }
+.pub-muht-table td {
+    padding: 4px 4px;
+    border-top: 1px solid #f0f0f0;
+    vertical-align: middle;
+}
 
-.pub-muht-no-pill {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 28px;
-    height: 28px;
-    border-radius: 6px;
-    background: #263238;
-    color: #fff;
+.pub-muht-table-ganyan th:nth-child(1),
+.pub-muht-table-ganyan td:nth-child(1) { width: 22px; text-align: center; }
+.pub-muht-table-ganyan th:nth-child(3),
+.pub-muht-table-ganyan td:nth-child(3) { width: 36px; text-align: right; }
+.pub-muht-table-ganyan th:nth-child(4),
+.pub-muht-table-ganyan td:nth-child(4) { width: 22px; text-align: center; }
+
+.pub-muht-at-cell {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+    font-size: 10px;
+}
+
+.pub-muht-no-sm {
+    display: inline-block;
     font-weight: 800;
-    font-size: 12px;
+    font-size: 10px;
+    color: #37474f;
+}
+
+.pub-muht-sira {
+    font-size: 10px;
+    color: var(--pub-muted);
+    text-align: center;
+}
+
+.pub-muht-table-combo th:nth-child(1),
+.pub-muht-table-combo td:nth-child(1) { width: 58%; }
+.pub-muht-table-combo th:nth-child(2),
+.pub-muht-table-combo td:nth-child(2) { width: 42%; text-align: right; }
+
+.pub-muht-komb {
+    font-size: 10px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.pub-muht-ganyan {
+    font-weight: 800;
+    color: var(--pub-red);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
 }
 
 .pub-muht-table tbody tr:nth-child(even) { background: #fafafa; }
-.pub-muht-table tbody tr:hover { background: #fff3e0; }
+.pub-muht-table tbody tr:hover { background: #fff8e1; }
+.pub-muht-table tr.pub-muht-fav { background: #fff8e1; }
+.pub-muht-table tr.pub-muht-fav td:first-child { box-shadow: inset 2px 0 0 #ffc107; }
+
+@media (max-width: 900px) {
+    .pub-muht-bet-board {
+        grid-template-columns: repeat(4, minmax(155px, 1fr));
+    }
+}
+
+/* eski dikey düzen — kullanılmıyor */
+.pub-muht-bet-stack {
+    display: none;
+}
+
+.pub-muht-combo-grid {
+    display: none;
+}
+
+.pub-muht-bet-tabs {
+    display: none;
+}
+
+.pub-muht-bet-status em.pub-muht-bet-cnt {
+    font-style: normal;
+    font-size: 9px;
+    opacity: 0.8;
+    margin-left: 3px;
+}
 
 .pub-muht-ganyan.pub-muht-flash-up {
     animation: pub-odd-flash-up 1.2s ease;

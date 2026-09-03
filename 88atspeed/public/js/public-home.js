@@ -334,35 +334,44 @@
     function renderMuhtemelBetPanel(bet, flashKeys) {
         const isOpen = (bet.D || '').toUpperCase() === 'AÇIK';
         const cnt = (bet.muhtemeller || []).length;
-        let html = '<div class="pub-muht-bet-section">'
+        const isGanyan = bet.isGanyan || bet.B === 'GANYAN';
+        const colCls = isGanyan ? ' pub-muht-col-ganyan' : ' pub-muht-col-combo';
+
+        let html = '<div class="pub-muht-bet-section' + colCls + '">'
             + '<div class="pub-muht-bet-status' + (isOpen ? ' open' : '') + '">'
             + '<span>' + escapeHtml(bet.B) + ' <em class="pub-muht-bet-cnt">' + cnt + '</em></span>'
-            + '<span>' + escapeHtml(bet.D || '') + '</span></div>';
+            + '<span>' + escapeHtml(bet.D || '') + '</span></div>'
+            + '<div class="pub-muht-table-wrap">';
 
-        if (bet.isGanyan || bet.B === 'GANYAN') {
-            html += '<table class="pub-muht-table"><thead><tr><th>No</th><th>At</th><th>Ganyan</th><th>Sıra</th></tr></thead><tbody>';
+        if (isGanyan) {
+            html += '<table class="pub-muht-table pub-muht-table-ganyan"><thead><tr>'
+                + '<th>#</th><th>At</th><th>G</th><th>S</th></tr></thead><tbody>';
             (bet.muhtemeller || []).forEach((row) => {
                 const fav = row.A ? ' pub-muht-fav' : '';
                 const oddKey = bet.B + '|' + (row.S1 || '') + '||';
                 const flash = flashKeys?.[oddKey] || '';
-                html += '<tr class="' + fav + '" data-odd-key="' + escapeHtml(oddKey) + '">'
-                    + '<td><span class="pub-muht-no-pill">' + escapeHtml(row.S1) + '</span></td>'
-                    + '<td><strong>' + escapeHtml(row.atAdi || row.T || '') + '</strong></td>'
+                const atAd = row.atAdi || row.T || '';
+                html += '<tr class="' + fav + '" data-odd-key="' + escapeHtml(oddKey) + '" title="' + escapeHtml(atAd) + '">'
+                    + '<td><span class="pub-muht-no-sm">' + escapeHtml(row.S1) + '</span></td>'
+                    + '<td class="pub-muht-at-cell">' + escapeHtml(atAd) + '</td>'
                     + '<td class="pub-muht-ganyan' + flash + '">' + escapeHtml(row.G || '—') + '</td>'
-                    + '<td>' + escapeHtml(row.R || '—') + '</td></tr>';
+                    + '<td class="pub-muht-sira">' + escapeHtml(row.R || '—') + '</td></tr>';
             });
             html += '</tbody></table>';
         } else {
-            html += '<div class="pub-muht-ikili-grid"><table class="pub-muht-table pub-muht-table-compact"><thead><tr><th>Kombinasyon</th><th>Oran</th></tr></thead><tbody>';
+            html += '<table class="pub-muht-table pub-muht-table-combo"><thead><tr><th>Komb.</th><th>Oran</th></tr></thead><tbody>';
             (bet.muhtemeller || []).forEach((row) => {
                 const oddKey = bet.B + '|' + (row.S1 || '') + '|' + (row.S2 || '') + '|';
                 const flash = flashKeys?.[oddKey] || '';
-                html += '<tr data-odd-key="' + escapeHtml(oddKey) + '"><td>' + escapeHtml(row.T || (row.S1 + '-' + row.S2)) + '</td>'
+                const label = (row.S1 && row.S2) ? (row.S1 + '-' + row.S2) : (row.T || '—');
+                const full = row.T || label;
+                html += '<tr data-odd-key="' + escapeHtml(oddKey) + '" title="' + escapeHtml(full) + '">'
+                    + '<td class="pub-muht-komb">' + escapeHtml(label) + '</td>'
                     + '<td class="pub-muht-ganyan' + flash + '">' + escapeHtml(row.G || '—') + '</td></tr>';
             });
-            html += '</tbody></table></div>';
+            html += '</tbody></table>';
         }
-        html += '</div>';
+        html += '</div></div>';
         return html;
     }
 
@@ -375,9 +384,6 @@
         const title = escapeHtml(muht.key) + ' · ' + muht.no + '. Koşu';
         const sub = [muht.pist, muht.saat].filter(Boolean).join(' · ');
 
-        const ganyan = bahisler.filter((b) => b.isGanyan || b.B === 'GANYAN');
-        const combos = bahisler.filter((b) => !b.isGanyan && b.B !== 'GANYAN');
-
         let html = '<div class="pub-muht-race-card">'
             + '<div class="pub-muht-race-top">'
             + '<div class="pub-muht-race-title"><strong>' + title + '</strong>'
@@ -387,13 +393,8 @@
             + '<span class="pub-muht-durum pub-muht-durum-' + (muht.isOpen ? 'acik' : 'resmi') + '">' + escapeHtml(muht.durum || '') + '</span>'
             + '</div></div>';
 
-        html += '<div class="pub-muht-bet-stack">';
-        ganyan.forEach((bet) => { html += renderMuhtemelBetPanel(bet, flashKeys); });
-        if (combos.length) {
-            html += '<div class="pub-muht-combo-grid">';
-            combos.forEach((bet) => { html += renderMuhtemelBetPanel(bet, flashKeys); });
-            html += '</div>';
-        }
+        html += '<div class="pub-muht-bet-board">';
+        bahisler.forEach((bet) => { html += renderMuhtemelBetPanel(bet, flashKeys); });
         html += '</div></div>';
 
         return html;
