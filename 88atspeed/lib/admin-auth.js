@@ -72,20 +72,32 @@ function isAuthenticated(req) {
     return !!verifySessionToken(cookies[COOKIE_NAME]);
 }
 
-function setSessionCookie(res) {
+/** HTTPS veya proxy arkasında https ise Secure çerez kullan (HTTP IP erişiminde çerez kaybolmasın). */
+function isSecureRequest(req) {
+    if (!req) return false;
+    if (req.secure) return true;
+    const proto = (req.headers['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase();
+    return proto === 'https';
+}
+
+function cookieSecureSuffix(req) {
+    return isSecureRequest(req) ? '; Secure' : '';
+}
+
+function setSessionCookie(req, res) {
     const token = signSession({
         role: 'admin',
         iat: Date.now(),
         exp: Date.now() + MAX_AGE_MS
     });
-    const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
     res.setHeader('Set-Cookie', COOKIE_NAME + '=' + encodeURIComponent(token)
-        + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' + Math.floor(MAX_AGE_MS / 1000) + secure);
+        + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' + Math.floor(MAX_AGE_MS / 1000)
+        + cookieSecureSuffix(req));
 }
 
-function clearSessionCookie(res) {
-    const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
-    res.setHeader('Set-Cookie', COOKIE_NAME + '=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0' + secure);
+function clearSessionCookie(req, res) {
+    res.setHeader('Set-Cookie', COOKIE_NAME + '=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0'
+        + cookieSecureSuffix(req));
 }
 
 function requireAdmin(req, res, next) {

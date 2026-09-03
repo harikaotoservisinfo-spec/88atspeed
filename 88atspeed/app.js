@@ -9,6 +9,9 @@ const adminAuth = require('./lib/admin-auth');
 const app = express();
 const PORT = 3023;
 
+// Nginx X-Forwarded-Proto ile HTTPS algısı (Secure çerez için)
+app.set('trust proxy', 1);
+
 let browser = null;
 
 // SQLite Veritabanı Bağlantısı
@@ -87,7 +90,7 @@ app.post('/api/admin/login', (req, res) => {
     if (!password || password !== adminAuth.getAdminPassword()) {
         return res.status(401).json({ success: false, error: 'Geçersiz yönetici şifresi' });
     }
-    adminAuth.setSessionCookie(res);
+    adminAuth.setSessionCookie(req, res);
     res.json({ success: true });
 });
 
@@ -96,7 +99,7 @@ app.get('/api/admin/session', (req, res) => {
 });
 
 app.post('/api/admin/logout', (req, res) => {
-    adminAuth.clearSessionCookie(res);
+    adminAuth.clearSessionCookie(req, res);
     res.json({ success: true });
 });
 
