@@ -300,7 +300,16 @@ textarea { height: auto; min-height: 80px; }
 }
 
 .kamu-program-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    background: var(--surface-elevated, #fff);
+    border-radius: 8px;
     border-left: 3px solid #1565c0;
+    cursor: default;
 }
 
 .kayit-item {

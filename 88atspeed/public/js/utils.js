@@ -311,7 +311,8 @@ const AtSpeedUtils = {
 
     bindHesaplamaKayitList(container, onLoad, onChange) {
         if (!container) return;
-        container.querySelectorAll('.kayit-item:not(.kamu-program-item)').forEach(item => {
+        container.querySelectorAll('.kayit-item').forEach(item => {
+            if (item.classList.contains('kamu-program-item') || !item.dataset.id) return;
             const deleteBtn = item.querySelector('[data-action="delete"]');
             if (deleteBtn) {
                 deleteBtn.onclick = async (e) => {
@@ -331,6 +332,7 @@ const AtSpeedUtils = {
             }
             item.onclick = async (e) => {
                 if (e.target.closest('[data-action="delete"]')) return;
+                if (!item.dataset.id) return;
                 await onLoad(item.dataset.id, item);
             };
         });
@@ -353,7 +355,7 @@ const AtSpeedUtils = {
         const label = (k.tarih || '') + ' · ' + (k.hipodrom || '');
         const meta = '🏁 ' + (k.kosu_sayisi ?? '—') + ' koşu | 📡 Kamu vitrin | 🕐 '
             + AtSpeedUtils.escapeHtml(k.cekilme_tarihi || '');
-        return '<div class="kayit-item kamu-program-item" data-tarih="' + AtSpeedUtils.escapeHtml(k.tarih) + '"'
+        return '<div class="kamu-program-item" data-tarih="' + AtSpeedUtils.escapeHtml(k.tarih) + '"'
             + ' data-hipodrom-id="' + AtSpeedUtils.escapeHtml(k.hipodrom_id) + '"'
             + ' data-label="' + AtSpeedUtils.escapeHtml(label) + '">'
             + '<span>📅 ' + AtSpeedUtils.escapeHtml(k.tarih) + ' | 🏟️ ' + AtSpeedUtils.escapeHtml(k.hipodrom)
@@ -365,9 +367,12 @@ const AtSpeedUtils = {
 
     bindKamuProgramKayitList(container, onLoad) {
         if (!container) return;
-        container.querySelectorAll('.kamu-program-item').forEach((item) => {
-            item.onclick = async (e) => {
-                if (e.target.closest('[data-action="delete"]')) return;
+        container.querySelectorAll('.kamu-program-item .kayit-load-btn').forEach((btn) => {
+            btn.onclick = async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const item = btn.closest('.kamu-program-item');
+                if (!item) return;
                 await onLoad(item.dataset.tarih, item.dataset.hipodromId, item);
             };
         });
