@@ -175,8 +175,12 @@
             h.name + ' (' + h.kosuSayisi + ' koşu)'
         ).join(' · ') || '—';
         const eksik = (day.eksik || []).map((h) => h.name).join(', ');
+        const fazla = (day.fazla || []).map((h) => h.name).join(', ');
         const eksikLine = eksik
             ? '<div class="pub-program-sync-meta" style="color:#e65100">TJK\'da var, bizde yok: <strong>' + escapeHtml(eksik) + '</strong></div>'
+            : '';
+        const fazlaLine = fazla
+            ? '<div class="pub-program-sync-meta" style="color:#1565c0">DB\'de kayıtlı (TJK sekmesinde şu an görünmüyor): ' + escapeHtml(fazla) + '</div>'
             : '';
         const tjkWarn = day.tjkError
             ? '<div class="pub-program-sync-meta" style="color:#c62828">TJK kontrolü: ' + escapeHtml(day.tjkError) + '</div>'
@@ -190,7 +194,7 @@
             + (day.lastFetch ? ' · Son çekim: ' + escapeHtml(formatSyncTime(day.lastFetch)) : '')
             + '</div>'
             + '<div class="pub-program-sync-hips">' + escapeHtml(kayitli) + '</div>'
-            + eksikLine + tjkWarn
+            + eksikLine + fazlaLine + tjkWarn
             + '</div>';
     }
 
