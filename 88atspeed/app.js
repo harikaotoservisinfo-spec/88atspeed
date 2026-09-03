@@ -17,6 +17,35 @@ let browser = null;
 // SQLite Veritabanı Bağlantısı
 const db = new sqlite3.Database('atlar.db');
 
+const hipodromCache = new Map();
+const HIPODROM_CACHE_MS = 10 * 60 * 1000;
+
+function getCachedHipodromlar(tarih) {
+    const entry = hipodromCache.get(tarih);
+    if (!entry || Date.now() - entry.at > HIPODROM_CACHE_MS) return null;
+    return entry.hipodromlar;
+}
+
+function setCachedHipodromlar(tarih, hipodromlar) {
+    hipodromCache.set(tarih, { at: Date.now(), hipodromlar });
+}
+
+function queryHipodromlarFromDb(tarih) {
+    return new Promise((resolve, reject) => {
+        const sql = `
+            SELECT DISTINCT hipodrom_id AS id, hipodrom AS name FROM at_verileri
+            WHERE tarih = ? AND hipodrom_id IS NOT NULL AND hipodrom_id != ''
+            UNION
+            SELECT DISTINCT hipodrom_id AS id, hipodrom AS name FROM hesaplama_kayitlari
+            WHERE tarih = ? AND hipodrom_id IS NOT NULL AND hipodrom_id != ''
+            ORDER BY name`;
+        db.all(sql, [tarih, tarih], (err, rows) => {
+            if (err) return reject(err);
+            resolve((rows || []).filter((r) => r.id && r.name));
+        });
+    });
+}
+
 // Tabloları oluştur (yoksa)
 db.run(`CREATE TABLE IF NOT EXISTS at_verileri (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -440,34 +469,39 @@ app.get('/api/scrape-test', async (req, res) => {
     }
 });
 
-// API 1: Hipodromları getir (önce hafif HTTP; Puppeteer yedek)
+// API 1: Hipodromları getir (HTTP + önbellek + DB yedek; Puppeteer yok)
 app.get('/api/hipodromlar', async (req, res) => {
     const tarih = req.query.tarih;
+    if (!tarih) {
+        return res.json({ success: false, error: 'Tarih gerekli', hipodromlar: [] });
+    }
     console.log('📡 Hipodrom isteği - Tarih:', tarih);
 
     try {
-        let hipodromlar = await tjkScrape.fetchHipodromlarForDate(tarih);
-        if (!hipodromlar.length) {
-            console.log('⚠️ HTTP hipodrom boş, Puppeteer deneniyor…');
-            const browserInstance = await getBrowserInstance();
-            const page = await browserInstance.newPage();
-            const url = `https://www.tjk.org/TR/YarisSever/Info/Page/GunlukYarisProgrami?QueryParameter_Tarih=${tarih}&Era=today`;
-            await gotoWithHeaders(page, url);
-            hipodromlar = await page.evaluate(() => {
-                const tabs = document.querySelectorAll('ul.gunluk-tabs > li > a');
-                const result = [];
-                for (let i = 0; i < tabs.length; i++) {
-                    const tab = tabs[i];
-                    const id = tab.getAttribute('data-sehir-id');
-                    let name = tab.innerText.trim();
-                    name = name.replace(/\(\d+\.\s*Y\.G\.\)/, '').trim();
-                    if (id && name) result.push({ id, name });
-                }
-                return result;
-            });
-            await page.close();
+        const cached = getCachedHipodromlar(tarih);
+        if (cached?.length) {
+            return res.json({ success: true, hipodromlar: cached, source: 'cache' });
         }
-        res.json({ success: true, hipodromlar });
+
+        let hipodromlar = [];
+        let source = 'tjk';
+        try {
+            hipodromlar = await tjkScrape.fetchHipodromlarForDate(tarih);
+        } catch (tjkErr) {
+            console.warn('⚠️ TJK hipodrom hatası:', tjkErr.message);
+            hipodromlar = await queryHipodromlarFromDb(tarih);
+            source = 'db';
+            if (!hipodromlar.length) {
+                return res.json({
+                    success: false,
+                    error: 'TJK yanıt vermedi ve bu tarih için kayıtlı hipodrom yok: ' + tjkErr.message,
+                    hipodromlar: []
+                });
+            }
+        }
+
+        if (hipodromlar.length) setCachedHipodromlar(tarih, hipodromlar);
+        res.json({ success: true, hipodromlar, source });
     } catch (error) {
         console.error('Hipodrom hatası:', error.message);
         res.json({ success: false, error: error.message, hipodromlar: [] });

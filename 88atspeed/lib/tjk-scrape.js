@@ -22,7 +22,7 @@ function getBrowserHeaders() {
     };
 }
 
-function fetchHtml(url, headers, redirectsLeft = 3) {
+function fetchHtml(url, headers, redirectsLeft = 3, timeoutMs = 20000) {
     return new Promise((resolve, reject) => {
         const lib = url.startsWith('https') ? https : http;
         const req = lib.get(url, { headers }, (res) => {
@@ -31,7 +31,7 @@ function fetchHtml(url, headers, redirectsLeft = 3) {
                     ? res.headers.location
                     : new URL(res.headers.location, url).href;
                 res.resume();
-                fetchHtml(next, headers, redirectsLeft - 1).then(resolve).catch(reject);
+                fetchHtml(next, headers, redirectsLeft - 1, timeoutMs).then(resolve).catch(reject);
                 return;
             }
             let body = '';
@@ -42,7 +42,7 @@ function fetchHtml(url, headers, redirectsLeft = 3) {
             });
         });
         req.on('error', reject);
-        req.setTimeout(45000, () => {
+        req.setTimeout(timeoutMs, () => {
             req.destroy();
             reject(new Error('TJK isteği zaman aşımı'));
         });
@@ -76,12 +76,29 @@ function parseHipodromlarFromHtml(html) {
     return result;
 }
 
-/** Puppeteer olmadan günlük yarış programı hipodrom sekmelerini çeker. */
-async function fetchHipodromlarForDate(tarih) {
+/** Puppeteer olmadan günlük yarış programı hipodrom sekmelerini çeker (yeniden denemeli). */
+async function fetchHipodromlarForDate(tarih, opts = {}) {
+    const maxAttempts = opts.maxAttempts || 3;
+    const timeoutMs = opts.timeoutMs || 20000;
     const url = 'https://www.tjk.org/TR/YarisSever/Info/Page/GunlukYarisProgrami'
         + '?QueryParameter_Tarih=' + encodeURIComponent(tarih) + '&Era=today';
-    const html = await fetchHtml(url, getBrowserHeaders());
-    return parseHipodromlarFromHtml(html);
+    const headers = getBrowserHeaders();
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            const html = await fetchHtml(url, headers, 3, timeoutMs);
+            const hipodromlar = parseHipodromlarFromHtml(html);
+            if (hipodromlar.length) return hipodromlar;
+            lastError = new Error('TJK sayfasında hipodrom sekmesi bulunamadı');
+        } catch (err) {
+            lastError = err;
+        }
+        if (attempt < maxAttempts) {
+            await new Promise((r) => setTimeout(r, 800 * attempt));
+        }
+    }
+    throw lastError || new Error('Hipodrom listesi alınamadı');
 }
 
 function resolveChromeExecutable() {
