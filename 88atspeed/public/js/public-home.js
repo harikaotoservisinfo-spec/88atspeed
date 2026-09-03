@@ -24,11 +24,15 @@
 
     const MUHT_REFRESH_SEC = 15;
     const MUHT_SELECT_RESET_MS = 30000;
-    const TJK_TV_HLS = '/api/public/tjk-tv?f=tjktv.m3u8';
+    const TJK_TV_DIRECT = 'https://tjktv-live.tjk.org/tjktv/tjktv.m3u8';
+    const TJK_TV_PROXY = '/api/public/tjk-tv?f=tjktv.m3u8';
     let muhtPollTimer = null;
     let muhtSelectTimer = null;
     let tjkTvLoaded = false;
     let tjkHls = null;
+    let tjkSourceIdx = 0;
+    let tjkWatchdogTimer = null;
+    let tjkStallTicks = 0;
 
     const $ = (sel) => document.querySelector(sel);
     const $$ = (sel) => document.querySelectorAll(sel);
@@ -264,8 +268,126 @@
             }
         } else {
             stopMuhtPolling();
-            destroyTjkTv();
+            pauseTjkTv();
         }
+    }
+
+    function getTjkSources() {
+        return [TJK_TV_DIRECT, TJK_TV_PROXY];
+    }
+
+    function stopTjkWatchdog() {
+        if (tjkWatchdogTimer) {
+            clearInterval(tjkWatchdogTimer);
+            tjkWatchdogTimer = null;
+        }
+        tjkStallTicks = 0;
+    }
+
+    function bindTjkVideoWatchdog(video) {
+        stopTjkWatchdog();
+        let lastT = -1;
+        tjkWatchdogTimer = setInterval(() => {
+            if (!video || video.paused || !$('#panel-muhtemeller')?.classList.contains('active')) {
+                tjkStallTicks = 0;
+                return;
+            }
+            const t = video.currentTime;
+            if (t > 0 && Math.abs(t - lastT) < 0.05 && video.readyState < 3) {
+                tjkStallTicks += 1;
+                if (tjkStallTicks >= 2) recoverTjkTvSoft();
+            } else {
+                tjkStallTicks = 0;
+            }
+            lastT = t;
+        }, 5000);
+    }
+
+    function createTjkHls() {
+        return new Hls({
+            enableWorker: true,
+            lowLatencyMode: false,
+            backBufferLength: 20,
+            maxBufferLength: 25,
+            maxMaxBufferLength: 45,
+            liveSyncDurationCount: 3,
+            liveMaxLatencyDurationCount: 8,
+            manifestLoadingTimeOut: 15000,
+            manifestLoadingMaxRetry: 4,
+            fragLoadingTimeOut: 20000,
+            fragLoadingMaxRetry: 6,
+            startFragPrefetch: true
+        });
+    }
+
+    function pickStableLevel(hls) {
+        const levels = hls.levels || [];
+        if (!levels.length) return;
+        let idx = levels.findIndex((l) => (l.name || '').toUpperCase().includes('480') || l.height === 480);
+        if (idx < 0) idx = levels.findIndex((l) => (l.name || '').toUpperCase().includes('720') || l.height === 720);
+        if (idx < 0) idx = Math.max(0, levels.length - 1);
+        hls.currentLevel = idx;
+    }
+
+    function recoverTjkTvSoft() {
+        tjkStallTicks = 0;
+        const video = document.getElementById('pubTjkTvVideo');
+        if (tjkHls) {
+            try { tjkHls.startLoad(-1); } catch (_e) { /* ignore */ }
+            if (video) video.play().catch(() => {});
+            return;
+        }
+        if (video) {
+            video.load();
+            video.play().catch(() => {});
+        }
+    }
+
+    function pauseTjkTv() {
+        stopTjkWatchdog();
+        document.getElementById('pubTjkTvVideo')?.pause();
+    }
+
+    function loadTjkSource(video, src, onReady, onError) {
+        if (tjkHls) {
+            tjkHls.destroy();
+            tjkHls = null;
+        }
+
+        const useNative = video.canPlayType('application/vnd.apple.mpegurl')
+            && (typeof Hls === 'undefined' || !Hls.isSupported());
+
+        if (useNative) {
+            video.src = src;
+            video.addEventListener('loadedmetadata', onReady, { once: true });
+            video.addEventListener('error', onError, { once: true });
+            bindTjkVideoWatchdog(video);
+            return;
+        }
+
+        if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+            tjkHls = createTjkHls();
+            tjkHls.loadSource(src);
+            tjkHls.attachMedia(video);
+            tjkHls.on(Hls.Events.MANIFEST_PARSED, () => {
+                pickStableLevel(tjkHls);
+                onReady();
+            });
+            tjkHls.on(Hls.Events.ERROR, (_evt, data) => {
+                if (!data.fatal) return;
+                if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                    try { tjkHls.startLoad(); return; } catch (_e) { /* ignore */ }
+                }
+                if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                    try { tjkHls.recoverMediaError(); return; } catch (_e) { /* ignore */ }
+                }
+                onError();
+            });
+            bindTjkVideoWatchdog(video);
+            return;
+        }
+
+        onError();
     }
 
     function hideTjkTvLoading() {
@@ -291,6 +413,7 @@
     }
 
     function destroyTjkTv() {
+        stopTjkWatchdog();
         if (tjkHls) {
             tjkHls.destroy();
             tjkHls = null;
@@ -306,12 +429,18 @@
         const fb = document.getElementById('pubTjkTvFallback');
         if (fb) fb.hidden = true;
         tjkTvLoaded = false;
+        tjkSourceIdx = 0;
     }
 
     function ensureTjkTvEmbed() {
         const video = document.getElementById('pubTjkTvVideo');
-        if (!video || tjkTvLoaded) return;
+        if (!video) return;
+        if (tjkTvLoaded) {
+            video.play().catch(() => {});
+            return;
+        }
         tjkTvLoaded = true;
+        tjkSourceIdx = 0;
         showTjkTvLoading();
 
         const onReady = () => {
@@ -320,28 +449,16 @@
         };
 
         const onError = () => {
+            const sources = getTjkSources();
+            tjkSourceIdx += 1;
+            if (tjkSourceIdx < sources.length) {
+                loadTjkSource(video, sources[tjkSourceIdx], onReady, onError);
+                return;
+            }
             showTjkTvFallback();
         };
 
-        if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            video.src = TJK_TV_HLS;
-            video.addEventListener('loadedmetadata', onReady, { once: true });
-            video.addEventListener('error', onError, { once: true });
-            return;
-        }
-
-        if (typeof Hls !== 'undefined' && Hls.isSupported()) {
-            tjkHls = new Hls({ enableWorker: true, lowLatencyMode: true });
-            tjkHls.loadSource(TJK_TV_HLS);
-            tjkHls.attachMedia(video);
-            tjkHls.on(Hls.Events.MANIFEST_PARSED, onReady);
-            tjkHls.on(Hls.Events.ERROR, (_evt, data) => {
-                if (data.fatal) onError();
-            });
-            return;
-        }
-
-        onError();
+        loadTjkSource(video, getTjkSources()[0], onReady, onError);
     }
 
     function retryTjkTv() {
@@ -834,8 +951,9 @@
         $('#pubTjkTvRetry')?.addEventListener('click', retryTjkTv);
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
-                stopMuhtPolling();
+                pauseTjkTv();
             } else if ($('#panel-muhtemeller')?.classList.contains('active')) {
+                document.getElementById('pubTjkTvVideo')?.play().catch(() => {});
                 startMuhtPolling();
             }
         });
