@@ -69,3 +69,6 @@ echo "  cd $APP_DIR && node scripts/test-race-all-factors.js --kayit 148 --race 
 echo "  cd $APP_DIR && node scripts/test-siklet-maxpct-correlation.js --db $APP_DIR/atlar.db --kayit 148 --race 1 -v"
 echo "  cd $APP_DIR && node scripts/test-kayit-basari-report.js --db $APP_DIR/atlar.db --kayit 148"
 echo "  cd $APP_DIR && node scripts/test-tahmin-position-buckets.js --db $APP_DIR/atlar.db --kayit 148 --sweep"
+echo "  cd $APP_DIR && npm run test:son-test-calib"
+echo "  cd $APP_DIR && npm run test:son-test-calib-kayit"
+echo "  cd $APP_DIR && node scripts/test-son-test-calibration-diagnose.js --db $APP_DIR/atlar.db --base-url http://127.0.0.1:3023"
