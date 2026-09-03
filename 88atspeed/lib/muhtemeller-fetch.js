@@ -1,6 +1,6 @@
 /**
  * TJK VHS Muhtemeller — https://vhs.tjk.org/muhtemeller/
- * Veri kaynağı: vhs-medya-cdn.tjk.org/muhtemeller/s/{YYYY/MM/DD}/
+ * İki aşamalı: önce hızlı özet (hipodrom/koşu listesi), sonra tek koşu lazy yükleme.
  */
 const https = require('https');
 
@@ -8,7 +8,9 @@ const CDN = 'https://vhs-medya-cdn.tjk.org/muhtemeller';
 const MEDIA = 'https://vhs-medya.tjk.org/muhtemeller';
 
 const cache = new Map();
-const CACHE_MS = 45000;
+const overviewCtx = new Map();
+const CACHE_MS = 60000;
+const RACE_CACHE_MS = 30000;
 
 function isoToRefPath(iso) {
     const p = (iso || '').split('-');
@@ -28,7 +30,11 @@ function trToIso(tr) {
     return `${m[3]}-${m[2]}-${m[1]}`;
 }
 
-function fetchJson(url, timeoutMs = 25000) {
+function sleep(ms) {
+    return new Promise((r) => setTimeout(r, ms));
+}
+
+function fetchJson(url, timeoutMs = 35000) {
     return new Promise((resolve, reject) => {
         const req = https.get(url, {
             headers: {
@@ -44,7 +50,7 @@ function fetchJson(url, timeoutMs = 25000) {
             res.on('data', (c) => { body += c; });
             res.on('end', () => {
                 if (res.statusCode < 200 || res.statusCode >= 300) {
-                    return reject(new Error('HTTP ' + res.statusCode + ' — ' + url));
+                    return reject(new Error('HTTP ' + res.statusCode));
                 }
                 try {
                     resolve(JSON.parse(body));
@@ -61,6 +67,21 @@ function fetchJson(url, timeoutMs = 25000) {
     });
 }
 
+async function fetchJsonRetry(url, opts = {}) {
+    const maxAttempts = opts.maxAttempts || 3;
+    const timeoutMs = opts.timeoutMs || 35000;
+    let lastErr = null;
+    for (let i = 1; i <= maxAttempts; i++) {
+        try {
+            return await fetchJson(url, timeoutMs);
+        } catch (err) {
+            lastErr = err;
+            if (i < maxAttempts) await sleep(1000 * i);
+        }
+    }
+    throw lastErr || new Error('TJK isteği başarısız');
+}
+
 function mapHorseNames(atlar) {
     const out = {};
     if (!atlar) return out;
@@ -72,7 +93,6 @@ function mapHorseNames(atlar) {
     return out;
 }
 
-/** atlar yapısı: { "1": { "1": "AT ADI", ... }, "2": { ... } } */
 function getRaceAtlar(yaris, raceNo) {
     if (!yaris?.atlar) return {};
     const block = yaris.atlar[String(raceNo)] || yaris.atlar[raceNo];
@@ -112,37 +132,47 @@ function enrichMuhtemeller(muhtemelData, atlar, atlarNext) {
     };
 }
 
-async function fetchRaceMuhtemel(refPath, runKey, hash) {
-    const url = `${CDN}/s/${refPath}/${runKey}-${hash}.json`;
-    const json = await fetchJson(url);
-    if (!json?.success) throw new Error('Muhtemel verisi alınamadı');
-    return json;
+function resolveRefPath(opts) {
+    if (opts.refPath) return opts.refPath;
+    if (opts.iso) return isoToRefPath(opts.iso);
+    if (opts.tarih) return trToRefPath(opts.tarih);
+    const d = new Date();
+    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
 }
 
-async function fetchMuhtemeller(opts = {}) {
-    let refPath = opts.refPath;
-    let tarih = opts.tarih || '';
+async function loadOverviewContext(refPath, tarih) {
+    const hit = overviewCtx.get(refPath);
+    if (hit && Date.now() - hit.at < CACHE_MS) return hit;
 
-    if (!refPath && opts.iso) refPath = isoToRefPath(opts.iso);
-    if (!refPath && tarih) refPath = trToRefPath(tarih);
-    if (!refPath) {
-        const d = new Date();
-        refPath = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
-    }
+    const checksum = await fetchJsonRetry(`${MEDIA}/s/${refPath}/checksum.json`);
+    if (!checksum?.day) throw new Error('Bu tarih için muhtemel yayını yok');
 
-    const cacheKey = refPath + '|' + (opts.raceKey || 'all');
+    const dayJson = await fetchJsonRetry(`${CDN}/s/${refPath}/day-${checksum.day}.json`);
+    const yarislar = dayJson?.data?.yarislar || [];
+    const indexYarislar = {};
+    for (const y of yarislar) indexYarislar[y.KEY] = y;
+
+    const ctx = {
+        at: Date.now(),
+        refPath,
+        tarih: tarih || checksum.date || '',
+        checksum,
+        yarislar,
+        indexYarislar
+    };
+    overviewCtx.set(refPath, ctx);
+    return ctx;
+}
+
+/** Hızlı özet — yalnızca hipodrom ve koşu listesi (~2 istek) */
+async function fetchMuhtemelOverview(opts = {}) {
+    const refPath = resolveRefPath(opts);
+    const cacheKey = 'overview|' + refPath;
     const hit = cache.get(cacheKey);
     if (hit && Date.now() - hit.at < CACHE_MS) return hit.data;
 
-    const checksum = await fetchJson(`${MEDIA}/s/${refPath}/checksum.json`);
-    if (!checksum?.day) throw new Error('Bu tarih için muhtemel yayını yok');
-
-    tarih = tarih || checksum.date || '';
-
-    const dayJson = await fetchJson(`${CDN}/s/${refPath}/day-${checksum.day}.json`);
-    const yarislar = dayJson?.data?.yarislar || [];
-
-    const hipodromlar = yarislar.map((y) => ({
+    const ctx = await loadOverviewContext(refPath, opts.tarih);
+    const hipodromlar = ctx.yarislar.map((y) => ({
         key: y.KEY,
         yer: y.YER || y.KEY,
         hipodrom: y.HIPODROM || y.KEY,
@@ -151,54 +181,84 @@ async function fetchMuhtemeller(opts = {}) {
         agf: y.agf || null
     }));
 
-    const indexYarislar = {};
-    for (const y of yarislar) indexYarislar[y.KEY] = y;
-
-    const runs = checksum.runs || {};
-    const allowedKeys = new Set(yarislar.map((y) => y.KEY));
-    const raceKeys = opts.raceKey
-        ? [opts.raceKey]
-        : Object.keys(runs).filter((k) => allowedKeys.has(k.split('-')[0]));
-
-    const muhtemeller = {};
-    const errors = [];
-
-    await Promise.all(raceKeys.map(async (runKey) => {
-        const hashes = runs[runKey];
-        if (!hashes?.length) return;
-        try {
-            const json = await fetchRaceMuhtemel(refPath, runKey, hashes[0]);
-            const parts = runKey.split('-');
-            const hipKey = parts[0];
-            const no = parts[1];
-            const yaris = indexYarislar[hipKey];
-            const atlarThis = getRaceAtlar(yaris, no);
-            const atlarNext = getRaceAtlar(yaris, String(1 * no + 1));
-            const enriched = enrichMuhtemeller(json.data, atlarThis, atlarNext);
-            if (enriched) muhtemeller[runKey] = enriched;
-        } catch (err) {
-            errors.push({ runKey, error: err.message });
-        }
-    }));
+    const runs = ctx.checksum.runs || {};
+    const allowedKeys = new Set(ctx.yarislar.map((y) => y.KEY));
+    const availableRuns = Object.keys(runs).filter((k) => allowedKeys.has(k.split('-')[0]));
 
     const result = {
         success: true,
-        tarih,
-        iso: trToIso(tarih) || opts.iso || refPath.replace(/\//g, '-'),
+        mode: 'overview',
+        tarih: ctx.tarih,
+        iso: trToIso(ctx.tarih) || opts.iso || refPath.replace(/\//g, '-'),
         refPath,
         hipodromlar,
-        runs,
-        muhtemeller,
-        errors: errors.length ? errors : undefined,
-        guncelleme: checksum.datetime || null
+        availableRuns,
+        guncelleme: ctx.checksum.datetime || null
     };
 
     cache.set(cacheKey, { at: Date.now(), data: result });
     return result;
 }
 
+/** Tek koşu muhtemeli — lazy yükleme */
+async function fetchMuhtemelRace(opts = {}) {
+    const raceKey = opts.raceKey || opts.kosu;
+    if (!raceKey) throw new Error('kosu parametresi gerekli (örn. ANKARA-1)');
+
+    const refPath = resolveRefPath(opts);
+    const cacheKey = 'race|' + refPath + '|' + raceKey;
+    const hit = cache.get(cacheKey);
+    if (hit && Date.now() - hit.at < RACE_CACHE_MS) return hit.data;
+
+    const ctx = await loadOverviewContext(refPath, opts.tarih);
+    const hashes = ctx.checksum.runs?.[raceKey];
+    if (!hashes?.length) throw new Error(raceKey + ' için muhtemel yayını yok');
+
+    const url = `${CDN}/s/${refPath}/${raceKey}-${hashes[0]}.json`;
+    const json = await fetchJsonRetry(url, { maxAttempts: 4, timeoutMs: 45000 });
+    if (!json?.success) throw new Error('Muhtemel verisi alınamadı');
+
+    const parts = raceKey.split('-');
+    const hipKey = parts[0];
+    const no = parts[1];
+    const yaris = ctx.indexYarislar[hipKey];
+    const atlarThis = getRaceAtlar(yaris, no);
+    const atlarNext = getRaceAtlar(yaris, String(1 * no + 1));
+    const muhtemel = enrichMuhtemeller(json.data, atlarThis, atlarNext);
+    if (!muhtemel) throw new Error('Muhtemel parse edilemedi');
+
+    const result = {
+        success: true,
+        mode: 'race',
+        raceKey,
+        tarih: ctx.tarih,
+        iso: trToIso(ctx.tarih) || opts.iso,
+        muhtemel
+    };
+
+    cache.set(cacheKey, { at: Date.now(), data: result });
+    return result;
+}
+
+/** Geriye uyumluluk — kosu varsa tek koşu, yoksa özet */
+async function fetchMuhtemeller(opts = {}) {
+    const raceKey = opts.raceKey || opts.kosu;
+    if (raceKey) {
+        const overview = await fetchMuhtemelOverview(opts);
+        const race = await fetchMuhtemelRace({ ...opts, raceKey });
+        return {
+            ...overview,
+            mode: 'race',
+            muhtemeller: { [raceKey]: race.muhtemel }
+        };
+    }
+    return fetchMuhtemelOverview(opts);
+}
+
 module.exports = {
     fetchMuhtemeller,
+    fetchMuhtemelOverview,
+    fetchMuhtemelRace,
     isoToRefPath,
     trToRefPath,
     enrichMuhtemeller

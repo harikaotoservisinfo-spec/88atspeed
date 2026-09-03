@@ -165,11 +165,10 @@ app.get('/api/public/muhtemeller', async (req, res) => {
         let iso = req.query.iso;
         let tarih = req.query.tarih;
         if (!iso && tarih) iso = publicProgram.trToIso(tarih);
-        const data = await muhtemellerFetch.fetchMuhtemeller({
-            iso,
-            tarih,
-            raceKey: req.query.kosu || req.query.raceKey || null
-        });
+        const raceKey = req.query.kosu || req.query.raceKey || null;
+        const data = raceKey
+            ? await muhtemellerFetch.fetchMuhtemelRace({ iso, tarih, raceKey })
+            : await muhtemellerFetch.fetchMuhtemelOverview({ iso, tarih });
         res.json(data);
     } catch (err) {
         console.error('public/muhtemeller:', err.message);
