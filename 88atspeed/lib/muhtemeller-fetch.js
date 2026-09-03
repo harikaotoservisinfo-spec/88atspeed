@@ -155,9 +155,10 @@ async function fetchMuhtemeller(opts = {}) {
     for (const y of yarislar) indexYarislar[y.KEY] = y;
 
     const runs = checksum.runs || {};
+    const allowedKeys = new Set(yarislar.map((y) => y.KEY));
     const raceKeys = opts.raceKey
         ? [opts.raceKey]
-        : Object.keys(runs);
+        : Object.keys(runs).filter((k) => allowedKeys.has(k.split('-')[0]));
 
     const muhtemeller = {};
     const errors = [];
