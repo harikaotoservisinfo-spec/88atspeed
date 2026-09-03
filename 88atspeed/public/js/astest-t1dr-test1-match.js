@@ -188,6 +188,12 @@ const AtestT1drTest1Match = (function () {
             + '<span class="son-test-tahmin-pct">%' + tahmin.pct + '</span></td>';
     }
 
+    function gosTest1KirmiziClass(gosRow) {
+        if (!gosRow?.classes || typeof GosterimEngine === 'undefined') return '';
+        const cls = GosterimEngine.getCellClass(GosterimEngine.COL.TEST1, gosRow.classes);
+        return cls && /\bkirmizi-yazi\b/.test(cls) ? ' kirmizi-yazi' : '';
+    }
+
     function formatBitisCell(bitis) {
         let cls = 't1dr-match-bitis';
         let display = '—';
@@ -295,7 +301,8 @@ const AtestT1drTest1Match = (function () {
                 html += '<td>' + escapeHtml(String(m.sehir)) + '</td>';
                 html += '<td>' + escapeHtml(String(m.mesafe)) + '</td>';
                 html += '<td class="t1dr-match-val t1dr-match-val-t1dr">' + escapeHtml(String(m.t1dr)) + '</td>';
-                html += '<td class="t1dr-match-val t1dr-match-val-test1">' + escapeHtml(String(m.test1)) + '</td>';
+                html += '<td class="t1dr-match-val t1dr-match-val-test1'
+                    + gosTest1KirmiziClass(m.gosRow) + '">' + escapeHtml(String(m.test1)) + '</td>';
                 html += formatRankPctCell(
                     tahmin, true, 't1dr-match-tahmin', 'TAHMİN hesaplanamadı');
                 html += formatRankPctCell(
