@@ -10,6 +10,7 @@ const publicProgram = require('./lib/public-program');
 const muhtemellerFetch = require('./lib/muhtemeller-fetch');
 const tjkTvProxy = require('./lib/tjk-tv-proxy');
 const hipodromAuth = require('./lib/hipodrom-auth');
+const hipodromBet = require('./lib/hipodrom-bet');
 const app = express();
 const PORT = 3023;
 
@@ -269,6 +270,57 @@ app.post('/api/public/hipodrom/logout', async (req, res) => {
     }
     hipodromAuth.clearSessionCookie(req, res);
     res.json({ success: true });
+});
+
+app.get('/api/public/hipodrom/auto/status', async (req, res) => {
+    try {
+        const state = await hipodromBet.getAutoStatus();
+        res.json({ success: true, ...state });
+    } catch (err) {
+        console.error('hipodrom/auto/status:', err.message);
+        res.status(500).json({ success: false, error: err.message, loggedIn: false });
+    }
+});
+
+app.post('/api/public/hipodrom/auto/login', async (req, res) => {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    const username = req.body?.username || process.env.HIPODROM_USER;
+    const password = req.body?.password || process.env.HIPODROM_PASS;
+    if (!username || !password) {
+        return res.status(400).json({ success: false, error: 'TC/üye no ve şifre gerekli' });
+    }
+    try {
+        const state = await hipodromBet.saveLogin(username, password);
+        res.json({ success: true, ...state });
+    } catch (err) {
+        console.error('hipodrom/auto/login:', err.message);
+        res.status(401).json({ success: false, error: err.message, code: err.code || null });
+    }
+});
+
+app.post('/api/public/hipodrom/auto/bet/fixed', async (req, res) => {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    const { city, raceNo, kosuNo, horseName, at, stake, misli, dryRun } = req.body || {};
+    try {
+        const result = await hipodromBet.placeFixedOddsBet({
+            city,
+            raceNo: raceNo ?? kosuNo,
+            horseName: horseName || at,
+            stake: stake ?? misli,
+            dryRun: !!dryRun,
+            username: req.body?.username,
+            password: req.body?.password
+        });
+        res.json(result);
+    } catch (err) {
+        console.error('hipodrom/auto/bet:', err.message);
+        res.status(400).json({
+            success: false,
+            error: err.message,
+            code: err.code || null,
+            detail: err.detail || null
+        });
+    }
 });
 
 app.post('/api/admin/public-program-cek', async (req, res) => {

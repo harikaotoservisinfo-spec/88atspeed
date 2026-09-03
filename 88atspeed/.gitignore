@@ -1,5 +1,7 @@
 # 88ATSPEED
 node_modules/
+data/
+hipodrom-profile/
 .DS_Store
 *.log
 .env
