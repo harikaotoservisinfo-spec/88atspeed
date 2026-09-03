@@ -69,6 +69,13 @@
         return 'pub-badge-synth';
     }
 
+    function muhtRaceTopClass(pist) {
+        const p = (pist || '').toLowerCase();
+        if (p.includes('çim') || p.includes('cim')) return 'pub-muht-race-top-grass';
+        if (p.includes('kum')) return 'pub-muht-race-top-dirt';
+        return 'pub-muht-race-top-synth';
+    }
+
     function buildPlaceholderTahminler(race) {
         if (!race.horses || !race.horses.length) return [];
         return race.horses.slice(0, 3).map((h, i) => ({
@@ -694,7 +701,7 @@
         }
 
         let html = '<div class="pub-muht-race-card" data-leader-no="' + escapeHtml(leaderNo || '') + '">'
-            + '<div class="pub-muht-race-top">'
+            + '<div class="pub-muht-race-top ' + muhtRaceTopClass(muht.pist) + '">'
             + '<div class="pub-muht-race-title"><strong>' + title + '</strong>'
             + (sub ? '<span>' + escapeHtml(sub) + '</span>' : '') + '</div>'
             + '<div class="pub-muht-race-meta">'

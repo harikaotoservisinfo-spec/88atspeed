@@ -1034,6 +1034,10 @@ a { color: inherit; text-decoration: none; }
     box-shadow: 0 1px 4px rgba(0,0,0,0.04);
 }
 
+.pub-muht-toolbar {
+    display: none;
+}
+
 .pub-muht-race-top {
     display: flex;
     align-items: center;
@@ -1041,8 +1045,19 @@ a { color: inherit; text-decoration: none; }
     gap: 12px;
     flex-wrap: wrap;
     padding: 14px 16px;
-    background: linear-gradient(90deg, #1a1a2e 0%, #263238 100%);
     color: #fff;
+}
+
+.pub-muht-race-top-grass {
+    background: linear-gradient(90deg, #1b5e20 0%, #388e3c 55%, #2e7d32 100%);
+}
+
+.pub-muht-race-top-dirt {
+    background: linear-gradient(90deg, #3e2723 0%, #5d4037 55%, #6d4c41 100%);
+}
+
+.pub-muht-race-top-synth {
+    background: linear-gradient(90deg, #1a1a2e 0%, #263238 100%);
 }
 
 .pub-muht-race-title {
