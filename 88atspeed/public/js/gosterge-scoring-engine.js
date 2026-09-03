@@ -1598,19 +1598,8 @@ const GostergeScoringEngine = (function () {
         return String(kayitId) + '|' + raceNo + '|' + String(horseNo ?? '');
     }
 
-    let cachedFlatBuild = null;
-
-    function getCachedFlatBuild() {
-        return cachedFlatBuild;
-    }
-
-    function clearFlatEntriesCache() {
-        cachedFlatBuild = null;
-    }
-
     /** PUANLAMA TEST bitiş + hesaplama kayıtlarından kalibrasyon verisi oluştur */
     async function buildFlatEntriesFromApi(options) {
-        if (cachedFlatBuild && !options?.forceRefresh) return cachedFlatBuild;
         const IE = options.IE || IstatistikEngine;
         const bitisRes = await fetch('/api/puanlama-bitis-sonuclari');
         const bitisJson = await bitisRes.json();
@@ -1659,8 +1648,7 @@ const GostergeScoringEngine = (function () {
             }
             if (ki > 0 && ki % 3 === 0) await yieldToMain();
         }
-        cachedFlatBuild = { flatEntries: flat, bitisMap };
-        return cachedFlatBuild;
+        return { flatEntries: flat, bitisMap };
     }
 
     function makeBitisHost(flatEntries, bitisMap, buildBitisStatsFromEntries) {
@@ -1916,8 +1904,6 @@ const GostergeScoringEngine = (function () {
         aggregateBucketTotals,
         loadAndCalibrateFromApi,
         buildFlatEntriesFromApi,
-        getCachedFlatBuild,
-        clearFlatEntriesCache,
         makeBitisHost,
         setSuccessBlend,
         setT9vScoreShare,

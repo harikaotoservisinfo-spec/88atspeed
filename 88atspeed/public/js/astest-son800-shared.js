@@ -7,18 +7,6 @@ const AtestSon800Shared = (function () {
         + ' 5 ÖNCE en hafif; taban ~%10 (Δ=0 tam). SON·Δ=0 ek +%10.'
         + ' Δ=0 + kırmızı +5, mavi +3, yeşil/fosfor +15 (derinliğe göre).';
 
-    const raceCtxCache = new Map();
-
-    function raceCtxKey(race, hedefSehir, programTarih) {
-        const rn = race?.raceNo ?? '';
-        const hc = (race?.horses || []).length;
-        return String(rn) + '|' + String(hedefSehir || '') + '|' + String(programTarih || '') + '|' + hc;
-    }
-
-    function clearRaceContextCache() {
-        raceCtxCache.clear();
-    }
-
     function canUse() {
         return typeof IstatistikEngine !== 'undefined'
             && typeof Son800DepthUi !== 'undefined'
@@ -27,8 +15,6 @@ const AtestSon800Shared = (function () {
 
     function buildRaceContext(race, horses, hedefSehir, programTarih) {
         if (!canUse()) return { istatRowByKey: new Map(), maxD1: 0 };
-        const cacheKey = raceCtxKey(race, hedefSehir, programTarih);
-        if (raceCtxCache.has(cacheKey)) return raceCtxCache.get(cacheKey);
         const raceForIstat = Object.assign({}, race, {
             horses: horses.map(h => Object.assign({}, h, {
                 kosular: (typeof veriCache !== 'undefined' && h.atId != null
@@ -46,9 +32,7 @@ const AtestSon800Shared = (function () {
             istatRowByKey.set(String(row.no), row);
             if (row.atId != null) istatRowByKey.set(String(row.atId), row);
         }
-        const ctx = { istatRowByKey, maxD1 };
-        raceCtxCache.set(cacheKey, ctx);
-        return ctx;
+        return { istatRowByKey, maxD1 };
     }
 
     function getIstatRow(horse, ctx) {
@@ -102,7 +86,6 @@ const AtestSon800Shared = (function () {
         NOTE,
         canUse,
         buildRaceContext,
-        clearRaceContextCache,
         getIstatRow,
         applyBasDeltaBoost,
         son800Colspan,

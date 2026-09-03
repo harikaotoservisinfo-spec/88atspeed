@@ -675,7 +675,7 @@
     <script src="js/istatistik-gosterim-flags.js?v=20260831e"></script>
     <script src="js/son800-depth-ui.js?v=20260831f"></script>
     <script src="js/siklet-bas-delta-boost.js?v=20260831h"></script>
-    <script src="js/astest-son800-shared.js?v=20260903a"></script>
+    <script src="js/astest-son800-shared.js?v=20260831i"></script>
     <script src="js/field-size-stats-engine.js?v=20260831i"></script>
     <script src="js/sehir-stats-engine.js?v=20260831g"></script>
     <script src="js/kosu-dimension-stats-engine.js?v=20260831h"></script>
@@ -684,17 +684,17 @@
     <script src="js/ptest-gosterge-engine.js?v=20260831z"></script>
     <script src="js/ptest-gosterge-depth-engine.js?v=20260831z"></script>
     <script src="js/ptest-color-gosterge-export.js?v=20260831z"></script>
-    <script src="js/gosterge-scoring-engine.js?v=20260903a"></script>
+    <script src="js/gosterge-scoring-engine.js?v=20260901d"></script>
     <script src="js/basari-pct-scoring-engine.js?v=20260901a"></script>
     <script src="js/ptest-field-factor-engine.js?v=20260901a"></script>
     <script src="js/ptest-field-adaptive-engine.js?v=20260901a"></script>
     <script src="js/hybrid-tahmin-scoring-engine.js?v=20260901a"></script>
-    <script src="js/astest-son-renk-tahmin.js?v=20260903b"></script>
-    <script src="js/astest-son-gosterge1-tahmin.js?v=20260903a"></script>
-    <script src="js/astest-son-ptest-tahmin.js?v=20260903b"></script>
+    <script src="js/astest-son-renk-tahmin.js?v=20260901c"></script>
+    <script src="js/astest-son-gosterge1-tahmin.js?v=20260901a"></script>
+    <script src="js/astest-son-ptest-tahmin.js?v=20260901a"></script>
     <script src="js/gosterim-headers.js?v=20260901a"></script>
     <script src="js/astest-son-gosterim-cols.js?v=20260902f"></script>
-    <script src="js/astest-t1dr-test1-match.js?v=20260903e"></script>
+    <script src="js/astest-t1dr-test1-match.js?v=20260903a"></script>
     <script>
         const RECENT_WINDOWS = FieldSizeStatsEngine.RECENT_WINDOWS;
 
@@ -1156,10 +1156,6 @@
             { key: 'hp', tabId: 'hp-test', contentId: 'hpContent', metaId: 'hpMeta', listId: 'hpKayitListesi', kayitBtn: 'hpKayitBtn' },
             { key: 'siklet', tabId: 'siklet-test', contentId: 'sikletContent', metaId: 'sikletMeta', listId: 'sikletKayitListesi', kayitBtn: 'sikletKayitBtn' }
         ];
-        const TEST_TAB_IDS = ['son-test', 'at-sayisi-test', 'sehir-test']
-            .concat(DIMENSION_TEST_TABS.map(function (c) { return c.tabId; }));
-        let testTabsRenderGen = 0;
-        const testTabsRendered = new Set();
         let veriCache = {};
         let currentRaces = null;
         let currentHorses = [];
@@ -1228,37 +1224,6 @@
         
         function getActiveTabId() {
             return document.querySelector('.tab-btn.active')?.dataset.tab || 'hesaplama';
-        }
-
-        function isTestTabId(tabId) {
-            return TEST_TAB_IDS.indexOf(tabId) >= 0;
-        }
-
-        function getTestTabContentId(tabId) {
-            if (tabId === 'son-test') return 'sonTestContent';
-            if (tabId === 'at-sayisi-test') return 'atSayisiContent';
-            if (tabId === 'sehir-test') return 'sehirContent';
-            const cfg = DIMENSION_TEST_TABS.find(function (t) { return t.tabId === tabId; });
-            return cfg ? cfg.contentId : null;
-        }
-
-        function setTestTabLoading(tabId, html) {
-            const cid = getTestTabContentId(tabId);
-            if (!cid) return;
-            const el = document.getElementById(cid);
-            if (el) el.innerHTML = html;
-        }
-
-        function isRenderStale(renderGen) {
-            return renderGen != null && renderGen !== testTabsRenderGen;
-        }
-
-        async function ensureTestTabRendered(tabId) {
-            if (!currentRaces || !isTestTabId(tabId) || testTabsRendered.has(tabId)) return;
-            const myGen = testTabsRenderGen;
-            setTestTabLoading(tabId, '<div class="info-box">⏳ Yükleniyor...</div>');
-            await renderOneTestTab(tabId, currentRaces, currentSonTestMeta, myGen);
-            if (!isRenderStale(myGen)) testTabsRendered.add(tabId);
         }
 
         function setActiveTabContentLoading(html) {
@@ -1414,9 +1379,6 @@
                     const frame = document.getElementById('karsilastirmaFrame');
                     if (frame) frame.src = 'karsilastirma.html?v=' + Date.now();
                 }
-                if (isTestTabId(tabId)) {
-                    ensureTestTabRendered(tabId);
-                }
             });
         });
         
@@ -1540,7 +1502,7 @@
                 hesaplamaGoster(currentRaces);
                 sonTestKayitSource = 'getir';
                 currentSonTestKayitId = null;
-                await refreshTestTabs(currentRaces, {
+                refreshTestTabs(currentRaces, {
                     source: 'getir',
                     tarih: tarih,
                     hipodrom: hipodromText
@@ -1633,35 +1595,13 @@
             document.getElementById('tab-hesaplama').innerHTML = genelHtml;
         }
 
-        async function renderOneTestTab(tabId, races, meta, renderGen) {
-            if (isRenderStale(renderGen)) return;
-            if (tabId === 'son-test') {
-                await sonTestGoster(races, meta, renderGen);
-            } else if (tabId === 'at-sayisi-test') {
-                await atSayisiTestGoster(races, meta, renderGen);
-            } else if (tabId === 'sehir-test') {
-                sehirTestGoster(races, meta, renderGen);
-            } else {
-                const cfg = DIMENSION_TEST_TABS.find(function (t) { return t.tabId === tabId; });
-                if (cfg) dimensionTestGoster(races, meta, cfg.key, renderGen);
-            }
-        }
-
-        /** Yalnızca aktif test sekmesi yüklenir; diğerleri ilk tıklamada dolar. */
         async function refreshTestTabs(races, meta) {
             if (meta?.hipodrom) currentHipodrom = meta.hipodrom;
-            testTabsRenderGen++;
-            const myGen = testTabsRenderGen;
-            testTabsRendered.clear();
-            if (typeof AtestSon800Shared !== 'undefined' && AtestSon800Shared.clearRaceContextCache) {
-                AtestSon800Shared.clearRaceContextCache();
-            }
-
-            const activeTab = getActiveTabId();
-            if (isTestTabId(activeTab)) {
-                setTestTabLoading(activeTab, '<div class="info-box">⏳ Yükleniyor...</div>');
-                await renderOneTestTab(activeTab, races, meta, myGen);
-                if (!isRenderStale(myGen)) testTabsRendered.add(activeTab);
+            await sonTestGoster(races, meta);
+            await atSayisiTestGoster(races, meta);
+            sehirTestGoster(races, meta);
+            for (const cfg of DIMENSION_TEST_TABS) {
+                dimensionTestGoster(races, meta, cfg.key);
             }
         }
 
@@ -1676,39 +1616,33 @@
             return parts.join(' · ') || '—';
         }
 
-        async function sonTestGoster(races, meta, renderGen) {
+        async function sonTestGoster(races, meta) {
             const el = document.getElementById('sonTestContent');
             if (!el) return;
-            if (isRenderStale(renderGen)) return;
             if (meta) testTabsSetMeta(formatTestTabsMeta(meta));
             if (!races || !races.length) {
                 el.innerHTML = '<div class="info-box">📋 Veri bulunamadı</div>';
                 return;
             }
-            if (typeof AtestSonPtestTahmin !== 'undefined') {
+            if (typeof AtestSonRenkTahmin !== 'undefined' || typeof AtestSonPtestTahmin !== 'undefined') {
                 el.innerHTML = '<div class="info-box">⏳ PUANLAMA TEST kalibrasyonu yükleniyor…</div>';
             }
             let ptestCalibrated = false;
-            let renkCalibrated = false;
             let renkScenarioCols = [];
             let ptestCols = [];
             const calJobs = [];
             if (typeof AtestSonPtestTahmin !== 'undefined') {
-                calJobs.push(AtestSonPtestTahmin.ensureCalibration().then(function (ok) {
+                calJobs.push(AtestSonPtestTahmin.ensureCalibration().then(function(ok) {
                     ptestCalibrated = !!ok;
                     ptestCols = AtestSonPtestTahmin.getColumns();
                 }));
             }
             if (typeof AtestSonRenkTahmin !== 'undefined') {
-                calJobs.push(AtestSonRenkTahmin.ensureCalibration().then(function (ok) {
-                    renkCalibrated = !!ok;
+                calJobs.push(AtestSonRenkTahmin.ensureCalibration().then(function(ok) {
                     if (ok) renkScenarioCols = AtestSonRenkTahmin.getScenarioColumns();
                 }));
             }
-            if (calJobs.length) {
-                await Promise.all(calJobs);
-                if (isRenderStale(renderGen)) return;
-            }
+            if (calJobs.length) await Promise.all(calJobs);
             const extraTahminColCount = renkScenarioCols.length + ptestCols.length;
             const gosColCount = typeof AtestSonGosterimCols !== 'undefined'
                 ? AtestSonGosterimCols.getColumnCount()
@@ -1729,7 +1663,7 @@
                 + 'TARİH mavi +%5 / mavi değil −%3 · combo: AT ID+TARİH +%4 · herhangi 3 mavi +%4 · 4 mavi +%4 · '
                 + 'mavi kenar +%3 · kırmızı kenar +%3 · '
                 + 'SON800-1 koşu top-3: +%10/+7/+4 · aynı geçmiş koşuda SON800-1+2 yeşil +%5 (pct %100+ olabilir). '
-                + (ptestCalibrated || renkCalibrated ? '' : '<span style="color:#c62828"> Ek sütunlar için kayıt + bitiş gerekli.</span> ')
+                + (ptestCalibrated ? '' : '<span style="color:#c62828"> Ek sütunlar için kayıt + bitiş gerekli.</span> ')
                 + 'Mor/turuncu/yeşil satır = TAHMİN skoruna göre top-4.</p>';
             for (let i = 0; i < races.length; i++) {
                 const race = races[i];
@@ -1785,7 +1719,7 @@
                 } else {
                     let renkByKey = new Map();
                     let ptestByCol = {};
-                    if (renkCalibrated && typeof AtestSonRenkTahmin !== 'undefined') {
+                    if (ptestCalibrated && typeof AtestSonRenkTahmin !== 'undefined') {
                         renkByKey = AtestSonRenkTahmin.scoreRace(race, meta, resolveHorseKosular);
                     }
                     if (ptestCalibrated && typeof AtestSonPtestTahmin !== 'undefined') {
@@ -1858,7 +1792,7 @@
                         html += astestSonTestTahminCell(row.tahmin);
                         for (let ri = 0; ri < renkScenarioCols.length; ri++) {
                             html += astestSonTestRenkScenarioCell(
-                                row.renkTahmin, renkCalibrated, ri === 0 && !ptestCols.length);
+                                row.renkTahmin, ptestCalibrated, ri === 0 && !ptestCols.length);
                         }
                         for (let pi = 0; pi < ptestCols.length; pi++) {
                             const pc = ptestCols[pi];
@@ -1876,14 +1810,12 @@
                 html += '</tbody></table></div></div>';
             }
             html += '</div>';
-            if (isRenderStale(renderGen)) return;
             el.innerHTML = html;
         }
 
-        async function atSayisiTestGoster(races, meta, renderGen) {
+        async function atSayisiTestGoster(races, meta) {
             const el = document.getElementById('atSayisiContent');
             if (!el) return;
-            if (isRenderStale(renderGen)) return;
             atSayisiCachedRaces = races;
             atSayisiCachedMeta = meta;
             if (meta) testTabsSetMeta(formatTestTabsMeta(meta));
@@ -1892,17 +1824,13 @@
                 return;
             }
             if (atSayisiSubView === 't1dr-test1' && typeof AtestT1drTest1Match !== 'undefined') {
-                el.innerHTML = '<div class="info-box">⏳ T1×DR=TEST1 eşleşmeleri taranıyor…</div>';
+                el.innerHTML = '<div class="info-box">⏳ T1×DR=TEST1 eşleşmeleri ve GÖ/HYB kalibrasyonu yükleniyor…</div>';
                 try {
-                    const html = await AtestT1drTest1Match.renderRaces(
+                    el.innerHTML = await AtestT1drTest1Match.renderRaces(
                         races, meta, resolveHorseKosular, escapeHtml);
-                    if (isRenderStale(renderGen)) return;
-                    el.innerHTML = html;
                     AtestT1drTest1Match.bindRaceSelector(el);
-                    await AtestT1drTest1Match.hydrateVisibleRace(el);
                 } catch (err) {
                     console.error(err);
-                    if (isRenderStale(renderGen)) return;
                     el.innerHTML = '<div class="info-box">❌ T1×DR=TEST1 yüklenemedi: '
                         + escapeHtml(err.message || String(err)) + '</div>';
                 }
@@ -2030,14 +1958,12 @@
                 html += '</div>';
             }
             html += '</div>';
-            if (isRenderStale(renderGen)) return;
             el.innerHTML = html;
         }
 
-        function sehirTestGoster(races, meta, renderGen) {
+        function sehirTestGoster(races, meta) {
             const el = document.getElementById('sehirContent');
             if (!el) return;
-            if (isRenderStale(renderGen)) return;
             if (meta) testTabsSetMeta(formatTestTabsMeta(meta));
             const hedefSehir = meta?.hipodrom || currentHipodrom || '';
             const programTarih = meta?.tarih || null;
@@ -2159,16 +2085,14 @@
                 html += '</div>';
             }
             html += '</div>';
-            if (isRenderStale(renderGen)) return;
             el.innerHTML = html;
         }
 
-        function dimensionTestGoster(races, meta, dimKey, renderGen) {
+        function dimensionTestGoster(races, meta, dimKey) {
             const dim = KosuDimensionStatsEngine.getDim(dimKey);
             const cfg = DIMENSION_TEST_TABS.find(t => t.key === dimKey);
             const el = cfg ? document.getElementById(cfg.contentId) : null;
             if (!el || !dim) return;
-            if (isRenderStale(renderGen)) return;
             if (meta) testTabsSetMeta(formatTestTabsMeta(meta));
             if (!races || !races.length) {
                 el.innerHTML = '<div class="info-box">📋 Veri bulunamadı</div>';
@@ -2265,9 +2189,9 @@
                         const kosular = veriCache[h.atId] || h.kosular || [];
                         const horseCtx = Object.assign({}, h, { kosular: kosular });
                         const hedef = dim.getTarget(horseCtx, race);
-                        let st = KosuDimensionStatsEngine.computeStats(kosular, dimKey, hedef, programTarih);
+                        const st = KosuDimensionStatsEngine.computeStats(kosular, dimKey, hedef, programTarih);
                         if (typeof AtestSon800Shared !== 'undefined') {
-                            st = AtestSon800Shared.applyBasDeltaBoost(st, h, sonCtx);
+                            AtestSon800Shared.applyBasDeltaBoost(st, h, sonCtx);
                         }
                         return { h: h, st: st, hedef: hedef };
                     });
@@ -2308,7 +2232,6 @@
                 html += '</div>';
             }
             html += '</div>';
-            if (isRenderStale(renderGen)) return;
             el.innerHTML = html;
         }
 
@@ -2367,9 +2290,12 @@
 
         async function loadSonTestKayit(id) {
             const loadingHtml = '<div class="info-box">⏳ Kayıt yükleniyor...</div>';
-            const activeTab = getActiveTabId();
-            if (isTestTabId(activeTab)) {
-                setTestTabLoading(activeTab, loadingHtml);
+            document.getElementById('sonTestContent').innerHTML = loadingHtml;
+            document.getElementById('atSayisiContent').innerHTML = loadingHtml;
+            document.getElementById('sehirContent').innerHTML = loadingHtml;
+            for (const cfg of DIMENSION_TEST_TABS) {
+                const el = document.getElementById(cfg.contentId);
+                if (el) el.innerHTML = loadingHtml;
             }
             statusDiv.innerHTML = '<div class="status status-loading">⏳ Kayıt #' + id + ' yükleniyor...</div>';
             try {
@@ -2392,7 +2318,7 @@
                         });
                     }
                 }
-                await refreshTestTabs(currentRaces, {
+                refreshTestTabs(currentRaces, {
                     source: 'kayit',
                     kayitId: id,
                     tarih: kayit.tarih,

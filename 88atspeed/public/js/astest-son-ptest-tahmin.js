@@ -104,9 +104,6 @@ const AtestSonPtestTahmin = (function () {
             && typeof HybridTahminScoringEngine !== 'undefined'
             && HybridTahminScoringEngine.isCalibrated?.()
             && AtestSonGosterge1Tahmin?.isCalibrated?.()) {
-            if (typeof AtestSonRenkTahmin !== 'undefined') {
-                await AtestSonRenkTahmin.ensureCalibration();
-            }
             return true;
         }
         if (calPromise) return calPromise;
@@ -115,10 +112,7 @@ const AtestSonPtestTahmin = (function () {
                 if (typeof AtestSonRenkTahmin !== 'undefined') {
                     await AtestSonRenkTahmin.ensureCalibration();
                 }
-                let built = GostergeScoringEngine.getCachedFlatBuild?.();
-                if (!built?.flatEntries?.length) {
-                    built = await GostergeScoringEngine.buildFlatEntriesFromApi({ IE: IstatistikEngine });
-                }
+                const built = await GostergeScoringEngine.buildFlatEntriesFromApi({ IE: IstatistikEngine });
                 const flatEntries = built.flatEntries || [];
                 const bitisMap = built.bitisMap || {};
                 const host = GostergeScoringEngine.makeBitisHost(
@@ -155,7 +149,7 @@ const AtestSonPtestTahmin = (function () {
         return calPromise;
     }
 
-    function scoreRaceAllSync(race, meta, resolveKosular) {
+    function scoreRaceAll(race, meta, resolveKosular) {
         const out = {};
         for (const col of COLUMNS) out[col.id] = new Map();
         if (!GostergeScoringEngine?.isCalibrated?.()) return out;
@@ -163,13 +157,13 @@ const AtestSonPtestTahmin = (function () {
         const saved = snapshotGostergeState();
         const fieldSize = (race.horses || []).length;
         const profile = lookupProfile(fieldSize);
-        const pkg = buildPkg(race, meta, resolveKosular);
 
         try {
             // MTR
             GostergeScoringEngine.clearMetricSweepFocus?.();
             GostergeScoringEngine.setT9vScoreShare?.(T9V_SHARE);
             GostergeScoringEngine.setMetricSweepFocus?.(METRIC_SWEEP.id, METRIC_SWEEP.pct / 100);
+            let pkg = buildPkg(race, meta, resolveKosular);
             GostergeScoringEngine.attachRaceTahminWithOptions(pkg, Object.assign(
                 {}, GostergeScoringEngine.getDefaultColorScoringOptions(), { fieldProfile: profile }));
             out.mtr = mapPkgRows(pkg, 'metric-sweep', COLUMNS[0].title);
@@ -177,6 +171,7 @@ const AtestSonPtestTahmin = (function () {
             // T9V
             GostergeScoringEngine.clearMetricSweepFocus?.();
             GostergeScoringEngine.setT9vScoreShare?.(T9V_SHARE);
+            pkg = buildPkg(race, meta, resolveKosular);
             GostergeScoringEngine.attachRaceTahminWithOptions(pkg, Object.assign(
                 {}, GostergeScoringEngine.getDefaultColorScoringOptions(), { fieldProfile: profile }));
             out.t9v = mapPkgRows(pkg, 't9v-sweep', COLUMNS[1].title);
@@ -184,24 +179,29 @@ const AtestSonPtestTahmin = (function () {
             // ASF
             GostergeScoringEngine.clearMetricSweepFocus?.();
             GostergeScoringEngine.setT9vScoreShare?.(T9V_SHARE);
+            pkg = buildPkg(race, meta, resolveKosular);
             GostergeScoringEngine.attachRaceTahmin?.(pkg, adaptiveProfiles?.bySize || null);
             out.asf = mapPkgRows(pkg, 'field-factor', COLUMNS[2].title);
 
             // G1
             if (typeof AtestSonGosterge1Tahmin !== 'undefined') {
+                pkg = buildPkg(race, meta, resolveKosular);
                 out.g1side = AtestSonGosterge1Tahmin.scoreSide(pkg);
+                pkg = buildPkg(race, meta, resolveKosular);
                 out.g1pair = AtestSonGosterge1Tahmin.scorePair(pkg);
             }
 
             // GÖ
             GostergeScoringEngine.clearMetricSweepFocus?.();
             GostergeScoringEngine.setT9vScoreShare?.(T9V_SHARE);
+            pkg = buildPkg(race, meta, resolveKosular);
             GostergeScoringEngine.attachRaceTahmin?.(pkg, adaptiveProfiles?.bySize || null);
             out.go = mapPkgRows(pkg, 'gosterge', COLUMNS[5].title);
 
             // HYB
             if (typeof HybridTahminScoringEngine !== 'undefined'
                 && HybridTahminScoringEngine.isCalibrated?.()) {
+                pkg = buildPkg(race, meta, resolveKosular);
                 HybridTahminScoringEngine.attachRaceTahmin(pkg);
                 out.hyb = mapPkgRows(pkg, 'hybrid', COLUMNS[6].title);
             }
@@ -209,10 +209,6 @@ const AtestSonPtestTahmin = (function () {
             restoreGostergeState(saved);
         }
         return out;
-    }
-
-    function scoreRaceAll(race, meta, resolveKosular) {
-        return scoreRaceAllSync(race, meta, resolveKosular);
     }
 
     function getColumns() {
