@@ -25,12 +25,15 @@
         progGanyanMuhtKey: null,
         progGanyanLoading: false,
         progBltData: null,
-        progBltHipId: null
+        progBltHipId: null,
+        progGpData: null,
+        progGpHipId: null
     };
 
     const MUHT_REFRESH_SEC = 15;
     const PROG_GANYAN_REFRESH_SEC = 15;
     const PROG_BLT_REFRESH_SEC = 300;
+    const PROG_GP_REFRESH_SEC = 300;
     const MUHT_SELECT_RESET_MS = 30000;
     const MUHT_RACE_ADVANCE_MS = 3 * 60 * 1000;
     const TJK_TV_DIRECT = 'https://tjktv-live.tjk.org/tjktv/tjktv.m3u8';
@@ -332,6 +335,9 @@
         if (state.progBltHipId !== hip.id || !state.progBltData) {
             refreshProgramBltData();
         }
+        if (state.progGpHipId !== hip.id || !state.progGpData) {
+            refreshProgramGpData();
+        }
     }
 
     function normalizeHipLabel(s) {
@@ -465,11 +471,13 @@
         if (!$('#panel-kosular')?.classList.contains('active')) return;
         let countdown = PROG_GANYAN_REFRESH_SEC;
         let bltCountdown = PROG_BLT_REFRESH_SEC;
+        let gpCountdown = PROG_GP_REFRESH_SEC;
         progGanyanPollTimer = setInterval(() => {
             if (document.hidden) return;
             if (!$('#panel-kosular')?.classList.contains('active')) return;
             countdown -= 1;
             bltCountdown -= 1;
+            gpCountdown -= 1;
             if (countdown <= 0) {
                 countdown = PROG_GANYAN_REFRESH_SEC;
                 refreshProgramGanyanOdds({ refresh: true });
@@ -477,6 +485,10 @@
             if (bltCountdown <= 0) {
                 bltCountdown = PROG_BLT_REFRESH_SEC;
                 refreshProgramBltData({ refresh: true });
+            }
+            if (gpCountdown <= 0) {
+                gpCountdown = PROG_GP_REFRESH_SEC;
+                refreshProgramGpData({ refresh: true });
             }
         }, 1000);
     }
@@ -546,9 +558,17 @@
             always: true,
             title: 'Bülten (yenibeygir Blt)'
         };
+        const gp2Col = {
+            key: 'gp2',
+            label: '@2',
+            cls: 'pub-prog-gp2',
+            colCls: 'pub-col-gp2',
+            always: true,
+            title: 'GP Puanı (liderform)'
+        };
         const takiIdx = filtered.findIndex((c) => c.key === 'taki');
-        if (takiIdx >= 0) filtered.splice(takiIdx + 1, 0, bltCol);
-        else filtered.push(bltCol);
+        if (takiIdx >= 0) filtered.splice(takiIdx + 1, 0, bltCol, gp2Col);
+        else filtered.push(bltCol, gp2Col);
         return filtered;
     }
 
@@ -583,6 +603,10 @@
             const blt = ctx?.bltMap?.[String(h.no)] || ctx?.bltByName?.[normalizeHorseName(h.name)] || '';
             return blt || '—';
         }
+        if (col.key === 'gp2') {
+            const gp = ctx?.gpMap?.[String(h.no)] || ctx?.gpByName?.[normalizeHorseName(h.name)] || '';
+            return gp || '—';
+        }
         if (col.key === 'name') return h.name || '—';
         const v = String(h[col.key] || '').trim();
         return v || '—';
@@ -606,6 +630,27 @@
         let leaderNo = null;
         let maxVal = -Infinity;
         Object.entries(bltMap || {}).forEach(([no, val]) => {
+            const v = parseFloat(String(val).replace(',', '.'));
+            if (!isNaN(v) && v > maxVal) {
+                maxVal = v;
+                leaderNo = no;
+            }
+        });
+        return leaderNo;
+    }
+
+    function getRaceGpMaps(raceNo) {
+        const race = state.progGpData?.races?.[String(raceNo)] || null;
+        return {
+            gpMap: race?.byNo || {},
+            gpByName: race?.byName || {}
+        };
+    }
+
+    function findGpLeaderNo(gpMap) {
+        let leaderNo = null;
+        let maxVal = -Infinity;
+        Object.entries(gpMap || {}).forEach(([no, val]) => {
             const v = parseFloat(String(val).replace(',', '.'));
             if (!isNaN(v) && v > maxVal) {
                 maxVal = v;
@@ -641,6 +686,36 @@
         }
     }
 
+    async function refreshProgramGpData(opts = {}) {
+        const iso = state.iso || localTodayIso();
+        const hip = state.hipodromlar.find((h) => h.id === state.activeHipId);
+        if (!hip || !$('#panel-kosular')?.classList.contains('active')) return;
+
+        const raceNos = (hip.kosular || []).map((r) => r.raceNo).filter(Boolean);
+        if (!raceNos.length) return;
+
+        try {
+            const controller = new AbortController();
+            const tid = setTimeout(() => controller.abort(), 120000);
+            const res = await fetch(
+                '/api/public/liderform-gp?iso=' + encodeURIComponent(iso)
+                + '&hipodrom=' + encodeURIComponent(hip.name)
+                + '&races=' + encodeURIComponent(raceNos.join(','))
+                + (opts.refresh ? '&refresh=1' : ''),
+                { signal: controller.signal }
+            );
+            clearTimeout(tid);
+            const data = await res.json();
+            if (!data.success) return;
+            state.progGpData = data;
+            state.progGpHipId = hip.id;
+            const activeHip = state.hipodromlar.find((h) => h.id === state.activeHipId);
+            if (activeHip) renderRaceList(activeHip);
+        } catch (_) {
+            /* sessiz */
+        }
+    }
+
     function renderRaceList(hip) {
         const el = $('#pubRaceList');
         const kosular = hip.kosular || [];
@@ -650,7 +725,7 @@
         }
 
         const cols = getProgramColumns(kosular);
-        const colWidths = { taki: computeTakiColWidth(kosular), blt: 40 };
+        const colWidths = { taki: computeTakiColWidth(kosular), blt: 40, gp2: 40 };
         const colgroup = renderProgramColgroup(cols, colWidths);
 
         el.innerHTML = '<div class="pub-program-list">' + kosular.map((race) => {
@@ -660,6 +735,8 @@
             const leaderNo = findGanyanLeaderNo(ganyanMap);
             const bltMaps = getRaceBltMaps(race.raceNo);
             const bltLeaderNo = findBltLeaderNo(bltMaps.bltMap);
+            const gpMaps = getRaceGpMaps(race.raceNo);
+            const gpLeaderNo = findGpLeaderNo(gpMaps.gpMap);
             const head = cols.map((c) => {
                 const titleAttr = c.title ? ' title="' + escapeHtml(c.title) + '"' : '';
                 return '<th' + titleAttr + '>' + c.label + '</th>';
@@ -667,7 +744,7 @@
             const horses = race.horses || [];
             const body = horses.length
                 ? horses.map((h) => {
-                    const ctx = { ganyanMap, ...bltMaps };
+                    const ctx = { ganyanMap, ...bltMaps, ...gpMaps };
                     return '<tr>'
                         + cols.map((c) => {
                             let cls = c.cls;
@@ -680,6 +757,11 @@
                                 const hasBlt = bltMaps.bltMap[String(h.no)] || bltMaps.bltByName[normalizeHorseName(h.name)];
                                 if (!hasBlt) cls += ' pub-prog-blt-empty';
                                 else if (bltLeaderNo && String(h.no) === bltLeaderNo) cls += ' pub-prog-blt-leader';
+                            }
+                            if (c.key === 'gp2') {
+                                const hasGp = gpMaps.gpMap[String(h.no)] || gpMaps.gpByName[normalizeHorseName(h.name)];
+                                if (!hasGp) cls += ' pub-prog-gp2-empty';
+                                else if (gpLeaderNo && String(h.no) === gpLeaderNo) cls += ' pub-prog-gp2-leader';
                             }
                             return '<td class="' + cls + '">' + escapeHtml(val) + '</td>';
                         }).join('')
@@ -829,6 +911,7 @@
             if (panelId === 'kosular') {
                 refreshProgramGanyanOdds();
                 refreshProgramBltData();
+                refreshProgramGpData();
                 startProgramGanyanPolling();
             } else {
                 stopProgramGanyanPolling();
@@ -1596,6 +1679,8 @@
             state.progGanyanMuhtKey = null;
             state.progBltData = null;
             state.progBltHipId = null;
+            state.progGpData = null;
+            state.progGpHipId = null;
             loadVitrin(input.value);
             if ($('#panel-muhtemeller')?.classList.contains('active')) {
                 loadMuhtemeller(input.value);
