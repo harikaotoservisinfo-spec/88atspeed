@@ -37,6 +37,7 @@
         progBtHipId: null,
         progBtLoading: false,
         sonucData: null,
+        sonucByHip: {},
         sonucHipId: null,
         sonucLastUpdate: null,
         sonucLoading: false
@@ -48,7 +49,8 @@
     const PROG_GP_REFRESH_SEC = 300;
     const PROG_FOB_REFRESH_SEC = 60;
     const PROG_BT_REFRESH_SEC = 60;
-    const SONUC_REFRESH_SEC = 120;
+    const SONUC_REFRESH_SEC = 60;
+    const SONUC_CLIENT_CACHE_MS = 30 * 1000;
     const MUHT_SELECT_RESET_MS = 30000;
     const MUHT_RACE_ADVANCE_MS = 3 * 60 * 1000;
     const TJK_TV_DIRECT = 'https://tjktv-live.tjk.org/tjktv/tjktv.m3u8';
@@ -1052,7 +1054,7 @@
         });
     }
 
-    function selectSonucHip(id) {
+    function selectSonucHip(id, opts = {}) {
         state.sonucHipId = id;
         $$('#pubSonucHipTabs .pub-hip-tab').forEach((t) => t.classList.toggle('active', t.dataset.id === id));
         const hip = state.hipodromlar.find((h) => h.id === id);
@@ -1067,11 +1069,16 @@
                 + '</span>';
         }
 
-        if (state.sonucData && state.sonucHipId === id && !state.sonucLoading) {
-            renderSonuclarList(hip, state.sonucData);
-        } else {
-            refreshSonuclarData();
+        const force = !!opts.forceRefresh;
+        const cached = state.sonucByHip[id];
+        const cacheAge = cached?.fetchedAt ? Date.now() - cached.fetchedAt : Infinity;
+        if (!force && cached?.data && cacheAge < SONUC_CLIENT_CACHE_MS) {
+            state.sonucData = cached.data;
+            state.sonucLastUpdate = cached.fetchedAt;
+            renderSonuclarList(hip, cached.data);
+            return;
         }
+        refreshSonuclarData({ refresh: true });
     }
 
     function formatSonucRaceHeader(race, progRace) {
@@ -1175,6 +1182,7 @@
             state.sonucData = data;
             state.sonucHipId = hip.id;
             state.sonucLastUpdate = Date.now();
+            state.sonucByHip[hip.id] = { data, fetchedAt: state.sonucLastUpdate };
             renderSonuclarList(hip, data);
         } catch (err) {
             if (el) {
@@ -1221,7 +1229,7 @@
         }
         renderSonucHipTabs();
         const hipId = state.sonucHipId || state.activeHipId || state.hipodromlar[0].id;
-        selectSonucHip(hipId);
+        selectSonucHip(hipId, { forceRefresh: true });
         startSonucPolling();
     }
 
@@ -2276,6 +2284,7 @@
             state.progBtHipId = null;
             state.progBtLoading = false;
             state.sonucData = null;
+            state.sonucByHip = {};
             state.sonucHipId = null;
             state.sonucLastUpdate = null;
             loadVitrin(iso);
