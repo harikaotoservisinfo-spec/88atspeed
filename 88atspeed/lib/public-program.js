@@ -725,6 +725,134 @@ function getPublicProgramKayit(db, tarih, hipodromId) {
     });
 }
 
+function hesaplamaVeriToPublicRaces(veri) {
+    return (veri || []).map((race) => ({
+        raceNo: race.raceNo,
+        saat: race.saat || '',
+        mesafe: race.mesafe || '',
+        pist: race.pist || '',
+        kcins_kosu: race.kcins_kosu || '',
+        kategori: race.kategori || '',
+        baslik: race.baslik || `${race.raceNo}. Koşu`,
+        horses: (race.horses || []).map((h) => ({
+            no: h.no,
+            name: h.name,
+            atId: h.atId || '',
+            yas: h.yas || '',
+            siklet: h.siklet || '',
+            hp: h.hp || '',
+            taki: h.taki || '',
+            kosular: Array.isArray(h.kosular) ? h.kosular : []
+        })),
+        tahminler: [],
+        durum: 'hazirlaniyor'
+    }));
+}
+
+function countKosularInVeri(veri) {
+    let hits = 0;
+    for (const race of veri || []) {
+        for (const h of race.horses || []) {
+            if (h.kosular?.length) hits++;
+        }
+    }
+    return hits;
+}
+
+async function findHesaplamaKayit(db, opts = {}) {
+    if (opts.kayitId) {
+        return dbGet(db, `SELECT * FROM hesaplama_kayitlari WHERE id = ?`, [opts.kayitId]);
+    }
+    const tarih = opts.sourceTarih || opts.tarih;
+    const hipodrom = opts.hipodrom;
+    if (!tarih || !hipodrom) return null;
+    const rows = await new Promise((resolve, reject) => {
+        db.all(
+            `SELECT * FROM hesaplama_kayitlari WHERE tarih = ? AND hipodrom LIKE ?
+             ORDER BY kayit_tarihi DESC, id DESC`,
+            [tarih, '%' + hipodrom + '%'],
+            (err, r) => (err ? reject(err) : resolve(r || []))
+        );
+    });
+    if (!rows.length) return null;
+    let best = rows[0];
+    let bestHits = 0;
+    for (const row of rows) {
+        let veri = [];
+        try { veri = JSON.parse(row.veri || '[]'); } catch (_) { /* */ }
+        const hits = countKosularInVeri(veri);
+        if (hits > bestHits) {
+            best = row;
+            bestHits = hits;
+        }
+    }
+    return best;
+}
+
+async function publishHesaplamaKayitToVitrin(db, opts = {}) {
+    await ensureTables(db);
+    const targetTarih = opts.targetTarih || todayTr();
+    const kayit = await findHesaplamaKayit(db, opts);
+    if (!kayit) {
+        throw new Error('Hesaplama kaydı bulunamadı: '
+            + (opts.kayitId ? ('#' + opts.kayitId) : ((opts.sourceTarih || '') + ' ' + (opts.hipodrom || ''))));
+    }
+    let veri = [];
+    try {
+        veri = JSON.parse(kayit.veri || '[]');
+    } catch (_) {
+        throw new Error('Kayıt verisi okunamadı #' + kayit.id);
+    }
+    if (!veri.length) throw new Error('Kayıt boş #' + kayit.id);
+
+    const races = hesaplamaVeriToPublicRaces(veri);
+    const hipodromId = kayit.hipodrom_id || FALLBACK_HIPODROMS.find((h) =>
+        h.name.toLowerCase() === String(kayit.hipodrom || '').toLowerCase())?.id || '';
+    if (!hipodromId) throw new Error('hipodrom_id yok: ' + kayit.hipodrom);
+
+    await saveProgramRow(db, {
+        tarih: targetTarih,
+        hipodromId: String(hipodromId),
+        hipodrom: kayit.hipodrom,
+        kosuSayisi: races.length,
+        races,
+        durum: 'yayinda',
+        tahminler: null
+    });
+    await dbRun(
+        db,
+        `UPDATE public_gunluk_program SET tahmin_json = NULL WHERE tarih = ? AND hipodrom_id = ?`,
+        [targetTarih, String(hipodromId)]
+    );
+
+    const dataHits = countKosularInVeri(veri);
+    return {
+        kayitId: kayit.id,
+        sourceTarih: kayit.tarih,
+        targetTarih,
+        hipodrom: kayit.hipodrom,
+        hipodromId: String(hipodromId),
+        raceCount: races.length,
+        totalHorses: kayit.total_horses,
+        dataHits
+    };
+}
+
+async function publishHesaplamaKayitlarToVitrin(db, opts = {}) {
+    const hipodromlar = opts.hipodromlar || [];
+    const results = [];
+    for (const hip of hipodromlar) {
+        const published = await publishHesaplamaKayitToVitrin(db, {
+            sourceTarih: opts.sourceTarih,
+            targetTarih: opts.targetTarih,
+            hipodrom: hip,
+            kayitId: opts.kayitIds?.[hip] || null
+        });
+        results.push(published);
+    }
+    return results;
+}
+
 module.exports = {
     formatTrDate,
     parseTrDate,
@@ -747,5 +875,9 @@ module.exports = {
     listPublicProgramKayitlar,
     getPublicProgramKayit,
     syncProgramToHesaplamaKayit,
-    syncAllPublicProgramsToHesaplama
+    syncAllPublicProgramsToHesaplama,
+    publishHesaplamaKayitToVitrin,
+    publishHesaplamaKayitlarToVitrin,
+    findHesaplamaKayit,
+    hesaplamaVeriToPublicRaces
 };
