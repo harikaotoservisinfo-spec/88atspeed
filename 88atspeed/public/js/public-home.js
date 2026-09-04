@@ -552,9 +552,24 @@
         return filtered;
     }
 
-    function renderProgramColgroup(cols) {
+    function computeTakiColWidth(kosular) {
+        let maxChars = 4;
+        for (const race of kosular || []) {
+            for (const h of race.horses || []) {
+                const len = String(h.taki || '').trim().length;
+                if (len > maxChars) maxChars = len;
+            }
+        }
+        return Math.min(128, Math.max(56, maxChars * 7 + 18));
+    }
+
+    function renderProgramColgroup(cols, colWidths) {
         return '<colgroup>'
-            + cols.map((c) => '<col class="' + c.colCls + '">').join('')
+            + cols.map((c) => {
+                const w = colWidths?.[c.key];
+                const style = w ? ' style="width:' + w + 'px"' : '';
+                return '<col class="' + c.colCls + '"' + style + '>';
+            }).join('')
             + '<col class="pub-col-spacer">'
             + '</colgroup>';
     }
@@ -635,7 +650,8 @@
         }
 
         const cols = getProgramColumns(kosular);
-        const colgroup = renderProgramColgroup(cols);
+        const colWidths = { taki: computeTakiColWidth(kosular), blt: 40 };
+        const colgroup = renderProgramColgroup(cols, colWidths);
 
         el.innerHTML = '<div class="pub-program-list">' + kosular.map((race) => {
             const hdr = formatProgramRaceHeader(race);
