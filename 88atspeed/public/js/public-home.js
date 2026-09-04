@@ -344,8 +344,8 @@
         const hipTabs = $('#pubHipTabs');
         const f = state.yarinFetch || {};
         const isTomorrow = isTomorrowIso(state.iso);
-        const loading = f.status === 'running' || f.status === 'pending';
-        const ready = !!f.ready;
+        const loading = f.running || f.status === 'running' || f.status === 'pending';
+        const ready = !!f.tahminReady || (!!f.ready && (f.scoredHorses || 0) > 0);
 
         bar?.classList.remove('pub-date-bar-loading', 'pub-date-bar-ready');
         tomorrowPill?.classList.remove('pub-date-pill-loading', 'pub-date-pill-ready');
@@ -360,10 +360,15 @@
             }
             if (statusLine) {
                 statusLine.hidden = false;
+                const progress = (f.enrichTotal > 0)
+                    ? (' (' + (f.enrichDone || 0) + '/' + f.enrichTotal + ' at)')
+                    : '';
                 statusLine.innerHTML = '<span class="pub-yarin-spin"></span>'
                     + '<span>'
                     + escapeHtml(trToDisplay(f.yarinTarih || isoToTr(localTomorrowIso())))
-                    + ' — yeni günün koşuları yükleniyor…</span>';
+                    + ' — ' + escapeHtml(f.message || 'yeni günün koşuları yükleniyor…')
+                    + escapeHtml(progress)
+                    + '</span>';
             }
         } else if (ready) {
             tomorrowPill?.classList.add('pub-date-pill-ready');
@@ -380,7 +385,8 @@
                     statusLine.hidden = false;
                     statusLine.innerHTML = '✓ '
                         + escapeHtml(trToDisplay(f.yarinTarih || isoToTr(localTomorrowIso())))
-                        + ' programı hazır · ' + (f.hipodromSayisi || 0) + ' hipodrom';
+                        + ' tam veri hazır · '
+                        + (f.scoredHorses || 0) + '/' + (f.totalHorses || 0) + ' at skorlu';
                 } else {
                     statusLine.hidden = true;
                     statusLine.innerHTML = '';
@@ -406,7 +412,7 @@
             const prevStatus = state.yarinFetch?.status;
             state.yarinFetch = data;
             renderYarinFetchUi();
-            if (prevStatus === 'running' && data.status === 'done' && isTomorrowIso(state.iso)) {
+            if (prevStatus === 'running' && data.tahminReady && isTomorrowIso(state.iso)) {
                 loadVitrin(state.iso);
             }
         } catch (_) { /* */ }

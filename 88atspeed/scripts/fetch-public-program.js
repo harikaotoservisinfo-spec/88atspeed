@@ -39,9 +39,11 @@ const opts = {
     source,
     enrichKosular: enrichKosular && source === 'tjk',
     syncHesaplama: source === 'tjk',
-    timeoutMs: 90000,
+    timeoutMs: 120000,
     maxAttempts: 5,
     hipDelayMs: source === 'hipodrom' ? 400 : 3000,
+    horseDelayMs: 600,
+    maxKosu: 7,
     hipodromFilter
 };
 
@@ -49,14 +51,30 @@ const opts = {
     const isNightlyYarin = !args.includes('--bugun')
         && !hipodromFilter
         && tarih === publicProgram.tomorrowTr();
-    if (isNightlyYarin && !args.includes('--force') && programScheduler.wasTodayFetchDone()) {
-        console.log('⏭ Yarın programı bugün zaten çekildi — atlandı (yeniden için --force)');
+    if (isNightlyYarin && !args.includes('--force') && await programScheduler.wasTodayFetchDone(db)) {
+        console.log('⏭ Yarın programı bugün tam veriyle çekildi — atlandı (yeniden için --force)');
         db.close();
         process.exit(0);
     }
 
     if (isNightlyYarin) {
-        programScheduler.markRunning({ yarinTarih: tarih, source: 'cli' });
+        const out = await programScheduler.fetchTomorrowProgram(db, { source: 'cli' });
+        programScheduler.markTodayFetchDone({
+            status: 'done',
+            phase: 'done',
+            finishedAt: new Date().toISOString(),
+            yarinTarih: out.tarih,
+            hipodromSayisi: out.result.hipodromSayisi,
+            basarili: out.result.basarili,
+            tahminReady: true,
+            scoredHorses: out.quality.scoredHorses,
+            totalHorses: out.quality.totalHorses,
+            tahminRatio: out.quality.ratio,
+            source: 'cli'
+        });
+        console.log('✅ Tam veri tamamlandı:', out.quality.scoredHorses + '/' + out.quality.totalHorses, 'at skorlu');
+        db.close();
+        process.exit(0);
     }
 
     console.log('📡 Kamu programı çekiliyor:', tarih, '· kaynak:', source,
@@ -94,19 +112,6 @@ const opts = {
                 console.log('  ✓', r.hipodrom, '—', r.scored + '/' + r.raceCount, 'koşu');
             }
         }
-    }
-
-    if (isNightlyYarin && result.basarili > 0) {
-        programScheduler.markTodayFetchDone({
-            status: 'done',
-            finishedAt: new Date().toISOString(),
-            yarinTarih: tarih,
-            hipodromSayisi: result.hipodromSayisi,
-            basarili: result.basarili,
-            source: 'cli'
-        });
-    } else if (isNightlyYarin && result.basarili === 0) {
-        programScheduler.markError('Hiç hipodrom çekilemedi', { source: 'cli' });
     }
 
     db.close();

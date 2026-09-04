@@ -629,6 +629,20 @@ async function buildPublicProgram(db, tarih, opts = {}) {
                                 + ' · geçen ' + elapsed + ' sn'
                                 + ' · kalan ~' + etaStr
                             );
+                            if (typeof opts.onEnrichProgress === 'function') {
+                                opts.onEnrichProgress({
+                                    done,
+                                    total,
+                                    atId,
+                                    name: label,
+                                    pct,
+                                    elapsedSec: elapsed,
+                                    etaSec: eta,
+                                    hipodrom: hip.name,
+                                    hipIndex: i + 1,
+                                    hipTotal: selected.length
+                                });
+                            }
                         }
                     });
                     const stats = horseHistoryEnrich.countKosularStats(prog.races);

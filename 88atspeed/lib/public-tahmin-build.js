@@ -432,6 +432,69 @@ function saveHipodromTahmin(db, tarih, hipodromId, tahminPayload, races) {
     });
 }
 
+function countProgramHorses(programJson) {
+    let races = [];
+    try {
+        races = typeof programJson === 'string' ? JSON.parse(programJson || '[]') : (programJson || []);
+    } catch (_) { /* */ }
+    let total = 0;
+    for (const race of races) {
+        total += (race.horses || []).length;
+    }
+    return total;
+}
+
+function countScoredHorses(tahminJson) {
+    let data = null;
+    try {
+        data = typeof tahminJson === 'string' ? JSON.parse(tahminJson || '{}') : (tahminJson || {});
+    } catch (_) { /* */ }
+    const byHorseByRace = data?.byHorseByRace || {};
+    let scored = 0;
+    for (const raceKey of Object.keys(byHorseByRace)) {
+        const horses = byHorseByRace[raceKey] || {};
+        for (const horseKey of Object.keys(horses)) {
+            const scores = horses[horseKey] || {};
+            const hyb = scores.hyb ?? scores.HYB;
+            const tahmin = scores.tahmin ?? scores.TAHMİN ?? scores.TAHMIN;
+            if (hyb != null || tahmin != null) scored++;
+        }
+    }
+    return { scored, dataHits: data?.dataHits || 0 };
+}
+
+async function assessTahminReadiness(db, tarih, opts = {}) {
+    const minRatio = opts.minRatio ?? 0.35;
+    const rows = await getProgramRows(db, tarih, opts.hipodrom || null);
+    if (!rows.length) {
+        return { ready: false, totalHorses: 0, scoredHorses: 0, ratio: 0, hipodromSayisi: 0 };
+    }
+
+    let totalHorses = 0;
+    let scoredHorses = 0;
+    let dataHits = 0;
+    for (const row of rows) {
+        totalHorses += countProgramHorses(row.program_json);
+        const hit = countScoredHorses(row.tahmin_json);
+        scoredHorses += hit.scored;
+        dataHits += hit.dataHits;
+    }
+
+    const ratio = totalHorses > 0 ? scoredHorses / totalHorses : 0;
+    const dataRatio = totalHorses > 0 ? dataHits / totalHorses : 0;
+    const ready = totalHorses > 0 && (ratio >= minRatio || dataRatio >= minRatio);
+
+    return {
+        ready,
+        totalHorses,
+        scoredHorses,
+        dataHits,
+        ratio: Math.round(ratio * 1000) / 1000,
+        dataRatio: Math.round(dataRatio * 1000) / 1000,
+        hipodromSayisi: rows.length
+    };
+}
+
 function getProgramRows(db, tarih, hipodromFilter) {
     return new Promise((resolve, reject) => {
         let sql = `SELECT tarih, hipodrom_id, hipodrom, program_json, tahmin_json
@@ -500,5 +563,7 @@ module.exports = {
     buildPublicTahmin,
     buildTahminForHipodrom,
     mergeTahminIntoKosular,
-    ensureCalibration
+    ensureCalibration,
+    assessTahminReadiness,
+    getProgramRows
 };
