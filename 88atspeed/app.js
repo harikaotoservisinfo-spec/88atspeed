@@ -1224,21 +1224,59 @@ app.get('/api/kayit/:id', (req, res) => {
 app.post('/api/hesaplama-kaydet', (req, res) => {
     const veri = req.body;
     console.log('💾 HESAPLAMA kayıt isteği - Hipodrom:', veri.hipodrom, 'Tarih:', veri.tarih);
-    
-    const sql = `INSERT INTO hesaplama_kayitlari (hipodrom, hipodrom_id, tarih, race_count, total_horses, veri) VALUES (?, ?, ?, ?, ?, ?)`;
-    const params = [veri.hipodrom, veri.hipodromId, veri.tarih, veri.raceCount, veri.totalHorses, JSON.stringify(veri.data)];
-    
-    db.run(sql, params, function(err) {
+
+    const payload = [
+        veri.hipodrom,
+        veri.hipodromId || null,
+        veri.tarih,
+        veri.raceCount,
+        veri.totalHorses,
+        JSON.stringify(veri.data)
+    ];
+
+    const finish = (err, id, updated) => {
         if (err) {
             console.error('❌ Kayıt hatası:', err.message);
             res.json({ success: false, error: err.message });
-        } else {
-            console.log('✅ HESAPLAMA kayıt başarılı! ID:', this.lastID);
-            clearCalibrationFlatCache();
-            clearCalibrationBundleCache();
-            res.json({ success: true, id: this.lastID });
+            return;
         }
-    });
+        console.log(updated ? '✅ HESAPLAMA güncellendi ID:' : '✅ HESAPLAMA kayıt başarılı! ID:', id);
+        clearCalibrationFlatCache();
+        clearCalibrationBundleCache();
+        res.json({ success: true, id, updated: !!updated });
+    };
+
+    if (veri.hipodromId && veri.tarih) {
+        db.get(
+            `SELECT id FROM hesaplama_kayitlari WHERE tarih = ? AND hipodrom_id = ?`,
+            [veri.tarih, String(veri.hipodromId)],
+            (err, row) => {
+                if (err) return finish(err);
+                if (row) {
+                    db.run(
+                        `UPDATE hesaplama_kayitlari SET hipodrom = ?, race_count = ?, total_horses = ?, veri = ?,
+                         kayit_tarihi = CURRENT_TIMESTAMP WHERE id = ?`,
+                        [veri.hipodrom, veri.raceCount, veri.totalHorses, JSON.stringify(veri.data), row.id],
+                        (err2) => finish(err2, row.id, true)
+                    );
+                } else {
+                    db.run(
+                        `INSERT INTO hesaplama_kayitlari (hipodrom, hipodrom_id, tarih, race_count, total_horses, veri)
+                         VALUES (?, ?, ?, ?, ?, ?)`,
+                        payload,
+                        function(err2) { finish(err2, this.lastID, false); }
+                    );
+                }
+            }
+        );
+        return;
+    }
+
+    db.run(
+        `INSERT INTO hesaplama_kayitlari (hipodrom, hipodrom_id, tarih, race_count, total_horses, veri) VALUES (?, ?, ?, ?, ?, ?)`,
+        payload,
+        function(err) { finish(err, this.lastID, false); }
+    );
 });
 
 app.get('/api/hesaplama-kayitlar', (req, res) => {
@@ -1340,7 +1378,7 @@ app.put('/api/hesaplama-kayit/:id', (req, res) => {
     }
     const raceCount = body.race_count != null ? body.race_count : body.raceCount;
     const totalHorses = body.total_horses != null ? body.total_horses : body.totalHorses;
-    const sql = `UPDATE hesaplama_kayitlari SET veri = ?, race_count = ?, total_horses = ? WHERE id = ?`;
+    const sql = `UPDATE hesaplama_kayitlari SET veri = ?, race_count = ?, total_horses = ?, kayit_tarihi = CURRENT_TIMESTAMP WHERE id = ?`;
     db.run(sql, [JSON.stringify(body.veri), raceCount, totalHorses, id], function(err) {
         if (err) {
             res.json({ success: false, error: err.message });
@@ -1351,7 +1389,9 @@ app.put('/api/hesaplama-kayit/:id', (req, res) => {
             return;
         }
         console.log('💾 Hesaplama kaydı güncellendi ID:', id, '·', totalHorses, 'at');
-        res.json({ success: true, id, race_count: raceCount, total_horses: totalHorses });
+        clearCalibrationFlatCache();
+        clearCalibrationBundleCache();
+        res.json({ success: true, id, race_count: raceCount, total_horses: totalHorses, updated: true });
     });
 });
 

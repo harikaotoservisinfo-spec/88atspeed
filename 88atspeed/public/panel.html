@@ -2413,6 +2413,23 @@
             }
         }
 
+        function countKosularStats(races) {
+            let withData = 0;
+            let missing = 0;
+            let total = 0;
+            for (let i = 0; i < (races || []).length; i++) {
+                for (let j = 0; j < (races[i].horses || []).length; j++) {
+                    const h = races[i].horses[j];
+                    if (!h.atId) continue;
+                    total++;
+                    const kos = resolveHorseKosular(h);
+                    if (kos.length) withData++;
+                    else missing++;
+                }
+            }
+            return { withData, missing, total };
+        }
+
         async function enrichRacesWithHorseHistory(races) {
             const horses = [];
             for (let i = 0; i < races.length; i++) {
@@ -2474,6 +2491,7 @@
                 currentHorses = [];
                 veriCache = {};
                 syncVeriCacheFromRaces(currentRaces);
+                const kosStats = countKosularStats(currentRaces);
                 for (let i = 0; i < currentRaces.length; i++) {
                     for (let j = 0; j < (currentRaces[i].horses || []).length; j++) {
                         currentHorses.push({
@@ -2482,7 +2500,15 @@
                         });
                     }
                 }
-                currentRaces = await enrichRacesWithHorseHistory(currentRaces);
+                if (kosStats.missing > 0) {
+                    statusDiv.innerHTML = '<div class="status status-loading">⏳ Kayıt #' + id
+                        + ' — ' + kosStats.missing + '/' + kosStats.total
+                        + ' at için geçmiş çekiliyor…</div>';
+                    currentRaces = await enrichRacesWithHorseHistory(currentRaces);
+                } else {
+                    statusDiv.innerHTML = '<div class="status status-loading">⏳ Kayıt #' + id
+                        + ' — ' + kosStats.withData + ' at geçmişi kayıttan yüklendi…</div>';
+                }
                 syncVeriCacheFromRaces(currentRaces);
                 currentHorses = [];
                 for (let i = 0; i < currentRaces.length; i++) {
@@ -2497,13 +2523,16 @@
                     source: 'kayit',
                     kayitId: id,
                     tarih: kayit.tarih,
-                    hipodrom: kayit.hipodrom
+                    hipodrom: kayit.hipodrom,
+                    hipodromId: kayit.hipodrom_id
                 });
                 if (getActiveTestTabId() === 'son-test') {
                     await sonTestGoster(currentRaces, currentSonTestMeta, { skipCalibration: false });
                 }
+                const finalStats = countKosularStats(currentRaces);
                 statusDiv.innerHTML = '<div class="status status-success">✅ Kayıt #' + id + ' yüklendi — '
-                    + (kayit.hipodrom || '') + ' ' + (kayit.tarih || '') + '</div>';
+                    + (kayit.hipodrom || '') + ' ' + (kayit.tarih || '')
+                    + ' · ' + finalStats.withData + '/' + finalStats.total + ' at geçmişi</div>';
             } catch (error) {
                 const errHtml = '<div class="info-box">❌ ' + escapeHtml(error.message) + '</div>';
                 document.getElementById('sonTestContent').innerHTML = errHtml;
@@ -2522,16 +2551,25 @@
                 statusDiv.innerHTML = '<div class="status status-error">❌ Önce GETİR butonuna tıklayın!</div>';
                 return;
             }
-            
+
+            const meta = currentSonTestMeta || {};
             let hipodromSelect = document.getElementById('hipodromSelect');
-            let sehirAdi = hipodromSelect.options[hipodromSelect.selectedIndex] ? hipodromSelect.options[hipodromSelect.selectedIndex].text : '';
-            let tarihInput = document.getElementById('tarihSelect').value;
-            let parts = tarihInput.split('-');
-            let tarih = parts[2] + '/' + parts[1] + '/' + parts[0];
+            let sehirAdi = meta.hipodrom || currentHipodrom
+                || (hipodromSelect.options[hipodromSelect.selectedIndex]
+                    ? hipodromSelect.options[hipodromSelect.selectedIndex].text : '');
+            let hipodromId = meta.hipodromId || document.getElementById('hipodromSelect').value || '';
+            let tarih = meta.tarih || '';
+            if (!tarih) {
+                let tarihInput = document.getElementById('tarihSelect').value;
+                if (tarihInput) {
+                    let parts = tarihInput.split('-');
+                    tarih = parts[2] + '/' + parts[1] + '/' + parts[0];
+                }
+            }
             
             let veri = {
                 hipodrom: sehirAdi,
-                hipodromId: document.getElementById('hipodromSelect').value,
+                hipodromId: hipodromId,
                 tarih: tarih,
                 raceCount: currentRaces.length,
                 totalHorses: currentHorses.length,
@@ -2597,14 +2635,40 @@
             
             statusDiv.innerHTML = '<div class="status status-loading">⏳ Veri kaydediliyor...</div>';
             try {
-                let response = await fetch('/api/hesaplama-kaydet', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(veri)
-                });
+                const payload = {
+                    hipodrom: sehirAdi,
+                    hipodromId: hipodromId,
+                    tarih: tarih,
+                    raceCount: veri.raceCount,
+                    totalHorses: veri.totalHorses,
+                    data: veri.data
+                };
+                let response;
+                if (currentSonTestKayitId) {
+                    response = await fetch('/api/hesaplama-kayit/' + currentSonTestKayitId, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            veri: veri.data,
+                            race_count: veri.raceCount,
+                            total_horses: veri.totalHorses
+                        })
+                    });
+                } else {
+                    response = await fetch('/api/hesaplama-kaydet', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                }
                 let result = await response.json();
                 if (result.success) {
-                    statusDiv.innerHTML = '<div class="status status-success">✅ Veri başarıyla kaydedildi!</div>';
+                    if (result.id) currentSonTestKayitId = result.id;
+                    const kosSaved = countKosularStats(currentRaces);
+                    statusDiv.innerHTML = '<div class="status status-success">✅ '
+                        + (result.updated ? 'Kayıt #' + (currentSonTestKayitId || result.id) + ' güncellendi'
+                            : 'Kayıt #' + result.id + ' oluşturuldu')
+                        + ' · ' + kosSaved.withData + '/' + kosSaved.total + ' at geçmişi kaydedildi</div>';
                 } else {
                     throw new Error(result.error);
                 }
