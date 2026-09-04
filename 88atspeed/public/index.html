@@ -7,7 +7,7 @@
     <title>88 AT SPEED | Günlük Yarış Programı & Tahminler</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@700;800;900&display=swap" rel="stylesheet">
-    <link href="css/public-site.css?v=20260904program1" rel="stylesheet">
+    <link href="css/public-site.css?v=20260904layout1" rel="stylesheet">
 </head>
 <body class="pub-body">
     <div class="pub-strip pub-strip-premium">
@@ -123,45 +123,14 @@
         </div>
     </nav>
 
-    <div class="pub-ad-leaderboard">
-        <div class="pub-ad-wrap pub-ad-rotator" data-pub-ad="leaderboard">
-            <span class="pub-ad-label">Sponsor</span>
-            <div class="pub-ad-creative"></div>
-        </div>
-    </div>
-
     <div class="pub-layout">
         <main class="pub-main">
-            <div class="pub-promo-row">
-                <div class="pub-promo-card">
-                    <div class="pub-promo-icon">📊</div>
-                    <div>
-                        <h3>Günlük tahminler bir gün önceden hazırlanır</h3>
-                        <p>Program ve analiz motorlarımız her akşam ertesi günün koşuları için güncellenir. Sayfaya girdiğinizde hazır tahminleri görürsünüz.</p>
-                    </div>
-                </div>
-                <div class="pub-ad-wrap pub-ad-rotator" data-pub-ad="rect">
-                    <span class="pub-ad-label">Sponsor</span>
-                    <div class="pub-ad-creative pub-ad-creative-rect"></div>
-                </div>
-            </div>
-
             <div class="pub-date-bar" id="gunun-kosulari">
                 <div>
                     <h2>Günün Koşuları</h2>
                     <p id="pubDateLabel">Yükleniyor…</p>
                 </div>
                 <input type="date" id="pubDateInput" class="pub-date-input" aria-label="Tarih seçin">
-            </div>
-
-            <div class="pub-program-sync" id="pubProgramSync" aria-live="polite">
-                <div class="pub-program-sync-hdr">
-                    <span>📡 Program çekim durumu</span>
-                    <button type="button" class="pub-program-sync-refresh" id="pubProgramSyncRefresh" title="Yenile">↻</button>
-                </div>
-                <div class="pub-program-sync-body" id="pubProgramSyncBody">
-                    <div class="pub-loading pub-program-sync-loading"><div class="pub-spinner"></div> Durum kontrol ediliyor…</div>
-                </div>
             </div>
 
             <!-- Günün Koşuları paneli -->
@@ -172,6 +141,15 @@
                     <div id="pubRaceList" class="pub-loading">
                         <div class="pub-spinner"></div>
                         Program yükleniyor…
+                    </div>
+                </div>
+                <div class="pub-program-sync pub-program-sync-inline" id="pubProgramSync" aria-live="polite">
+                    <div class="pub-program-sync-hdr">
+                        <span>📡 Program çekim durumu</span>
+                        <button type="button" class="pub-program-sync-refresh" id="pubProgramSyncRefresh" title="Yenile">↻</button>
+                    </div>
+                    <div class="pub-program-sync-body" id="pubProgramSyncBody">
+                        <div class="pub-loading pub-program-sync-loading"><div class="pub-spinner"></div> Durum kontrol ediliyor…</div>
                     </div>
                 </div>
             </section>
@@ -241,18 +219,6 @@
             <!-- Hazır Kupon -->
             <section id="panel-hazir" class="pub-tab-panel">
                 <div class="pub-widget">
-                    <div class="pub-widget-hdr">Hazır Kuponlar</div>
-                    <div class="pub-widget-body pub-empty">
-                        <div class="pub-empty-icon">📋</div>
-                        <h3>Yakında</h3>
-                        <p>Uzman hazır kupon önerileri bu alanda yayınlanacak.</p>
-                    </div>
-                </div>
-                <div class="pub-ad-wrap pub-ad-rotator" data-pub-ad="leaderboard" style="margin-top:16px">
-                    <span class="pub-ad-label">Sponsor</span>
-                    <div class="pub-ad-creative"></div>
-                </div>
-            </section>
 
             <!-- Sonuçlar -->
             <section id="panel-sonuclar" class="pub-tab-panel">
@@ -293,11 +259,6 @@
         </main>
 
         <aside class="pub-sidebar">
-            <div class="pub-ad-wrap pub-ad-rotator" data-pub-ad="rect">
-                <span class="pub-ad-label">Sponsor</span>
-                <div class="pub-ad-creative pub-ad-creative-rect"></div>
-            </div>
-
             <div class="pub-widget">
                 <div class="pub-widget-hdr">Hızlı Linkler</div>
                 <ul class="pub-widget-body pub-link-list">
@@ -314,11 +275,6 @@
                     <p>11+ analiz modülü, istatistik motorları ve derinlemesine koşu analizi yönetim panelinde.</p>
                     <a href="/yonetim" class="pub-btn pub-btn-white" style="width:100%;margin-top:12px;background:var(--pub-red);color:#fff;border-radius:8px">Panele Git</a>
                 </div>
-            </div>
-
-            <div class="pub-ad-wrap pub-ad-rotator" data-pub-ad="sky">
-                <span class="pub-ad-label">Sponsor</span>
-                <div class="pub-ad-creative pub-ad-creative-sky"></div>
             </div>
         </aside>
     </div>
