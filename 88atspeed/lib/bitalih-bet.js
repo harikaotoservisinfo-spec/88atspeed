@@ -430,22 +430,33 @@ async function clickSabitOranliOyna(page) {
 async function clickHemenOyna(page, timeoutMs = 12000) {
     try {
         await page.waitForFunction(() => {
-            const btn = [...document.querySelectorAll('button')].find((b) => {
-                const t = (b.textContent || '').trim();
-                return /^hemen oyna$/i.test(t) && !b.disabled;
-            });
-            return !!btn;
+            const scopes = [...document.querySelectorAll('[class*="kupon"], [class*="coupon"], [class*="slip"], aside, footer')];
+            scopes.push(document.body);
+            for (const scope of scopes) {
+                const btn = [...scope.querySelectorAll('button')].find((b) => {
+                    const t = (b.textContent || '').trim();
+                    return /^hemen oyna$/i.test(t) && !b.disabled;
+                });
+                if (btn) return true;
+            }
+            return false;
         }, { timeout: timeoutMs, polling: 300 });
     } catch (_) { /* devam */ }
     return page.evaluate(() => {
-        const btn = [...document.querySelectorAll('button')].find((b) => {
-            const t = (b.textContent || '').trim();
-            return /^hemen oyna$/i.test(t) && !b.disabled;
-        });
-        if (!btn) return false;
-        btn.scrollIntoView({ block: 'center', inline: 'center' });
-        btn.click();
-        return true;
+        const scopes = [...document.querySelectorAll('[class*="kupon"], [class*="coupon"], [class*="slip"], aside, footer')];
+        scopes.push(document.body);
+        for (const scope of scopes) {
+            const btn = [...scope.querySelectorAll('button')].find((b) => {
+                const t = (b.textContent || '').trim();
+                return /^hemen oyna$/i.test(t) && !b.disabled;
+            });
+            if (btn) {
+                btn.scrollIntoView({ block: 'center', inline: 'center' });
+                btn.click();
+                return true;
+            }
+        }
+        return false;
     });
 }
 
@@ -505,17 +516,26 @@ async function submitFixedOddsCoupon(page, stake) {
 async function detectBetSuccess(page, apiHits) {
     const apiOk = apiHits.some((h) => {
         if (h.status < 200 || h.status >= 300) return false;
+        if (/auth|session|fixo-bulletin|bulletin/i.test(h.url)) return false;
         const b = h.body;
         if (!b || typeof b !== 'object') return false;
-        if (b.success === true) return true;
-        if (b.data?.success === true) return true;
-        if (b.data?.ticketId || b.data?.couponId || b.data?.betId) return true;
+        if (/bet|kupon|coupon|ticket|play|slip|wager|stake/i.test(h.url)) {
+            if (b.success === true) return true;
+            if (b.data?.success === true) return true;
+            if (b.data?.ticketId || b.data?.couponId || b.data?.betId || b.data?.id) return true;
+        }
         return false;
     });
     if (apiOk) return true;
 
-    const pageText = await page.evaluate(() => document.body?.innerText?.slice(0, 4000) || '');
-    return /başarı|kabul|biletiniz|oynanmış|kuponunuz|kupon oynandı|bahis oynandı/i.test(pageText);
+    return page.evaluate(() => {
+        const toastSel = '[role=alert], [class*="toast"], [class*="Toast"], [class*="snackbar"], [class*="notification"], [class*="modal"]';
+        const texts = [...document.querySelectorAll(toastSel)]
+            .map((el) => (el.innerText || '').trim())
+            .filter((t) => t.length > 0 && t.length < 500)
+            .join('\n');
+        return /bahis oynandı|kuponunuz oynandı|kupon başarıyla|biletiniz oluşturuldu|işleminiz başarıyla tamamlandı/i.test(texts);
+    });
 }
 
 async function selectBetTypeTab(page, betType) {
@@ -644,7 +664,9 @@ async function placeFixedOddsBetInternal(opts = {}) {
         return {
             success: true,
             confirmed: ok,
-            message: ok ? ('Bahis oynandı — ' + betLabel + ' @ ' + horsePick.odd) : 'İşlem gönderildi — panelden kontrol edin',
+            message: ok
+                ? ('Bahis oynandı — ' + betLabel + ' @ ' + horsePick.odd)
+                : ('Kupon onaylanamadı — Bi\'Talih panelinden kontrol edin (' + betLabel + ' @ ' + horsePick.odd + ')'),
             session,
             city,
             raceNo,

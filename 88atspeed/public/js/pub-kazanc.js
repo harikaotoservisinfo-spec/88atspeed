@@ -91,6 +91,127 @@
         });
         const sel = $('#pubBetType', root);
         if (sel) sel.value = betType;
+        highlightHorseOddsCard(root, betType);
+    }
+
+    function normalizeHorseName(s) {
+        return String(s || '').toLocaleLowerCase('tr-TR')
+            .normalize('NFD').replace(/\p{M}/gu, '')
+            .replace(/[^a-z0-9]/g, '');
+    }
+
+    function highlightHorseOddsCard(root, betType) {
+        const panel = $('#pubHorseOddsPanel', root);
+        if (!panel) return;
+        panel.querySelectorAll('.pub-kazanc-horse-odd-card').forEach((card) => {
+            card.classList.toggle('pub-kazanc-horse-odd-active', card.dataset.betType === betType);
+        });
+    }
+
+    function renderHorseOddsPanelContent(data, selectedBetType, state) {
+        const horse = data?.horseName || '';
+        const horseNo = data?.horseNo ? ('#' + data.horseNo + ' ') : '';
+        const city = data?.city || '';
+        const raceNo = data?.raceNo || '';
+        if (state === 'loading') {
+            return '<div class="pub-kazanc-horse-odds-hdr">Bi\'Talih oranları yükleniyor…</div>'
+                + '<div class="pub-kazanc-horse-odds-grid pub-kazanc-horse-odds-loading">'
+                + BET_TYPES.map((t) => '<div class="pub-kazanc-horse-odd-card"><span>' + t.l + '</span><strong>…</strong></div>').join('')
+                + '</div>';
+        }
+        if (state === 'error') {
+            return '<div class="pub-kazanc-horse-odds-hdr pub-kazanc-horse-odds-err">' + escapeHtml(data?.error || 'Oran alınamadı') + '</div>';
+        }
+        const odds = data?.odds || {};
+        return '<div class="pub-kazanc-horse-odds-hdr">'
+            + '<span>' + escapeHtml(horseNo + horse) + ' · ' + escapeHtml(city) + ' ' + raceNo + '. koşu</span>'
+            + '<span class="pub-kazanc-horse-odds-src">Bi\'Talih FİXO</span></div>'
+            + '<div class="pub-kazanc-horse-odds-grid" id="pubHorseOddsGrid">'
+            + BET_TYPES.map((t) => {
+                const odd = odds[t.v] || '—';
+                const active = selectedBetType === t.v ? ' pub-kazanc-horse-odd-active' : '';
+                const hasOdd = odd && odd !== '—';
+                return '<button type="button" class="pub-kazanc-horse-odd-card' + active + (hasOdd ? '' : ' pub-kazanc-horse-odd-empty') + '" data-bet-type="' + t.v + '">'
+                    + '<span class="pub-kazanc-horse-odd-label">' + t.l + '</span>'
+                    + '<strong class="pub-kazanc-horse-odd-val">' + escapeHtml(odd) + '</strong>'
+                    + '</button>';
+            }).join('')
+            + '</div>';
+    }
+
+    let horseOddsTimer = null;
+    let horseOddsCacheKey = '';
+
+    async function fetchHorseOdds(city, raceNo, horseName) {
+        const res = await fetch('/api/public/bitalih-fob?hipodrom=' + encodeURIComponent(city));
+        const parsed = await parseJsonResponse(res);
+        if (!parsed.ok || !parsed.data?.races) {
+            return { error: parsed.error || parsed.data?.error || 'Bi\'Talih oranları alınamadı' };
+        }
+        const race = parsed.data.races[String(raceNo)];
+        if (!race) return { error: raceNo + '. koşu bulunamadı (' + city + ')' };
+
+        const target = normalizeHorseName(horseName);
+        const odds = {};
+        let horseNo = null;
+        for (const t of BET_TYPES) {
+            const byName = race.bets?.[t.v]?.byName || {};
+            const byNo = race.bets?.[t.v]?.byNo || {};
+            let odd = '';
+            for (const [nameKey, val] of Object.entries(byName)) {
+                if (nameKey === target || nameKey.includes(target) || target.includes(nameKey)) {
+                    odd = val;
+                    if (!horseNo) {
+                        for (const [no, o] of Object.entries(byNo)) {
+                            if (String(o) === String(val)) { horseNo = no; break; }
+                        }
+                    }
+                    break;
+                }
+            }
+            odds[t.v] = odd || '—';
+        }
+        if (!Object.values(odds).some((o) => o && o !== '—')) {
+            return { error: 'At bulunamadı: ' + horseName };
+        }
+        return { city, raceNo, horseName, horseNo, odds };
+    }
+
+    function scheduleHorseOddsRefresh(root) {
+        if (horseOddsTimer) clearTimeout(horseOddsTimer);
+        horseOddsTimer = setTimeout(() => refreshHorseOddsPanel(root), 400);
+    }
+
+    async function refreshHorseOddsPanel(root) {
+        const panel = $('#pubHorseOddsPanel', root);
+        if (!panel) return;
+        const city = $('#pubBetCity', root)?.value?.trim();
+        const raceNo = Number($('#pubBetRace', root)?.value);
+        const horseName = $('#pubBetHorse', root)?.value?.trim();
+        const betType = $('#pubBetType', root)?.value || 'ilk2';
+        if (!city || !horseName || !raceNo) {
+            panel.innerHTML = '<div class="pub-kazanc-horse-odds-hdr pub-kazanc-horse-odds-muted">Şehir, koşu ve at adı girin — Bi\'Talih oranları burada görünür.</div>';
+            return;
+        }
+        const key = city + '|' + raceNo + '|' + horseName;
+        if (key !== horseOddsCacheKey) {
+            panel.innerHTML = renderHorseOddsPanelContent({ horseName, city, raceNo }, betType, 'loading');
+        }
+        horseOddsCacheKey = key;
+        const data = await fetchHorseOdds(city, raceNo, horseName);
+        panel.innerHTML = renderHorseOddsPanelContent(
+            data.error ? data : data,
+            betType,
+            data.error ? 'error' : 'ready'
+        );
+        panel.querySelectorAll('.pub-kazanc-horse-odd-card').forEach((card) => {
+            card.addEventListener('click', () => {
+                const bt = card.dataset.betType;
+                syncBetTypeChips(root, bt);
+                scheduleHorseOddsRefresh(root);
+            });
+        });
+        highlightHorseOddsCard(root, betType);
     }
 
     function renderSystemPlayPanel(opts) {
@@ -124,6 +245,9 @@
             + '<button type="submit" class="pub-kazanc-strip-btn pub-kazanc-strip-btn-primary pub-kazanc-system-play" id="pubBetPlayBtn">Sistem Oyna</button>'
             + '<button type="button" class="pub-kazanc-strip-btn" id="pubBetDryBtn">Test (oynama)</button>'
             + '</form>'
+            + '<div class="pub-kazanc-horse-odds" id="pubHorseOddsPanel">'
+            + '<div class="pub-kazanc-horse-odds-hdr pub-kazanc-horse-odds-muted">At seçin — bahis türü oranları burada görünür.</div>'
+            + '</div>'
             + (ok ? '<div class="pub-kazanc-strip-ok">' + escapeHtml(ok) + '</div>' : '')
             + (err ? '<div class="pub-kazanc-strip-error">' + escapeHtml(err) + '</div>' : '')
             + '</div>';
@@ -331,6 +455,7 @@
                 const bt = polled.data.betType ? (' · ' + polled.data.betType) : '';
                 return {
                     ok: true,
+                    confirmed: polled.data.confirmed !== false,
                     message: msg + ' — ' + horseName + bt + ' · ' + stake + ' TL' + odd
                 };
             } finally {
@@ -355,7 +480,10 @@
             if (!result.ok) updateSystemMessages({ autoError: result.error });
             else {
                 saveAutoState({ betPlaced: true, pipelineComplete: true });
-                updateSystemMessages({ autoOk: result.message });
+                updateSystemMessages({
+                    autoOk: result.message,
+                    warn: result.confirmed === false
+                });
             }
         });
         $('#pubBetDryBtn', root)?.addEventListener('click', async () => {
@@ -365,11 +493,20 @@
         });
 
         root.querySelectorAll('.pub-kazanc-bet-chip').forEach((btn) => {
-            btn.addEventListener('click', () => syncBetTypeChips(root, btn.dataset.betType));
+            btn.addEventListener('click', () => {
+                syncBetTypeChips(root, btn.dataset.betType);
+                scheduleHorseOddsRefresh(root);
+            });
         });
         $('#pubBetType', root)?.addEventListener('change', (e) => {
             syncBetTypeChips(root, e.target.value);
+            scheduleHorseOddsRefresh(root);
         });
+        ['pubBetCity', 'pubBetRace', 'pubBetHorse'].forEach((id) => {
+            $('#' + id, root)?.addEventListener('input', () => scheduleHorseOddsRefresh(root));
+            $('#' + id, root)?.addEventListener('change', () => scheduleHorseOddsRefresh(root));
+        });
+        refreshHorseOddsPanel(root);
 
         root.querySelectorAll('.pub-kazanc-quicknav-btn').forEach((btn) => {
             btn.addEventListener('click', () => navigateIframe(btn.dataset.bitalihUrl));
@@ -391,7 +528,7 @@
         if (err) err.remove();
         if (opts.autoOk) {
             const d = document.createElement('div');
-            d.className = 'pub-kazanc-strip-ok';
+            d.className = opts.warn ? 'pub-kazanc-strip-warn' : 'pub-kazanc-strip-ok';
             d.textContent = opts.autoOk;
             sys.appendChild(d);
         }
@@ -474,7 +611,10 @@
             return;
         }
         setPipelineHint('Otomatik akış tamamlandı.');
-        updateSystemMessages({ autoOk: betResult.message });
+        updateSystemMessages({
+            autoOk: betResult.message,
+            warn: betResult.confirmed === false
+        });
     }
 
     let pipelineHandlers = null;
