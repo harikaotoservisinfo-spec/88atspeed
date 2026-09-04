@@ -64,6 +64,7 @@
     "test:son-test-kayit-open": "node --max-old-space-size=4096 scripts/test-son-test-kayit-open.js --db atlar.db --kayit 162",
     "fetch:public-program": "node scripts/fetch-public-program.js",
     "fetch:public-program-yarin": "node scripts/fetch-public-program.js --yarin --full --tahmin",
+    "diagnose:yarin-fetch": "node scripts/diagnose-yarin-fetch.js",
     "fetch:public-program-bugun": "node scripts/fetch-public-program.js --bugun",
     "fetch:public-program-hipodrom": "node scripts/fetch-public-program.js --bugun --source hipodrom",
     "fetch:public-program-tjk": "node scripts/fetch-public-program.js --bugun --tjk",
