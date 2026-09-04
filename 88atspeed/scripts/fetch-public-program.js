@@ -49,6 +49,7 @@ const opts = {
     const isNightlyYarin = !args.includes('--bugun')
         && !hipodromFilter
         && tarih === publicProgram.tomorrowTr();
+    if (isNightlyYarin && !args.includes('--force') && programScheduler.wasTodayFetchDone()) {
         console.log('⏭ Yarın programı bugün zaten çekildi — atlandı (yeniden için --force)');
         db.close();
         process.exit(0);
@@ -112,6 +113,11 @@ const opts = {
     process.exit(result.basarili > 0 ? 0 : 1);
 })().catch((err) => {
     console.error('❌', err.message);
+    try {
+        const isYarin = !process.argv.includes('--bugun')
+            && tarih === publicProgram.tomorrowTr();
+        if (isYarin) programScheduler.markError(err, { source: 'cli' });
+    } catch (_) { /* */ }
     db.close();
     process.exit(1);
 });
