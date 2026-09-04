@@ -11,6 +11,8 @@ const cache = new Map();
 const overviewCtx = new Map();
 const CACHE_MS = 60000;
 const RACE_CACHE_MS = 30000;
+const DEFAULT_TIMEOUT_MS = 12000;
+const DEFAULT_MAX_ATTEMPTS = 2;
 
 function isoToRefPath(iso) {
     const p = (iso || '').split('-');
@@ -68,8 +70,8 @@ function fetchJson(url, timeoutMs = 35000) {
 }
 
 async function fetchJsonRetry(url, opts = {}) {
-    const maxAttempts = opts.maxAttempts || 3;
-    const timeoutMs = opts.timeoutMs || 35000;
+    const maxAttempts = opts.maxAttempts || DEFAULT_MAX_ATTEMPTS;
+    const timeoutMs = opts.timeoutMs || DEFAULT_TIMEOUT_MS;
     let lastErr = null;
     for (let i = 1; i <= maxAttempts; i++) {
         try {
@@ -221,7 +223,7 @@ async function fetchMuhtemelRace(opts = {}) {
     if (!hashes?.length) throw new Error(raceKey + ' için muhtemel yayını yok');
 
     const url = `${CDN}/s/${refPath}/${raceKey}-${hashes[0]}.json`;
-    const json = await fetchJsonRetry(url, { maxAttempts: 4, timeoutMs: 45000 });
+    const json = await fetchJsonRetry(url, { maxAttempts: 2, timeoutMs: DEFAULT_TIMEOUT_MS });
     if (!json?.success) throw new Error('Muhtemel verisi alınamadı');
 
     const parts = raceKey.split('-');

@@ -28,6 +28,7 @@
         progBltHipId: null,
         progGpData: null,
         progGpHipId: null,
+        progGpLoading: false,
         sonucData: null,
         sonucHipId: null,
         sonucLastUpdate: null,
@@ -612,7 +613,9 @@
         }
         if (col.key === 'gp2') {
             const gp = ctx?.gpMap?.[String(h.no)] || ctx?.gpByName?.[normalizeHorseName(h.name)] || '';
-            return gp || '—';
+            if (gp) return gp;
+            if (state.progGpLoading) return '…';
+            return '—';
         }
         if (col.key === 'name') return h.name || '—';
         const v = String(h[col.key] || '').trim();
@@ -700,26 +703,44 @@
 
         const raceNos = (hip.kosular || []).map((r) => r.raceNo).filter(Boolean);
         if (!raceNos.length) return;
+        if (state.progGpLoading && !opts.refresh) return;
+
+        state.progGpLoading = true;
+        if (!state.progGpData || state.progGpHipId !== hip.id || opts.refresh) {
+            state.progGpData = { success: true, races: {}, hipodrom: hip.name };
+            state.progGpHipId = hip.id;
+        }
+        renderRaceList(hip);
 
         try {
-            const controller = new AbortController();
-            const tid = setTimeout(() => controller.abort(), 120000);
-            const res = await fetch(
-                '/api/public/liderform-gp?iso=' + encodeURIComponent(iso)
-                + '&hipodrom=' + encodeURIComponent(hip.name)
-                + '&races=' + encodeURIComponent(raceNos.join(','))
-                + (opts.refresh ? '&refresh=1' : ''),
-                { signal: controller.signal }
-            );
-            clearTimeout(tid);
-            const data = await res.json();
-            if (!data.success) return;
-            state.progGpData = data;
-            state.progGpHipId = hip.id;
+            for (let i = 0; i < raceNos.length; i++) {
+                const raceNo = raceNos[i];
+                const controller = new AbortController();
+                const tid = setTimeout(() => controller.abort(), 35000);
+                try {
+                    const res = await fetch(
+                        '/api/public/liderform-gp?iso=' + encodeURIComponent(iso)
+                        + '&hipodrom=' + encodeURIComponent(hip.name)
+                        + '&races=' + encodeURIComponent(String(raceNo))
+                        + (opts.refresh ? '&refresh=1' : ''),
+                        { signal: controller.signal }
+                    );
+                    const data = await res.json();
+                    if (data.success && data.races) {
+                        Object.assign(state.progGpData.races, data.races);
+                        const activeHip = state.hipodromlar.find((h) => h.id === state.activeHipId);
+                        if (activeHip) renderRaceList(activeHip);
+                    }
+                } catch (_) {
+                    /* tek koşu atlanır */
+                } finally {
+                    clearTimeout(tid);
+                }
+            }
+        } finally {
+            state.progGpLoading = false;
             const activeHip = state.hipodromlar.find((h) => h.id === state.activeHipId);
             if (activeHip) renderRaceList(activeHip);
-        } catch (_) {
-            /* sessiz */
         }
     }
 
@@ -960,7 +981,8 @@
                             }
                             if (c.key === 'gp2') {
                                 const hasGp = gpMaps.gpMap[String(h.no)] || gpMaps.gpByName[normalizeHorseName(h.name)];
-                                if (!hasGp) cls += ' pub-prog-gp2-empty';
+                                if (!hasGp && state.progGpLoading) cls += ' pub-prog-gp2-loading';
+                                else if (!hasGp) cls += ' pub-prog-gp2-empty';
                                 else if (gpLeaderNo && String(h.no) === gpLeaderNo) cls += ' pub-prog-gp2-leader';
                             }
                             return '<td class="' + cls + '">' + escapeHtml(val) + '</td>';
@@ -1597,7 +1619,7 @@
             showMuhtemelRace(cached, flashKeys);
             return;
         }
-        content.innerHTML = '<div class="pub-loading"><div class="pub-spinner"></div>Koşu muhtemelleri yükleniyor…</div>';
+        content.innerHTML = '<div class="pub-loading"><div class="pub-spinner"></div>Koşu muhtemelleri yükleniyor…<p class="pub-loading-hint">TJK koşu verisi alınıyor</p></div>';
     }
 
     function renderMuhtemeller() {
@@ -1726,7 +1748,7 @@
         renderMuhtemeller();
         try {
             const controller = new AbortController();
-            const tid = setTimeout(() => controller.abort(), 50000);
+            const tid = setTimeout(() => controller.abort(), 20000);
             const res = await fetch(
                 '/api/public/muhtemeller?iso=' + encodeURIComponent(iso) + '&kosu=' + encodeURIComponent(runKey)
                 + (force ? '&refresh=1' : ''),
@@ -1757,11 +1779,11 @@
         const content = $('#pubMuhtContent');
         hipTabs.innerHTML = '';
         kosuTabs.innerHTML = '';
-        content.innerHTML = '<div class="pub-loading"><div class="pub-spinner"></div>Program listesi yükleniyor…</div>';
+        content.innerHTML = '<div class="pub-loading"><div class="pub-spinner"></div>Program listesi yükleniyor…<p class="pub-loading-hint">TJK muhtemelleri alınıyor (genelde birkaç saniye)</p></div>';
         $('#pubMuhtLabel').textContent = 'TJK muhtemel programı yükleniyor…';
         try {
             const controller = new AbortController();
-            const tid = setTimeout(() => controller.abort(), 25000);
+            const tid = setTimeout(() => controller.abort(), 20000);
             const res = await fetch('/api/public/muhtemeller?iso=' + encodeURIComponent(iso), {
                 signal: controller.signal
             });
@@ -1885,6 +1907,7 @@
             state.progBltHipId = null;
             state.progGpData = null;
             state.progGpHipId = null;
+            state.progGpLoading = false;
             state.sonucData = null;
             state.sonucHipId = null;
             state.sonucLastUpdate = null;

@@ -12,6 +12,8 @@ puppeteer.use(StealthPlugin());
 const BASE = 'https://liderform.com.tr/program';
 const CACHE_MS = 5 * 60 * 1000;
 const cache = new Map();
+let sharedBrowser = null;
+let sharedPage = null;
 
 const HIP_SLUGS = {
     bursa: 'bursa',
@@ -149,10 +151,36 @@ async function fetchRaceHtml(url, opts = {}) {
     }
 }
 
-async function fetchRaceGp(iso, slug, raceNo, opts = {}) {
+async function getLfPage(opts = {}) {
+    if (sharedBrowser && sharedPage) return sharedPage;
+    sharedBrowser = await launchLfBrowser();
+    sharedPage = await sharedBrowser.newPage();
+    await sharedPage.setViewport({ width: 1920, height: 1080 });
+    await sharedPage.setUserAgent(
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+    );
+    return sharedPage;
+}
+
+async function closeLfBrowser() {
+    if (sharedBrowser) {
+        try { await sharedBrowser.close(); } catch (_) { /* */ }
+    }
+    sharedBrowser = null;
+    sharedPage = null;
+}
+
+async function fetchRaceGpFromPage(page, iso, slug, raceNo, opts = {}) {
     const url = buildRaceUrl(iso, slug, raceNo);
-    const html = await fetchRaceHtml(url, opts);
-    return { url, ...parseGpFromHtml(html) };
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: opts.timeoutMs || 30000 });
+    await sleep(500);
+    const title = await page.title();
+    if (/cloudflare|attention required|blocked/i.test(title)) {
+        throw new Error('Liderform erişim engeli (Cloudflare)');
+    }
+    const html = await page.content();
+    const parsed = parseGpFromHtml(html);
+    return { url, byNo: parsed.byNo, byName: parsed.byName };
 }
 
 async function fetchGpForHipodrom(opts = {}) {
@@ -173,33 +201,23 @@ async function fetchGpForHipodrom(opts = {}) {
 
     if (!raceNos.length) throw new Error('Koşu listesi boş');
 
-    const browser = await launchLfBrowser();
     const raceMap = {};
     const urls = [];
+    const ownBrowser = opts.keepBrowser !== true;
     try {
-        const page = await browser.newPage();
-        await page.setViewport({ width: 1920, height: 1080 });
-        await page.setUserAgent(
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-        );
-
+        const page = await getLfPage(opts);
         for (let i = 0; i < raceNos.length; i++) {
             const raceNo = raceNos[i];
-            const url = buildRaceUrl(iso, slug, raceNo);
-            urls.push(url);
-            if (i > 0) await sleep(400);
-            await page.goto(url, { waitUntil: 'networkidle2', timeout: opts.timeoutMs || 60000 });
-            await sleep(800);
-            const title = await page.title();
-            if (/cloudflare|attention required|blocked/i.test(title)) {
-                throw new Error('Liderform erişim engeli (Cloudflare)');
-            }
-            const html = await page.content();
-            const parsed = parseGpFromHtml(html);
+            if (i > 0) await sleep(250);
+            const parsed = await fetchRaceGpFromPage(page, iso, slug, raceNo, opts);
+            urls.push(parsed.url);
             raceMap[raceNo] = { byNo: parsed.byNo, byName: parsed.byName };
+            if (typeof opts.onRace === 'function') {
+                await opts.onRace(raceNo, raceMap[raceNo], i + 1, raceNos.length);
+            }
         }
     } finally {
-        await browser.close();
+        if (ownBrowser) await closeLfBrowser();
     }
 
     const result = {
@@ -219,7 +237,7 @@ async function fetchGpForHipodrom(opts = {}) {
 
 module.exports = {
     fetchGpForHipodrom,
-    fetchRaceGp,
+    fetchRaceGpFromPage,
     parseGpFromHtml,
     resolveHipSlug,
     normalizeName,
