@@ -7,6 +7,17 @@ APP_DIR="/var/www/88atspeed"
 MARKER="# 88atspeed-public-program"
 LOG_FILE="/var/log/88atspeed-program.log"
 LOCK_FILE="/var/run/88atspeed-yarin-fetch.lock"
+
+rotate_log_if_large() {
+  local f="$1" max_mb="${2:-30}"
+  [ -f "$f" ] || return 0
+  local sz
+  sz=$(stat -c%s "$f" 2>/dev/null || echo 0)
+  if [ "$sz" -gt $((max_mb * 1024 * 1024)) ]; then
+    tail -n 5000 "$f" > "${f}.rot" && mv "${f}.rot" "$f"
+  fi
+}
+rotate_log_if_large "$LOG_FILE" 25
 CRON_CMD="flock -n $LOCK_FILE bash -c 'cd $APP_DIR && /usr/bin/npm run fetch:public-program-yarin' >> $LOG_FILE 2>&1 $MARKER"
 CRON_LINE="30 18 * * * $CRON_CMD"
 

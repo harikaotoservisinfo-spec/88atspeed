@@ -89,6 +89,9 @@ pm2 save
 echo "⏰ Yarın programı cron (18:30 TR)..."
 bash "$APP_DIR/deploy/cron-public-program.sh" || echo "⚠️  Cron kurulumu atlandı"
 
+echo "🧹 Haftalık disk temizliği cron..."
+bash "$APP_DIR/deploy/cron-disk-cleanup.sh" || echo "⚠️  Disk cron atlandı"
+
 HOUR_TR="$(TZ=Europe/Istanbul date +%H)"
 MIN_TR="$(TZ=Europe/Istanbul date +%M)"
 if [ "$HOUR_TR" -gt 18 ] || { [ "$HOUR_TR" -eq 18 ] && [ "$MIN_TR" -ge 30 ]; }; then

@@ -25,7 +25,7 @@
     "purge:kosmaz": "node scripts/purge-kosmaz-horses.js --db atlar.db --scan",
     "purge:kosmaz-apply": "node scripts/purge-kosmaz-horses.js --db atlar.db --apply",
     "purge:cikan-scan": "node scripts/purge-cikan-from-kayitlar.js --db atlar.db",
-    "purge:cikan-apply": "node scripts/purge-cikan-from-kayitlar.js --db atlar.db --apply",
+    "prune:server-storage": "node scripts/prune-server-storage.js --db atlar.db",
     "test:tjk-race": "node scripts/test-tjk-race-fetch.js --sehir Ankara --sehir-id 5 --tarih 29/08/2026 --race 1",
     "test:tjk-field-size": "node scripts/test-tjk-field-size.js --at-id 111738 --max-kosu 5",
     "test:tjk-kosu-meta": "node scripts/test-tjk-kosu-meta-fields.js --at-id 111738 --max-kosu 3",
