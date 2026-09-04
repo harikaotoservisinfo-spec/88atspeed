@@ -66,6 +66,8 @@
     "fetch:public-program-bugun": "node scripts/fetch-public-program.js --bugun",
     "fetch:public-program-hipodrom": "node scripts/fetch-public-program.js --bugun --source hipodrom",
     "fetch:public-program-tjk": "node scripts/fetch-public-program.js --bugun --tjk",
+    "test:liderform-gp": "node scripts/test-liderform-gp.js",
+    "prefetch:liderform-gp": "node scripts/prefetch-liderform-gp.js",
     "fetch:hesaplama-full": "node scripts/fetch-hesaplama-full.js --bugun",
     "fetch:hesaplama-full-tahmin": "node scripts/fetch-hesaplama-full.js --bugun --tahmin",
     "fetch:public-program-ankara": "node scripts/fetch-public-program.js --bugun --hipodrom Ankara",

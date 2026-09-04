@@ -1,5 +1,6 @@
 # 88ATSPEED
 node_modules/
+atlar.db
 data/
 hipodrom-profile/
 hipodrom-cookies.json
