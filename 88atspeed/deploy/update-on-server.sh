@@ -89,6 +89,16 @@ pm2 save
 echo "⏰ Yarın programı cron (18:30 TR)..."
 bash "$APP_DIR/deploy/cron-public-program.sh" || echo "⚠️  Cron kurulumu atlandı"
 
+HOUR_TR="$(TZ=Europe/Istanbul date +%H)"
+MIN_TR="$(TZ=Europe/Istanbul date +%M)"
+if [ "$HOUR_TR" -gt 18 ] || { [ "$HOUR_TR" -eq 18 ] && [ "$MIN_TR" -ge 30 ]; }; then
+  echo "📡 18:30 geçti — yarın programı arka planda başlatılıyor..."
+  touch /var/log/88atspeed-program.log
+  nohup bash -c "cd '$APP_DIR' && /usr/bin/npm run fetch:public-program-yarin" \
+    >> /var/log/88atspeed-program.log 2>&1 &
+  echo "  Log: tail -f /var/log/88atspeed-program.log"
+fi
+
 echo "🔥 Kalibrasyon bundle ısıtılıyor (arka plan, ~40sn)..."
 nohup node "$APP_DIR/scripts/warm-calibration-bundle.js" --db "$APP_DIR/atlar.db" \
   >> "$APP_DIR/data/calib-warm.log" 2>&1 &
