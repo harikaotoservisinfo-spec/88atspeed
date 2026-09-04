@@ -16,6 +16,7 @@ const bitalihFob = require('./lib/bitalih-fob');
 const publicSonuclar = require('./lib/public-sonuclar');
 const publicSonucStore = require('./lib/public-sonuc-store');
 const sonucPoller = require('./lib/public-sonuc-poller');
+const programScheduler = require('./lib/public-program-scheduler');
 const tjkTvProxy = require('./lib/tjk-tv-proxy');
 const hipodromAuth = require('./lib/hipodrom-auth');
 const hipodromBet = require('./lib/hipodrom-bet');
@@ -1931,6 +1932,7 @@ app.listen(PORT, HOST, () => {
         console.log('Kalibrasyon ısıtma kapalı. WARM_CALIBRATION=1 ile açılır.');
     }
     sonucPoller.start(db);
+    programScheduler.start(db);
 }).on('error', (err) => {
     console.error('Sunucu başlatılamadı:', err.message);
     process.exit(1);

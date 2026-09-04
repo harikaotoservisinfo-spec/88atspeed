@@ -86,6 +86,9 @@ pm2 delete 88atspeed-bitalih 2>/dev/null || true
 pm2 start ecosystem.config.js
 pm2 save
 
+echo "⏰ Yarın programı cron (18:30 TR)..."
+bash "$APP_DIR/deploy/cron-public-program.sh" || echo "⚠️  Cron kurulumu atlandı"
+
 echo "🔥 Kalibrasyon bundle ısıtılıyor (arka plan, ~40sn)..."
 nohup node "$APP_DIR/scripts/warm-calibration-bundle.js" --db "$APP_DIR/atlar.db" \
   >> "$APP_DIR/data/calib-warm.log" 2>&1 &
@@ -123,10 +126,10 @@ echo "📦 Branch: $BRANCH | Commit: $COMMIT_SHA"
 echo "🔍 Doğrulama:"
 curl -s http://127.0.0.1:3023/VERSION.txt
 echo ""
-if [ -f "$APP_DIR/lib/public-sonuc-store.js" ]; then
-  echo "✓ public-sonuc-store.js mevcut (BİTİŞ senkronu)"
+if [ -f "$APP_DIR/lib/public-program-scheduler.js" ]; then
+  echo "✓ public-program-scheduler.js mevcut (18:30 yarın programı)"
 else
-  echo "⚠️  public-sonuc-store.js YOK — eski commit olabilir"
+  echo "⚠️  public-program-scheduler.js YOK"
 fi
 if grep -q 'col-bitis-hdr' "$APP_DIR/public/panel.html" 2>/dev/null; then
   echo "✓ panel.html SON TEST BİTİŞ sütunu mevcut"
