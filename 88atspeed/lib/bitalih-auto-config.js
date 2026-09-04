@@ -1,10 +1,11 @@
 /**
- * Kişisel Bi'Talih otomasyon ayarları — data/bitalih-auto-config.json (gitignore) veya env.
+ * Kişisel Bi'Talih otomasyon ayarları — config/bitalih-auto.json (repo içi, sabit).
  */
 const fs = require('fs');
 const path = require('path');
 
-const CONFIG_FILE = path.join(__dirname, '..', 'data', 'bitalih-auto-config.json');
+const COMMITTED_CONFIG = path.join(__dirname, '..', 'config', 'bitalih-auto.json');
+const LOCAL_OVERRIDE = path.join(__dirname, '..', 'data', 'bitalih-auto-config.json');
 
 const DEFAULT_BET = {
     city: 'Bursa',
@@ -24,8 +25,11 @@ function loadJsonFile(file) {
 }
 
 function getAutoConfig() {
-    const fileCfg = loadJsonFile(CONFIG_FILE) || {};
-    const bet = Object.assign({}, DEFAULT_BET, fileCfg.bet || {});
+    const committed = loadJsonFile(COMMITTED_CONFIG) || {};
+    const local = loadJsonFile(LOCAL_OVERRIDE) || {};
+    const fileCfg = Object.assign({}, committed, local, {
+        bet: Object.assign({}, DEFAULT_BET, committed.bet || {}, local.bet || {})
+    });
 
     const username = String(
         fileCfg.username || fileCfg.ssn || fileCfg.tc
@@ -50,7 +54,7 @@ function getAutoConfig() {
         autoPlayOnLoad,
         autoPlayDryRun: fileCfg.autoPlayDryRun === true
             || process.env.BITALIH_AUTO_DRY_RUN === '1',
-        bet
+        bet: fileCfg.bet || DEFAULT_BET
     };
 }
 
@@ -70,7 +74,8 @@ function getPublicAutoSetup() {
 }
 
 module.exports = {
-    CONFIG_FILE,
+    COMMITTED_CONFIG,
+    LOCAL_OVERRIDE,
     DEFAULT_BET,
     getAutoConfig,
     getPublicAutoSetup

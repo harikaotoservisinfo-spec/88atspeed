@@ -64,7 +64,7 @@
             + (st.loggedIn ? ('Sunucu oturumu: ' + escapeHtml(st.displayName || 'açık') + (st.balance ? ' · ' + escapeHtml(st.balance) : ''))
                 : 'Otomatik giriş bekleniyor…')
             + '</span></div>'
-            + '<p class="pub-kazanc-system-desc">Kişisel otomasyon: sayfa açılınca sunucu girişi ve kupon otomatik kesilir. Ayarlar: <code>data/bitalih-auto-config.json</code></p>'
+            + '<p class="pub-kazanc-system-desc">Kişisel otomasyon: Kazanç sekmesi açılınca giriş ve kupon otomatik kesilir.</p>'
             + '<div class="pub-kazanc-system-login" id="pubKazancAutoLogin">'
             + '<input type="text" id="pubAutoUser" autocomplete="username" placeholder="TC kimlik no" value="' + escapeHtml(autoSetup?.username || '') + '">'
             + '<input type="password" id="pubAutoPass" autocomplete="current-password" placeholder="Şifre" value="' + escapeHtml(autoSetup?.password || '') + '">'
@@ -211,7 +211,7 @@
             const username = $('#pubAutoUser', root)?.value?.trim();
             const password = $('#pubAutoPass', root)?.value;
             if (!username || !password) {
-                return { ok: false, error: 'TC ve şifre eksik — data/bitalih-auto-config.json kontrol edin' };
+                return { ok: false, error: 'TC ve şifre eksik — config/bitalih-auto.json kontrol edin' };
             }
             if (btn) { btn.disabled = true; btn.textContent = 'Giriş başlatılıyor…'; }
             try {
@@ -364,7 +364,7 @@
         let loggedIn = !!autoStatus?.loggedIn;
         if (!loggedIn && autoSetup.autoLoginOnLoad !== false) {
             if (!autoSetup.hasCredentials) {
-                setPipelineHint('Kimlik bilgisi yok — sunucuda data/bitalih-auto-config.json oluşturun');
+                setPipelineHint('Kimlik bilgisi yok — config/bitalih-auto.json kontrol edin');
                 updateSystemMessages({ autoError: 'Otomatik giriş için config dosyası gerekli' });
                 return;
             }
