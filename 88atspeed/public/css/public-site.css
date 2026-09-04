@@ -1476,9 +1476,29 @@ a { color: inherit; text-decoration: none; }
     padding-left: 4px !important;
 }
 
+.pub-prog-ganyan {
+    text-align: right;
+    font-weight: 800;
+    font-size: 12px;
+    color: var(--pub-red);
+    padding-left: 2px !important;
+    padding-right: 6px !important;
+    white-space: nowrap;
+}
+
+.pub-prog-ganyan-leader {
+    color: #2e7d32;
+}
+
+.pub-prog-ganyan-empty {
+    color: #bbb;
+    font-weight: 600;
+}
+
 /* Sabit sütun genişlikleri — sağdaki spacer boş alanı doldurur */
 .pub-col-no { width: 36px; }
-.pub-col-name { width: 200px; }
+.pub-col-ganyan { width: 48px; }
+.pub-col-name { width: 180px; }
 .pub-col-yas { width: 44px; }
 .pub-col-siklet { width: 52px; }
 .pub-col-hp { width: 40px; }
@@ -1487,6 +1507,12 @@ a { color: inherit; text-decoration: none; }
 .pub-col-spacer { width: auto; }
 
 .pub-col-spacer-hdr {
+    padding: 0 !important;
+    border: none;
+    background: transparent;
+}
+
+.pub-col-spacer-cell {
     padding: 0 !important;
     border: none;
     background: transparent;

@@ -20,15 +20,20 @@
         muhtLastUpdate: null,
         muhtPrevOdds: {},
         muhtSelectedNo: null,
-        muhtSelectRunKey: null
+        muhtSelectRunKey: null,
+        progGanyanByRace: {},
+        progGanyanMuhtKey: null,
+        progGanyanLoading: false
     };
 
     const MUHT_REFRESH_SEC = 15;
+    const PROG_GANYAN_REFRESH_SEC = 15;
     const MUHT_SELECT_RESET_MS = 30000;
     const MUHT_RACE_ADVANCE_MS = 3 * 60 * 1000;
     const TJK_TV_DIRECT = 'https://tjktv-live.tjk.org/tjktv/tjktv.m3u8';
     const TJK_TV_PROXY = '/api/public/tjk-tv?f=tjktv.m3u8';
     let muhtPollTimer = null;
+    let progGanyanPollTimer = null;
     let muhtSelectTimer = null;
     let tjkTvLoaded = false;
     let tjkHls = null;
@@ -281,6 +286,9 @@
             const first = state.hipodromlar[0];
             selectHipodrom(first.id);
             renderTahminAll();
+            if ($('#panel-kosular')?.classList.contains('active')) {
+                startProgramGanyanPolling();
+            }
         } catch (err) {
             raceList.innerHTML = '<div class="pub-empty">'
                 + '<div class="pub-empty-icon">⚠️</div>'
@@ -317,6 +325,161 @@
             + '</span>';
 
         renderRaceList(hip);
+        refreshProgramGanyanOdds();
+    }
+
+    function normalizeHipLabel(s) {
+        return String(s || '').toLocaleLowerCase('tr-TR')
+            .normalize('NFD').replace(/\p{M}/gu, '').trim();
+    }
+
+    function resolveMuhtHipKey(hipName) {
+        const data = state.muhtemeller;
+        if (!data?.hipodromlar?.length) return null;
+        const target = normalizeHipLabel(hipName);
+        const hit = data.hipodromlar.find((h) => {
+            const yer = normalizeHipLabel(h.yer);
+            const key = normalizeHipLabel(h.key);
+            const hip = normalizeHipLabel(h.hipodrom);
+            return yer === target || key === target || hip === target
+                || yer.includes(target) || target.includes(yer);
+        });
+        return hit?.key || null;
+    }
+
+    function extractGanyanOdds(muhtemel) {
+        const map = {};
+        const ganyanBet = (muhtemel?.bahisler || []).find((b) => b.isGanyan || b.B === 'GANYAN');
+        if (!ganyanBet?.muhtemeller?.length) return map;
+        ganyanBet.muhtemeller.forEach((row) => {
+            if (row.S1 != null && row.S1 !== '') map[String(row.S1)] = row.G || '';
+        });
+        return map;
+    }
+
+    function findGanyanLeaderNo(ganyanMap) {
+        let leaderNo = null;
+        let minOdd = Infinity;
+        Object.entries(ganyanMap || {}).forEach(([no, val]) => {
+            const v = parseOdd(val);
+            if (v != null && v < minOdd) {
+                minOdd = v;
+                leaderNo = no;
+            }
+        });
+        return leaderNo;
+    }
+
+    async function ensureMuhtemellerOverview(iso) {
+        if (state.muhtemeller && state.muhtIso === iso) return state.muhtemeller;
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), 25000);
+        try {
+            const res = await fetch('/api/public/muhtemeller?iso=' + encodeURIComponent(iso), {
+                signal: controller.signal
+            });
+            const data = await res.json();
+            if (!data.success) return null;
+            state.muhtemeller = data;
+            state.muhtIso = iso;
+            return data;
+        } catch (_) {
+            return null;
+        } finally {
+            clearTimeout(tid);
+        }
+    }
+
+    async function fetchRaceGanyanOdds(iso, runKey, refresh) {
+        const cacheKey = iso + ':' + runKey;
+        let cached = state.muhtRaceCache[cacheKey];
+        const needsFetch = refresh || !cached?.muhtemel;
+        if (needsFetch) {
+            const controller = new AbortController();
+            const tid = setTimeout(() => controller.abort(), 45000);
+            try {
+                const res = await fetch(
+                    '/api/public/muhtemeller?iso=' + encodeURIComponent(iso)
+                    + '&kosu=' + encodeURIComponent(runKey)
+                    + (refresh ? '&refresh=1' : ''),
+                    { signal: controller.signal }
+                );
+                const data = await res.json();
+                if (data.success && data.muhtemel) {
+                    state.muhtRaceCache[cacheKey] = data;
+                    cached = data;
+                }
+            } catch (_) {
+                /* mevcut cache korunur */
+            } finally {
+                clearTimeout(tid);
+            }
+        }
+        return extractGanyanOdds(cached?.muhtemel);
+    }
+
+    async function refreshProgramGanyanOdds(opts = {}) {
+        const iso = state.iso || localTodayIso();
+        const hip = state.hipodromlar.find((h) => h.id === state.activeHipId);
+        if (!hip || !$('#panel-kosular')?.classList.contains('active')) return;
+
+        const overview = await ensureMuhtemellerOverview(iso);
+        const muhtKey = resolveMuhtHipKey(hip.name);
+        state.progGanyanMuhtKey = muhtKey;
+        if (!muhtKey || !overview) return;
+
+        const races = hip.kosular || [];
+        if (!races.length) return;
+
+        state.progGanyanLoading = true;
+        const refresh = !!opts.refresh;
+        const batchSize = 4;
+        try {
+            for (let i = 0; i < races.length; i += batchSize) {
+                const batch = races.slice(i, i + batchSize);
+                const results = await Promise.all(batch.map(async (race) => {
+                    const runKey = muhtKey + '-' + race.raceNo;
+                    const odds = await fetchRaceGanyanOdds(iso, runKey, refresh);
+                    return { runKey, odds };
+                }));
+                results.forEach(({ runKey, odds }) => {
+                    state.progGanyanByRace[runKey] = odds;
+                });
+            }
+        } finally {
+            state.progGanyanLoading = false;
+        }
+
+        const activeHip = state.hipodromlar.find((h) => h.id === state.activeHipId);
+        if (activeHip) renderRaceList(activeHip);
+    }
+
+    function startProgramGanyanPolling() {
+        stopProgramGanyanPolling();
+        if (!$('#panel-kosular')?.classList.contains('active')) return;
+        let countdown = PROG_GANYAN_REFRESH_SEC;
+        progGanyanPollTimer = setInterval(() => {
+            if (document.hidden) return;
+            if (!$('#panel-kosular')?.classList.contains('active')) return;
+            countdown -= 1;
+            if (countdown <= 0) {
+                countdown = PROG_GANYAN_REFRESH_SEC;
+                refreshProgramGanyanOdds({ refresh: true });
+            }
+        }, 1000);
+    }
+
+    function stopProgramGanyanPolling() {
+        if (progGanyanPollTimer) {
+            clearInterval(progGanyanPollTimer);
+            progGanyanPollTimer = null;
+        }
+    }
+
+    function getRaceGanyanMap(raceNo) {
+        const muhtKey = state.progGanyanMuhtKey;
+        if (!muhtKey) return {};
+        return state.progGanyanByRace[muhtKey + '-' + raceNo] || {};
     }
 
     function formatProgramRaceHeader(race) {
@@ -354,6 +517,7 @@
         const has = (key) => horses.some((h) => String(h[key] || '').trim());
         const cols = [
             { key: 'no', label: 'No', cls: 'pub-prog-no', colCls: 'pub-col-no', always: true },
+            { key: 'ganyan', label: 'G', cls: 'pub-prog-ganyan', colCls: 'pub-col-ganyan', always: true, title: 'Ganyan' },
             { key: 'name', label: 'At', cls: 'pub-prog-at', colCls: 'pub-col-name', always: true },
             { key: 'yas', label: 'Yaş', cls: 'pub-prog-yas', colCls: 'pub-col-yas' },
             { key: 'siklet', label: 'Sıklet', cls: 'pub-prog-siklet', colCls: 'pub-col-siklet' },
@@ -371,7 +535,11 @@
             + '</colgroup>';
     }
 
-    function programHorseCell(h, col) {
+    function programHorseCell(h, col, ctx) {
+        if (col.key === 'ganyan') {
+            const odd = ctx?.ganyanMap?.[String(h.no)] || '';
+            return odd || '—';
+        }
         if (col.key === 'name') return h.name || '—';
         const v = String(h[col.key] || '').trim();
         return v || '—';
@@ -391,14 +559,29 @@
         el.innerHTML = '<div class="pub-program-list">' + kosular.map((race) => {
             const hdr = formatProgramRaceHeader(race);
             const surfaceClass = getRaceSurfaceClass(race);
-            const head = cols.map((c) => '<th>' + c.label + '</th>').join('')
-                + '<th class="pub-col-spacer-hdr" aria-hidden="true"></th>';
+            const ganyanMap = getRaceGanyanMap(race.raceNo);
+            const leaderNo = findGanyanLeaderNo(ganyanMap);
+            const head = cols.map((c) => {
+                const titleAttr = c.title ? ' title="' + escapeHtml(c.title) + '"' : '';
+                return '<th' + titleAttr + '>' + c.label + '</th>';
+            }).join('') + '<th class="pub-col-spacer-hdr" aria-hidden="true"></th>';
             const horses = race.horses || [];
             const body = horses.length
-                ? horses.map((h) => '<tr>'
-                    + cols.map((c) => '<td class="' + c.cls + '">' + escapeHtml(programHorseCell(h, c)) + '</td>').join('')
-                    + '<td class="pub-col-spacer-cell" aria-hidden="true"></td>'
-                    + '</tr>').join('')
+                ? horses.map((h) => {
+                    const ctx = { ganyanMap };
+                    return '<tr>'
+                        + cols.map((c) => {
+                            let cls = c.cls;
+                            const val = programHorseCell(h, c, ctx);
+                            if (c.key === 'ganyan') {
+                                if (!ganyanMap[String(h.no)]) cls += ' pub-prog-ganyan-empty';
+                                else if (leaderNo && String(h.no) === leaderNo) cls += ' pub-prog-ganyan-leader';
+                            }
+                            return '<td class="' + cls + '">' + escapeHtml(val) + '</td>';
+                        }).join('')
+                        + '<td class="pub-col-spacer-cell" aria-hidden="true"></td>'
+                        + '</tr>';
+                }).join('')
                 : '<tr><td colspan="' + (cols.length + 1) + '" class="pub-prog-empty">At listesi yok</td></tr>';
 
             const metaHtml = hdr.meta
@@ -535,9 +718,16 @@
                 checkMuhtAutoAdvance();
                 startMuhtPolling();
             }
+            stopProgramGanyanPolling();
         } else {
             stopMuhtPolling();
             pauseTjkTv();
+            if (panelId === 'kosular') {
+                refreshProgramGanyanOdds();
+                startProgramGanyanPolling();
+            } else {
+                stopProgramGanyanPolling();
+            }
         }
         if (panelId === 'kazanc') {
             window.pubKazanc?.init();
@@ -1297,6 +1487,8 @@
             state.muhtemeller = null;
             state.muhtIso = null;
             state.muhtRaceCache = {};
+            state.progGanyanByRace = {};
+            state.progGanyanMuhtKey = null;
             loadVitrin(input.value);
             if ($('#panel-muhtemeller')?.classList.contains('active')) {
                 loadMuhtemeller(input.value);
