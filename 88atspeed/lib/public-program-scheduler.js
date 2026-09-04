@@ -57,8 +57,91 @@ function markTodayFetchDone(meta = {}) {
     });
 }
 
+function markRunning(meta = {}) {
+    saveState({
+        status: 'running',
+        startedAt: new Date().toISOString(),
+        error: null,
+        ...meta
+    });
+}
+
+function markDone(meta = {}) {
+    saveState({
+        status: 'done',
+        error: null,
+        ...meta
+    });
+}
+
+function markError(err, meta = {}) {
+    saveState({
+        status: 'error',
+        error: String(err?.message || err || 'Bilinmeyen hata'),
+        finishedAt: new Date().toISOString(),
+        ...meta
+    });
+}
+
+function isRunningFromState(state) {
+    if (running) return true;
+    if (state.status !== 'running' || !state.startedAt) return false;
+    const age = Date.now() - new Date(state.startedAt).getTime();
+    return age < 45 * 60 * 1000;
+}
+
+async function getStatus(db) {
+    const state = loadState();
+    const today = publicProgram.todayTr();
+    const yarinTarih = publicProgram.tomorrowTr();
+    const yarinIso = publicProgram.trToIso(yarinTarih);
+
+    let ready = false;
+    let hipodromSayisi = 0;
+    if (db) {
+        try {
+            const vitrin = await publicProgram.getPublicVitrin(db, yarinTarih, { pruneDb: false });
+            ready = !!(vitrin.yayinli && (vitrin.hipodromlar || []).length);
+            hipodromSayisi = (vitrin.hipodromlar || []).length;
+        } catch (_) { /* */ }
+    }
+
+    let status = 'idle';
+    let message = '';
+
+    if (isRunningFromState(state)) {
+        status = 'running';
+        message = 'Yeni günün koşuları yükleniyor…';
+    } else if (ready) {
+        status = 'done';
+        message = hipodromSayisi + ' hipodrom hazır';
+    } else if (state.status === 'error' && state.lastRunDate === today) {
+        status = 'error';
+        message = state.error || 'Yükleme başarısız';
+    } else if (isScheduleDue() && state.lastRunDate !== today) {
+        status = 'pending';
+        message = 'Yarının programı hazırlanıyor…';
+    }
+
+    return {
+        status,
+        message,
+        yarinTarih,
+        yarinIso,
+        ready,
+        hipodromSayisi,
+        startedAt: state.startedAt || null,
+        finishedAt: state.finishedAt || state.lastRunAt || null,
+        lastRunDate: state.lastRunDate || null,
+        basarili: state.basarili || 0,
+        scheduleDue: isScheduleDue(),
+        running: status === 'running' || status === 'pending'
+    };
+}
+
 async function fetchTomorrowProgram(db) {
     const tarih = publicProgram.tomorrowTr();
+    markRunning({ yarinTarih: tarih, source: 'scheduler' });
     console.log('program-scheduler: yarın programı çekiliyor —', tarih);
 
     const result = await publicProgram.buildPublicProgram(db, tarih, {
@@ -118,9 +201,9 @@ async function runIfDue(db, opts = {}) {
     const startedAt = Date.now();
     try {
         const out = await fetchTomorrowProgram(db);
-        saveState({
-            lastRunDate: today,
-            lastRunAt: new Date().toISOString(),
+        markTodayFetchDone({
+            status: 'done',
+            finishedAt: new Date().toISOString(),
             yarinTarih: out.tarih,
             hipodromSayisi: out.result.hipodromSayisi,
             basarili: out.result.basarili,
@@ -134,6 +217,7 @@ async function runIfDue(db, opts = {}) {
         );
         return out;
     } catch (err) {
+        markError(err, { lastRunDate: today, source: 'scheduler' });
         console.error('program-scheduler: hata:', err.message);
         throw err;
     } finally {
@@ -181,9 +265,13 @@ module.exports = {
     stop,
     runIfDue,
     fetchTomorrowProgram,
+    getStatus,
     isScheduleDue,
     wasTodayFetchDone,
     loadState,
+    markRunning,
+    markDone,
+    markError,
     markTodayFetchDone,
     SCHEDULE_HOUR,
     SCHEDULE_MINUTE

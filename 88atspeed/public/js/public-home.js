@@ -40,7 +40,8 @@
         sonucByHip: {},
         sonucHipId: null,
         sonucLastUpdate: null,
-        sonucLoading: false
+        sonucLoading: false,
+        yarinFetch: null
     };
 
     const MUHT_REFRESH_SEC = 15;
@@ -51,6 +52,7 @@
     const PROG_BT_REFRESH_SEC = 60;
     const SONUC_REFRESH_SEC = 60;
     const SONUC_CLIENT_CACHE_MS = 30 * 1000;
+    const YARIN_STATUS_POLL_MS = 8000;
     const MUHT_SELECT_RESET_MS = 30000;
     const MUHT_RACE_ADVANCE_MS = 3 * 60 * 1000;
     const TJK_TV_DIRECT = 'https://tjktv-live.tjk.org/tjktv/tjktv.m3u8';
@@ -64,6 +66,7 @@
     let tjkSourceIdx = 0;
     let tjkWatchdogTimer = null;
     let tjkStallTicks = 0;
+    let yarinStatusTimer = null;
 
     const $ = (sel) => document.querySelector(sel);
     const $$ = (sel) => document.querySelectorAll(sel);
@@ -321,6 +324,100 @@
         }
     }
 
+    function isTomorrowIso(iso) {
+        return iso === localTomorrowIso();
+    }
+
+    function syncDatePills(iso) {
+        const todayPill = $('#pubDatePillToday');
+        const tomorrowPill = $('#pubDatePillTomorrow');
+        const isTomorrow = isTomorrowIso(iso);
+        todayPill?.classList.toggle('active', !isTomorrow);
+        tomorrowPill?.classList.toggle('active', isTomorrow);
+    }
+
+    function renderYarinFetchUi() {
+        const bar = $('#gunun-kosulari');
+        const statusLine = $('#pubYarinStatusLine');
+        const tomorrowPill = $('#pubDatePillTomorrow');
+        const badge = $('#pubYarinPillBadge');
+        const hipTabs = $('#pubHipTabs');
+        const f = state.yarinFetch || {};
+        const isTomorrow = isTomorrowIso(state.iso);
+        const loading = f.status === 'running' || f.status === 'pending';
+        const ready = !!f.ready;
+
+        bar?.classList.remove('pub-date-bar-loading', 'pub-date-bar-ready');
+        tomorrowPill?.classList.remove('pub-date-pill-loading', 'pub-date-pill-ready');
+        hipTabs?.classList.remove('pub-hip-tabs-ready');
+
+        if (loading) {
+            bar?.classList.add('pub-date-bar-loading');
+            tomorrowPill?.classList.add('pub-date-pill-loading');
+            if (badge) {
+                badge.hidden = false;
+                badge.innerHTML = '<span class="pub-yarin-spin" title="Yükleniyor"></span>';
+            }
+            if (statusLine) {
+                statusLine.hidden = false;
+                statusLine.innerHTML = '<span class="pub-yarin-spin"></span>'
+                    + '<span>'
+                    + escapeHtml(trToDisplay(f.yarinTarih || isoToTr(localTomorrowIso())))
+                    + ' — yeni günün koşuları yükleniyor…</span>';
+            }
+        } else if (ready) {
+            tomorrowPill?.classList.add('pub-date-pill-ready');
+            if (badge) {
+                badge.hidden = false;
+                badge.textContent = '✓';
+            }
+            if (isTomorrow) {
+                bar?.classList.add('pub-date-bar-ready');
+                hipTabs?.classList.add('pub-hip-tabs-ready');
+            }
+            if (statusLine) {
+                if (isTomorrow) {
+                    statusLine.hidden = false;
+                    statusLine.innerHTML = '✓ '
+                        + escapeHtml(trToDisplay(f.yarinTarih || isoToTr(localTomorrowIso())))
+                        + ' programı hazır · ' + (f.hipodromSayisi || 0) + ' hipodrom';
+                } else {
+                    statusLine.hidden = true;
+                    statusLine.innerHTML = '';
+                }
+            }
+        } else {
+            if (badge) {
+                badge.hidden = true;
+                badge.innerHTML = '';
+            }
+            if (statusLine) {
+                statusLine.hidden = true;
+                statusLine.innerHTML = '';
+            }
+        }
+    }
+
+    async function loadYarinFetchStatus() {
+        try {
+            const res = await fetch('/api/public/yarin-fetch-status');
+            const data = await parseJsonResponse(res);
+            if (!res.ok || data.success === false) return;
+            const prevStatus = state.yarinFetch?.status;
+            state.yarinFetch = data;
+            renderYarinFetchUi();
+            if (prevStatus === 'running' && data.status === 'done' && isTomorrowIso(state.iso)) {
+                loadVitrin(state.iso);
+            }
+        } catch (_) { /* */ }
+    }
+
+    function startYarinStatusPolling() {
+        loadYarinFetchStatus();
+        if (yarinStatusTimer) clearInterval(yarinStatusTimer);
+        yarinStatusTimer = setInterval(loadYarinFetchStatus, YARIN_STATUS_POLL_MS);
+    }
+
     async function loadVitrin(iso) {
         const raceList = $('#pubRaceList');
         const hipTabs = $('#pubHipTabs');
@@ -350,6 +447,9 @@
             $('#pubDateLabel').textContent = data.yayinli
                 ? trToDisplay(state.tarih) + ' · ' + state.hipodromlar.length + ' hipodrom yayında'
                 : trToDisplay(state.tarih) + ' · Program henüz yayınlanmadı';
+
+            syncDatePills(clampedIso);
+            renderYarinFetchUi();
 
             if (!data.yayinli || !state.hipodromlar.length) {
                 hipTabs.innerHTML = '';
@@ -2326,6 +2426,38 @@
         sel.addEventListener('change', () => onFobModeChange(sel.value));
     }
 
+    function selectProgramDate(iso) {
+        const clamped = clampProgramIso(iso);
+        const input = $('#pubDateInput');
+        if (input) input.value = clamped;
+        state.iso = clamped;
+        syncDatePills(clamped);
+        state.muhtemeller = null;
+        state.muhtIso = null;
+        state.muhtRaceCache = {};
+        state.progGanyanByRace = {};
+        state.progGanyanMuhtKey = null;
+        state.progBltData = null;
+        state.progBltHipId = null;
+        state.progGpData = null;
+        state.progGpHipId = null;
+        state.progGpLoading = false;
+        state.progFobData = null;
+        state.progFobHipId = null;
+        state.progFobLoading = false;
+        state.progBtData = null;
+        state.progBtHipId = null;
+        state.progBtLoading = false;
+        state.sonucData = null;
+        state.sonucByHip = {};
+        state.sonucHipId = null;
+        state.sonucLastUpdate = null;
+        loadVitrin(clamped);
+        if ($('#panel-muhtemeller')?.classList.contains('active')) {
+            loadMuhtemeller(clamped);
+        }
+    }
+
     function initDate() {
         const input = $('#pubDateInput');
         const today = localTodayIso();
@@ -2334,37 +2466,14 @@
         input.max = tomorrow;
         input.value = today;
         input.title = 'Sadece bugün ve yarın programları gösterilir';
+        $('#pubDatePillToday')?.addEventListener('click', () => selectProgramDate(today));
+        $('#pubDatePillTomorrow')?.addEventListener('click', () => selectProgramDate(tomorrow));
         input.addEventListener('change', () => {
-            const iso = clampProgramIso(input.value);
-            if (input.value !== iso) input.value = iso;
-            state.iso = iso;
-            state.muhtemeller = null;
-            state.muhtIso = null;
-            state.muhtRaceCache = {};
-            state.progGanyanByRace = {};
-            state.progGanyanMuhtKey = null;
-            state.progBltData = null;
-            state.progBltHipId = null;
-            state.progGpData = null;
-            state.progGpHipId = null;
-            state.progGpLoading = false;
-            state.progFobData = null;
-            state.progFobHipId = null;
-            state.progFobLoading = false;
-            state.progBtData = null;
-            state.progBtHipId = null;
-            state.progBtLoading = false;
-            state.sonucData = null;
-            state.sonucByHip = {};
-            state.sonucHipId = null;
-            state.sonucLastUpdate = null;
-            loadVitrin(iso);
-            if ($('#panel-muhtemeller')?.classList.contains('active')) {
-                loadMuhtemeller(iso);
-            }
+            selectProgramDate(input.value);
         });
         loadVitrin(today);
         loadProgramSync();
+        startYarinStatusPolling();
         $('#pubSonucRefresh')?.addEventListener('click', () => refreshSonuclarData({ refresh: true }));
         $('#pubProgramSyncRefresh')?.addEventListener('click', () => {
             const body = $('#pubProgramSyncBody');

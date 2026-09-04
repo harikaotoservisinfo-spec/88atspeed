@@ -49,10 +49,13 @@ const opts = {
     const isNightlyYarin = !args.includes('--bugun')
         && !hipodromFilter
         && tarih === publicProgram.tomorrowTr();
-    if (isNightlyYarin && !args.includes('--force') && programScheduler.wasTodayFetchDone()) {
         console.log('⏭ Yarın programı bugün zaten çekildi — atlandı (yeniden için --force)');
         db.close();
         process.exit(0);
+    }
+
+    if (isNightlyYarin) {
+        programScheduler.markRunning({ yarinTarih: tarih, source: 'cli' });
     }
 
     console.log('📡 Kamu programı çekiliyor:', tarih, '· kaynak:', source,
@@ -94,11 +97,15 @@ const opts = {
 
     if (isNightlyYarin && result.basarili > 0) {
         programScheduler.markTodayFetchDone({
+            status: 'done',
+            finishedAt: new Date().toISOString(),
             yarinTarih: tarih,
             hipodromSayisi: result.hipodromSayisi,
             basarili: result.basarili,
             source: 'cli'
         });
+    } else if (isNightlyYarin && result.basarili === 0) {
+        programScheduler.markError('Hiç hipodrom çekilemedi', { source: 'cli' });
     }
 
     db.close();

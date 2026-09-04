@@ -192,6 +192,17 @@ app.get('/api/public/vitrin', async (req, res) => {
     }
 });
 
+/** Yarın programı arka plan yükleme durumu (18:30 otomatik çekim) */
+app.get('/api/public/yarin-fetch-status', async (req, res) => {
+    try {
+        const status = await programScheduler.getStatus(db);
+        res.json({ success: true, ...status });
+    } catch (err) {
+        console.error('public/yarin-fetch-status:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 /** Kamu program çekim durumu — bugün/yarın TJK vs veritabanı */
 app.get('/api/public/program-sync', async (req, res) => {
     try {

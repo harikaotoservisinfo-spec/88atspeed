@@ -7,7 +7,7 @@
     <title>88 AT SPEED | Günlük Yarış Programı & Tahminler</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@700;800;900&display=swap" rel="stylesheet">
-    <link href="css/public-site.css?v=20260904scores" rel="stylesheet">
+    <link href="css/public-site.css?v=20260904yarinui" rel="stylesheet">
 </head>
 <body class="pub-body">
     <div class="pub-strip pub-strip-premium">
@@ -126,11 +126,21 @@
     <div class="pub-layout">
         <main class="pub-main">
             <div class="pub-date-bar" id="gunun-kosulari">
-                <div>
+                <div class="pub-date-bar-text">
                     <h2>Günün Koşuları</h2>
                     <p id="pubDateLabel">Yükleniyor…</p>
+                    <p class="pub-yarin-status-line" id="pubYarinStatusLine" hidden aria-live="polite"></p>
                 </div>
-                <input type="date" id="pubDateInput" class="pub-date-input" aria-label="Tarih seçin">
+                <div class="pub-date-controls">
+                    <div class="pub-date-pills" role="tablist" aria-label="Program günü">
+                        <button type="button" class="pub-date-pill active" id="pubDatePillToday" data-iso="today">Bugün</button>
+                        <button type="button" class="pub-date-pill" id="pubDatePillTomorrow" data-iso="tomorrow">
+                            <span class="pub-date-pill-label">Yarın</span>
+                            <span class="pub-date-pill-badge" id="pubYarinPillBadge" hidden aria-hidden="true"></span>
+                        </button>
+                    </div>
+                    <input type="date" id="pubDateInput" class="pub-date-input" aria-label="Tarih seçin">
+                </div>
             </div>
 
             <!-- Günün Koşuları paneli -->
@@ -323,6 +333,6 @@
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js" crossorigin="anonymous"></script>
     <script src="js/pub-ads.js?v=20260903kazanc"></script>
     <script src="js/pub-kazanc.js?v=20260904fixflow"></script>
-    <script src="js/public-home.js?v=20260904sonuc2"></script>
+    <script src="js/public-home.js?v=20260904yarinui"></script>
 </body>
 </html>

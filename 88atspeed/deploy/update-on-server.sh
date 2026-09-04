@@ -126,6 +126,11 @@ echo "📦 Branch: $BRANCH | Commit: $COMMIT_SHA"
 echo "🔍 Doğrulama:"
 curl -s http://127.0.0.1:3023/VERSION.txt
 echo ""
+if [ -f "$APP_DIR/lib/public-sonuc-store.js" ]; then
+  echo "✓ public-sonuc-store.js mevcut (BİTİŞ senkronu)"
+else
+  echo "⚠️  public-sonuc-store.js YOK — eski commit olabilir"
+fi
 if [ -f "$APP_DIR/lib/public-program-scheduler.js" ]; then
   echo "✓ public-program-scheduler.js mevcut (18:30 yarın programı)"
 else
