@@ -280,6 +280,7 @@
             renderHipodromTabs();
             const first = state.hipodromlar[0];
             selectHipodrom(first.id);
+            renderTahminAll();
         } catch (err) {
             raceList.innerHTML = '<div class="pub-empty">'
                 + '<div class="pub-empty-icon">⚠️</div>'
@@ -316,7 +317,42 @@
             + '</span>';
 
         renderRaceList(hip);
-        renderTahminPanel(hip);
+    }
+
+    function formatProgramRaceHeader(race) {
+        let title = race.raceNo + '. Koşu';
+        if (race.saat) title += ' · ' + race.saat;
+        const meta = [];
+        if (race.mesafe || race.pist) {
+            meta.push([race.mesafe, race.pist].filter(Boolean).join(' '));
+        }
+        const kat = race.kategori || race.kcins_kosu || '';
+        if (kat && !/^\d+\.\s*Koşu$/i.test(kat)) {
+            meta.push(kat);
+        } else if (race.baslik && !/^\d+\.\s*Koşu$/i.test(race.baslik)) {
+            meta.push(race.baslik);
+        }
+        return { title, meta: meta.join(' · ') };
+    }
+
+    function getProgramColumns(race) {
+        const horses = race.horses || [];
+        const has = (key) => horses.some((h) => String(h[key] || '').trim());
+        const cols = [
+            { key: 'no', label: 'No', cls: 'pub-prog-no', always: true },
+            { key: 'name', label: 'At', cls: 'pub-prog-at', always: true },
+            { key: 'yas', label: 'Yaş', cls: 'pub-prog-yas' },
+            { key: 'siklet', label: 'Sıklet', cls: 'pub-prog-siklet' },
+            { key: 'hp', label: 'HP', cls: 'pub-prog-hp' },
+            { key: 'taki', label: 'Takı', cls: 'pub-prog-taki' }
+        ];
+        return cols.filter((c) => c.always || has(c.key));
+    }
+
+    function programHorseCell(h, col) {
+        if (col.key === 'name') return h.name || '—';
+        const v = String(h[col.key] || '').trim();
+        return v || '—';
     }
 
     function renderRaceList(hip) {
@@ -327,36 +363,31 @@
             return;
         }
 
-        el.innerHTML = kosular.map((race) => {
-            const tahminler = getRaceTahminler(race);
-            const pistCls = pistBadgeClass(race.pist);
-            const mesafeBadge = race.mesafe
-                ? '<span class="pub-badge ' + pistCls + '">' + escapeHtml(race.mesafe + ' ' + (race.pist || '')) + '</span>'
-                : '';
-            const tahminBadge = tahminler.length
-                ? '<span class="pub-badge pub-badge-tahmin">Tahmin</span>'
+        el.innerHTML = '<div class="pub-program-list">' + kosular.map((race) => {
+            const hdr = formatProgramRaceHeader(race);
+            const cols = getProgramColumns(race);
+            const head = cols.map((c) => '<th>' + c.label + '</th>').join('');
+            const horses = race.horses || [];
+            const body = horses.length
+                ? horses.map((h) => '<tr>'
+                    + cols.map((c) => '<td class="' + c.cls + '">' + escapeHtml(programHorseCell(h, c)) + '</td>').join('')
+                    + '</tr>').join('')
+                : '<tr><td colspan="' + cols.length + '" class="pub-prog-empty">At listesi yok</td></tr>';
+
+            const metaHtml = hdr.meta
+                ? '<span class="pub-program-race-meta">' + escapeHtml(hdr.meta) + '</span>'
                 : '';
 
-            return '<article class="pub-race-card" data-race="' + race.raceNo + '">'
-                + '<div class="pub-race-no"><strong>' + race.raceNo + '. KOŞU</strong>'
-                + '<span>' + escapeHtml(race.saat || '—') + '</span></div>'
-                + '<div class="pub-race-desc"><h3>' + escapeHtml(race.baslik || (race.raceNo + '. Koşu')) + '</h3>'
-                + '<div class="pub-race-badges">' + mesafeBadge + tahminBadge + '</div></div>'
-                + '<div class="pub-race-tahmin"><strong>Öne çıkan</strong>'
-                + '<div class="pub-tahmin-picks">' + formatTahminPicks(tahminler) + '</div></div>'
-                + '<div class="pub-race-chevron">›</div>'
-                + '</article>';
-        }).join('');
-
-        el.querySelectorAll('.pub-race-card').forEach((card) => {
-            card.addEventListener('click', () => {
-                if (state.activeHipId) selectTahminHipodrom(state.activeHipId);
-                switchTab('tahminler');
-                const raceNo = card.dataset.race;
-                const target = document.querySelector('[data-tahmin-race="' + raceNo + '"]');
-                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-            });
-        });
+            return '<section class="pub-program-race" data-race="' + race.raceNo + '">'
+                + '<div class="pub-program-race-hdr">'
+                + '<span class="pub-program-race-title">' + escapeHtml(hdr.title) + '</span>'
+                + metaHtml
+                + '</div>'
+                + '<div class="pub-program-table-wrap">'
+                + '<table class="pub-program-table"><thead><tr>' + head + '</tr></thead><tbody>'
+                + body + '</tbody></table>'
+                + '</div></section>';
+        }).join('') + '</div>';
     }
 
     function formatTahminRaceHeader(race) {
