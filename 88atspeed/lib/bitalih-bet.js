@@ -180,6 +180,18 @@ async function dismissCookieBanner(page) {
     });
 }
 
+async function dismissOnboarding(page) {
+    await page.evaluate(() => {
+        [...document.querySelectorAll('button, a')].forEach((b) => {
+            const t = (b.textContent || '').trim();
+            if (/öğrenmeye başla|teşekkürler|istemiyorum|anladım|kapat|tamam|kabul/i.test(t)) {
+                b.click();
+            }
+        });
+    });
+    await sleep(400);
+}
+
 async function readSessionState(page) {
     return page.evaluate(async () => {
         const r = await fetch('/api/auth/session');
@@ -314,34 +326,25 @@ async function clickHorseOdds(page, horseName, betType, horseNo) {
     if (!row) return { ok: false, reason: 'row_not_found' };
 
     const pick = await page.evaluate((rowEl, type) => {
-        function collectMainOddCellsLocal(r) {
+        function mainOddCells(r) {
             const cells = [];
             const seen = new Set();
             for (const el of [...r.querySelectorAll('div, button')]) {
                 const cls = el.className || '';
                 const t = (el.textContent || '').replace(/\s+/g, '').trim();
                 if (!/^\d+\.\d+$/.test(t)) continue;
-                const isMain = (cls.includes('h-8') && cls.includes('rounded'))
-                    || (cls.includes('52px') && (cls.includes('rounded') || cls.includes('border')))
+                const isMain = (cls.includes('h-8') && cls.includes('rounded') && cls.includes('w-[52px]'))
+                    || (cls.includes('h-8') && cls.includes('rounded'))
+                    || (cls.includes('52px') && cls.includes('rounded'))
                     || el.tagName === 'BUTTON';
                 if (!isMain) continue;
                 if (seen.has(t)) continue;
                 seen.add(t);
                 cells.push(el);
             }
-            if (!cells.length) {
-                for (const el of [...r.querySelectorAll('span')]) {
-                    const t = (el.textContent || '').trim();
-                    if (!/^\d+\.\d+$/.test(t)) continue;
-                    const p = el.parentElement;
-                    if (p && (p.className || '').includes('rounded')) {
-                        if (!seen.has(t)) { seen.add(t); cells.push(p); }
-                    }
-                }
-            }
             return cells;
         }
-        const cells = collectMainOddCellsLocal(rowEl);
+        const cells = mainOddCells(rowEl);
         const idxMap = { ganyan: 0, ilk2: 0, ilk3: 1, ilk4: 2 };
         const idx = idxMap[type] ?? 0;
         const btn = cells[idx] || cells[0];
@@ -359,119 +362,101 @@ async function clickHorseOdds(page, horseName, betType, horseNo) {
     return pick;
 }
 
-async function setStakeAmount(page, stake) {
+async function waitForBetSlip(page, timeoutMs = 12000) {
     try {
         await page.waitForFunction(() => {
-            const inputs = [...document.querySelectorAll('input')].filter((i) => {
-                if (i.type === 'checkbox' || i.type === 'hidden') return false;
-                const cls = i.className || '';
-                return i.type === 'number'
-                    || (i.type === 'text' && (cls.includes('h-10') || cls.includes('font-bold')));
+            return [...document.querySelectorAll('div')].some((d) => {
+                const t = d.innerText || '';
+                return t.includes('Maksimum Kazanç') && t.includes('Toplam Oran') && t.includes('Hemen Oyna');
             });
-            return inputs.length > 0;
-        }, { timeout: 12000, polling: 300 });
-    } catch (_) { /* devam */ }
+        }, { timeout: timeoutMs, polling: 300 });
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
 
+async function setStakeInSlip(page, stake) {
+    await waitForBetSlip(page);
     return page.evaluate((amount) => {
-        const inputs = [...document.querySelectorAll('input')].filter((i) => {
-            if (i.type === 'checkbox' || i.type === 'hidden') return false;
-            const style = window.getComputedStyle(i);
-            if (style.display === 'none' || style.visibility === 'hidden') return false;
-            return true;
+        const slips = [...document.querySelectorAll('div')].filter((d) => {
+            const t = d.innerText || '';
+            return t.includes('Maksimum Kazanç') && t.includes('Toplam Oran') && t.includes('Hemen Oyna')
+                && !t.includes('Bahis Detayı');
+        }).sort((a, b) => (a.innerText || '').length - (b.innerText || '').length);
+        const slip = slips[0];
+        if (!slip) return { ok: false, reason: 'slip_not_found' };
+
+        const preset = [...slip.querySelectorAll('button, div, span')].find((el) => {
+            return (el.textContent || '').trim() === String(amount)
+                && el.getBoundingClientRect().width > 0;
         });
+        if (preset) preset.click();
 
-        let misli = inputs.find((i) => i.type === 'number'
-            || /misli|tutar|miktar|bahis/i.test(i.placeholder || i.name || i.id || ''));
+        const checkbox = slip.querySelector('input[type=checkbox]');
+        if (checkbox && !checkbox.checked) checkbox.click();
 
-        if (!misli) {
-            misli = inputs.find((i) => {
-                const cls = i.className || '';
-                return i.type === 'text' && (cls.includes('h-10') || cls.includes('font-bold'));
-            });
-        }
+        const misli = [...slip.querySelectorAll('input')].find((i) => {
+            return i.type === 'text' && (i.className || '').includes('h-10');
+        }) || [...slip.querySelectorAll('input')].find((i) => i.type === 'number');
 
-        if (!misli) {
-            misli = inputs.find((i) => i.type === 'text' && /^\d+$/.test(String(i.value || '').trim()));
-        }
-
-        if (!misli) {
-            misli = inputs.find((i) => i.type === 'text');
-        }
-
-        if (!misli) return false;
+        if (!misli) return { ok: false, reason: 'stake_input_not_found' };
 
         misli.focus();
         misli.click();
-        misli.select?.();
         const val = String(amount);
         const desc = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
         if (desc?.set) desc.set.call(misli, val);
         else misli.value = val;
         misli.dispatchEvent(new Event('input', { bubbles: true }));
         misli.dispatchEvent(new Event('change', { bubbles: true }));
-        misli.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
-        return true;
+        return { ok: true, value: misli.value };
     }, stake);
 }
 
-async function clickSabitOranliOyna(page) {
-    return page.evaluate(() => {
-        const btn = [...document.querySelectorAll('button')].find((b) => {
-            const t = (b.textContent || '').trim();
-            return t === 'Sabit Oranlı Oyna' && !b.disabled;
-        });
-        if (!btn) return false;
-        btn.scrollIntoView({ block: 'center', inline: 'center' });
-        btn.click();
-        return true;
-    });
+async function findHemenButton(page, requiredTexts, excludeTexts) {
+    const handle = await page.evaluateHandle((required, exclude) => {
+        const candidates = [...document.querySelectorAll('div, section, aside, [role=dialog]')]
+            .filter((d) => {
+                const t = d.innerText || '';
+                if (!required.every((s) => t.includes(s))) return false;
+                if (exclude.some((s) => s && t.includes(s))) return false;
+                return true;
+            })
+            .sort((a, b) => (a.innerText || '').length - (b.innerText || '').length);
+        const container = candidates[0];
+        if (!container) return null;
+        return [...container.querySelectorAll('button')].find((b) => {
+            return /^hemen oyna$/i.test((b.textContent || '').trim()) && !b.disabled;
+        }) || null;
+    }, requiredTexts, excludeTexts || []);
+    return handle.asElement();
 }
 
-async function clickHemenOyna(page, timeoutMs = 12000) {
+async function clickHemenButton(page, requiredTexts, excludeTexts) {
+    const btn = await findHemenButton(page, requiredTexts, excludeTexts);
+    if (!btn) return false;
+    const box = await btn.boundingBox();
+    if (box) {
+        await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    } else {
+        await btn.click();
+    }
+    return true;
+}
+
+async function waitForConfirmModal(page, timeoutMs = 10000) {
     try {
         await page.waitForFunction(() => {
-            const scopes = [...document.querySelectorAll('[class*="kupon"], [class*="coupon"], [class*="slip"], aside, footer')];
-            scopes.push(document.body);
-            for (const scope of scopes) {
-                const btn = [...scope.querySelectorAll('button')].find((b) => {
-                    const t = (b.textContent || '').trim();
-                    return /^hemen oyna$/i.test(t) && !b.disabled;
-                });
-                if (btn) return true;
-            }
-            return false;
-        }, { timeout: timeoutMs, polling: 300 });
-    } catch (_) { /* devam */ }
-    return page.evaluate(() => {
-        const scopes = [...document.querySelectorAll('[class*="kupon"], [class*="coupon"], [class*="slip"], aside, footer')];
-        scopes.push(document.body);
-        for (const scope of scopes) {
-            const btn = [...scope.querySelectorAll('button')].find((b) => {
-                const t = (b.textContent || '').trim();
-                return /^hemen oyna$/i.test(t) && !b.disabled;
+            return [...document.querySelectorAll('div, [role=dialog]')].some((d) => {
+                const t = d.innerText || '';
+                return t.includes('Bahis Detayı') && t.includes('Toplam Tutar');
             });
-            if (btn) {
-                btn.scrollIntoView({ block: 'center', inline: 'center' });
-                btn.click();
-                return true;
-            }
-        }
-        return false;
-    });
-}
-
-async function confirmBetModal(page) {
-    await sleep(600);
-    return page.evaluate(() => {
-        const btns = [...document.querySelectorAll('button, a')];
-        const confirm = btns.find((b) => {
-            const t = (b.textContent || '').trim();
-            return /^(onayla|evet|tamam|kabul et)$/i.test(t) && !b.disabled;
-        });
-        if (!confirm) return false;
-        confirm.click();
+        }, { timeout: timeoutMs, polling: 300 });
         return true;
-    });
+    } catch (_) {
+        return false;
+    }
 }
 
 function watchBetResponses(page) {
@@ -495,22 +480,35 @@ function watchBetResponses(page) {
 }
 
 async function submitFixedOddsCoupon(page, stake) {
-    const sabitOk = await clickSabitOranliOyna(page);
-    if (!sabitOk) {
-        return { ok: false, step: 'sabit_oranli_not_found' };
-    }
-    await sleep(2000);
+    const steps = [];
 
-    await setStakeAmount(page, stake);
+    const stakeRes = await setStakeInSlip(page, stake);
+    steps.push({ step: 'stake_slip', ok: !!stakeRes?.ok, detail: stakeRes });
+    if (!stakeRes?.ok) {
+        return { ok: false, step: 'stake_input_not_found', steps, detail: stakeRes };
+    }
     await sleep(600);
 
-    const hemenOk = await clickHemenOyna(page);
-    if (!hemenOk) {
-        return { ok: false, step: 'hemen_oyna_disabled' };
+    const slipHemen = await clickHemenButton(page, ['Toplam Oran', 'Maksimum Kazanç', 'Hemen Oyna'], ['Bahis Detayı']);
+    steps.push({ step: 'hemen_slip', ok: slipHemen });
+    if (!slipHemen) {
+        return { ok: false, step: 'hemen_slip_not_found', steps };
     }
-    await confirmBetModal(page);
-    await sleep(4000);
-    return { ok: true, step: 'submitted' };
+    await sleep(2500);
+
+    const modalOk = await waitForConfirmModal(page);
+    steps.push({ step: 'confirm_modal', ok: modalOk });
+    if (!modalOk) {
+        return { ok: false, step: 'confirm_modal_missing', steps };
+    }
+
+    const confirmHemen = await clickHemenButton(page, ['Bahis Detayı', 'Toplam Tutar', 'Hemen Oyna'], []);
+    steps.push({ step: 'hemen_confirm', ok: confirmHemen });
+    if (!confirmHemen) {
+        return { ok: false, step: 'hemen_confirm_not_found', steps };
+    }
+    await sleep(5000);
+    return { ok: true, step: 'submitted', steps };
 }
 
 async function detectBetSuccess(page, apiHits) {
@@ -591,6 +589,7 @@ async function placeFixedOddsBetInternal(opts = {}) {
         await page.goto(FIXED_ODDS_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
         await sleep(2000);
         await dismissCookieBanner(page);
+        await dismissOnboarding(page);
 
         if (!await selectHipodrom(page, city)) {
             const err = new Error('Hipodrom bulunamadı: ' + city);
@@ -604,6 +603,7 @@ async function placeFixedOddsBetInternal(opts = {}) {
         });
         await sleep(3500);
         await dismissCookieBanner(page);
+        await dismissOnboarding(page);
         await waitForRaceTable(page, horseName, horseNo, 25000);
         await selectBetTypeTab(page, betType);
 
@@ -624,16 +624,22 @@ async function placeFixedOddsBetInternal(opts = {}) {
         }
         await sleep(2000);
 
-        const stakeOk = await setStakeAmount(page, stake);
-        if (!stakeOk) {
-            const err = new Error('Misli alanı bulunamadı');
-            err.code = 'stake_input_not_found';
+        const slipReady = await waitForBetSlip(page, 15000);
+        if (!slipReady && !dryRun) {
+            const err = new Error('Kupon paneli açılmadı — oran tıklaması başarısız olabilir');
+            err.code = 'slip_not_found';
             throw err;
         }
-        await sleep(800);
 
         const betLabel = BET_TYPE_LABEL[betType] || betType;
         if (dryRun) {
+            const slipInfo = await page.evaluate(() => {
+                const slip = [...document.querySelectorAll('div')].find((d) => {
+                    const t = d.innerText || '';
+                    return t.includes('Maksimum Kazanç') && t.includes('Toplam Oran');
+                });
+                return slip ? slip.innerText.slice(0, 300) : '';
+            });
             return {
                 success: true,
                 dryRun: true,
@@ -644,7 +650,8 @@ async function placeFixedOddsBetInternal(opts = {}) {
                 horseName,
                 stake,
                 betType,
-                odd: horsePick.odd
+                odd: horsePick.odd,
+                slipPreview: slipInfo
             };
         }
 
@@ -652,9 +659,13 @@ async function placeFixedOddsBetInternal(opts = {}) {
         const submit = await submitFixedOddsCoupon(page, stake);
         betWatch.detach();
         if (!submit.ok) {
-            const err = new Error(submit.step === 'hemen_oyna_disabled'
-                ? 'Kupon kupona eklendi ama Hemen Oyna aktif olmadı — bakiye veya seçim kontrol edin'
-                : 'Sabit Oranlı Oyna butonu bulunamadı');
+            const errMsg = {
+                hemen_slip_not_found: 'Kupon panelinde Hemen Oyna bulunamadı',
+                confirm_modal_missing: 'Bahis Detayı onay penceresi açılmadı — 1. Hemen Oyna tıklanamadı',
+                hemen_confirm_not_found: 'Onay penceresinde Hemen Oyna bulunamadı',
+                stake_input_not_found: 'Kupon panelinde misli alanı yok'
+            }[submit.step] || 'Kupon gönderilemedi';
+            const err = new Error(errMsg);
             err.code = submit.step || 'play_button_not_found';
             err.detail = submit;
             throw err;
@@ -667,6 +678,7 @@ async function placeFixedOddsBetInternal(opts = {}) {
             message: ok
                 ? ('Bahis oynandı — ' + betLabel + ' @ ' + horsePick.odd)
                 : ('Kupon onaylanamadı — Bi\'Talih panelinden kontrol edin (' + betLabel + ' @ ' + horsePick.odd + ')'),
+            steps: submit.steps,
             session,
             city,
             raceNo,

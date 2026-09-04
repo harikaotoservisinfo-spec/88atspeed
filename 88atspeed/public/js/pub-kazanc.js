@@ -108,6 +108,30 @@
         });
     }
 
+    function renderAutomationSteps(steps) {
+        if (!steps?.length) return '';
+        const labels = {
+            stake_slip: 'Misli ayarlandı',
+            hemen_slip: 'Kupon paneli → Hemen Oyna',
+            confirm_modal: 'Bahis Detayı penceresi',
+            hemen_confirm: 'Onay → Hemen Oyna'
+        };
+        return '<div class="pub-kazanc-auto-steps">'
+            + '<div class="pub-kazanc-auto-steps-hdr">Otomasyon adımları</div>'
+            + '<ul>'
+            + steps.map((s) => {
+                const cls = s.ok ? 'pub-kazanc-step-ok' : 'pub-kazanc-step-fail';
+                return '<li class="' + cls + '">' + escapeHtml(labels[s.step] || s.step) + (s.ok ? ' ✓' : ' ✗') + '</li>';
+            }).join('')
+            + '</ul></div>';
+    }
+
+    function showAutomationSteps(steps) {
+        const panel = document.getElementById('pubAutoStepsPanel');
+        if (!panel) return;
+        panel.innerHTML = renderAutomationSteps(steps);
+    }
+
     function renderHorseOddsPanelContent(data, selectedBetType, state) {
         const horse = data?.horseName || '';
         const horseNo = data?.horseNo ? ('#' + data.horseNo + ' ') : '';
@@ -233,7 +257,6 @@
             + '<button type="button" class="pub-kazanc-strip-btn pub-kazanc-strip-btn-primary" id="pubAutoLoginBtn">Sunucuda Giriş Yap</button>'
             + '</div>'
             + '<p class="pub-kazanc-system-hint" id="pubAutoPipelineHint">Otomatik akış başlatılıyor…</p>'
-            + betTypeChips(bet.betType)
             + '<form id="pubKazancBetForm" class="pub-kazanc-system-form">'
             + '<input type="text" id="pubBetCity" value="' + escapeHtml(bet.city || 'Bursa') + '" placeholder="Şehir">'
             + '<input type="number" id="pubBetRace" value="' + (bet.raceNo || 1) + '" min="1" max="15" placeholder="Koşu">'
@@ -245,9 +268,11 @@
             + '<button type="submit" class="pub-kazanc-strip-btn pub-kazanc-strip-btn-primary pub-kazanc-system-play" id="pubBetPlayBtn">Sistem Oyna</button>'
             + '<button type="button" class="pub-kazanc-strip-btn" id="pubBetDryBtn">Test (oynama)</button>'
             + '</form>'
+            + betTypeChips(bet.betType)
             + '<div class="pub-kazanc-horse-odds" id="pubHorseOddsPanel">'
             + '<div class="pub-kazanc-horse-odds-hdr pub-kazanc-horse-odds-muted">At seçin — bahis türü oranları burada görünür.</div>'
             + '</div>'
+            + '<div id="pubAutoStepsPanel" class="pub-kazanc-auto-steps-wrap"></div>'
             + (ok ? '<div class="pub-kazanc-strip-ok">' + escapeHtml(ok) + '</div>' : '')
             + (err ? '<div class="pub-kazanc-strip-error">' + escapeHtml(err) + '</div>' : '')
             + '</div>';
@@ -456,6 +481,7 @@
                 return {
                     ok: true,
                     confirmed: polled.data.confirmed !== false,
+                    steps: polled.data.steps,
                     message: msg + ' — ' + horseName + bt + ' · ' + stake + ' TL' + odd
                 };
             } finally {
@@ -480,6 +506,7 @@
             if (!result.ok) updateSystemMessages({ autoError: result.error });
             else {
                 saveAutoState({ betPlaced: true, pipelineComplete: true });
+                if (result.steps) showAutomationSteps(result.steps);
                 updateSystemMessages({
                     autoOk: result.message,
                     warn: result.confirmed === false
@@ -607,10 +634,12 @@
         saveAutoState({ betPlaced: true, pipelineComplete: true });
         if (!betResult.ok) {
             setPipelineHint('Kupon başarısız');
+            if (betResult.steps) showAutomationSteps(betResult.steps);
             updateSystemMessages({ autoError: betResult.error });
             return;
         }
         setPipelineHint('Otomatik akış tamamlandı.');
+        if (betResult.steps) showAutomationSteps(betResult.steps);
         updateSystemMessages({
             autoOk: betResult.message,
             warn: betResult.confirmed === false
