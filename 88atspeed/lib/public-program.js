@@ -59,6 +59,28 @@ function todayTr() {
     return formatTrDate(new Date());
 }
 
+function startOfTrDay(tr) {
+    const d = parseTrDate(tr);
+    if (!d) return null;
+    d.setHours(0, 0, 0, 0);
+    return d;
+}
+
+function compareTrDate(a, b) {
+    const da = startOfTrDay(a);
+    const db = startOfTrDay(b);
+    if (!da || !db) return 0;
+    return da.getTime() - db.getTime();
+}
+
+function isPastTrDate(tarih, ref = todayTr()) {
+    return compareTrDate(tarih, ref) < 0;
+}
+
+function isFutureTrDate(tarih, ref = todayTr()) {
+    return compareTrDate(tarih, ref) > 0;
+}
+
 function normalizeHipodromName(name) {
     return String(name || '').trim().toLocaleLowerCase('tr-TR');
 }
@@ -671,36 +693,99 @@ async function buildPublicProgram(db, tarih, opts = {}) {
     return summary;
 }
 
-function getPublicVitrin(db, tarih) {
-    return new Promise((resolve, reject) => {
+async function archivePastPublicPrograms(db) {
+    const rows = await new Promise((resolve, reject) => {
+        db.all(
+            `SELECT DISTINCT tarih FROM public_gunluk_program WHERE durum = 'yayinda'`,
+            [],
+            (err, r) => (err ? reject(err) : resolve(r || []))
+        );
+    });
+    let archived = 0;
+    for (const row of rows) {
+        if (!isPastTrDate(row.tarih)) continue;
+        const result = await dbRun(
+            db,
+            `UPDATE public_gunluk_program SET durum = 'arsiv' WHERE tarih = ? AND durum = 'yayinda'`,
+            [row.tarih]
+        );
+        archived += result.changes || 0;
+    }
+    if (archived > 0) {
+        console.log('public_gunluk_program: ' + archived + ' geçmiş gün kaydı arşivlendi');
+    }
+    return archived;
+}
+
+async function getPublicVitrin(db, tarih, opts = {}) {
+    if (opts.archivePast !== false) {
+        await archivePastPublicPrograms(db);
+    }
+
+    if (isPastTrDate(tarih)) {
+        return {
+            tarih,
+            hipodromlar: [],
+            yayinli: false,
+            filtered: 'past_date'
+        };
+    }
+
+    const rows = await new Promise((resolve, reject) => {
         const sql = `SELECT tarih, hipodrom_id, hipodrom, kosu_sayisi, ilk_kosu_saat,
             program_json, tahmin_json, durum, cekilme_tarihi, yayin_tarihi
             FROM public_gunluk_program
             WHERE tarih = ? AND durum = 'yayinda'
             ORDER BY hipodrom`;
-        db.all(sql, [tarih], (err, rows) => {
-            if (err) return reject(err);
-            const hipodromlar = (rows || []).map((r) => ({
-                id: r.hipodrom_id,
-                name: r.hipodrom,
-                kosuSayisi: r.kosu_sayisi,
-                ilkKosuSaat: r.ilk_kosu_saat,
-                durum: r.durum,
-                kosular: mergeTahminIntoKosular(
-                    JSON.parse(r.program_json || '[]'),
-                    r.tahmin_json
-                ),
-                tahminler: r.tahmin_json ? JSON.parse(r.tahmin_json) : null,
-                yayinTarihi: r.yayin_tarihi,
-                cekilmeTarihi: r.cekilme_tarihi
-            }));
-            resolve({
-                tarih,
-                hipodromlar,
-                yayinli: hipodromlar.length > 0
-            });
-        });
+        db.all(sql, [tarih], (err, r) => (err ? reject(err) : resolve(r || [])));
     });
+
+    let hipodromlar = (rows || []).map((r) => ({
+        id: r.hipodrom_id,
+        name: r.hipodrom,
+        kosuSayisi: r.kosu_sayisi,
+        ilkKosuSaat: r.ilk_kosu_saat,
+        durum: r.durum,
+        kosular: mergeTahminIntoKosular(
+            JSON.parse(r.program_json || '[]'),
+            r.tahmin_json
+        ),
+        tahminler: r.tahmin_json ? JSON.parse(r.tahmin_json) : null,
+        yayinTarihi: r.yayin_tarihi,
+        cekilmeTarihi: r.cekilme_tarihi
+    }));
+
+    hipodromlar = hipodromlar.filter((h) => (h.kosular || []).length > 0);
+
+    if (opts.tjkValidate !== false) {
+        try {
+            const { hipodromlar: tjkList } = await getTjkHipodromlarCached(tarih, {
+                timeoutMs: opts.timeoutMs || 20000,
+                maxAttempts: opts.maxAttempts || 2
+            });
+            const tjkIds = new Set(
+                (tjkList || [])
+                    .filter((h) => isDomesticHipodrom(h.name))
+                    .map((h) => String(h.id))
+            );
+            if (tjkIds.size > 0) {
+                const before = hipodromlar.length;
+                hipodromlar = hipodromlar.filter((h) => tjkIds.has(String(h.id)));
+                const removed = before - hipodromlar.length;
+                if (removed > 0) {
+                    console.log('vitrin ' + tarih + ': TJK filtresi ile ' + removed + ' fazla hipodrom çıkarıldı');
+                }
+            }
+        } catch (err) {
+            console.warn('getPublicVitrin TJK doğrulama atlandı:', err.message);
+        }
+    }
+
+    return {
+        tarih,
+        hipodromlar,
+        yayinli: hipodromlar.length > 0
+    };
 }
 
 const tjkListCache = new Map();
@@ -1092,6 +1177,10 @@ module.exports = {
     trToIso,
     tomorrowTr,
     todayTr,
+    compareTrDate,
+    isPastTrDate,
+    isFutureTrDate,
+    archivePastPublicPrograms,
     isDomesticHipodrom,
     FALLBACK_HIPODROMS,
     ensureTables,

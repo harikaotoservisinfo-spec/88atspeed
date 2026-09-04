@@ -74,6 +74,23 @@
         return y + '-' + m + '-' + day;
     }
 
+    function localTomorrowIso() {
+        const d = new Date();
+        d.setDate(d.getDate() + 1);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + day;
+    }
+
+    function clampProgramIso(iso) {
+        const today = localTodayIso();
+        const tomorrow = localTomorrowIso();
+        if (!iso || iso < today) return today;
+        if (iso > tomorrow) return tomorrow;
+        return iso;
+    }
+
     function isoToTr(iso) {
         if (!iso) return '';
         const p = iso.split('-');
@@ -169,8 +186,8 @@
         return t.rank + '. %' + t.pct;
     }
 
-    function getTahminScoreColumnDefs() {
-        return [
+    function getTahminScoreColumnDefs(kosular) {
+        const all = [
             { key: 'score_tahmin', scoreKey: 'tahmin', label: 'TAHMİN', cls: 'pub-prog-score pub-prog-score-tahmin', colCls: 'pub-col-score pub-col-score-tahmin', title: '7 BAŞ+ boyut karışımı · dimension-tahmin motoru' },
             { key: 'score_r2', scoreKey: 'r2', label: 'R2', cls: 'pub-prog-score pub-prog-score-r2', colCls: 'pub-col-score pub-col-score-r2', title: 'Renk Puanlama Test · R2' },
             { key: 'score_mtr', scoreKey: 'mtr', label: 'MTR', cls: 'pub-prog-score pub-prog-score-ptest', colCls: 'pub-col-score pub-col-score-ptest', title: 'Metrik Tarama · SON800-1 %10 · T9V %40' },
@@ -181,6 +198,12 @@
             { key: 'score_go', scoreKey: 'go', label: 'GÖ', cls: 'pub-prog-score pub-prog-score-ptest', colCls: 'pub-col-score pub-col-score-ptest', title: 'Gösterge · tam puanlama motoru' },
             { key: 'score_hyb', scoreKey: 'hyb', label: 'HYB', cls: 'pub-prog-score pub-prog-score-ptest', colCls: 'pub-col-score pub-col-score-ptest', title: 'Hibrit TAHMİN' }
         ];
+        const races = Array.isArray(kosular) ? kosular : (kosular?.kosular || []);
+        const horses = races.flatMap((r) => r.horses || []);
+        return all.filter((col) => horses.some((h) => {
+            const t = h.scores?.[col.scoreKey];
+            return t && t.rank != null && t.pct != null && t.pct > 0;
+        }));
     }
 
     function formatTahminPicks(tahminler) {
@@ -261,7 +284,6 @@
         }
         let html = '<div class="pub-program-sync-grid">'
             + renderProgramSyncDay({ ...data.today, label: 'Bugün · ' + (data.today.tarih || '') })
-            + renderProgramSyncDay({ ...data.tomorrow, label: 'Yarın · ' + (data.tomorrow.tarih || '') })
             + '</div>';
         if (data.lastRuns && data.lastRuns.length) {
             const last = data.lastRuns[0];
@@ -289,20 +311,23 @@
     async function loadVitrin(iso) {
         const raceList = $('#pubRaceList');
         const hipTabs = $('#pubHipTabs');
+        const clampedIso = clampProgramIso(iso);
+        const dateInput = $('#pubDateInput');
+        if (dateInput && dateInput.value !== clampedIso) dateInput.value = clampedIso;
         raceList.innerHTML = '<div class="pub-loading"><div class="pub-spinner"></div>Program yükleniyor…</div>';
         hipTabs.innerHTML = '';
 
         try {
             const controller = new AbortController();
             const tid = setTimeout(() => controller.abort(), 30000);
-            const res = await fetch('/api/public/vitrin?iso=' + encodeURIComponent(iso), {
+            const res = await fetch('/api/public/vitrin?iso=' + encodeURIComponent(clampedIso), {
                 signal: controller.signal
             });
             clearTimeout(tid);
             const data = await res.json();
 
-            state.iso = iso;
-            state.tarih = data.tarih || isoToTr(iso);
+            state.iso = clampedIso;
+            state.tarih = data.tarih || isoToTr(clampedIso);
             state.hipodromlar = data.hipodromlar || [];
             state.vitrin = data;
 
@@ -313,11 +338,15 @@
             if (!data.yayinli || !state.hipodromlar.length) {
                 hipTabs.innerHTML = '';
                 $('#pubHipInfo').style.display = 'none';
+                const pastNote = data.filtered === 'past_date'
+                    ? '<p>Geçmiş günlere ait programlar gösterilmez.</p>'
+                    : '';
                 raceList.innerHTML = '<div class="pub-empty">'
                     + '<div class="pub-empty-icon">📅</div>'
                     + '<h3>Program henüz hazır değil</h3>'
                     + '<p>Bu tarih için yayınlanmış program bulunamadı.<br>'
-                    + 'Programlar genellikle bir gün önceden yüklenir.</p>'
+                    + 'Sadece bugün ve yarın koşusu olan hipodromlar listelenir.</p>'
+                    + pastNote
                     + '</div>';
                 renderTahminPanel(null);
                 return;
@@ -652,7 +681,7 @@
         if (takiIdx >= 0) filtered.splice(takiIdx + 1, 0, bltCol, gp2Col);
         else filtered.push(bltCol, gp2Col);
         filtered.push(...getBitalihColumnDefs());
-        filtered.push(...getTahminScoreColumnDefs());
+        filtered.push(...getTahminScoreColumnDefs(kosular));
         const fobCols = getFobColumnDefs();
         if (fobCols.length) filtered.push(...fobCols);
         return filtered;
@@ -2206,10 +2235,16 @@
 
     function initDate() {
         const input = $('#pubDateInput');
-        const iso = localTodayIso();
-        input.value = iso;
+        const today = localTodayIso();
+        const tomorrow = localTomorrowIso();
+        input.min = today;
+        input.max = tomorrow;
+        input.value = today;
+        input.title = 'Sadece bugün ve yarın programları gösterilir';
         input.addEventListener('change', () => {
-            state.iso = input.value;
+            const iso = clampProgramIso(input.value);
+            if (input.value !== iso) input.value = iso;
+            state.iso = iso;
             state.muhtemeller = null;
             state.muhtIso = null;
             state.muhtRaceCache = {};
@@ -2229,12 +2264,12 @@
             state.sonucData = null;
             state.sonucHipId = null;
             state.sonucLastUpdate = null;
-            loadVitrin(input.value);
+            loadVitrin(iso);
             if ($('#panel-muhtemeller')?.classList.contains('active')) {
-                loadMuhtemeller(input.value);
+                loadMuhtemeller(iso);
             }
         });
-        loadVitrin(iso);
+        loadVitrin(today);
         loadProgramSync();
         $('#pubSonucRefresh')?.addEventListener('click', () => refreshSonuclarData({ refresh: true }));
         $('#pubProgramSyncRefresh')?.addEventListener('click', () => {
