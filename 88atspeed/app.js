@@ -10,6 +10,7 @@ const publicProgram = require('./lib/public-program');
 const muhtemellerFetch = require('./lib/muhtemeller-fetch');
 const yenibeygirBlt = require('./lib/yenibeygir-blt');
 const liderformGp = require('./lib/liderform-gp');
+const publicSonuclar = require('./lib/public-sonuclar');
 const tjkTvProxy = require('./lib/tjk-tv-proxy');
 const hipodromAuth = require('./lib/hipodrom-auth');
 const hipodromBet = require('./lib/hipodrom-bet');
@@ -240,6 +241,30 @@ app.get('/api/public/liderform-gp', async (req, res) => {
         res.json(data);
     } catch (err) {
         console.error('public/liderform-gp:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.get('/api/public/sonuclar', async (req, res) => {
+    try {
+        let iso = req.query.iso;
+        const tarih = req.query.tarih;
+        if (!iso && tarih) iso = publicProgram.trToIso(tarih);
+        const hipodrom = req.query.hipodrom || req.query.hip || '';
+        const hipodromId = req.query.hipodromId || req.query.sehirId || '';
+        if (!hipodrom && !hipodromId) {
+            return res.status(400).json({ success: false, error: 'hipodrom parametresi gerekli' });
+        }
+        const data = await publicSonuclar.fetchSonuclarForHipodrom({
+            iso,
+            tarih,
+            hipodrom,
+            hipodromId,
+            refresh: req.query.refresh
+        });
+        res.json(data);
+    } catch (err) {
+        console.error('public/sonuclar:', err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 });

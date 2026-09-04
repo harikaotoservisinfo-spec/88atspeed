@@ -7,7 +7,7 @@
     <title>88 AT SPEED | Günlük Yarış Programı & Tahminler</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@700;800;900&display=swap" rel="stylesheet">
-    <link href="css/public-site.css?v=20260904gp2" rel="stylesheet">
+    <link href="css/public-site.css?v=20260904sonuc" rel="stylesheet">
 </head>
 <body class="pub-body">
     <div class="pub-strip pub-strip-premium">
@@ -230,12 +230,20 @@
 
             <!-- Sonuçlar -->
             <section id="panel-sonuclar" class="pub-tab-panel">
-                <div class="pub-widget">
-                    <div class="pub-widget-hdr">Sonuçlar</div>
-                    <div class="pub-widget-body pub-empty">
+                <div class="pub-sonuc-toolbar">
+                    <div>
+                        <h2 class="pub-sonuc-title">Koşu Sonuçları</h2>
+                        <p id="pubSonucLabel" class="pub-sonuc-label">TJK resmi sonuçları</p>
+                    </div>
+                    <button type="button" class="pub-sonuc-refresh" id="pubSonucRefresh" title="Sonuçları yenile">↻ Yenile</button>
+                </div>
+                <div id="pubSonucHipTabs" class="pub-hip-tabs" role="tablist"></div>
+                <div id="pubSonucHipInfo" class="pub-hip-info" style="display:none"></div>
+                <div id="pubSonucList">
+                    <div class="pub-empty">
                         <div class="pub-empty-icon">🏆</div>
-                        <h3>Koşu sonuçları</h3>
-                        <p>Gün içinde tamamlanan koşuların sonuçları burada yer alacak.</p>
+                        <h3>Sonuçlar</h3>
+                        <p>Günün koşuları yüklendikten sonra TJK sonuçları burada görünür.</p>
                     </div>
                 </div>
             </section>
@@ -303,6 +311,6 @@
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js" crossorigin="anonymous"></script>
     <script src="js/pub-ads.js?v=20260903kazanc"></script>
     <script src="js/pub-kazanc.js?v=20260903kazanc19"></script>
-    <script src="js/public-home.js?v=20260904gp2"></script>
+    <script src="js/public-home.js?v=20260904sonuc"></script>
 </body>
 </html>

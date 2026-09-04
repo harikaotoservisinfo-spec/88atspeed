@@ -862,6 +862,121 @@ async function fetchRaceSonuclari(page, sehirId, sehirAdi, tarih, raceNo) {
     }, String(raceNo));
 }
 
+function parseSonucPageEval() {
+    return function parseSonucPage() {
+        function isKosmazText(text) {
+            if (!text) return false;
+            return /\(\s*koşmaz\s*\)/i.test(text) || /\(\s*kosmaz\s*\)/i.test(text)
+                || /\(\s*çekildi\s*\)/i.test(text) || /^koşmaz$/i.test(String(text).trim());
+        }
+        function parseNameCell(nameCell) {
+            if (!nameCell) return { name: '', taki_badges: [], kosmaz: false };
+            const fullText = nameCell.innerText || '';
+            const link = nameCell.querySelector('a');
+            const name = (link?.innerText || fullText.split('\n')[0] || '')
+                .replace(/\(\s*koşmaz\s*\)/gi, '').replace(/\s+/g, ' ').trim();
+            const badges = [...nameCell.querySelectorAll('span.aciklamaFancy')]
+                .map((s) => s.innerText.trim())
+                .filter((t) => t && t.length <= 6 && /^[A-ZÇĞİÖŞÜ0-9]+$/i.test(t));
+            return { name, taki_badges: badges, kosmaz: isKosmazText(fullText) };
+        }
+
+        const tables = document.querySelectorAll('table');
+        const atTables = [];
+        for (let ti = 0; ti < tables.length; ti++) {
+            const ths = [...tables[ti].querySelectorAll('thead th')].map((x) => x.innerText.trim());
+            if (ths.includes('At İsmi')) atTables.push(tables[ti]);
+        }
+
+        const bt = document.body.innerText || '';
+        const races = [];
+        for (let i = 0; i < atTables.length; i++) {
+            const raceNo = String(i + 1);
+            const hdrRe = new RegExp(raceNo + '\\.\\s*Koşu\\s+\\d+\\.\\d+\\s*\\n([^\\n]+(?:Kum|Çim|Sentetik)[^\\n]*)', 'i');
+            const hdrMatch = bt.match(hdrRe);
+            const raceHeaderLine = hdrMatch ? hdrMatch[1] : '';
+
+            const horses = [];
+            for (const row of atTables[i].querySelectorAll('tbody tr')) {
+                const cells = row.querySelectorAll('td');
+                if (!cells.length) continue;
+                const sira = row.querySelector('td:nth-child(2)')?.innerText?.trim() || '';
+                const no = row.querySelector('td:nth-child(1)')?.innerText?.trim() || '';
+                const nameCell = row.querySelector('td:nth-child(3)');
+                if (!nameCell) continue;
+                const parsed = parseNameCell(nameCell);
+                const link = nameCell.querySelector('a');
+                let atId = '';
+                const href = link?.getAttribute('href') || '';
+                const m = href.match(/AtId=(\d+)/);
+                if (m) atId = m[1];
+                const derece = row.querySelector('td:nth-child(10)')?.innerText?.trim() || '';
+                const kosmaz = parsed.kosmaz || /^koşmaz$/i.test(derece);
+                const horse = {
+                    sira,
+                    no,
+                    name: parsed.name || link?.innerText?.trim() || '',
+                    atId,
+                    yas: row.querySelector('td:nth-child(4)')?.innerText?.trim() || '',
+                    jokey: row.querySelector('td:nth-child(5)')?.innerText?.trim() || '',
+                    siklet: row.querySelector('td:nth-child(6)')?.innerText?.trim() || '',
+                    derece: kosmaz ? 'Koşmaz' : derece,
+                    gny: row.querySelector('td:nth-child(11)')?.innerText?.trim() || '',
+                    hp: row.querySelector('td:nth-child(16)')?.innerText?.trim() || '',
+                    taki: parsed.taki_badges.join(' '),
+                    kosmaz
+                };
+                if (horse.name || horse.sira) horses.push(horse);
+            }
+
+            if (horses.length) {
+                races.push({
+                    raceNo,
+                    raceHeaderLine,
+                    horses,
+                    horseCount: horses.length
+                });
+            }
+        }
+
+        return { races, raceCount: races.length };
+    };
+}
+
+async function fetchHipodromSonuclari(page, sehirId, sehirAdi, tarih, opts = {}) {
+    const url = 'https://www.tjk.org/TR/YarisSever/Info/Sehir/GunlukYarisSonuclari?SehirId=' + sehirId
+        + '&QueryParameter_Tarih=' + encodeURIComponent(tarih)
+        + '&SehirAdi=' + encodeURIComponent(sehirAdi) + '&Era=lastWeek';
+    await gotoWithHeaders(page, url);
+    try {
+        await page.waitForSelector('.gunluk-tabs, table.tablesorter, table thead th', { timeout: opts.waitMs || 20000 });
+    } catch (_) { /* sayfa yavaş */ }
+    try {
+        await page.waitForFunction(
+            () => {
+                const tables = document.querySelectorAll('table');
+                for (const table of tables) {
+                    const ths = [...table.querySelectorAll('thead th')].map((x) => x.innerText.trim());
+                    if (ths.includes('At İsmi') && table.querySelectorAll('tbody tr').length) return true;
+                }
+                return false;
+            },
+            { timeout: opts.waitMs || 25000, polling: 500 }
+        );
+    } catch (_) { /* henüz sonuç yok */ }
+
+    const parsed = await page.evaluate(parseSonucPageEval());
+    return {
+        url,
+        sehirId: String(sehirId),
+        sehirAdi,
+        tarih,
+        hasResults: parsed.raceCount > 0,
+        races: parsed.races,
+        raceCount: parsed.raceCount
+    };
+}
+
 module.exports = {
     KOSU_KRITIK,
     KOSU_TUM_ALANLAR,
@@ -883,5 +998,7 @@ module.exports = {
     evaluateKosuKayit,
     mergeKosuRetry,
     fetchAtKosularFromPage,
-    fetchRaceSonuclari
+    fetchRaceSonuclari,
+    fetchHipodromSonuclari,
+    parseSonucPageEval
 };

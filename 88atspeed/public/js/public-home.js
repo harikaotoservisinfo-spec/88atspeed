@@ -27,19 +27,25 @@
         progBltData: null,
         progBltHipId: null,
         progGpData: null,
-        progGpHipId: null
+        progGpHipId: null,
+        sonucData: null,
+        sonucHipId: null,
+        sonucLastUpdate: null,
+        sonucLoading: false
     };
 
     const MUHT_REFRESH_SEC = 15;
     const PROG_GANYAN_REFRESH_SEC = 15;
     const PROG_BLT_REFRESH_SEC = 300;
     const PROG_GP_REFRESH_SEC = 300;
+    const SONUC_REFRESH_SEC = 120;
     const MUHT_SELECT_RESET_MS = 30000;
     const MUHT_RACE_ADVANCE_MS = 3 * 60 * 1000;
     const TJK_TV_DIRECT = 'https://tjktv-live.tjk.org/tjktv/tjktv.m3u8';
     const TJK_TV_PROXY = '/api/public/tjk-tv?f=tjktv.m3u8';
     let muhtPollTimer = null;
     let progGanyanPollTimer = null;
+    let sonucPollTimer = null;
     let muhtSelectTimer = null;
     let tjkTvLoaded = false;
     let tjkHls = null;
@@ -289,6 +295,7 @@
             }
 
             renderHipodromTabs();
+            renderSonucHipTabs();
             const first = state.hipodromlar[0];
             selectHipodrom(first.id);
             renderTahminAll();
@@ -716,6 +723,199 @@
         }
     }
 
+    function renderSonucHipTabs() {
+        const el = $('#pubSonucHipTabs');
+        if (!el) return;
+        if (!state.hipodromlar.length) {
+            el.innerHTML = '';
+            return;
+        }
+        const activeId = state.sonucHipId && state.hipodromlar.some((h) => h.id === state.sonucHipId)
+            ? state.sonucHipId
+            : state.activeHipId || state.hipodromlar[0].id;
+        el.innerHTML = state.hipodromlar.map((h) => {
+            const saat = h.ilkKosuSaat ? '1. Koşu — ' + h.ilkKosuSaat : h.kosuSayisi + ' koşu';
+            return '<button type="button" class="pub-hip-tab' + (h.id === activeId ? ' active' : '') + '" data-id="' + escapeHtml(h.id) + '" role="tab">'
+                + escapeHtml(h.name) + '<small>' + escapeHtml(saat) + '</small></button>';
+        }).join('');
+        el.querySelectorAll('.pub-hip-tab').forEach((btn) => {
+            btn.addEventListener('click', () => selectSonucHip(btn.dataset.id));
+        });
+    }
+
+    function selectSonucHip(id) {
+        state.sonucHipId = id;
+        $$('#pubSonucHipTabs .pub-hip-tab').forEach((t) => t.classList.toggle('active', t.dataset.id === id));
+        const hip = state.hipodromlar.find((h) => h.id === id);
+        if (!hip) return;
+
+        const info = $('#pubSonucHipInfo');
+        if (info) {
+            info.style.display = 'flex';
+            info.innerHTML = '<strong>' + escapeHtml(hip.name) + ' Hipodromu</strong>'
+                + '<span class="pub-weather"><span>🏇 ' + hip.kosuSayisi + ' koşu</span>'
+                + (hip.ilkKosuSaat ? '<span>⏰ İlk koşu ' + escapeHtml(hip.ilkKosuSaat) + '</span>' : '')
+                + '</span>';
+        }
+
+        if (state.sonucData && state.sonucHipId === id && !state.sonucLoading) {
+            renderSonuclarList(hip, state.sonucData);
+        } else {
+            refreshSonuclarData();
+        }
+    }
+
+    function formatSonucRaceHeader(race, progRace) {
+        if (progRace) return formatProgramRaceHeader(progRace);
+        const title = race.raceNo + '. Koşu';
+        const meta = race.raceHeaderLine || '';
+        return { title, meta };
+    }
+
+    function renderSonuclarList(hip, data) {
+        const el = $('#pubSonucList');
+        const label = $('#pubSonucLabel');
+        if (!el) return;
+
+        const progRaces = hip?.kosular || [];
+
+        if (label) {
+            const parts = [];
+            if (state.tarih) parts.push(trToDisplay(state.tarih));
+            if (data?.raceCount) parts.push(data.raceCount + ' koşu sonuçlandı');
+            else parts.push('henüz sonuç yok');
+            if (state.sonucLastUpdate) {
+                parts.push('güncelleme ' + new Date(state.sonucLastUpdate).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }));
+            }
+            label.textContent = parts.join(' · ');
+        }
+
+        if (!data?.hasResults) {
+            el.innerHTML = '<div class="pub-empty">'
+                + '<div class="pub-empty-icon">⏳</div>'
+                + '<h3>Henüz sonuç yok</h3>'
+                + '<p>' + escapeHtml(data?.message || 'Koşular tamamlandıkça sonuçlar burada görünecek.') + '</p>'
+                + '</div>';
+            return;
+        }
+
+        const races = data.races || [];
+        el.innerHTML = '<div class="pub-program-list">' + races.map((race) => {
+            const progRace = progRaces.find((r) => String(r.raceNo) === String(race.raceNo));
+            const hdr = formatSonucRaceHeader(race, progRace);
+            const surfaceClass = progRace ? getRaceSurfaceClass(progRace) : getRaceSurfaceClass({ pist: race.raceHeaderLine });
+            const horses = race.horses || [];
+            const head = '<th>S</th><th>No</th><th>At</th><th>Derece</th><th>Gny</th><th>HP</th><th>Jokey</th>';
+            const body = horses.map((h) => {
+                let cls = 'pub-sonuc-row';
+                if (String(h.sira) === '1') cls += ' pub-sonuc-winner';
+                if (h.kosmaz) cls += ' pub-sonuc-kosmaz';
+                return '<tr class="' + cls + '">'
+                    + '<td class="pub-sonuc-sira">' + escapeHtml(h.sira || '—') + '</td>'
+                    + '<td class="pub-sonuc-no">' + escapeHtml(h.no || '—') + '</td>'
+                    + '<td class="pub-sonuc-at">' + escapeHtml(h.name || '—') + '</td>'
+                    + '<td class="pub-sonuc-derece">' + escapeHtml(h.derece || '—') + '</td>'
+                    + '<td class="pub-sonuc-gny">' + escapeHtml(h.gny || '—') + '</td>'
+                    + '<td class="pub-sonuc-hp">' + escapeHtml(h.hp || '—') + '</td>'
+                    + '<td class="pub-sonuc-jokey">' + escapeHtml(h.jokey || '—') + '</td>'
+                    + '</tr>';
+            }).join('');
+
+            const metaHtml = hdr.meta
+                ? '<span class="pub-program-race-meta">' + escapeHtml(hdr.meta) + '</span>'
+                : '';
+
+            return '<section class="pub-program-race pub-sonuc-race" data-race="' + race.raceNo + '">'
+                + '<div class="pub-program-race-hdr' + (surfaceClass ? ' ' + surfaceClass : '') + '">'
+                + '<span class="pub-program-race-title">' + escapeHtml(hdr.title) + '</span>'
+                + metaHtml
+                + '</div>'
+                + '<div class="pub-program-table-wrap">'
+                + '<table class="pub-program-table pub-sonuc-table"><thead><tr>' + head + '</tr></thead><tbody>'
+                + body + '</tbody></table>'
+                + '</div></section>';
+        }).join('') + '</div>';
+    }
+
+    async function refreshSonuclarData(opts = {}) {
+        const iso = state.iso || localTodayIso();
+        const hipId = state.sonucHipId || state.activeHipId;
+        const hip = state.hipodromlar.find((h) => h.id === hipId);
+        const el = $('#pubSonucList');
+        if (!hip || !$('#panel-sonuclar')?.classList.contains('active')) return;
+
+        if (state.sonucLoading && !opts.refresh) return;
+        state.sonucLoading = true;
+        if (el && (!state.sonucData || opts.refresh)) {
+            el.innerHTML = '<div class="pub-loading"><div class="pub-spinner"></div>Sonuçlar yükleniyor…</div>';
+        }
+
+        try {
+            const controller = new AbortController();
+            const tid = setTimeout(() => controller.abort(), 90000);
+            const res = await fetch(
+                '/api/public/sonuclar?iso=' + encodeURIComponent(iso)
+                + '&hipodrom=' + encodeURIComponent(hip.name)
+                + '&hipodromId=' + encodeURIComponent(hip.id)
+                + (opts.refresh ? '&refresh=1' : ''),
+                { signal: controller.signal }
+            );
+            clearTimeout(tid);
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Sonuç alınamadı');
+            state.sonucData = data;
+            state.sonucHipId = hip.id;
+            state.sonucLastUpdate = Date.now();
+            renderSonuclarList(hip, data);
+        } catch (err) {
+            if (el) {
+                el.innerHTML = '<div class="pub-empty">'
+                    + '<div class="pub-empty-icon">⚠️</div>'
+                    + '<h3>Sonuç yüklenemedi</h3>'
+                    + '<p>' + escapeHtml(err.message || 'Bağlantı hatası') + '</p>'
+                    + '</div>';
+            }
+        } finally {
+            state.sonucLoading = false;
+        }
+    }
+
+    function startSonucPolling() {
+        stopSonucPolling();
+        if (!$('#panel-sonuclar')?.classList.contains('active')) return;
+        let countdown = SONUC_REFRESH_SEC;
+        sonucPollTimer = setInterval(() => {
+            if (document.hidden) return;
+            if (!$('#panel-sonuclar')?.classList.contains('active')) return;
+            countdown -= 1;
+            if (countdown <= 0) {
+                countdown = SONUC_REFRESH_SEC;
+                refreshSonuclarData({ refresh: true });
+            }
+        }, 1000);
+    }
+
+    function stopSonucPolling() {
+        if (sonucPollTimer) {
+            clearInterval(sonucPollTimer);
+            sonucPollTimer = null;
+        }
+    }
+
+    function initSonuclarPanel() {
+        if (!state.hipodromlar.length) {
+            const list = $('#pubSonucList');
+            if (list) {
+                list.innerHTML = '<div class="pub-empty"><div class="pub-empty-icon">📅</div><h3>Program yok</h3><p>Önce günün programını yükleyin.</p></div>';
+            }
+            return;
+        }
+        renderSonucHipTabs();
+        const hipId = state.sonucHipId || state.activeHipId || state.hipodromlar[0].id;
+        selectSonucHip(hipId);
+        startSonucPolling();
+    }
+
     function renderRaceList(hip) {
         const el = $('#pubRaceList');
         const kosular = hip.kosular || [];
@@ -908,6 +1108,7 @@
         } else {
             stopMuhtPolling();
             pauseTjkTv();
+            stopSonucPolling();
             if (panelId === 'kosular') {
                 refreshProgramGanyanOdds();
                 refreshProgramBltData();
@@ -915,6 +1116,9 @@
                 startProgramGanyanPolling();
             } else {
                 stopProgramGanyanPolling();
+            }
+            if (panelId === 'sonuclar') {
+                initSonuclarPanel();
             }
         }
         if (panelId === 'kazanc') {
@@ -1681,6 +1885,9 @@
             state.progBltHipId = null;
             state.progGpData = null;
             state.progGpHipId = null;
+            state.sonucData = null;
+            state.sonucHipId = null;
+            state.sonucLastUpdate = null;
             loadVitrin(input.value);
             if ($('#panel-muhtemeller')?.classList.contains('active')) {
                 loadMuhtemeller(input.value);
@@ -1688,6 +1895,7 @@
         });
         loadVitrin(iso);
         loadProgramSync();
+        $('#pubSonucRefresh')?.addEventListener('click', () => refreshSonuclarData({ refresh: true }));
         $('#pubProgramSyncRefresh')?.addEventListener('click', () => {
             const body = $('#pubProgramSyncBody');
             if (body) body.innerHTML = '<div class="pub-loading pub-program-sync-loading"><div class="pub-spinner"></div> Durum kontrol ediliyor…</div>';
