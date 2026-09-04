@@ -726,7 +726,7 @@
     <script src="js/ptest-gosterge-engine.js?v=20260831z"></script>
     <script src="js/ptest-gosterge-depth-engine.js?v=20260831z"></script>
     <script src="js/ptest-color-gosterge-export.js?v=20260831z"></script>
-    <script src="js/gosterge-scoring-engine.js?v=20260903bundle"></script>
+    <script src="js/gosterge-scoring-engine.js?v=20260904calib"></script>
     <script src="js/basari-pct-scoring-engine.js?v=20260903bundle"></script>
     <script src="js/ptest-field-factor-engine.js?v=20260901a"></script>
     <script src="js/ptest-field-adaptive-engine.js?v=20260901a"></script>
@@ -1253,6 +1253,9 @@
                 statusDiv.innerHTML = '<div class="status status-loading">⏳ PUANLAMA TEST skorları arka planda hazırlanıyor…</div>';
             }
             sharedTestCalibrationPromise = AtestSonPtestTahmin.ensureCalibration()
+                .then(function() {
+                    return AtestSonPtestTahmin.ensureHybridAndG1Calibration();
+                })
                 .then(function(ok) {
                     sharedTestCalibrationPromise = null;
                     return !!ok;
@@ -1299,7 +1302,19 @@
 
                     if (!isFullyTestCalibrated()
                         && typeof AtestSonPtestTahmin !== 'undefined') {
-                        statusDiv.innerHTML = '<div class="status status-loading">⏳ HYB skoru hazırlanıyor…</div>';
+                        statusDiv.innerHTML = '<div class="status status-loading">⏳ HYB · G1 skoru hazırlanıyor…</div>';
+                        await AtestSonPtestTahmin.ensureHybridAndG1Calibration();
+                        if (testTabsMetaKey(currentSonTestMeta) === mk) {
+                            await refreshSonTestIfCurrent(meta);
+                        }
+                    }
+
+                    if (!isFullyTestCalibrated()
+                        && typeof GostergeScoringEngine !== 'undefined'
+                        && !GostergeScoringEngine.isCalibrated?.()
+                        && typeof AtestSonPtestTahmin !== 'undefined') {
+                        statusDiv.innerHTML = '<div class="status status-loading">⏳ GÖ · MTR kalibrasyonu (yedek)…</div>';
+                        await AtestSonPtestTahmin.ensureCalibration();
                         await AtestSonPtestTahmin.ensureHybridAndG1Calibration();
                         if (testTabsMetaKey(currentSonTestMeta) === mk) {
                             await refreshSonTestIfCurrent(meta);
@@ -1737,10 +1752,6 @@
             let renkCalibrated = false;
             let renkScenarioCols = [];
             let ptestCols = [];
-            const gostergeReady = typeof AtestSonPtestTahmin !== 'undefined'
-                && AtestSonPtestTahmin.isGostergeReady?.();
-            const hybridReady = typeof AtestSonPtestTahmin !== 'undefined'
-                && AtestSonPtestTahmin.isHybridReady?.();
             function ptestColReady(colId) {
                 return typeof AtestSonPtestTahmin !== 'undefined'
                     && AtestSonPtestTahmin.isColumnReady?.(colId);
@@ -1752,16 +1763,29 @@
             if (typeof AtestSonPtestTahmin !== 'undefined') {
                 if (!opts.skipCalibration) {
                     await AtestSonPtestTahmin.ensureCalibration();
+                    await AtestSonPtestTahmin.ensureHybridAndG1Calibration();
+                } else if (!AtestSonPtestTahmin.isGostergeReady?.()) {
+                    await AtestSonPtestTahmin.ensureCalibration();
+                } else if (!AtestSonPtestTahmin.isHybridReady?.()
+                    || !AtestSonGosterge1Tahmin?.isCalibrated?.()) {
+                    await AtestSonPtestTahmin.ensureHybridAndG1Calibration();
                 }
                 ptestCols = AtestSonPtestTahmin.getColumns();
             }
             if (typeof AtestSonRenkTahmin !== 'undefined') {
+                if (!opts.skipCalibration && !GostergeScoringEngine?.isCalibrated?.()) {
+                    await AtestSonRenkTahmin.ensureCalibration();
+                }
                 renkCalibrated = typeof GostergeScoringEngine !== 'undefined'
                     && GostergeScoringEngine.isCalibrated?.();
                 if (renkCalibrated) {
                     renkScenarioCols = AtestSonRenkTahmin.getScenarioColumns();
                 }
             }
+            const gostergeReady = typeof AtestSonPtestTahmin !== 'undefined'
+                && AtestSonPtestTahmin.isGostergeReady?.();
+            const hybridReady = typeof AtestSonPtestTahmin !== 'undefined'
+                && AtestSonPtestTahmin.isHybridReady?.();
             const ptestScoreReady = gostergeReady || hybridReady;
             const extraTahminColCount = renkScenarioCols.length + ptestCols.length;
             const gosColCount = typeof AtestSonGosterimCols !== 'undefined'

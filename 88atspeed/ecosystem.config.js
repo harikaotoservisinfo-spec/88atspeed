@@ -24,6 +24,7 @@ module.exports = {
       ...CHROME_ENV,
       PORT: 3023,
       HOST: '0.0.0.0',
+      WARM_CALIBRATION: '1',
       ADMIN_PASSWORD: 'yonetim2026',
       ADMIN_SESSION_SECRET: 'production-degistirin-guclu-bir-anahtar'
     }

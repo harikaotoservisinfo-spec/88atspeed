@@ -1971,7 +1971,11 @@ const GostergeScoringEngine = (function () {
                 if (typeof AtestSonRenkTahmin !== 'undefined') {
                     AtestSonRenkTahmin.onBundleLoaded?.();
                 }
-                return isCalibrated();
+                return !!(isCalibrated()
+                    && (typeof HybridTahminScoringEngine === 'undefined'
+                        || HybridTahminScoringEngine.isCalibrated?.())
+                    && (typeof AtestSonGosterge1Tahmin === 'undefined'
+                        || AtestSonGosterge1Tahmin.isCalibrated?.()));
             } catch (err) {
                 console.warn('loadSharedCalibrationBundle', err);
                 sharedBundlePromise = null;
