@@ -1,11 +1,22 @@
 #!/bin/bash
-# Sunucuda çalıştırın: bash /var/www/88atspeed/deploy/update-on-server.sh [branch]
+# Sunucuda çalıştırın: bash /var/www/88atspeed/deploy/update-on-server.sh [branch] [--skip-npm]
 set -euo pipefail
 
 APP_DIR="/var/www/88atspeed"
 BRANCH="${1:-cursor/t1dr-test1-go-hyb-b944}"
+SKIP_NPM=0
+for arg in "$@"; do
+  if [ "$arg" = "--skip-npm" ]; then SKIP_NPM=1; fi
+done
+if [ "${1:-}" = "--skip-npm" ]; then BRANCH="cursor/t1dr-test1-go-hyb-b944"; fi
 REPO="https://github.com/harikaotoservisinfo-spec/88atspeed.git"
 TMP="/tmp/88atspeed-deploy-$$"
+
+modules_ok() {
+  [ -f "$APP_DIR/node_modules/express/package.json" ] \
+    && [ -f "$APP_DIR/node_modules/sqlite3/package.json" ] \
+    && [ -f "$APP_DIR/node_modules/cheerio/package.json" ]
+}
 
 echo "=== 88ATSPEED güncelleme (branch: $BRANCH) ==="
 
@@ -34,25 +45,38 @@ rm -rf "$TMP"
 
 cd "$APP_DIR"
 
-# Sadece package-lock değiştiyse npm install (puppeteer/sqlite3 uzun sürebilir)
 LOCK_HASH="$(sha256sum package-lock.json 2>/dev/null | awk '{print $1}')"
 LOCK_STAMP="$APP_DIR/.deploy-package-lock.sha256"
-NEED_NPM=1
-if [ -f "$LOCK_STAMP" ] && [ -f node_modules/express/package.json ] && [ -f node_modules/sqlite3/package.json ]; then
+NEED_NPM=0
+
+if [ "$SKIP_NPM" = "1" ]; then
+  echo "📦 --skip-npm: npm install atlandı"
+elif ! modules_ok; then
+  NEED_NPM=1
+  echo "📦 node_modules eksik — npm install gerekli"
+else
   OLD_HASH="$(cat "$LOCK_STAMP" 2>/dev/null || true)"
-  if [ "$LOCK_HASH" = "$OLD_HASH" ]; then
-    NEED_NPM=0
+  if [ -z "$OLD_HASH" ]; then
+    echo "📦 node_modules mevcut — ilk stamp oluşturuluyor, npm atlandı"
+    echo "$LOCK_HASH" > "$LOCK_STAMP"
+  elif [ "$LOCK_HASH" != "$OLD_HASH" ]; then
+    NEED_NPM=1
+    echo "📦 package-lock değişti — npm install gerekli"
+  else
     echo "📦 node_modules güncel (package-lock değişmedi) — npm install atlandı"
   fi
 fi
 
 if [ "$NEED_NPM" = "1" ]; then
-  echo "📦 npm install başlıyor (puppeteer indirilmez, 2-5 dk sürebilir)..."
+  echo "📦 npm install başlıyor (--ignore-scripts, puppeteer indirilmez)..."
   export PUPPETEER_SKIP_DOWNLOAD=1
   export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1
   export PUPPETEER_EXECUTABLE_PATH="${PUPPETEER_EXECUTABLE_PATH:-/usr/bin/google-chrome-stable}"
-  npm install --production --no-audit --prefer-offline --loglevel=error
-  npm rebuild sqlite3 --loglevel=error
+  npm install --production --no-audit --ignore-scripts --loglevel=error
+  if ! node -e "require('sqlite3')" 2>/dev/null; then
+    echo "📦 sqlite3 native modülü derleniyor..."
+    npm rebuild sqlite3 --loglevel=error
+  fi
   echo "$LOCK_HASH" > "$LOCK_STAMP"
 fi
 
