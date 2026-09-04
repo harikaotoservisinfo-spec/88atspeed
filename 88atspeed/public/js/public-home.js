@@ -344,6 +344,7 @@
             { key: 'yas', label: 'Yaş', cls: 'pub-prog-yas' },
             { key: 'siklet', label: 'Sıklet', cls: 'pub-prog-siklet' },
             { key: 'hp', label: 'HP', cls: 'pub-prog-hp' },
+            { key: 'jokey', label: 'Jokey', cls: 'pub-prog-jokey' },
             { key: 'taki', label: 'Takı', cls: 'pub-prog-taki' }
         ];
         return cols.filter((c) => c.always || has(c.key));

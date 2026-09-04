@@ -3,6 +3,7 @@
  */
 const cheerio = require('cheerio');
 const tjkScrape = require('./tjk-scrape');
+const hipodromProgram = require('./hipodrom-program');
 const { mergeTahminIntoKosular } = require('./public-tahmin-build');
 
 const DOMESTIC_HINT = /(ankara|izmir|istanbul|bursa|adana|elaz|diyarbak|kocaeli|antalya|şanlıurfa|urfa|karma)/i;
@@ -106,6 +107,10 @@ function racesToHesaplamaVeri(races) {
             siklet: h.siklet || '',
             hp: h.hp || '',
             taki: h.taki || '',
+            jokey: h.jokey || '',
+            antrenor: h.antrenor || '',
+            sahip: h.sahip || '',
+            start: h.start || '',
             kosular: Array.isArray(h.kosular) ? h.kosular : []
         }))
     }));
@@ -403,7 +408,94 @@ function saveProgramRow(db, row) {
     });
 }
 
+async function buildPublicProgramFromHipodrom(db, tarih, opts = {}) {
+    await ensureTables(db);
+    const publish = opts.publish !== false;
+    const fetchOpts = {
+        timeoutMs: opts.timeoutMs || 30000,
+        hipDelayMs: opts.hipDelayMs ?? 400,
+        onlyDomestic: opts.onlyDomestic !== false
+    };
+
+    const { programs, errors } = await hipodromProgram.fetchProgramsForDate(tarih, fetchOpts);
+    const results = [];
+
+    for (const prog of programs) {
+        try {
+            const row = {
+                tarih,
+                hipodromId: prog.hipodromId,
+                hipodrom: prog.hipodrom,
+                kosuSayisi: prog.kosuSayisi,
+                races: prog.races,
+                durum: publish ? 'yayinda' : 'taslak'
+            };
+            await saveProgramRow(db, row);
+            let hesaplamaSync = null;
+            if (opts.syncHesaplama !== false) {
+                try {
+                    hesaplamaSync = await syncProgramToHesaplamaKayit(db, row);
+                } catch (syncErr) {
+                    console.warn('  ⚠ hesaplama sync:', prog.hipodrom, syncErr.message);
+                }
+            }
+            results.push({
+                hipodrom: prog.hipodrom,
+                kosuSayisi: prog.kosuSayisi,
+                raceApiId: prog.raceApiId,
+                hesaplamaId: hesaplamaSync?.id || null,
+                hesaplamaUpdated: !!hesaplamaSync?.updated,
+                ok: true
+            });
+            console.log('  ✓', prog.hipodrom, '—', prog.kosuSayisi, 'koşu'
+                + (hesaplamaSync ? ' · hesaplama #' + hesaplamaSync.id : ''));
+        } catch (err) {
+            results.push({ hipodrom: prog.hipodrom, ok: false, error: err.message });
+            console.warn('  ✗', prog.hipodrom, '—', err.message);
+        }
+    }
+
+    for (const errRow of errors) {
+        results.push({
+            hipodrom: errRow.hipodrom,
+            ok: false,
+            error: errRow.error,
+            raceApiId: errRow.raceId
+        });
+        console.warn('  ✗', errRow.hipodrom, '—', errRow.error);
+    }
+
+    const okCount = results.filter((r) => r.ok).length;
+    const summary = {
+        tarih,
+        hipodromKaynagi: 'hipodrom.com',
+        hipodromSayisi: programs.length + errors.length,
+        basarili: okCount,
+        results
+    };
+
+    if (opts.log !== false) {
+        try {
+            await logFetchRun(db, {
+                tarih,
+                trigger: opts.trigger || 'hipodrom-api',
+                hipodromSayisi: summary.hipodromSayisi,
+                basarili: okCount,
+                results,
+                ok: okCount > 0
+            });
+        } catch (err) {
+            console.warn('program fetch log:', err.message);
+        }
+    }
+
+    return summary;
+}
+
 async function buildPublicProgram(db, tarih, opts = {}) {
+    if (opts.source === 'hipodrom' || opts.source === 'hipodrom.com') {
+        return buildPublicProgramFromHipodrom(db, tarih, opts);
+    }
     await ensureTables(db);
     const onlyDomestic = opts.onlyDomestic !== false;
     const publish = opts.publish !== false;
@@ -864,6 +956,7 @@ module.exports = {
     FALLBACK_HIPODROMS,
     ensureTables,
     buildPublicProgram,
+    buildPublicProgramFromHipodrom,
     getPublicVitrin,
     fetchHipodromProgram,
     resolveHipodromList,

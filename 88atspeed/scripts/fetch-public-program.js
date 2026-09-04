@@ -11,11 +11,14 @@ const publicProgram = require('../lib/public-program');
 const args = process.argv.slice(2);
 let tarih = publicProgram.tomorrowTr();
 let hipodromFilter = null;
+let source = 'hipodrom';
 
 for (let i = 0; i < args.length; i++) {
     if (args[i] === '--tarih' && args[i + 1]) tarih = args[i + 1];
     if (args[i] === '--bugun') tarih = publicProgram.todayTr();
     if (args[i] === '--hipodrom' && args[i + 1]) hipodromFilter = args[i + 1];
+    if (args[i] === '--source' && args[i + 1]) source = args[i + 1];
+    if (args[i] === '--tjk') source = 'tjk';
 }
 
 const db = new sqlite3.Database('atlar.db');
@@ -23,13 +26,14 @@ const db = new sqlite3.Database('atlar.db');
 const opts = {
     onlyDomestic: true,
     publish: true,
+    source,
     timeoutMs: 90000,
     maxAttempts: 5,
-    hipDelayMs: 3000
+    hipDelayMs: source === 'hipodrom' ? 400 : 3000
 };
 
 (async function main() {
-    console.log('📡 Kamu programı çekiliyor:', tarih);
+    console.log('📡 Kamu programı çekiliyor:', tarih, '· kaynak:', source);
     const startedAt = new Date().toISOString();
     if (hipodromFilter) {
         const hip = publicProgram.FALLBACK_HIPODROMS.find((h) =>
