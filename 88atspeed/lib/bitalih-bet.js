@@ -5,6 +5,8 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const bitalihAuth = require('./bitalih-auth');
+const bitalihFob = require('./bitalih-fob');
+const bitalihAutoConfig = require('./bitalih-auto-config');
 const {
     withPage,
     DATA_DIR,
@@ -237,14 +239,16 @@ function buildFixoRaceUrl(raceNo, betType) {
 
 async function selectHipodrom(page, city) {
     const ok = await page.evaluate((cityName) => {
-        const nodes = [...document.querySelectorAll('div.cursor-pointer, button, a, li, span')];
-        const el = nodes.find((n) => {
-            const t = (n.textContent || '').trim();
-            return t === cityName || t.startsWith(cityName);
-        });
-        if (!el) return false;
-        el.click();
-        return true;
+        const tabs = [...document.querySelectorAll('div.cursor-pointer, button, a')];
+        for (const el of tabs) {
+            const t = (el.textContent || '').trim();
+            if (t.length > 40) continue;
+            if (t === cityName || t.startsWith(cityName + '​') || t.startsWith(cityName + ' ')) {
+                el.click();
+                return true;
+            }
+        }
+        return false;
     }, city);
     if (!ok) {
         const cityPattern = city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -253,38 +257,106 @@ async function selectHipodrom(page, city) {
     return true;
 }
 
-async function clickHorseOdds(page, horseName, betType) {
-    return page.evaluate((name, type) => {
-        const row = [...document.querySelectorAll('tr')].find((r) => new RegExp(name, 'i').test(r.textContent || ''));
-        if (!row) return { ok: false, reason: 'row_not_found' };
+async function waitForRaceTable(page, horseName, horseNo, timeoutMs = 20000) {
+    const nameEsc = horseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    try {
+        await page.waitForFunction((name, no) => {
+            const re = new RegExp(name, 'i');
+            return [...document.querySelectorAll('tr')].some((r) => {
+                if (no) {
+                    const badge = r.querySelector('div[class*="font-bold"][class*="rounded"]');
+                    if (badge && badge.textContent.trim() === String(no)) return true;
+                }
+                return re.test(r.textContent || '');
+            });
+        }, { timeout: timeoutMs, polling: 400 }, nameEsc, horseNo || '');
+    } catch (_) { /* devam */ }
+}
 
-        const oddsBtns = [...row.querySelectorAll('div, button, span')].filter((el) => {
-            const t = (el.textContent || '').replace(/\s+/g, '').trim();
-            if (!/^\d+\.\d+$/.test(t)) return false;
-            const cls = el.className || '';
-            if (el.tagName === 'DIV' && cls.includes('h-8')) return true;
-            if (el.tagName === 'SPAN' && el.parentElement?.className?.includes('h-8')) return true;
-            if (el.tagName === 'BUTTON') return true;
-            return false;
-        });
-
-        const uniq = [];
-        const seen = new Set();
-        for (const el of oddsBtns) {
-            const t = (el.textContent || '').replace(/\s+/g, '').trim();
-            if (seen.has(t)) continue;
-            seen.add(t);
-            uniq.push(el);
+async function resolveHorseNo(city, raceNo, horseName) {
+    try {
+        const data = await bitalihFob.fetchFobForHipodrom({ hipodrom: city });
+        const race = data.races?.[String(raceNo)];
+        if (!race) return null;
+        const target = bitalihFob.normalizeHipName(horseName);
+        for (const col of ['ganyan', 'ilk2', 'ilk3', 'ilk4']) {
+            const byName = race.bets?.[col]?.byName || {};
+            const byNo = race.bets?.[col]?.byNo || {};
+            for (const [nk, odd] of Object.entries(byName)) {
+                if (nk === target || nk.includes(target) || target.includes(nk)) {
+                    for (const [no, o] of Object.entries(byNo)) {
+                        if (String(o) === String(odd)) return no;
+                    }
+                }
+            }
         }
+    } catch (_) { /* */ }
+    return null;
+}
 
+async function clickHorseOdds(page, horseName, betType, horseNo) {
+    const nameEsc = horseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const rowHandle = await page.evaluateHandle((name, no) => {
+        const re = new RegExp(name, 'i');
+        return [...document.querySelectorAll('tr')].find((r) => {
+            if (no) {
+                const badges = [...r.querySelectorAll('div')].filter((d) => {
+                    const cls = d.className || '';
+                    return cls.includes('font-bold') && cls.includes('rounded') && cls.includes('w-6');
+                });
+                if (badges.some((b) => b.textContent.trim() === String(no))) return true;
+            }
+            return re.test(r.textContent || '');
+        }) || null;
+    }, nameEsc, horseNo || '');
+
+    const row = rowHandle.asElement();
+    if (!row) return { ok: false, reason: 'row_not_found' };
+
+    const pick = await page.evaluate((rowEl, type) => {
+        function collectMainOddCellsLocal(r) {
+            const cells = [];
+            const seen = new Set();
+            for (const el of [...r.querySelectorAll('div, button')]) {
+                const cls = el.className || '';
+                const t = (el.textContent || '').replace(/\s+/g, '').trim();
+                if (!/^\d+\.\d+$/.test(t)) continue;
+                const isMain = (cls.includes('h-8') && cls.includes('rounded'))
+                    || (cls.includes('52px') && (cls.includes('rounded') || cls.includes('border')))
+                    || el.tagName === 'BUTTON';
+                if (!isMain) continue;
+                if (seen.has(t)) continue;
+                seen.add(t);
+                cells.push(el);
+            }
+            if (!cells.length) {
+                for (const el of [...r.querySelectorAll('span')]) {
+                    const t = (el.textContent || '').trim();
+                    if (!/^\d+\.\d+$/.test(t)) continue;
+                    const p = el.parentElement;
+                    if (p && (p.className || '').includes('rounded')) {
+                        if (!seen.has(t)) { seen.add(t); cells.push(p); }
+                    }
+                }
+            }
+            return cells;
+        }
+        const cells = collectMainOddCellsLocal(rowEl);
         const idxMap = { ganyan: 0, ilk2: 0, ilk3: 1, ilk4: 2 };
         const idx = idxMap[type] ?? 0;
-        const btn = uniq[idx] || uniq[0];
-        if (!btn) return { ok: false, reason: 'odds_not_found', count: uniq.length };
-        const clickTarget = btn.tagName === 'SPAN' ? (btn.parentElement || btn) : btn;
-        clickTarget.click();
-        return { ok: true, odd: (btn.textContent || '').trim(), index: idx, total: uniq.length };
-    }, horseName, betType);
+        const btn = cells[idx] || cells[0];
+        if (!btn) return { ok: false, reason: 'odds_not_found', count: cells.length };
+        btn.scrollIntoView({ block: 'center', inline: 'center' });
+        btn.click();
+        return {
+            ok: true,
+            odd: (btn.textContent || '').replace(/\s+/g, '').trim(),
+            index: idx,
+            total: cells.length
+        };
+    }, row, betType);
+
+    return pick;
 }
 
 async function setStakeAmount(page, stake) {
@@ -325,9 +397,12 @@ async function placeFixedOddsBetInternal(opts = {}) {
         const session = await ensureLoggedIn(page);
         await page.setViewport({ width: 1920, height: 1080 });
 
+        const autoCfg = bitalihAutoConfig.getAutoConfig();
+        const horseNo = opts.horseNo || autoCfg.bet?.horseNo || await resolveHorseNo(city, raceNo, horseName);
         const raceUrl = buildFixoRaceUrl(raceNo, betType);
-        await page.goto(raceUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
-        await sleep(3000);
+
+        await page.goto(FIXED_ODDS_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await sleep(2000);
         await dismissCookieBanner(page);
 
         if (!await selectHipodrom(page, city)) {
@@ -335,17 +410,28 @@ async function placeFixedOddsBetInternal(opts = {}) {
             err.code = 'city_not_found';
             throw err;
         }
-        await sleep(2000);
-
-        await page.goto(raceUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
         await sleep(2500);
 
-        const horsePick = await clickHorseOdds(page, horseName, betType);
+        await page.goto(raceUrl, { waitUntil: 'networkidle2', timeout: 90000 }).catch(async () => {
+            await page.goto(raceUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        });
+        await sleep(3500);
+        await dismissCookieBanner(page);
+        await waitForRaceTable(page, horseName, horseNo, 25000);
+
+        let horsePick = await clickHorseOdds(page, horseName, betType, horseNo);
+        if (!horsePick?.ok && betType === 'ilk2') {
+            const altUrl = FIXED_ODDS_URL + '#' + raceNo + '-kosu#ilk-2-3-4';
+            await page.goto(altUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+            await sleep(3000);
+            await waitForRaceTable(page, horseName, horseNo, 20000);
+            horsePick = await clickHorseOdds(page, horseName, betType, horseNo);
+        }
         if (!horsePick?.ok) {
             const err = new Error('At veya oran bulunamadı: ' + horseName
                 + (horsePick?.reason ? ' (' + horsePick.reason + ')' : ''));
             err.code = 'horse_not_found';
-            err.detail = horsePick;
+            err.detail = Object.assign({}, horsePick, { horseNo });
             throw err;
         }
         await sleep(1500);
