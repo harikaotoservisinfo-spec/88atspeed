@@ -365,36 +365,28 @@
             return;
         }
 
-        el.innerHTML = hip.kosular.map((race) => {
+        el.innerHTML = '<div class="pub-tahmin-row">' + hip.kosular.map((race) => {
             const tahminler = getRaceTahminler(race);
             const rows = tahminler.length
                 ? tahminler.map((t) => '<tr>'
                     + '<td><span class="pub-tahmin-rank">' + t.rank + '</span></td>'
                     + '<td><strong>' + escapeHtml(t.horseNo) + '</strong></td>'
-                    + '<td>' + escapeHtml(t.horseName) + '</td>'
+                    + '<td class="pub-tahmin-at">' + escapeHtml(t.horseName) + '</td>'
                     + '<td class="pub-tahmin-pct">' + escapeHtml(formatTahminSkor(t)) + '</td>'
-                    + '<td>' + escapeHtml(t.label || '') + '</td>'
                     + '</tr>').join('')
-                : '<tr><td colspan="5" style="text-align:center;color:#888">Tahmin henüz üretilmedi</td></tr>';
+                : '<tr><td colspan="4" style="text-align:center;color:#888">Tahmin henüz üretilmedi</td></tr>';
 
-            const atRows = (race.horses || []).slice(0, 8).map((h) =>
-                '<tr><td>' + escapeHtml(h.no) + '</td><td>' + escapeHtml(h.name) + '</td>'
-                + '<td>' + escapeHtml(h.hp || '—') + '</td><td>' + escapeHtml(h.siklet || '—') + '</td></tr>'
-            ).join('');
+            const hdrMeta = race.mesafe
+                ? ' · ' + escapeHtml(String(race.mesafe) + ' ' + (race.pist || ''))
+                : '';
 
             return '<div class="pub-tahmin-card" data-tahmin-race="' + race.raceNo + '">'
-                + '<div class="pub-tahmin-card-hdr">' + race.raceNo + '. Koşu'
-                + (race.saat ? ' · ' + escapeHtml(race.saat) : '')
-                + (race.mesafe ? ' · ' + escapeHtml(race.mesafe + ' ' + (race.pist || '')) : '')
-                + '</div>'
+                + '<div class="pub-tahmin-card-hdr">' + race.raceNo + '. Koşu' + hdrMeta + '</div>'
                 + '<table class="pub-tahmin-table"><thead><tr>'
-                + '<th>#</th><th>No</th><th>At</th><th>Skor</th><th>Kaynak</th></tr></thead><tbody>'
+                + '<th>#</th><th>No</th><th>At</th><th>Skor</th></tr></thead><tbody>'
                 + rows + '</tbody></table>'
-                + (atRows ? '<div style="padding:8px 16px 12px;font-size:11px;color:#888;font-weight:700">PROGRAM</div>'
-                + '<table class="pub-tahmin-table"><thead><tr><th>No</th><th>At</th><th>HP</th><th>Sıklet</th></tr></thead><tbody>'
-                + atRows + '</tbody></table>' : '')
                 + '</div>';
-        }).join('');
+        }).join('') + '</div>';
     }
 
     function switchTab(panelId) {
