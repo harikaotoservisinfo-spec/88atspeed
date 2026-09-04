@@ -50,11 +50,18 @@ async function enrichRacesWithHorseHistory(races, opts = {}) {
     let browser = null;
     let ownBrowser = false;
 
+    const write = (line) => {
+        if (opts.onLog) opts.onLog(line);
+        else console.log(line);
+    };
+
     if (!page) {
+        write('    🌐 Puppeteer tarayıcı açılıyor…');
         browser = await tjkScrape.launchBrowser();
         page = await browser.newPage();
         await page.setViewport({ width: 1920, height: 1080 });
         ownBrowser = true;
+        write('    ✓ Tarayıcı hazır');
     }
 
     try {
@@ -62,14 +69,17 @@ async function enrichRacesWithHorseHistory(races, opts = {}) {
         for (let i = 0; i < toFetch.length; i++) {
             const { atId, name } = toFetch[i];
             if (i > 0 && delayMs > 0) await sleep(delayMs);
+            const label = (name || atId || '').toString().slice(0, 28);
+            write('    → [' + (i + 1) + '/' + toFetch.length + '] ' + label + ' başlıyor…');
             try {
                 const result = await tjkScrape.fetchAtKosularFromPage(page, atId, name, {
                     maxKosu,
-                    maxRetry: opts.maxRetry ?? 1
+                    maxRetry: opts.maxRetry ?? 1,
+                    onProgress: (msg) => write('      · ' + msg)
                 });
                 cache.set(atId, result.success && result.kosular?.length ? result.kosular : []);
             } catch (err) {
-                console.warn('    ⚠ at', atId, name || '', '—', err.message);
+                write('      ⚠ hata: ' + err.message);
                 cache.set(atId, []);
             }
             const done = i + 1;

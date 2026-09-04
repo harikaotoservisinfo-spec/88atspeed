@@ -614,6 +614,7 @@ async function fetchAtKosularFromPage(page, atId, atAdi, opts = {}) {
     const maxRetry = opts.maxRetry ?? 1;
     const atUrl = 'https://www.tjk.org/TR/YarisSever/Query/ConnectedPage/AtKosuBilgileri?QueryParameter_AtId=' + atId;
     await gotoWithHeaders(page, atUrl);
+    if (opts.onProgress) opts.onProgress('at sayfası yüklendi');
 
     const pageOk = await page.evaluate(() => {
         const title = document.querySelector('h2.tableTitle');

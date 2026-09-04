@@ -59,6 +59,9 @@ case "$CMD" in
     status)
         if tmux has-session -t "$SESSION" 2>/dev/null; then
             echo "ÇALIŞIYOR (tmux: $SESSION)"
+            CHROME_CNT=$(pgrep -c chrome 2>/dev/null || echo 0)
+            NODE_PID=$(pgrep -f "fetch-hesaplama-full.js" 2>/dev/null | head -1 || true)
+            echo "  node PID: ${NODE_PID:-yok} · chrome süreç: $CHROME_CNT"
         else
             echo "ÇALIŞMIYOR"
         fi
