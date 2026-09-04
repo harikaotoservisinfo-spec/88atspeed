@@ -60,8 +60,10 @@ const db = new sqlite3.Database(path.join(__dirname, '..', 'atlar.db'));
         if (ks.missing > 0) {
             const hipArg = hipodromFilter ? (' --hipodrom ' + hipodromFilter) : '';
             const tarihArg = ' --tarih ' + tarih;
+            const appRoot = path.join(__dirname, '..');
+            const dbPath = path.join(appRoot, 'atlar.db');
             console.log('🔧 Eksik atları tamamlamak için (sunucuda):');
-            console.log('   node scripts/repair-missing-kosular.js --db atlar.db' + tarihArg + hipArg + ' --fetch --apply');
+            console.log('   cd ' + appRoot + ' && node scripts/repair-missing-kosular.js --db ' + dbPath + tarihArg + hipArg + ' --fetch --apply');
         }
     }
 
