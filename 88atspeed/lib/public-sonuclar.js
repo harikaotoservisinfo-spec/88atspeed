@@ -3,6 +3,7 @@
  */
 const tjkScrape = require('./tjk-scrape');
 const publicProgram = require('./public-program');
+const sonucStore = require('./public-sonuc-store');
 
 const CACHE_MS = 2 * 60 * 1000;
 const EMPTY_CACHE_MS = 30 * 1000;
@@ -130,7 +131,21 @@ async function scrapeSonuclar(meta) {
                 waitMs: meta.waitMs || 25000
             }
         );
-        return buildResult(parsed, meta);
+        const result = buildResult(parsed, meta);
+        const normalized = sonucStore.normalizeRaceResults(parsed.races);
+        if (meta.db && normalized.length) {
+            const persistInfo = await sonucStore.persistPublicSonuclar(meta.db, {
+                tarih: meta.tarih,
+                hipodrom: meta.hipodrom,
+                sehirId: meta.sehirId,
+                source: 'tjk.org'
+            }, normalized);
+            return sonucStore.applyNormalizedToApiResult(result, normalized, persistInfo);
+        }
+        if (normalized.length) {
+            return sonucStore.applyNormalizedToApiResult(result, normalized, null);
+        }
+        return result;
     } finally {
         try { await page.close(); } catch (_) { /* */ }
     }
@@ -178,7 +193,7 @@ async function fetchSonuclarForHipodrom(opts = {}) {
 
     if (inFlight.has(cacheKey)) return inFlight.get(cacheKey);
 
-    const meta = { tarih, hipodrom, sehirId, expectedRaceCount };
+    const meta = { tarih, hipodrom, sehirId, expectedRaceCount, db: opts.db || null };
     const promise = scrapeSonuclar(meta)
         .then((result) => {
             cache.set(cacheKey, { at: Date.now(), data: result });

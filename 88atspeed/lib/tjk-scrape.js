@@ -899,9 +899,10 @@ async function fetchAtKosularFromPage(page, atId, atAdi, opts = {}) {
 }
 
 async function fetchRaceSonuclari(page, sehirId, sehirAdi, tarih, raceNo) {
+    const era = pickSonucEra(tarih);
     const url = 'https://www.tjk.org/TR/YarisSever/Info/Sehir/GunlukYarisSonuclari?SehirId=' + sehirId
         + '&QueryParameter_Tarih=' + encodeURIComponent(tarih)
-        + '&SehirAdi=' + encodeURIComponent(sehirAdi) + '&Era=lastWeek';
+        + '&SehirAdi=' + encodeURIComponent(sehirAdi) + '&Era=' + era;
     await gotoWithHeaders(page, url);
 
     return page.evaluate((raceNo) => {
@@ -1026,7 +1027,7 @@ function parseSonucPageEval() {
                 const cells = row.querySelectorAll('td');
                 if (!cells.length) continue;
                 const sira = row.querySelector('td:nth-child(2)')?.innerText?.trim() || '';
-                const no = row.querySelector('td:nth-child(1)')?.innerText?.trim() || '';
+                let no = row.querySelector('td:nth-child(1)')?.innerText?.trim() || '';
                 const nameCell = row.querySelector('td:nth-child(3)');
                 if (!nameCell) continue;
                 const parsed = parseNameCell(nameCell);
@@ -1035,15 +1036,21 @@ function parseSonucPageEval() {
                 const href = link?.getAttribute('href') || '';
                 const m = href.match(/AtId=(\d+)/);
                 if (m) atId = m[1];
+                const rawName = parsed.name || link?.innerText?.trim() || '';
+                const noFromName = rawName.match(/\((\d+)\)\s*$/);
+                if (!no || !/^\d+$/.test(no)) {
+                    no = noFromName ? noFromName[1] : '';
+                }
+                const cleanName = rawName.replace(/\(\d+\)\s*$/, '').replace(/\s+/g, ' ').trim();
                 const derece = row.querySelector('td:nth-child(10)')?.innerText?.trim() || '';
                 const kosmaz = parsed.kosmaz || /^koşmaz$/i.test(derece);
                 const horse = {
                     sira,
                     no,
-                    name: parsed.name || link?.innerText?.trim() || '',
+                    name: cleanName,
                     atId,
                     yas: row.querySelector('td:nth-child(4)')?.innerText?.trim() || '',
-                    jokey: row.querySelector('td:nth-child(5)')?.innerText?.trim() || '',
+                    jokey: row.querySelector('td:nth-child(7)')?.innerText?.trim() || '',
                     siklet: row.querySelector('td:nth-child(6)')?.innerText?.trim() || '',
                     derece: kosmaz ? 'Koşmaz' : derece,
                     gny: row.querySelector('td:nth-child(11)')?.innerText?.trim() || '',
@@ -1122,7 +1129,7 @@ function parseSonucSingleRaceEval() {
         const horses = [];
         for (const row of target.querySelectorAll('tbody tr')) {
             const sira = row.querySelector('td:nth-child(2)')?.innerText?.trim() || '';
-            const no = row.querySelector('td:nth-child(1)')?.innerText?.trim() || '';
+            let no = row.querySelector('td:nth-child(1)')?.innerText?.trim() || '';
             const nameCell = row.querySelector('td:nth-child(3)');
             if (!nameCell) continue;
             const parsed = parseNameCell(nameCell);
@@ -1131,15 +1138,21 @@ function parseSonucSingleRaceEval() {
             const href = link?.getAttribute('href') || '';
             const m = href.match(/AtId=(\d+)/);
             if (m) atId = m[1];
+            const rawName = parsed.name || link?.innerText?.trim() || '';
+            const noFromName = rawName.match(/\((\d+)\)\s*$/);
+            if (!no || !/^\d+$/.test(no)) {
+                no = noFromName ? noFromName[1] : '';
+            }
+            const cleanName = rawName.replace(/\(\d+\)\s*$/, '').replace(/\s+/g, ' ').trim();
             const derece = row.querySelector('td:nth-child(10)')?.innerText?.trim() || '';
             const kosmaz = parsed.kosmaz || /^koşmaz$/i.test(derece);
             const horse = {
                 sira,
                 no,
-                name: parsed.name || link?.innerText?.trim() || '',
+                name: cleanName,
                 atId,
                 yas: row.querySelector('td:nth-child(4)')?.innerText?.trim() || '',
-                jokey: row.querySelector('td:nth-child(5)')?.innerText?.trim() || '',
+                jokey: row.querySelector('td:nth-child(7)')?.innerText?.trim() || '',
                 siklet: row.querySelector('td:nth-child(6)')?.innerText?.trim() || '',
                 derece: kosmaz ? 'Koşmaz' : derece,
                 gny: row.querySelector('td:nth-child(11)')?.innerText?.trim() || '',

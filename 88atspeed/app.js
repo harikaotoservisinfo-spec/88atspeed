@@ -307,7 +307,8 @@ app.get('/api/public/sonuclar', async (req, res) => {
             hipodrom,
             hipodromId,
             refresh: req.query.refresh,
-            expectedRaceCount: req.query.kosuSayisi || req.query.expectedRaceCount
+            expectedRaceCount: req.query.kosuSayisi || req.query.expectedRaceCount,
+            db
         });
         res.json(data);
     } catch (err) {
