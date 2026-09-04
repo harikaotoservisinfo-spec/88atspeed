@@ -137,6 +137,18 @@
             <section id="panel-kosular" class="pub-tab-panel active">
                 <div id="pubHipTabs" class="pub-hip-tabs" role="tablist"></div>
                 <div id="pubHipInfo" class="pub-hip-info" style="display:none"></div>
+                <div class="pub-fob-toolbar" id="pubFobToolbar">
+                    <label class="pub-fob-label" for="pubFobMode">Sabit İhtimalli</label>
+                    <select id="pubFobMode" class="pub-fob-select" aria-label="Bahis türü seçin">
+                        <option value="off">Kapalı</option>
+                        <option value="compare">Bahis Türlerini Kıyasla</option>
+                        <option value="ganyan">Ganyan</option>
+                        <option value="ilk2">İlk 2</option>
+                        <option value="ilk3">İlk 3</option>
+                    </select>
+                    <span class="pub-fob-source" id="pubFobSource">Kaynak: hipodrom.com</span>
+                    <span class="pub-fob-status" id="pubFobStatus" aria-live="polite"></span>
+                </div>
                 <div id="pubRacePanel" class="pub-race-panel">
                     <div id="pubRaceList" class="pub-loading">
                         <div class="pub-spinner"></div>
@@ -311,6 +323,6 @@
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js" crossorigin="anonymous"></script>
     <script src="js/pub-ads.js?v=20260903kazanc"></script>
     <script src="js/pub-kazanc.js?v=20260903kazanc19"></script>
-    <script src="js/public-home.js?v=20260904muhtfix"></script>
+    <script src="js/public-home.js?v=20260904fob"></script>
 </body>
 </html>

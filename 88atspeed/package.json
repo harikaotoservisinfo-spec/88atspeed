@@ -68,6 +68,7 @@
     "fetch:public-program-tjk": "node scripts/fetch-public-program.js --bugun --tjk",
     "test:liderform-gp": "node scripts/test-liderform-gp.js",
     "prefetch:liderform-gp": "node scripts/prefetch-liderform-gp.js",
+    "test:hipodrom-fob": "node -e \"require('./lib/hipodrom-fob').fetchFobForHipodrom({iso:process.argv[1]||new Date().toISOString().slice(0,10),hipodrom:process.argv[2]||'Bursa',refresh:true}).then(r=>console.log(JSON.stringify(r.races['1'],null,2))).catch(e=>console.error(e.message))\"",
     "fetch:hesaplama-full": "node scripts/fetch-hesaplama-full.js --bugun",
     "fetch:hesaplama-full-tahmin": "node scripts/fetch-hesaplama-full.js --bugun --tahmin",
     "fetch:public-program-ankara": "node scripts/fetch-public-program.js --bugun --hipodrom Ankara",

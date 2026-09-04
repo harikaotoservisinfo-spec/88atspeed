@@ -29,6 +29,10 @@
         progGpData: null,
         progGpHipId: null,
         progGpLoading: false,
+        progFobData: null,
+        progFobHipId: null,
+        progFobLoading: false,
+        progFobMode: 'off',
         sonucData: null,
         sonucHipId: null,
         sonucLastUpdate: null,
@@ -39,6 +43,7 @@
     const PROG_GANYAN_REFRESH_SEC = 15;
     const PROG_BLT_REFRESH_SEC = 300;
     const PROG_GP_REFRESH_SEC = 300;
+    const PROG_FOB_REFRESH_SEC = 60;
     const SONUC_REFRESH_SEC = 120;
     const MUHT_SELECT_RESET_MS = 30000;
     const MUHT_RACE_ADVANCE_MS = 3 * 60 * 1000;
@@ -346,6 +351,9 @@
         if (state.progGpHipId !== hip.id || !state.progGpData) {
             refreshProgramGpData();
         }
+        if (state.progFobMode !== 'off') {
+            refreshProgramFobData();
+        }
     }
 
     function normalizeHipLabel(s) {
@@ -480,12 +488,14 @@
         let countdown = PROG_GANYAN_REFRESH_SEC;
         let bltCountdown = PROG_BLT_REFRESH_SEC;
         let gpCountdown = PROG_GP_REFRESH_SEC;
+        let fobCountdown = PROG_FOB_REFRESH_SEC;
         progGanyanPollTimer = setInterval(() => {
             if (document.hidden) return;
             if (!$('#panel-kosular')?.classList.contains('active')) return;
             countdown -= 1;
             bltCountdown -= 1;
             gpCountdown -= 1;
+            fobCountdown -= 1;
             if (countdown <= 0) {
                 countdown = PROG_GANYAN_REFRESH_SEC;
                 refreshProgramGanyanOdds({ refresh: true });
@@ -497,6 +507,10 @@
             if (gpCountdown <= 0) {
                 gpCountdown = PROG_GP_REFRESH_SEC;
                 refreshProgramGpData({ refresh: true });
+            }
+            if (state.progFobMode !== 'off' && fobCountdown <= 0) {
+                fobCountdown = PROG_FOB_REFRESH_SEC;
+                refreshProgramFobData({ refresh: true });
             }
         }, 1000);
     }
@@ -543,6 +557,27 @@
         return '';
     }
 
+    function getFobColumnDefs() {
+        const mode = state.progFobMode;
+        if (!mode || mode === 'off') return [];
+        if (mode === 'compare') {
+            return [
+                { key: 'fob_ganyan', label: 'Ganyan', cls: 'pub-prog-fob', colCls: 'pub-col-fob', betKey: 'ganyan', title: 'Hipodrom sabit ihtimalli Ganyan' },
+                { key: 'fob_ilk2', label: 'İlk 2', cls: 'pub-prog-fob', colCls: 'pub-col-fob', betKey: 'ilk2', title: 'Hipodrom sabit ihtimalli İlk 2' },
+                { key: 'fob_ilk3', label: 'İlk 3', cls: 'pub-prog-fob', colCls: 'pub-col-fob', betKey: 'ilk3', title: 'Hipodrom sabit ihtimalli İlk 3' }
+            ];
+        }
+        const labels = { ganyan: 'Ganyan', ilk2: 'İlk 2', ilk3: 'İlk 3' };
+        return [{
+            key: 'fob_' + mode,
+            label: labels[mode] || mode,
+            cls: 'pub-prog-fob',
+            colCls: 'pub-col-fob',
+            betKey: mode,
+            title: 'Hipodrom sabit ihtimalli ' + (labels[mode] || mode)
+        }];
+    }
+
     function getProgramColumns(kosular) {
         const races = Array.isArray(kosular) ? kosular : (kosular.kosular || []);
         const horses = races.flatMap((r) => r.horses || []);
@@ -577,6 +612,8 @@
         const takiIdx = filtered.findIndex((c) => c.key === 'taki');
         if (takiIdx >= 0) filtered.splice(takiIdx + 1, 0, bltCol, gp2Col);
         else filtered.push(bltCol, gp2Col);
+        const fobCols = getFobColumnDefs();
+        if (fobCols.length) filtered.push(...fobCols);
         return filtered;
     }
 
@@ -615,6 +652,13 @@
             const gp = ctx?.gpMap?.[String(h.no)] || ctx?.gpByName?.[normalizeHorseName(h.name)] || '';
             if (gp) return gp;
             if (state.progGpLoading) return '…';
+            return '—';
+        }
+        if (col.key && col.key.startsWith('fob_')) {
+            const betKey = col.betKey || col.key.replace(/^fob_/, '');
+            const odd = ctx?.fobMaps?.[betKey]?.[String(h.no)] || '';
+            if (odd) return odd;
+            if (state.progFobLoading) return '…';
             return '—';
         }
         if (col.key === 'name') return h.name || '—';
@@ -668,6 +712,95 @@
             }
         });
         return leaderNo;
+    }
+
+    function getRaceFobMaps(raceNo) {
+        const race = state.progFobData?.races?.[String(raceNo)] || null;
+        const bets = race?.bets || {};
+        return {
+            ganyan: bets.ganyan?.byNo || {},
+            ilk2: bets.ilk2?.byNo || {},
+            ilk3: bets.ilk3?.byNo || {}
+        };
+    }
+
+    function findFobLeaderNo(oddMap) {
+        let leaderNo = null;
+        let minVal = Infinity;
+        Object.entries(oddMap || {}).forEach(([no, val]) => {
+            const v = parseFloat(String(val).replace(',', '.'));
+            if (!isNaN(v) && v > 0 && v < minVal) {
+                minVal = v;
+                leaderNo = no;
+            }
+        });
+        return leaderNo;
+    }
+
+    function setFobStatus(text, isError) {
+        const el = $('#pubFobStatus');
+        if (!el) return;
+        el.textContent = text || '';
+        el.classList.toggle('pub-fob-status--err', !!isError);
+    }
+
+    async function refreshProgramFobData(opts = {}) {
+        const mode = state.progFobMode;
+        if (!mode || mode === 'off') return;
+        const iso = state.iso || localTodayIso();
+        const hip = state.hipodromlar.find((h) => h.id === state.activeHipId);
+        if (!hip || !$('#panel-kosular')?.classList.contains('active')) return;
+        if (state.progFobLoading && !opts.refresh) return;
+
+        state.progFobLoading = true;
+        setFobStatus('yükleniyor…');
+        renderRaceList(hip);
+
+        try {
+            const controller = new AbortController();
+            const tid = setTimeout(() => controller.abort(), 45000);
+            const res = await fetch(
+                '/api/public/hipodrom-fob?iso=' + encodeURIComponent(iso)
+                + '&hipodrom=' + encodeURIComponent(hip.name)
+                + (opts.refresh ? '&refresh=1' : ''),
+                { signal: controller.signal }
+            );
+            clearTimeout(tid);
+            const data = await res.json();
+            if (!data.success) {
+                setFobStatus(data.error || 'yüklenemedi', true);
+                return;
+            }
+            state.progFobData = data;
+            state.progFobHipId = hip.id;
+            setFobStatus(data.raceCount + ' koşu');
+            const activeHip = state.hipodromlar.find((h) => h.id === state.activeHipId);
+            if (activeHip) renderRaceList(activeHip);
+        } catch (err) {
+            setFobStatus('bağlantı hatası', true);
+        } finally {
+            state.progFobLoading = false;
+            const activeHip = state.hipodromlar.find((h) => h.id === state.activeHipId);
+            if (activeHip) renderRaceList(activeHip);
+        }
+    }
+
+    function onFobModeChange(mode) {
+        state.progFobMode = mode || 'off';
+        const hip = state.hipodromlar.find((h) => h.id === state.activeHipId);
+        if (state.progFobMode === 'off') {
+            state.progFobData = null;
+            state.progFobHipId = null;
+            setFobStatus('');
+            if (hip) renderRaceList(hip);
+            return;
+        }
+        if (hip) {
+            state.progFobData = null;
+            state.progFobHipId = null;
+            renderRaceList(hip);
+            refreshProgramFobData({ refresh: true });
+        }
     }
 
     async function refreshProgramBltData(opts = {}) {
@@ -946,7 +1079,10 @@
         }
 
         const cols = getProgramColumns(kosular);
-        const colWidths = { taki: computeTakiColWidth(kosular), blt: 40, gp2: 40 };
+        const colWidths = { taki: computeTakiColWidth(kosular), blt: 40, gp2: 40, fob_ganyan: 52, fob_ilk2: 48, fob_ilk3: 48 };
+        cols.forEach((c) => {
+            if (c.key && c.key.startsWith('fob_') && !colWidths[c.key]) colWidths[c.key] = 52;
+        });
         const colgroup = renderProgramColgroup(cols, colWidths);
 
         el.innerHTML = '<div class="pub-program-list">' + kosular.map((race) => {
@@ -958,6 +1094,12 @@
             const bltLeaderNo = findBltLeaderNo(bltMaps.bltMap);
             const gpMaps = getRaceGpMaps(race.raceNo);
             const gpLeaderNo = findGpLeaderNo(gpMaps.gpMap);
+            const raceFobMaps = getRaceFobMaps(race.raceNo);
+            const fobLeaders = {
+                ganyan: findFobLeaderNo(raceFobMaps.ganyan),
+                ilk2: findFobLeaderNo(raceFobMaps.ilk2),
+                ilk3: findFobLeaderNo(raceFobMaps.ilk3)
+            };
             const head = cols.map((c) => {
                 const titleAttr = c.title ? ' title="' + escapeHtml(c.title) + '"' : '';
                 return '<th' + titleAttr + '>' + c.label + '</th>';
@@ -965,7 +1107,7 @@
             const horses = race.horses || [];
             const body = horses.length
                 ? horses.map((h) => {
-                    const ctx = { ganyanMap, ...bltMaps, ...gpMaps };
+                    const ctx = { ganyanMap, ...bltMaps, ...gpMaps, fobMaps: raceFobMaps };
                     return '<tr>'
                         + cols.map((c) => {
                             let cls = c.cls;
@@ -984,6 +1126,13 @@
                                 if (!hasGp && state.progGpLoading) cls += ' pub-prog-gp2-loading';
                                 else if (!hasGp) cls += ' pub-prog-gp2-empty';
                                 else if (gpLeaderNo && String(h.no) === gpLeaderNo) cls += ' pub-prog-gp2-leader';
+                            }
+                            if (c.key && c.key.startsWith('fob_')) {
+                                const betKey = c.betKey || c.key.replace(/^fob_/, '');
+                                const hasFob = raceFobMaps[betKey]?.[String(h.no)];
+                                if (!hasFob && state.progFobLoading) cls += ' pub-prog-fob-loading';
+                                else if (!hasFob) cls += ' pub-prog-fob-empty';
+                                else if (fobLeaders[betKey] && String(h.no) === fobLeaders[betKey]) cls += ' pub-prog-fob-leader';
                             }
                             return '<td class="' + cls + '">' + escapeHtml(val) + '</td>';
                         }).join('')
@@ -1893,6 +2042,12 @@
         });
     }
 
+    function initFobToolbar() {
+        const sel = $('#pubFobMode');
+        if (!sel) return;
+        sel.addEventListener('change', () => onFobModeChange(sel.value));
+    }
+
     function initDate() {
         const input = $('#pubDateInput');
         const iso = localTodayIso();
@@ -1909,6 +2064,9 @@
             state.progGpData = null;
             state.progGpHipId = null;
             state.progGpLoading = false;
+            state.progFobData = null;
+            state.progFobHipId = null;
+            state.progFobLoading = false;
             state.sonucData = null;
             state.sonucHipId = null;
             state.sonucLastUpdate = null;
@@ -1930,5 +2088,6 @@
     initTabs();
     initHeader();
     initMuhtControls();
+    initFobToolbar();
     initDate();
 })();
