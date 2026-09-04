@@ -123,6 +123,16 @@ echo "📦 Branch: $BRANCH | Commit: $COMMIT_SHA"
 echo "🔍 Doğrulama:"
 curl -s http://127.0.0.1:3023/VERSION.txt
 echo ""
+if [ -f "$APP_DIR/lib/public-sonuc-store.js" ]; then
+  echo "✓ public-sonuc-store.js mevcut (BİTİŞ senkronu)"
+else
+  echo "⚠️  public-sonuc-store.js YOK — eski commit olabilir"
+fi
+if grep -q 'col-bitis-hdr' "$APP_DIR/public/panel.html" 2>/dev/null; then
+  echo "✓ panel.html SON TEST BİTİŞ sütunu mevcut"
+else
+  echo "⚠️  panel.html BİTİŞ sütunu YOK — deploy commit kontrol edin"
+fi
 curl -s "http://127.0.0.1:3023/istatistikler.html" | grep -oE '20260826m|·BS|successPct' | head -5 || true
 echo ""
 pm2 status 88atspeed
@@ -153,3 +163,4 @@ echo "  cd $APP_DIR && node scripts/test-tahmin-position-buckets.js --db $APP_DI
 echo "  cd $APP_DIR && npm run test:son-test-calib"
 echo "  cd $APP_DIR && npm run test:son-test-calib-kayit"
 echo "  cd $APP_DIR && node scripts/test-son-test-calibration-diagnose.js --db $APP_DIR/atlar.db --base-url http://127.0.0.1:3023"
+echo "  cd $APP_DIR && node scripts/sync-sonuclar-to-kayit.js --db $APP_DIR/atlar.db --kayit 169"
