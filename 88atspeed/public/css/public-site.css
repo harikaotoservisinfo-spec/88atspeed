@@ -1615,6 +1615,65 @@ a { color: inherit; text-decoration: none; }
     font-weight: 600;
 }
 
+.pub-col-score { width: 52px; min-width: 48px; }
+.pub-col-score-tahmin { width: 58px; min-width: 54px; }
+
+.pub-program-table th.pub-col-score-tahmin {
+    background: #ffe0b2;
+    color: #e65100;
+}
+
+.pub-program-table th.pub-col-score-r2 {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+.pub-program-table th.pub-col-score-ptest {
+    background: #e8f5e9;
+    color: #1b5e20;
+}
+
+.pub-prog-score {
+    text-align: center;
+    font-size: 11px;
+    white-space: nowrap;
+    padding-left: 3px !important;
+    padding-right: 3px !important;
+    line-height: 1.2;
+}
+
+.pub-prog-score-tahmin {
+    background: #fff3e0;
+    font-weight: 800;
+    color: #e65100;
+}
+
+.pub-prog-score-r2 {
+    background: #f1f8e9;
+    font-weight: 700;
+    color: #33691e;
+}
+
+.pub-prog-score-ptest {
+    background: #f1f8e9;
+    font-weight: 700;
+    color: #2e7d32;
+}
+
+.pub-prog-score-empty {
+    color: #bbb;
+    font-weight: 600;
+}
+
+.pub-prog-score-leader {
+    font-weight: 900;
+}
+
+.pub-prog-score-tahmin-top {
+    background: #ffe0b2;
+    color: #bf360c;
+}
+
 .pub-fob-toolbar {
     display: flex;
     align-items: center;

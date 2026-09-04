@@ -27,12 +27,17 @@ function loadScoringEngines() {
         ['basari-pct-scoring-engine.js', 'BasariPctScoringEngine'],
         ['hybrid-tahmin-scoring-engine.js', 'HybridTahminScoringEngine'],
         ['at-meta-fields.js', 'AtMetaFields'],
+        ['son800-depth-ui.js', 'Son800DepthUi'],
+        ['siklet-bas-delta-boost.js', 'SikletBasDeltaBoost'],
+        ['astest-son800-shared.js', 'AtestSon800Shared'],
         ['field-size-stats-engine.js', 'FieldSizeStatsEngine'],
         ['sehir-stats-engine.js', 'SehirStatsEngine'],
         ['kosu-dimension-stats-engine.js', 'KosuDimensionStatsEngine'],
+        ['dimension-tahmin-boost-engine.js', 'DimensionTahminBoostEngine'],
         ['astest-son-ptest-tahmin.js', 'AtestSonPtestTahmin'],
         ['astest-son-renk-tahmin.js', 'AtestSonRenkTahmin'],
-        ['astest-son-gosterge1-tahmin.js', 'AtestSonGosterge1Tahmin']
+        ['astest-son-gosterge1-tahmin.js', 'AtestSonGosterge1Tahmin'],
+        ['astest-son-gosterim-cols.js', 'AtestSonGosterimCols']
     ];
     for (const [file, name] of extra) {
         if (!global[name]) loadEngineFile(file, name);
@@ -178,6 +183,130 @@ function mergeHybridAndHp(race, hybridList) {
     return out;
 }
 
+const SON_TEST_BAS_SOURCES = [
+    { key: 'fieldSize', label: 'AS+' },
+    { key: 'sehir', label: 'SH+' },
+    { key: 'kcins_kosu', label: 'KC+' },
+    { key: 'taki', label: 'TK+' },
+    { key: 'pist', label: 'PS+' },
+    { key: 'hp', label: 'HP+' },
+    { key: 'siklet', label: 'SK+' }
+];
+
+const PTEST_SCORE_KEYS = ['mtr', 't9v', 'asf', 'g1side', 'g1pair', 'go', 'hyb'];
+
+function serializeScoreCell(t) {
+    if (!t || t.rank == null || t.pct == null || Number(t.pct) <= 0) return null;
+    return {
+        rank: Number(t.rank),
+        pct: Math.round(Number(t.pct)),
+        score: t.score != null ? Number(t.score) : null
+    };
+}
+
+function computeBasForSource(horse, race, meta, sourceKey, sonCtx, veriCache, hedefSehir) {
+    const kosular = resolveHorseKosular(veriCache, horse);
+    const programTarih = meta?.tarih || null;
+    let st;
+    if (sourceKey === 'fieldSize') {
+        st = global.FieldSizeStatsEngine.computeStats(
+            kosular, programTarih, global.FieldSizeStatsEngine.raceFieldSize(race));
+    } else if (sourceKey === 'sehir') {
+        st = global.SehirStatsEngine.computeStats(kosular, hedefSehir, programTarih);
+    } else {
+        const dim = global.KosuDimensionStatsEngine.getDim(sourceKey);
+        if (!dim) return { basSuccess: { display: '—' } };
+        const horseCtx = Object.assign({}, horse, { kosular });
+        const hedef = dim.getTarget(horseCtx, race);
+        st = global.KosuDimensionStatsEngine.computeStats(kosular, sourceKey, hedef, programTarih);
+    }
+    if (global.AtestSon800Shared && sonCtx) {
+        st = global.AtestSon800Shared.applyBasDeltaBoost(st, horse, sonCtx);
+    }
+    return st;
+}
+
+function lookupHorseScores(map, horse) {
+    if (!map || !horse) return null;
+    return map[horseKey(horse)]
+        || map['no:' + String(horse.no)]
+        || map['name:' + String(horse.name)]
+        || null;
+}
+
+function scoreRaceHorseColumns(race, meta, veriCache) {
+    if (!global.GostergeScoringEngine?.isCalibrated?.()) return {};
+    const resolveKos = (h) => resolveHorseKosular(veriCache, h);
+    const panelRace = programRaceToPanel(race);
+    const hedefSehir = meta?.hipodrom || '';
+    const programTarih = meta?.tarih || null;
+    const horses = race.horses || [];
+    if (!horses.length) return {};
+
+    global.veriCache = veriCache;
+    const sonCtx = global.AtestSon800Shared
+        ? global.AtestSon800Shared.buildRaceContext(panelRace, panelRace.horses, hedefSehir, programTarih)
+        : null;
+
+    let renkByKey = new Map();
+    if (global.AtestSonRenkTahmin) {
+        renkByKey = global.AtestSonRenkTahmin.scoreRace(panelRace, meta, resolveKos) || new Map();
+    }
+
+    let ptestByCol = {};
+    if (global.AtestSonPtestTahmin) {
+        ptestByCol = global.AtestSonPtestTahmin.scoreRaceAll(panelRace, meta, resolveKos) || {};
+    }
+
+    let gosByKey = new Map();
+    if (global.AtestSonGosterimCols) {
+        gosByKey = global.AtestSonGosterimCols.buildSiraOneMap(panelRace, meta, resolveKos) || new Map();
+    }
+
+    const horseRows = horses.map((h) => {
+        const basBySource = {};
+        for (const src of SON_TEST_BAS_SOURCES) {
+            basBySource[src.key] = computeBasForSource(
+                h, panelRace, meta, src.key, sonCtx, veriCache, hedefSehir);
+        }
+        return { h, basBySource, tahmin: null, renkTahmin: null, ptestTahmin: {} };
+    });
+
+    if (global.DimensionTahminBoostEngine) {
+        global.DimensionTahminBoostEngine.computeDimensionOnlyFromBasBySource(horseRows);
+    }
+    if (global.AtestSonGosterimCols && gosByKey.size) {
+        global.AtestSonGosterimCols.applyTahminBonuses(
+            horseRows, gosByKey, panelRace, meta, resolveKos);
+    }
+
+    const byHorse = {};
+    for (const row of horseRows) {
+        const rk = horseKey(row.h);
+        if (!rk) continue;
+        if (renkByKey.size) row.renkTahmin = renkByKey.get(rk) || null;
+        const pt = {};
+        for (const colId of PTEST_SCORE_KEYS) {
+            pt[colId] = ptestByCol[colId]?.get(rk) || null;
+        }
+        const scores = {
+            tahmin: serializeScoreCell(row.tahmin),
+            r2: serializeScoreCell(row.renkTahmin),
+            mtr: serializeScoreCell(pt.mtr),
+            t9v: serializeScoreCell(pt.t9v),
+            asf: serializeScoreCell(pt.asf),
+            g1side: serializeScoreCell(pt.g1side),
+            g1pair: serializeScoreCell(pt.g1pair),
+            go: serializeScoreCell(pt.go),
+            hyb: serializeScoreCell(pt.hyb)
+        };
+        byHorse[rk] = scores;
+        if (row.h.no != null && row.h.no !== '') byHorse['no:' + String(row.h.no)] = scores;
+        if (row.h.name) byHorse['name:' + String(row.h.name)] = scores;
+    }
+    return byHorse;
+}
+
 function scorePublicRace(race, meta, veriCache) {
     const resolveKos = (h) => resolveHorseKosular(veriCache, h);
     const calibrated = global.GostergeScoringEngine?.isCalibrated?.()
@@ -204,7 +333,9 @@ function programHorseToPanel(h) {
         atId: h.atId || '',
         siklet: h.siklet,
         hp: h.hp,
-        yas: h.yas
+        yas: h.yas,
+        jokey: h.jokey,
+        taki: h.taki
     };
 }
 
@@ -215,6 +346,8 @@ function programRaceToPanel(race) {
         mesafe: race.mesafe,
         pist: race.pist,
         baslik: race.baslik,
+        kategori: race.kategori,
+        kcins_kosu: race.kcins_kosu,
         horses: (race.horses || []).map(programHorseToPanel)
     };
 }
@@ -241,16 +374,22 @@ async function buildTahminForHipodrom(db, tarih, hipodromRow, opts = {}) {
 
     const meta = { tarih, hipodrom: hipodromRow.hipodrom };
     const byRace = {};
-    const raceFilter = opts.raceNo ? Number(opts.raceNo) : null;
+    const byHorseByRace = {};
     let scored = 0;
 
     for (const race of races) {
         const panelRace = programRaceToPanel(race);
         const result = scorePublicRace(panelRace, meta, veriCache);
+        const horseScores = scoreRaceHorseColumns(race, meta, veriCache);
         byRace[String(race.raceNo)] = result.tahminler;
+        byHorseByRace[String(race.raceNo)] = horseScores;
         race.durum = 'hazir';
         race.tahminler = result.tahminler;
         race.tahminEngine = result.engine;
+        for (const h of race.horses || []) {
+            const scores = lookupHorseScores(horseScores, h);
+            if (scores) h.scores = scores;
+        }
         scored++;
     }
 
@@ -262,12 +401,14 @@ async function buildTahminForHipodrom(db, tarih, hipodromRow, opts = {}) {
         dataHits,
         engine: global.HybridTahminScoringEngine?.isCalibrated?.() ? 'hybrid' : 'fallback',
         byRace,
+        byHorseByRace,
         races,
         tahminPayload: {
             generatedAt: new Date().toISOString(),
             engine: 'hybrid',
             dataHits,
-            byRace
+            byRace,
+            byHorseByRace
         }
     };
 }
@@ -336,13 +477,20 @@ function mergeTahminIntoKosular(kosular, tahminJson) {
         tahminData = typeof tahminJson === 'string' ? JSON.parse(tahminJson) : tahminJson;
     } catch (_) { /* */ }
     const byRace = tahminData?.byRace || {};
+    const byHorseByRace = tahminData?.byHorseByRace || {};
     return (kosular || []).map((race) => {
         const key = String(race.raceNo);
         const tahminler = race.tahminler?.length
             ? race.tahminler
             : (byRace[key] || []);
+        const horseScores = byHorseByRace[key] || {};
+        const horses = (race.horses || []).map((h) => {
+            const scores = h.scores || lookupHorseScores(horseScores, h);
+            return scores ? Object.assign({}, h, { scores }) : h;
+        });
         return Object.assign({}, race, {
             tahminler,
+            horses,
             durum: tahminler.length ? 'hazir' : (race.durum || 'hazirlaniyor')
         });
     });

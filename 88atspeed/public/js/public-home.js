@@ -164,6 +164,25 @@
         return '—';
     }
 
+    function formatScoreCell(t) {
+        if (!t || t.rank == null || t.pct == null || t.pct <= 0) return '—';
+        return t.rank + '. %' + t.pct;
+    }
+
+    function getTahminScoreColumnDefs() {
+        return [
+            { key: 'score_tahmin', scoreKey: 'tahmin', label: 'TAHMİN', cls: 'pub-prog-score pub-prog-score-tahmin', colCls: 'pub-col-score pub-col-score-tahmin', title: '7 BAŞ+ boyut karışımı · dimension-tahmin motoru' },
+            { key: 'score_r2', scoreKey: 'r2', label: 'R2', cls: 'pub-prog-score pub-prog-score-r2', colCls: 'pub-col-score pub-col-score-r2', title: 'Renk Puanlama Test · R2' },
+            { key: 'score_mtr', scoreKey: 'mtr', label: 'MTR', cls: 'pub-prog-score pub-prog-score-ptest', colCls: 'pub-col-score pub-col-score-ptest', title: 'Metrik Tarama · SON800-1 %10 · T9V %40' },
+            { key: 'score_t9v', scoreKey: 't9v', label: 'T9V', cls: 'pub-prog-score pub-prog-score-ptest', colCls: 'pub-col-score pub-col-score-ptest', title: 'T9V Tarama · T9V pay %40' },
+            { key: 'score_asf', scoreKey: 'asf', label: 'ASF', cls: 'pub-prog-score pub-prog-score-ptest', colCls: 'pub-col-score pub-col-score-ptest', title: 'At sayısı · Faktör · adaptive profil' },
+            { key: 'score_g1side', scoreKey: 'g1side', label: 'G1↕', cls: 'pub-prog-score pub-prog-score-ptest', colCls: 'pub-col-score pub-col-score-ptest', title: 'Gösterge 1 · tek metrik alt/üst' },
+            { key: 'score_g1pair', scoreKey: 'g1pair', label: 'G1⇄', cls: 'pub-prog-score pub-prog-score-ptest', colCls: 'pub-col-score pub-col-score-ptest', title: 'Gösterge 1 · çift yön' },
+            { key: 'score_go', scoreKey: 'go', label: 'GÖ', cls: 'pub-prog-score pub-prog-score-ptest', colCls: 'pub-col-score pub-col-score-ptest', title: 'Gösterge · tam puanlama motoru' },
+            { key: 'score_hyb', scoreKey: 'hyb', label: 'HYB', cls: 'pub-prog-score pub-prog-score-ptest', colCls: 'pub-col-score pub-col-score-ptest', title: 'Hibrit TAHMİN' }
+        ];
+    }
+
     function formatTahminPicks(tahminler) {
         if (!tahminler || !tahminler.length) return '—';
         return tahminler.slice(0, 4).map((t) => t.horseNo || '?').join(' / ');
@@ -633,6 +652,7 @@
         if (takiIdx >= 0) filtered.splice(takiIdx + 1, 0, bltCol, gp2Col);
         else filtered.push(bltCol, gp2Col);
         filtered.push(...getBitalihColumnDefs());
+        filtered.push(...getTahminScoreColumnDefs());
         const fobCols = getFobColumnDefs();
         if (fobCols.length) filtered.push(...fobCols);
         return filtered;
@@ -689,6 +709,10 @@
             if (odd) return odd;
             if (state.progBtLoading) return '…';
             return '—';
+        }
+        if (col.scoreKey) {
+            const t = h.scores?.[col.scoreKey];
+            return formatScoreCell(t);
         }
         if (col.key === 'name') return h.name || '—';
         const v = String(h[col.key] || '').trim();
@@ -1175,6 +1199,15 @@
             bt_ilk2: 48,
             bt_ilk3: 48,
             bt_ilk4: 48,
+            score_tahmin: 58,
+            score_r2: 52,
+            score_mtr: 52,
+            score_t9v: 52,
+            score_asf: 52,
+            score_g1side: 52,
+            score_g1pair: 52,
+            score_go: 52,
+            score_hyb: 52,
             fob_ganyan: 52,
             fob_ilk2: 48,
             fob_ilk3: 48
@@ -1182,6 +1215,7 @@
         cols.forEach((c) => {
             if (c.key && c.key.startsWith('fob_') && !colWidths[c.key]) colWidths[c.key] = 52;
             if (c.key && c.key.startsWith('bt_') && !colWidths[c.key]) colWidths[c.key] = 48;
+            if (c.key && c.key.startsWith('score_') && !colWidths[c.key]) colWidths[c.key] = 52;
         });
         const colgroup = renderProgramColgroup(cols, colWidths);
 
@@ -1209,7 +1243,8 @@
             };
             const head = cols.map((c) => {
                 const titleAttr = c.title ? ' title="' + escapeHtml(c.title) + '"' : '';
-                return '<th' + titleAttr + '>' + c.label + '</th>';
+                const clsAttr = c.colCls ? ' class="' + escapeHtml(c.colCls) + '"' : '';
+                return '<th' + clsAttr + titleAttr + '>' + c.label + '</th>';
             }).join('') + '<th class="pub-col-spacer-hdr" aria-hidden="true"></th>';
             const horses = race.horses || [];
             const body = horses.length
@@ -1248,6 +1283,12 @@
                                 if (!hasBt && state.progBtLoading) cls += ' pub-prog-bt-loading';
                                 else if (!hasBt) cls += ' pub-prog-bt-empty';
                                 else if (btLeaders[betKey] && String(h.no) === btLeaders[betKey]) cls += ' pub-prog-bt-leader';
+                            }
+                            if (c.scoreKey) {
+                                const t = h.scores?.[c.scoreKey];
+                                if (!t || t.pct == null || t.pct <= 0) cls += ' pub-prog-score-empty';
+                                else if (t.rank === 1) cls += ' pub-prog-score-leader';
+                                if (c.scoreKey === 'tahmin' && t?.rank === 1) cls += ' pub-prog-score-tahmin-top';
                             }
                             return '<td class="' + cls + '">' + escapeHtml(val) + '</td>';
                         }).join('')
