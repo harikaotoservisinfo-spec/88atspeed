@@ -41,7 +41,9 @@
         sonucHipId: null,
         sonucLastUpdate: null,
         sonucLoading: false,
-        yarinFetch: null
+        yarinFetch: null,
+        rehberLoading: false,
+        rehberBltByHip: {}
     };
 
     const MUHT_REFRESH_SEC = 15;
@@ -60,6 +62,7 @@
     let muhtPollTimer = null;
     let progGanyanPollTimer = null;
     let sonucPollTimer = null;
+    let rehberPollTimer = null;
     let muhtSelectTimer = null;
     let tjkTvLoaded = false;
     let tjkHls = null;
@@ -500,6 +503,9 @@
             renderTahminAll();
             if ($('#panel-kosular')?.classList.contains('active')) {
                 startProgramGanyanPolling();
+            }
+            if ($('#panel-rehber')?.classList.contains('active')) {
+                loadRehberLeaderboard({ silent: true });
             }
             return;
             } catch (err) {
@@ -1450,6 +1456,307 @@
         startSonucPolling();
     }
 
+    const REHBER_LEADER_COLS = [
+        { id: 'r2', label: 'R2', type: 'score', scoreKey: 'r2', cls: 'pub-rehber-col--r2' },
+        { id: 'mtr', label: 'MTR', type: 'score', scoreKey: 'mtr' },
+        { id: 't9v', label: 'T9V', type: 'score', scoreKey: 't9v' },
+        { id: 'asf', label: 'ASF', type: 'score', scoreKey: 'asf' },
+        { id: 'g1side', label: 'G1↕', type: 'score', scoreKey: 'g1side' },
+        { id: 'g1pair', label: 'G1⇄', type: 'score', scoreKey: 'g1pair' },
+        { id: 'go', label: 'GÖ', type: 'score', scoreKey: 'go' },
+        { id: 'hyb', label: 'HYB', type: 'score', scoreKey: 'hyb' },
+        { id: 'tahmin', label: 'TAHMİN', type: 'score', scoreKey: 'tahmin', cls: 'pub-rehber-col--tahmin' },
+        { id: 'blt', label: '@', type: 'blt', cls: 'pub-rehber-col--at' }
+    ];
+
+    function getActualFinishOrder(resultRace) {
+        return (resultRace?.horses || [])
+            .filter((h) => !h.kosmaz && h.sira != null && Number(h.sira) > 0)
+            .sort((a, b) => Number(a.sira) - Number(b.sira))
+            .map((h) => String(h.no));
+    }
+
+    function getScoreTopPicks(race, scoreKey, n) {
+        const ranked = (race.horses || [])
+            .map((h) => ({
+                no: String(h.no),
+                rank: h.scores?.[scoreKey]?.rank,
+                pct: h.scores?.[scoreKey]?.pct
+            }))
+            .filter((x) => x.rank != null && x.rank > 0 && x.pct != null && x.pct > 0)
+            .sort((a, b) => a.rank - b.rank || Number(a.no) - Number(b.no));
+        return ranked.slice(0, n).map((x) => x.no);
+    }
+
+    function getBltTopPicks(raceNo, bltData, n) {
+        const race = bltData?.races?.[String(raceNo)];
+        if (!race) return [];
+        const entries = Object.entries(race.byNo || {})
+            .map(([no, val]) => ({
+                no: String(no),
+                v: parseFloat(String(val).replace(',', '.'))
+            }))
+            .filter((x) => !isNaN(x.v))
+            .sort((a, b) => b.v - a.v || Number(a.no) - Number(b.no));
+        return entries.slice(0, n).map((x) => x.no);
+    }
+
+    function getColumnTopPicks(race, col, bltData) {
+        if (col.type === 'blt') return getBltTopPicks(race.raceNo, bltData, 3);
+        return getScoreTopPicks(race, col.scoreKey, 3);
+    }
+
+    function exactTopNMatch(picks, actual, n) {
+        if (!picks.length || actual.length < n || picks.length < n) return false;
+        for (let i = 0; i < n; i++) {
+            if (picks[i] !== actual[i]) return false;
+        }
+        return true;
+    }
+
+    function initRehberStats() {
+        const stats = {};
+        for (const col of REHBER_LEADER_COLS) {
+            stats[col.id] = {
+                col,
+                top1: { hits: 0, total: 0 },
+                top2: { hits: 0, total: 0 },
+                top3: { hits: 0, total: 0 }
+            };
+        }
+        return stats;
+    }
+
+    function computeRehberLeaderboard(hipodromlar, sonucByHip, bltByHip) {
+        const stats = initRehberStats();
+        let raceCount = 0;
+
+        for (const hip of hipodromlar || []) {
+            const sonuc = sonucByHip[hip.id]?.data;
+            const blt = bltByHip[hip.id] || null;
+            const resultByNo = new Map();
+            for (const race of sonuc?.races || []) {
+                if ((race.horses || []).length) resultByNo.set(String(race.raceNo), race);
+            }
+
+            for (const progRace of hip.kosular || []) {
+                const resultRace = resultByNo.get(String(progRace.raceNo));
+                if (!resultRace) continue;
+                const actual = getActualFinishOrder(resultRace);
+                if (!actual.length) continue;
+                raceCount++;
+
+                for (const col of REHBER_LEADER_COLS) {
+                    const picks = getColumnTopPicks(progRace, col, blt);
+                    if (!picks.length) continue;
+                    const row = stats[col.id];
+
+                    if (actual.length >= 1 && picks.length >= 1) {
+                        row.top1.total++;
+                        if (exactTopNMatch(picks, actual, 1)) row.top1.hits++;
+                    }
+                    if (actual.length >= 2 && picks.length >= 2) {
+                        row.top2.total++;
+                        if (exactTopNMatch(picks, actual, 2)) row.top2.hits++;
+                    }
+                    if (actual.length >= 3 && picks.length >= 3) {
+                        row.top3.total++;
+                        if (exactTopNMatch(picks, actual, 3)) row.top3.hits++;
+                    }
+                }
+            }
+        }
+
+        return { stats, raceCount };
+    }
+
+    function sortRehberRows(stats, tierKey) {
+        return Object.values(stats)
+            .filter((row) => row[tierKey].total > 0)
+            .sort((a, b) => {
+                const ah = a[tierKey].hits;
+                const bh = b[tierKey].hits;
+                if (bh !== ah) return bh - ah;
+                const ap = ah / a[tierKey].total;
+                const bp = bh / b[tierKey].total;
+                if (bp !== ap) return bp - ap;
+                return a.col.label.localeCompare(b.col.label, 'tr');
+            });
+    }
+
+    function renderRehberTierList(rows, tierKey) {
+        if (!rows.length) {
+            return '<div class="pub-rehber-empty-row">Henüz değerlendirilecek koşu yok</div>';
+        }
+        return '<ol class="pub-rehber-list">' + rows.map((row, idx) => {
+            const tier = row[tierKey];
+            const pct = tier.total ? Math.round((tier.hits / tier.total) * 100) : 0;
+            const rankCls = idx === 0 ? ' pub-rehber-row--top1' : (idx === 1 ? ' pub-rehber-row--top2' : (idx === 2 ? ' pub-rehber-row--top3' : ''));
+            const colCls = row.col.cls || '';
+            return '<li class="pub-rehber-row' + rankCls + '">'
+                + '<span class="pub-rehber-rank">' + (idx + 1) + '</span>'
+                + '<span class="pub-rehber-col ' + colCls + '">' + escapeHtml(row.col.label) + '</span>'
+                + '<span class="pub-rehber-hits">' + tier.hits + '/' + tier.total + '</span>'
+                + '<span class="pub-rehber-pct">%' + pct + '</span>'
+                + '</li>';
+        }).join('') + '</ol>';
+    }
+
+    function renderRehberPanel(data) {
+        const root = $('#pubRehberRoot');
+        if (!root) return;
+
+        if (!state.hipodromlar.length) {
+            root.innerHTML = '<div class="pub-empty"><div class="pub-empty-icon">📅</div><h3>Program yok</h3><p>Önce günün programını yükleyin.</p></div>';
+            return;
+        }
+
+        const { stats, raceCount } = data || { stats: initRehberStats(), raceCount: 0 };
+        const dateLabel = state.tarih ? trToDisplay(state.tarih) : 'Bugün';
+        const hipCount = state.hipodromlar.length;
+        const top1Rows = sortRehberRows(stats, 'top1');
+        const top2Rows = sortRehberRows(stats, 'top2');
+        const top3Rows = sortRehberRows(stats, 'top3');
+
+        root.innerHTML = '<div class="pub-rehber-wrap">'
+            + '<div class="pub-rehber-hdr">'
+            + '<div>'
+            + '<h2 class="pub-rehber-title">Günün Tahmin Liderleri</h2>'
+            + '<div class="pub-rehber-sub">' + escapeHtml(dateLabel)
+            + ' · ' + raceCount + ' sonuçlanan koşu · ' + hipCount + ' hipodrom</div>'
+            + '</div>'
+            + '<button type="button" class="pub-rehber-refresh" id="pubRehberRefresh">Yenile</button>'
+            + '</div>'
+            + '<div class="pub-rehber-grid">'
+            + '<div class="pub-rehber-card">'
+            + '<div class="pub-rehber-card-hdr pub-rehber-card-hdr--gold">1. Bilen'
+            + '<div class="pub-rehber-card-desc">Kazananı en çok doğru tahmin eden sütunlar</div></div>'
+            + renderRehberTierList(top1Rows, 'top1')
+            + '</div>'
+            + '<div class="pub-rehber-card">'
+            + '<div class="pub-rehber-card-hdr pub-rehber-card-hdr--silver">1–2 Bilen'
+            + '<div class="pub-rehber-card-desc">İlk iki atı tam sırayla bilen sütunlar</div></div>'
+            + renderRehberTierList(top2Rows, 'top2')
+            + '</div>'
+            + '<div class="pub-rehber-card">'
+            + '<div class="pub-rehber-card-hdr pub-rehber-card-hdr--bronze">1–2–3 Bilen'
+            + '<div class="pub-rehber-card-desc">Podyumu tam sırayla bilen sütunlar</div></div>'
+            + renderRehberTierList(top3Rows, 'top3')
+            + '</div>'
+            + '</div>'
+            + '<div class="pub-rehber-help">'
+            + '<strong>Nasıl okunur?</strong> Her sütun (R2, MTR, T9V, ASF, G1↕, G1⇄, GÖ, HYB, TAHMİN, @) '
+            + 'koşu başına kendi sıralamasını üretir. <em>1. Bilen</em> = 1 numaralı tahmin kazandı; '
+            + '<em>1–2 Bilen</em> = ilk iki tahmin 1. ve 2. oldu; <em>1–2–3 Bilen</em> = podyum tam isabet. '
+            + 'Liste gün içinde sonuçlandıkça güncellenir.'
+            + '</div>'
+            + '</div>';
+
+        $('#pubRehberRefresh')?.addEventListener('click', () => loadRehberLeaderboard({ refresh: true }));
+    }
+
+    async function fetchRehberBlt(hip, iso) {
+        const cached = state.rehberBltByHip[hip.id];
+        if (cached?.fetchedAt && Date.now() - cached.fetchedAt < 5 * 60 * 1000) {
+            return cached.data;
+        }
+        const res = await fetch(
+            '/api/public/yenibeygir-blt?iso=' + encodeURIComponent(iso)
+            + '&hipodrom=' + encodeURIComponent(hip.name)
+        );
+        const data = await parseJsonResponse(res);
+        if (!res.ok || data.success === false) return null;
+        state.rehberBltByHip[hip.id] = { data, fetchedAt: Date.now() };
+        return data;
+    }
+
+    async function ensureRehberSonuclar(iso, opts = {}) {
+        const tasks = (state.hipodromlar || []).map(async (hip) => {
+            const cached = state.sonucByHip[hip.id];
+            const cacheAge = cached?.fetchedAt ? Date.now() - cached.fetchedAt : Infinity;
+            if (!opts.refresh && cached?.data && cacheAge < SONUC_CLIENT_CACHE_MS) return;
+            try {
+                const data = await fetchSonuclarApi(iso, hip, { refresh: !!opts.refresh, attempts: 2 });
+                state.sonucByHip[hip.id] = { data, fetchedAt: Date.now() };
+            } catch (_) {
+                /* tek hipodrom atlanır */
+            }
+        });
+        await Promise.all(tasks);
+    }
+
+    async function loadRehberLeaderboard(opts = {}) {
+        const root = $('#pubRehberRoot');
+        if (!root || !$('#panel-rehber')?.classList.contains('active')) return;
+        if (state.rehberLoading) return;
+
+        state.rehberLoading = true;
+        if (!opts.silent) {
+            root.innerHTML = '<div class="pub-loading"><div class="pub-spinner"></div>Sonuçlar ve tahminler karşılaştırılıyor…</div>';
+        }
+
+        const iso = state.iso || localTodayIso();
+        try {
+            if (!state.hipodromlar.length) {
+                renderRehberPanel({ stats: initRehberStats(), raceCount: 0 });
+                return;
+            }
+            await ensureRehberSonuclar(iso, opts);
+            const bltTasks = state.hipodromlar.map(async (hip) => {
+                if (opts.refresh) delete state.rehberBltByHip[hip.id];
+                const data = await fetchRehberBlt(hip, iso);
+                if (data) state.rehberBltByHip[hip.id] = { data, fetchedAt: Date.now() };
+            });
+            await Promise.all(bltTasks);
+
+            const bltByHip = {};
+            for (const hip of state.hipodromlar) {
+                bltByHip[hip.id] = state.rehberBltByHip[hip.id]?.data || null;
+            }
+            const result = computeRehberLeaderboard(state.hipodromlar, state.sonucByHip, bltByHip);
+            renderRehberPanel(result);
+        } catch (err) {
+            root.innerHTML = '<div class="pub-empty"><div class="pub-empty-icon">⚠️</div>'
+                + '<h3>Liderlik tablosu yüklenemedi</h3>'
+                + '<p>' + escapeHtml(err.message || 'Bağlantı hatası') + '</p>'
+                + '<button type="button" class="pub-btn pub-btn-white" id="pubRehberRetry" style="margin-top:12px">Tekrar dene</button></div>';
+            $('#pubRehberRetry')?.addEventListener('click', () => loadRehberLeaderboard({ refresh: true }));
+        } finally {
+            state.rehberLoading = false;
+        }
+    }
+
+    function startRehberPolling() {
+        stopRehberPolling();
+        if (!$('#panel-rehber')?.classList.contains('active')) return;
+        let countdown = SONUC_REFRESH_SEC;
+        rehberPollTimer = setInterval(() => {
+            if (document.hidden) return;
+            if (!$('#panel-rehber')?.classList.contains('active')) return;
+            countdown -= 1;
+            if (countdown <= 0) {
+                countdown = SONUC_REFRESH_SEC;
+                loadRehberLeaderboard({ refresh: true, silent: true });
+            }
+        }, 1000);
+    }
+
+    function stopRehberPolling() {
+        if (rehberPollTimer) {
+            clearInterval(rehberPollTimer);
+            rehberPollTimer = null;
+        }
+    }
+
+    function initRehberPanel() {
+        if (!state.hipodromlar.length) {
+            renderRehberPanel({ stats: initRehberStats(), raceCount: 0 });
+            return;
+        }
+        loadRehberLeaderboard();
+        startRehberPolling();
+    }
+
     function renderRaceList(hip) {
         const el = $('#pubRaceList');
         const kosular = hip.kosular || [];
@@ -1705,6 +2012,7 @@
             stopMuhtPolling();
             pauseTjkTv();
             stopSonucPolling();
+            stopRehberPolling();
             if (panelId === 'kosular') {
                 refreshProgramGanyanOdds();
                 refreshProgramBltData();
@@ -1715,6 +2023,9 @@
             }
             if (panelId === 'sonuclar') {
                 initSonuclarPanel();
+            }
+            if (panelId === 'rehber') {
+                initRehberPanel();
             }
         }
         if (panelId === 'kazanc') {
@@ -2498,6 +2809,7 @@
         state.sonucByHip = {};
         state.sonucHipId = null;
         state.sonucLastUpdate = null;
+        state.rehberBltByHip = {};
         loadVitrin(clamped);
         if ($('#panel-muhtemeller')?.classList.contains('active')) {
             loadMuhtemeller(clamped);
