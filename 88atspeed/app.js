@@ -557,7 +557,7 @@ app.post('/api/public/bitalih/auto/login', (req, res) => {
 
 app.post('/api/public/bitalih/auto/bet/fixed', (req, res) => {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    const { city, raceNo, kosuNo, horseName, at, stake, misli, dryRun } = req.body || {};
+    const { city, raceNo, kosuNo, horseName, at, stake, misli, betType, bahis, dryRun } = req.body || {};
     if (!(horseName || at)) {
         return res.status(400).json({ success: false, error: 'At adı gerekli' });
     }
@@ -566,6 +566,7 @@ app.post('/api/public/bitalih/auto/bet/fixed', (req, res) => {
         raceNo: raceNo ?? kosuNo,
         horseName: horseName || at,
         stake: stake ?? misli,
+        betType: betType || bahis || 'ganyan',
         dryRun: !!dryRun
     };
     try {

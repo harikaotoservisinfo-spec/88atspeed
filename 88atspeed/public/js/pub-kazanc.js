@@ -56,10 +56,16 @@
             + '</div>'
             + '<p class="pub-kazanc-system-hint">Bi\'Talih için <strong>TC kimlik numaranızı</strong> kullanın. Tarayıcı girişi 15–30 sn sürebilir.</p>'
             + '<form id="pubKazancBetForm" class="pub-kazanc-system-form">'
-            + '<input type="text" id="pubBetCity" value="İzmir" placeholder="Şehir">'
-            + '<input type="number" id="pubBetRace" value="4" min="1" max="15" placeholder="Koşu">'
-            + '<input type="text" id="pubBetHorse" value="" placeholder="At adı">'
-            + '<input type="number" id="pubBetStake" value="3" min="1" step="1" placeholder="Misli TL">'
+            + '<input type="text" id="pubBetCity" value="Bursa" placeholder="Şehir">'
+            + '<input type="number" id="pubBetRace" value="1" min="1" max="15" placeholder="Koşu">'
+            + '<input type="text" id="pubBetHorse" value="LA BOMBONERA" placeholder="At adı">'
+            + '<select id="pubBetType" class="pub-kazanc-bet-type" title="Bahis türü">'
+            + '<option value="ganyan">Ganyan</option>'
+            + '<option value="ilk2" selected>İlk 2</option>'
+            + '<option value="ilk3">İlk 3</option>'
+            + '<option value="ilk4">İlk 4</option>'
+            + '</select>'
+            + '<input type="number" id="pubBetStake" value="20" min="1" step="1" placeholder="Misli TL">'
             + '<button type="submit" class="pub-kazanc-strip-btn pub-kazanc-strip-btn-primary pub-kazanc-system-play" id="pubBetPlayBtn">Sistem Oyna</button>'
             + '<button type="button" class="pub-kazanc-strip-btn" id="pubBetDryBtn">Test (oynama)</button>'
             + '</form>'
@@ -200,6 +206,7 @@
             const city = $('#pubBetCity', root)?.value?.trim();
             const raceNo = Number($('#pubBetRace', root)?.value);
             const horseName = $('#pubBetHorse', root)?.value?.trim();
+            const betType = $('#pubBetType', root)?.value || 'ganyan';
             const stake = Number($('#pubBetStake', root)?.value);
             if (!city || !horseName || !raceNo || !stake) return;
             if (playBtn) { playBtn.disabled = true; playBtn.textContent = dryRun ? 'Test başlatılıyor…' : 'Oynatılıyor…'; }
@@ -208,7 +215,7 @@
                 const res = await fetch('/api/public/bitalih/auto/bet/fixed', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ city, raceNo, horseName, stake, dryRun })
+                    body: JSON.stringify({ city, raceNo, horseName, stake, betType, dryRun })
                 });
                 const parsed = await parseJsonResponse(res);
                 if (!parsed.ok || !parsed.data?.success) {
@@ -227,7 +234,9 @@
                     return;
                 }
                 const msg = polled.data.message || (dryRun ? 'Test tamam' : 'Kupon oynandı');
-                updateSystemMessages({ autoOk: msg + ' — ' + horseName + ' · ' + stake + ' TL' });
+                const odd = polled.data.odd ? (' @ ' + polled.data.odd) : '';
+                const bt = polled.data.betType ? (' · ' + polled.data.betType) : '';
+                updateSystemMessages({ autoOk: msg + ' — ' + horseName + bt + ' · ' + stake + ' TL' + odd });
             } finally {
                 if (playBtn) { playBtn.disabled = false; playBtn.textContent = 'Sistem Oyna'; }
                 if (dryBtn) dryBtn.disabled = false;

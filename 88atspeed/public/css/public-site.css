@@ -3092,7 +3092,8 @@ a { color: inherit; text-decoration: none; }
 }
 
 .pub-kazanc-system-login input,
-.pub-kazanc-system-form input {
+.pub-kazanc-system-form input,
+.pub-kazanc-system-form select {
     flex: 1;
     min-width: 100px;
     padding: 10px 12px;
@@ -3101,6 +3102,12 @@ a { color: inherit; text-decoration: none; }
     background: rgba(255, 255, 255, 0.08);
     color: #fff;
     font-size: 13px;
+}
+
+.pub-kazanc-bet-type {
+    min-width: 88px !important;
+    flex: 0 1 100px !important;
+    cursor: pointer;
 }
 
 .pub-kazanc-system-form {
