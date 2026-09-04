@@ -11,6 +11,8 @@
     let iframeSrc = BITALIH_LINKS[0].url;
     let shellReady = false;
     let autoStatus = null;
+    let autoSetup = null;
+    let autoPipelineStarted = false;
 
     const $ = (sel, root) => (root || document).querySelector(sel);
 
@@ -37,35 +39,46 @@
         return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
+    function betTypeOptions(selected) {
+        const types = [
+            { v: 'ganyan', l: 'Ganyan' },
+            { v: 'ilk2', l: 'İlk 2' },
+            { v: 'ilk3', l: 'İlk 3' },
+            { v: 'ilk4', l: 'İlk 4' }
+        ];
+        return types.map((t) => {
+            const sel = (selected || 'ilk2') === t.v ? ' selected' : '';
+            return '<option value="' + t.v + '"' + sel + '>' + t.l + '</option>';
+        }).join('');
+    }
+
     function renderSystemPlayPanel(opts) {
         const err = opts?.autoError || '';
         const ok = opts?.autoOk || '';
         const st = autoStatus || {};
+        const bet = autoSetup?.bet || {};
         return '<div class="pub-kazanc-system" id="pubKazancSystem">'
             + '<div class="pub-kazanc-system-hdr">'
             + '<span>⚡ Sistem Oyna</span>'
             + '<span class="pub-kazanc-system-status" id="pubKazancAutoStatus">'
             + (st.loggedIn ? ('Sunucu oturumu: ' + escapeHtml(st.displayName || 'açık') + (st.balance ? ' · ' + escapeHtml(st.balance) : ''))
-                : 'Sunucuda giriş gerekli (bir kez)')
+                : 'Otomatik giriş bekleniyor…')
             + '</span></div>'
-            + '<p class="pub-kazanc-system-desc">88 AT SPEED sunucusu sizin adınıza Bi\'Talih\'te sabit ihtimalli kupon oynar. İlk seferde sunucu girişi yapın; sonra tek tıkla oynatın.</p>'
+            + '<p class="pub-kazanc-system-desc">Kişisel otomasyon: sayfa açılınca sunucu girişi ve kupon otomatik kesilir. Ayarlar: <code>data/bitalih-auto-config.json</code></p>'
             + '<div class="pub-kazanc-system-login" id="pubKazancAutoLogin">'
-            + '<input type="text" id="pubAutoUser" autocomplete="username" placeholder="TC kimlik no">'
-            + '<input type="password" id="pubAutoPass" autocomplete="current-password" placeholder="Şifre">'
+            + '<input type="text" id="pubAutoUser" autocomplete="username" placeholder="TC kimlik no" value="' + escapeHtml(autoSetup?.username || '') + '">'
+            + '<input type="password" id="pubAutoPass" autocomplete="current-password" placeholder="Şifre" value="' + escapeHtml(autoSetup?.password || '') + '">'
             + '<button type="button" class="pub-kazanc-strip-btn pub-kazanc-strip-btn-primary" id="pubAutoLoginBtn">Sunucuda Giriş Yap</button>'
             + '</div>'
-            + '<p class="pub-kazanc-system-hint">Bi\'Talih için <strong>TC kimlik numaranızı</strong> kullanın. Tarayıcı girişi 15–30 sn sürebilir.</p>'
+            + '<p class="pub-kazanc-system-hint" id="pubAutoPipelineHint">Otomatik akış başlatılıyor…</p>'
             + '<form id="pubKazancBetForm" class="pub-kazanc-system-form">'
-            + '<input type="text" id="pubBetCity" value="Bursa" placeholder="Şehir">'
-            + '<input type="number" id="pubBetRace" value="1" min="1" max="15" placeholder="Koşu">'
-            + '<input type="text" id="pubBetHorse" value="LA BOMBONERA" placeholder="At adı">'
+            + '<input type="text" id="pubBetCity" value="' + escapeHtml(bet.city || 'Bursa') + '" placeholder="Şehir">'
+            + '<input type="number" id="pubBetRace" value="' + (bet.raceNo || 1) + '" min="1" max="15" placeholder="Koşu">'
+            + '<input type="text" id="pubBetHorse" value="' + escapeHtml(bet.horseName || 'LA BOMBONERA') + '" placeholder="At adı">'
             + '<select id="pubBetType" class="pub-kazanc-bet-type" title="Bahis türü">'
-            + '<option value="ganyan">Ganyan</option>'
-            + '<option value="ilk2" selected>İlk 2</option>'
-            + '<option value="ilk3">İlk 3</option>'
-            + '<option value="ilk4">İlk 4</option>'
+            + betTypeOptions(bet.betType)
             + '</select>'
-            + '<input type="number" id="pubBetStake" value="20" min="1" step="1" placeholder="Misli TL">'
+            + '<input type="number" id="pubBetStake" value="' + (bet.stake || 20) + '" min="1" step="1" placeholder="Misli TL">'
             + '<button type="submit" class="pub-kazanc-strip-btn pub-kazanc-strip-btn-primary pub-kazanc-system-play" id="pubBetPlayBtn">Sistem Oyna</button>'
             + '<button type="button" class="pub-kazanc-strip-btn" id="pubBetDryBtn">Test (oynama)</button>'
             + '</form>'
@@ -77,9 +90,8 @@
     function renderInfoBanner() {
         return '<div class="pub-kazanc-info" id="pubKazancInfo">'
             + '<span class="pub-kazanc-info-icon">🎯</span>'
-            + '<div><strong>İki yol:</strong> '
-            + '<em>Sistem Oyna</em> — sunucu otomatik kupon keser. '
-            + 'veya alttaki <em>Bi\'Talih paneli</em> — elle oyna.</div></div>';
+            + '<div><strong>Otomatik mod:</strong> '
+            + 'Giriş + kupon kesimi müdahalesiz çalışır. Manuel oyun için alttaki Bi\'Talih panelini kullanın.</div></div>';
     }
 
     function renderQuickNav() {
@@ -112,6 +124,25 @@
             + renderIframeBlock();
     }
 
+    function applySetupToForm(root) {
+        if (!autoSetup || !root) return;
+        const user = $('#pubAutoUser', root);
+        const pass = $('#pubAutoPass', root);
+        if (user && autoSetup.username) user.value = autoSetup.username;
+        if (pass && autoSetup.password) pass.value = autoSetup.password;
+        const bet = autoSetup.bet || {};
+        if ($('#pubBetCity', root) && bet.city) $('#pubBetCity', root).value = bet.city;
+        if ($('#pubBetRace', root) && bet.raceNo) $('#pubBetRace', root).value = bet.raceNo;
+        if ($('#pubBetHorse', root) && bet.horseName) $('#pubBetHorse', root).value = bet.horseName;
+        if ($('#pubBetType', root) && bet.betType) $('#pubBetType', root).value = bet.betType;
+        if ($('#pubBetStake', root) && bet.stake) $('#pubBetStake', root).value = bet.stake;
+    }
+
+    function setPipelineHint(text) {
+        const el = document.getElementById('pubAutoPipelineHint');
+        if (el) el.textContent = text || '';
+    }
+
     function navigateIframe(url) {
         iframeSrc = url || BITALIH_URL;
         const iframe = document.getElementById('pubKazancIframe');
@@ -119,6 +150,25 @@
         document.querySelectorAll('.pub-kazanc-quicknav-btn').forEach((btn) => {
             btn.classList.toggle('pub-kazanc-quicknav-active', btn.dataset.bitalihUrl === iframeSrc);
         });
+    }
+
+    async function loadAutoSetup() {
+        try {
+            const res = await fetch('/api/public/bitalih/auto/setup');
+            const parsed = await parseJsonResponse(res);
+            if (parsed.ok && parsed.data?.success !== false) {
+                autoSetup = parsed.data;
+                return autoSetup;
+            }
+        } catch (_) { /* */ }
+        autoSetup = {
+            enabled: true,
+            hasCredentials: false,
+            autoLoginOnLoad: true,
+            autoPlayOnLoad: true,
+            bet: { city: 'Bursa', raceNo: 1, horseName: 'LA BOMBONERA', betType: 'ilk2', stake: 20 }
+        };
+        return autoSetup;
     }
 
     async function refreshAutoStatus() {
@@ -131,7 +181,7 @@
                 if (el) {
                     el.textContent = autoStatus.loggedIn
                         ? ('Sunucu oturumu: ' + (autoStatus.displayName || 'açık') + (autoStatus.balance ? ' · ' + autoStatus.balance : ''))
-                        : 'Sunucuda giriş gerekli (bir kez)';
+                        : 'Sunucuda giriş gerekli';
                 }
             }
         } catch (_) { /* */ }
@@ -156,11 +206,13 @@
     }
 
     function bindSystemPlay(root) {
-        $('#pubAutoLoginBtn', root)?.addEventListener('click', async () => {
+        async function performLogin() {
             const btn = $('#pubAutoLoginBtn', root);
             const username = $('#pubAutoUser', root)?.value?.trim();
             const password = $('#pubAutoPass', root)?.value;
-            if (!username || !password) return;
+            if (!username || !password) {
+                return { ok: false, error: 'TC ve şifre eksik — data/bitalih-auto-config.json kontrol edin' };
+            }
             if (btn) { btn.disabled = true; btn.textContent = 'Giriş başlatılıyor…'; }
             try {
                 const res = await fetch('/api/public/bitalih/auto/login', {
@@ -170,35 +222,32 @@
                 });
                 const parsed = await parseJsonResponse(res);
                 if (!parsed.ok || !parsed.data?.success) {
-                    updateSystemMessages({ autoError: parsed.ok ? parsed.data.error : parsed.error });
-                    return;
+                    return { ok: false, error: parsed.ok ? parsed.data.error : parsed.error };
                 }
                 if (!parsed.data.jobId) {
-                    updateSystemMessages({ autoError: 'Sunucu güncel değil — deploy gerekli.' });
-                    return;
+                    return { ok: false, error: 'Sunucu güncel değil — deploy gerekli.' };
                 }
                 if (parsed.data.status === 'failed' || parsed.data.error) {
-                    updateSystemMessages({ autoError: parsed.data.error || 'Giriş başarısız' });
-                    return;
+                    return { ok: false, error: parsed.data.error || 'Giriş başarısız' };
                 }
                 const polled = await pollJob(parsed.data.jobId, 'Giriş', (_job, secs) => {
                     if (btn) btn.textContent = 'Giriş yapılıyor… (' + secs + ' sn)';
+                    setPipelineHint('Sunucuda giriş yapılıyor… (' + secs + ' sn)');
                 });
                 if (!polled.ok || !polled.data?.success) {
                     let err = polled.error || polled.data?.error || 'Giriş başarısız';
                     if (polled.code === 'no_chrome' || polled.code === 'worker_down') {
                         err = 'SSH: bash /var/www/88atspeed/deploy/fix-server.sh';
                     }
-                    updateSystemMessages({ autoError: err });
-                    return;
+                    return { ok: false, error: err };
                 }
                 autoStatus = polled.data;
-                updateSystemMessages({ autoOk: 'Sunucu girişi başarılı — artık Sistem Oyna kullanabilirsiniz.' });
                 await refreshAutoStatus();
+                return { ok: true };
             } finally {
                 if (btn) { btn.disabled = false; btn.textContent = 'Sunucuda Giriş Yap'; }
             }
-        });
+        }
 
         async function submitBet(dryRun) {
             const playBtn = $('#pubBetPlayBtn', root);
@@ -208,10 +257,13 @@
             const horseName = $('#pubBetHorse', root)?.value?.trim();
             const betType = $('#pubBetType', root)?.value || 'ganyan';
             const stake = Number($('#pubBetStake', root)?.value);
-            if (!city || !horseName || !raceNo || !stake) return;
+            if (!city || !horseName || !raceNo || !stake) {
+                return { ok: false, error: 'Kupon alanları eksik' };
+            }
             if (playBtn) { playBtn.disabled = true; playBtn.textContent = dryRun ? 'Test başlatılıyor…' : 'Oynatılıyor…'; }
             if (dryBtn) dryBtn.disabled = true;
             try {
+                setPipelineHint(dryRun ? 'Test kuponu hazırlanıyor…' : 'Kupon oynatılıyor…');
                 const res = await fetch('/api/public/bitalih/auto/bet/fixed', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -219,35 +271,51 @@
                 });
                 const parsed = await parseJsonResponse(res);
                 if (!parsed.ok || !parsed.data?.success) {
-                    updateSystemMessages({ autoError: parsed.ok ? parsed.data.error : parsed.error });
-                    return;
+                    return { ok: false, error: parsed.ok ? parsed.data.error : parsed.error };
                 }
                 if (!parsed.data.jobId) {
-                    updateSystemMessages({ autoError: 'Sunucu güncel değil — deploy gerekli.' });
-                    return;
+                    return { ok: false, error: 'Sunucu güncel değil — deploy gerekli.' };
                 }
                 const polled = await pollJob(parsed.data.jobId, dryRun ? 'Test' : 'Bahis', (_job, secs) => {
                     if (playBtn) playBtn.textContent = (dryRun ? 'Test' : 'Oynanıyor') + '… (' + secs + ' sn)';
+                    setPipelineHint((dryRun ? 'Test' : 'Kupon oynanıyor') + '… (' + secs + ' sn)');
                 });
                 if (!polled.ok || polled.data?.success === false) {
-                    updateSystemMessages({ autoError: polled.error || polled.data?.error || 'Bahis başarısız' });
-                    return;
+                    return { ok: false, error: polled.error || polled.data?.error || 'Bahis başarısız' };
                 }
                 const msg = polled.data.message || (dryRun ? 'Test tamam' : 'Kupon oynandı');
                 const odd = polled.data.odd ? (' @ ' + polled.data.odd) : '';
                 const bt = polled.data.betType ? (' · ' + polled.data.betType) : '';
-                updateSystemMessages({ autoOk: msg + ' — ' + horseName + bt + ' · ' + stake + ' TL' + odd });
+                return {
+                    ok: true,
+                    message: msg + ' — ' + horseName + bt + ' · ' + stake + ' TL' + odd
+                };
             } finally {
                 if (playBtn) { playBtn.disabled = false; playBtn.textContent = 'Sistem Oyna'; }
                 if (dryBtn) dryBtn.disabled = false;
             }
         }
 
-        $('#pubKazancBetForm', root)?.addEventListener('submit', (e) => {
-            e.preventDefault();
-            submitBet(false);
+        $('#pubAutoLoginBtn', root)?.addEventListener('click', async () => {
+            const result = await performLogin();
+            if (!result.ok) {
+                updateSystemMessages({ autoError: result.error });
+                return;
+            }
+            updateSystemMessages({ autoOk: 'Sunucu girişi başarılı — artık Sistem Oyna kullanabilirsiniz.' });
         });
-        $('#pubBetDryBtn', root)?.addEventListener('click', () => submitBet(true));
+
+        $('#pubKazancBetForm', root)?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const result = await submitBet(false);
+            if (!result.ok) updateSystemMessages({ autoError: result.error });
+            else updateSystemMessages({ autoOk: result.message });
+        });
+        $('#pubBetDryBtn', root)?.addEventListener('click', async () => {
+            const result = await submitBet(true);
+            if (!result.ok) updateSystemMessages({ autoError: result.error });
+            else updateSystemMessages({ autoOk: result.message });
+        });
 
         root.querySelectorAll('.pub-kazanc-quicknav-btn').forEach((btn) => {
             btn.addEventListener('click', () => navigateIframe(btn.dataset.bitalihUrl));
@@ -256,6 +324,8 @@
             const iframe = $('#pubKazancIframe', root);
             if (iframe) iframe.src = iframeSrc;
         });
+
+        return { performLogin, submitBet };
     }
 
     function updateSystemMessages(opts) {
@@ -279,21 +349,78 @@
         }
     }
 
-    function ensureShell(opts) {
+    async function runAutoPipeline(root, handlers) {
+        if (autoPipelineStarted || !root || !handlers) return;
+        autoPipelineStarted = true;
+
+        if (!autoSetup?.enabled) {
+            setPipelineHint('Otomasyon kapalı (bitalih-auto-config enabled:false)');
+            return;
+        }
+
+        setPipelineHint('Otomatik akış: durum kontrol ediliyor…');
+        await refreshAutoStatus();
+
+        let loggedIn = !!autoStatus?.loggedIn;
+        if (!loggedIn && autoSetup.autoLoginOnLoad !== false) {
+            if (!autoSetup.hasCredentials) {
+                setPipelineHint('Kimlik bilgisi yok — sunucuda data/bitalih-auto-config.json oluşturun');
+                updateSystemMessages({ autoError: 'Otomatik giriş için config dosyası gerekli' });
+                return;
+            }
+            setPipelineHint('Otomatik sunucu girişi başlatılıyor…');
+            const login = await handlers.performLogin();
+            if (!login.ok) {
+                setPipelineHint('Giriş başarısız');
+                updateSystemMessages({ autoError: login.error });
+                return;
+            }
+            loggedIn = true;
+            updateSystemMessages({ autoOk: 'Sunucu girişi başarılı — artık Sistem Oyna kullanabilirsiniz.' });
+        } else if (loggedIn) {
+            updateSystemMessages({ autoOk: 'Sunucu oturumu aktif — kupon hazırlanıyor…' });
+        }
+
+        if (!loggedIn) return;
+
+        if (autoSetup.autoPlayOnLoad === false) {
+            setPipelineHint('Otomatik kupon kapalı — Sistem Oyna ile manuel oynatın');
+            return;
+        }
+
+        await new Promise((r) => setTimeout(r, 800));
+        setPipelineHint('Otomatik kupon kesiliyor…');
+        const dryRun = !!autoSetup.autoPlayDryRun;
+        const betResult = await handlers.submitBet(dryRun);
+        if (!betResult.ok) {
+            setPipelineHint('Kupon başarısız');
+            updateSystemMessages({ autoError: betResult.error });
+            return;
+        }
+        setPipelineHint('Otomatik akış tamamlandı.');
+        updateSystemMessages({ autoOk: betResult.message });
+    }
+
+    let pipelineHandlers = null;
+
+    async function ensureShell(opts) {
         const el = $('#pubKazancContent');
         if (!el) return;
+        if (!autoSetup) await loadAutoSetup();
         if (!shellReady || !$('#pubKazancIframe', el)) {
             el.innerHTML = renderShell(opts || {});
             shellReady = true;
-            bindSystemPlay(el);
-            refreshAutoStatus();
+            pipelineHandlers = bindSystemPlay(el);
+            applySetupToForm(el);
+            await refreshAutoStatus();
+            runAutoPipeline(el, pipelineHandlers);
         }
     }
 
-    function initKazancTab() {
+    async function initKazancTab() {
         if (!$('#panel-kazanc')) return;
-        ensureShell({});
-        refreshAutoStatus();
+        await ensureShell({});
+        await refreshAutoStatus();
     }
 
     window.pubKazanc = { init: initKazancTab, refresh: refreshAutoStatus };

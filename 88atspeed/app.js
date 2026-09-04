@@ -18,6 +18,7 @@ const hipodromAuth = require('./lib/hipodrom-auth');
 const hipodromBet = require('./lib/hipodrom-bet');
 const hipodromBrowser = require('./lib/hipodrom-browser');
 const bitalihBet = require('./lib/bitalih-bet');
+const bitalihAutoConfig = require('./lib/bitalih-auto-config');
 const { resolveChromePath } = require('./lib/chrome-path');
 const publicTahminBuild = require('./lib/public-tahmin-build');
 const app = express();
@@ -488,6 +489,14 @@ app.get('/api/public/bitalih/config', (req, res) => {
         bitalihUrl: 'https://www.bitalih.com/',
         fixedOddsUrl: 'https://www.bitalih.com/at-yarisi/tjk-sabit-ihtimalli-bahis'
     });
+});
+
+app.get('/api/public/bitalih/auto/setup', (req, res) => {
+    try {
+        res.json(bitalihAutoConfig.getPublicAutoSetup());
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 app.get('/api/public/bitalih/auto/status', async (req, res) => {
