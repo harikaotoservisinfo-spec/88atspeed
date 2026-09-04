@@ -62,6 +62,10 @@ const IstatistikEngine = {
     },
 
     _hedefMesafe(race) {
+        if (typeof AtMetaFields !== 'undefined' && AtMetaFields.resolveRaceMesafe) {
+            const resolved = AtMetaFields.resolveRaceMesafe(race);
+            if (resolved != null) return resolved;
+        }
         const m = (race.mesafe && race.mesafe !== '?') ? race.mesafe : (race.raceDistance || '?');
         return this._parseMesafe(m);
     },

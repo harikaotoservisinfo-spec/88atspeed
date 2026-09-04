@@ -6,6 +6,7 @@ const tjkScrape = require('./tjk-scrape');
 const hipodromProgram = require('./hipodrom-program');
 const { mergeTahminIntoKosular } = require('./public-tahmin-build');
 const horseHistoryEnrich = require('./horse-history-enrich');
+const raceMetaEnrich = require('./race-meta-enrich');
 
 const DOMESTIC_HINT = /(ankara|izmir|istanbul|bursa|adana|elaz|diyarbak|kocaeli|antalya|şanlıurfa|urfa|karma)/i;
 
@@ -91,7 +92,7 @@ function dbRun(db, sql, params = []) {
 }
 
 function racesToHesaplamaVeri(races) {
-    return (races || []).map((race) => ({
+    return raceMetaEnrich.enrichRacesMeta((races || []).map((race) => ({
         raceNo: String(race.raceNo),
         saat: race.saat || '',
         mesafe: race.mesafe || '',
@@ -116,7 +117,7 @@ function racesToHesaplamaVeri(races) {
                 start: h.start || '',
                 kosular: Array.isArray(h.kosular) ? h.kosular : []
             }))
-    })).filter((race) => race.horses.length > 0);
+    }))).filter((race) => race.horses.length > 0);
 }
 
 function mergeHesaplamaVeri(existingRaces, newRaces) {
@@ -129,17 +130,21 @@ function mergeHesaplamaVeri(existingRaces, newRaces) {
             kosuByHorse.set('no:' + raceNo + ':' + h.no, h.kosular);
         }
     }
-    return racesToHesaplamaVeri(newRaces).map((race) => ({
-        ...race,
-        horses: race.horses.map((h) => {
-            const kosular = h.kosular.length
-                ? h.kosular
-                : (h.atId && kosuByHorse.get('id:' + h.atId))
-                    || kosuByHorse.get('no:' + race.raceNo + ':' + h.no)
-                    || [];
-            return Object.assign({}, h, { kosular });
-        })
-    }));
+    const oldByNo = new Map((existingRaces || []).map((r) => [String(r.raceNo), r]));
+    return racesToHesaplamaVeri(newRaces).map((race) => {
+        const merged = raceMetaEnrich.mergeRaceMetaPreserve(oldByNo.get(String(race.raceNo)), race);
+        return {
+            ...merged,
+            horses: merged.horses.map((h) => {
+                const kosular = h.kosular.length
+                    ? h.kosular
+                    : (h.atId && kosuByHorse.get('id:' + h.atId))
+                        || kosuByHorse.get('no:' + race.raceNo + ':' + h.no)
+                        || [];
+                return Object.assign({}, h, { kosular });
+            })
+        };
+    });
 }
 
 async function syncProgramToHesaplamaKayit(db, row) {
@@ -202,12 +207,12 @@ async function syncAllPublicProgramsToHesaplama(db, opts = {}) {
 
 function parseRaceMetaFromText(text) {
     const line = (text || '').replace(/\s+/g, ' ').trim();
-    const mesafeMatch = line.match(/(\d{3,4})\s*(Çim|Kum|Sentetik)/i);
+    const { mesafe, pist } = raceMetaEnrich.parseMesafePistFromLine(line);
     const saatMatch = line.match(/\b(\d{1,2}:\d{2})\b/);
     return {
         baslik: line.slice(0, 120) || '',
-        mesafe: mesafeMatch ? mesafeMatch[1] : '',
-        pist: mesafeMatch ? mesafeMatch[2] : '',
+        mesafe: mesafe || '',
+        pist: pist || '',
         saat: saatMatch ? saatMatch[1] : ''
     };
 }
@@ -223,11 +228,13 @@ function parseRaceProgramFromHtml(html) {
         if (!kosuMatch) continue;
         const kosuNo = parseInt(kosuMatch[1], 10);
         const headerLine = blok.match(/\d+\.\s*Koşu\s+\d+\.\d+\s*\n([^\n]+)/);
-        const parsed = tjkScrape.parseRaceHeaderLine(headerLine ? headerLine[1] : blok.slice(0, 200));
+        const headerText = headerLine ? headerLine[1] : blok.slice(0, 200);
+        const parsed = tjkScrape.parseRaceHeaderLine(headerText);
+        const blockDist = raceMetaEnrich.extractMesafePistFromKosuBlock(blok);
         const meta = {
-            baslik: (headerLine ? headerLine[1] : blok.slice(0, 200)).replace(/\s+/g, ' ').trim().slice(0, 120),
-            mesafe: parsed.mesafe || '',
-            pist: parsed.pist_kosu || '',
+            baslik: headerText.replace(/\s+/g, ' ').trim().slice(0, 120),
+            mesafe: blockDist.mesafe || parsed.mesafe || '',
+            pist: blockDist.pist || parsed.pist_kosu || '',
             kcins_kosu: parsed.kcins_kosu || '',
             kategori: parsed.kategori || '',
             saat: kosuMatch[2]
@@ -1036,6 +1043,47 @@ async function publishHesaplamaKayitlarToVitrin(db, opts = {}) {
     return results;
 }
 
+async function enrichHesaplamaVeriMesafe(db, veri, kayitMeta = {}) {
+    let enriched = raceMetaEnrich.enrichRacesMeta(veri || []);
+    const needsMesafe = enriched.some((r) => !raceMetaEnrich.raceMetaFilled(r.mesafe));
+    if (!needsMesafe) return enriched;
+
+    const tarih = kayitMeta.tarih;
+    const hipodromId = kayitMeta.hipodrom_id || kayitMeta.hipodromId;
+    if (tarih && hipodromId) {
+        try {
+            const pub = await getPublicProgramKayit(db, tarih, String(hipodromId));
+            if (pub?.races?.length) {
+                const metaByNo = {};
+                for (const r of pub.races) {
+                    metaByNo[String(r.raceNo)] = raceMetaEnrich.enrichRaceMeta(r);
+                }
+                enriched = raceMetaEnrich.enrichRacesMeta(enriched, metaByNo);
+            }
+        } catch (_) { /* */ }
+    }
+
+    if (enriched.some((r) => !raceMetaEnrich.raceMetaFilled(r.mesafe))
+        && tarih && kayitMeta.hipodrom) {
+        try {
+            const { hipodromlar } = await resolveHipodromList(db, tarih, { maxAttempts: 2, timeoutMs: 30000 });
+            const hip = hipodromlar.find((h) => String(h.id) === String(hipodromId))
+                || hipodromlar.find((h) => h.name.toLowerCase() === String(kayitMeta.hipodrom).toLowerCase());
+            if (hip) {
+                const prog = await fetchHipodromProgram(tarih, hip, { maxAttempts: 2, timeoutMs: 30000 });
+                const metaByNo = {};
+                for (const r of prog.races || []) {
+                    metaByNo[String(r.raceNo)] = raceMetaEnrich.enrichRaceMeta(r);
+                }
+                enriched = raceMetaEnrich.enrichRacesMeta(enriched, metaByNo);
+            }
+        } catch (err) {
+            console.warn('enrichHesaplamaVeriMesafe TJK:', err.message);
+        }
+    }
+    return enriched;
+}
+
 module.exports = {
     formatTrDate,
     parseTrDate,
@@ -1065,5 +1113,6 @@ module.exports = {
     publishHesaplamaKayitToVitrin,
     publishHesaplamaKayitlarToVitrin,
     findHesaplamaKayit,
-    hesaplamaVeriToPublicRaces
+    hesaplamaVeriToPublicRaces,
+    enrichHesaplamaVeriMesafe
 };

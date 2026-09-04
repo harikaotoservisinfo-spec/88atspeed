@@ -116,7 +116,8 @@ function guardAdminPage(req, res, next) {
 }
 
 function guardAdminApi(req, res, next) {
-    const open = req.path === '/admin/login' || req.path === '/admin/session' || req.path === '/admin/logout';
+    const open = req.path === '/admin/login' || req.path === '/admin/session' || req.path === '/admin/logout'
+        || req.path === '/calibration-bundle' || req.path === '/calibration-flat-build';
     if (open) return next();
     if (req.path.startsWith('/public/')) return next();
     if (!isAuthenticated(req)) {

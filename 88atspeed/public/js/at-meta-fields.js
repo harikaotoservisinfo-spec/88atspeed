@@ -46,8 +46,28 @@ const AtMetaFields = {
         return String(v);
     },
 
+    /** Koşu mesafesi — TJK yeni düzeninde baslik/kcins içinde olmayabilir */
+    resolveRaceMesafe(race) {
+        if (!race) return null;
+        const direct = this.val(race, 'mesafe', null);
+        if (direct && direct !== '—' && direct !== '?') {
+            const n = parseInt(String(direct).replace(/[^\d]/g, ''), 10);
+            if (!isNaN(n) && n >= 800 && n <= 3500) return n;
+        }
+        const texts = [race.baslik, race.kcins_kosu, race.kategori, race.raceDistance].filter(Boolean);
+        for (const text of texts) {
+            const adjacent = String(text).match(/(\d{3,4})\s*(Çim|Kum|Sentetik)/i);
+            if (adjacent) {
+                const n = parseInt(adjacent[1], 10);
+                if (!isNaN(n) && n >= 800 && n <= 3500) return n;
+            }
+        }
+        return null;
+    },
+
     formatRaceHeader(race) {
-        const mesafe = this.val(race, 'mesafe', '?');
+        const resolved = this.resolveRaceMesafe(race);
+        const mesafe = resolved != null ? String(resolved) : this.val(race, 'mesafe', '?');
         const pist = this.normalizePist(race.pist) || this.val(race, 'pist', '');
         const kcins = this.val(race, 'kcins_kosu', '');
         const kat = this.val(race, 'kategori', '');

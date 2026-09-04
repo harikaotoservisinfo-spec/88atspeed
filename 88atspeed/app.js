@@ -7,6 +7,7 @@ const { buildCalibrationFlat, clearCalibrationFlatCache } = require('./lib/calib
 const { buildCalibrationBundle, clearCalibrationBundleCache } = require('./lib/calibration-bundle');
 const adminAuth = require('./lib/admin-auth');
 const publicProgram = require('./lib/public-program');
+const raceMetaEnrich = require('./lib/race-meta-enrich');
 const muhtemellerFetch = require('./lib/muhtemeller-fetch');
 const yenibeygirBlt = require('./lib/yenibeygir-blt');
 const liderformGp = require('./lib/liderform-gp');
@@ -1077,13 +1078,16 @@ app.get('/api/yaris-programi', async (req, res) => {
             if (!kosuMatch) continue;
             
             const kosuNo = parseInt(kosuMatch[1]);
-            const headerLine = blok.match(/\d+\.\s*Koşu\s+\d+\.\d+\s*\n([^\n]+(?:Kum|Çim|Sentetik)[^\n]*)/i);
+            const headerLine = blok.match(/\d+\.\s*Koşu\s+\d+\.\d+\s*\n([^\n]+)/);
             const meta = tjkScrape.parseRaceHeaderLine(headerLine ? headerLine[1] : '');
-            
-            if (meta.mesafe) {
-                mesafeler[kosuNo] = { mesafe: meta.mesafe, pist: meta.pist_kosu || '?' };
-                raceMeta[kosuNo] = meta;
-                console.log(`✅ Koşu ${kosuNo}: ${meta.mesafe} ${meta.pist_kosu} · ${meta.kcins_kosu} · ${meta.kategori}`);
+            const blockDist = raceMetaEnrich.extractMesafePistFromKosuBlock(blok);
+            const mesafe = blockDist.mesafe || meta.mesafe || '';
+            const pist = blockDist.pist || meta.pist_kosu || '';
+
+            if (mesafe) {
+                mesafeler[kosuNo] = { mesafe, pist: pist || '?' };
+                raceMeta[kosuNo] = { ...meta, mesafe, pist_kosu: pist };
+                console.log(`✅ Koşu ${kosuNo}: ${mesafe} ${pist} · ${meta.kcins_kosu} · ${meta.kategori}`);
             } else {
                 const match = blok.match(/(\d{3,4})\s*(Çim|Kum|Sentetik)/);
                 if (match) {
@@ -1486,14 +1490,20 @@ app.get('/api/calibration-flat-build', async (req, res) => {
     }
 });
 
-app.get('/api/hesaplama-kayit/:id', (req, res) => {
+app.get('/api/hesaplama-kayit/:id', async (req, res) => {
     const id = req.params.id;
-    db.get(`SELECT * FROM hesaplama_kayitlari WHERE id = ?`, [id], (err, row) => {
+    db.get(`SELECT * FROM hesaplama_kayitlari WHERE id = ?`, [id], async (err, row) => {
         if (err) {
             res.json({ success: false, error: err.message });
         } else if (row) {
-            row.veri = JSON.parse(row.veri);
-            res.json({ success: true, kayit: row });
+            try {
+                let veri = JSON.parse(row.veri);
+                veri = await publicProgram.enrichHesaplamaVeriMesafe(db, veri, row);
+                row.veri = veri;
+                res.json({ success: true, kayit: row });
+            } catch (parseErr) {
+                res.json({ success: false, error: parseErr.message || String(parseErr) });
+            }
         } else {
             res.json({ success: false, error: 'Kayıt bulunamadı' });
         }
