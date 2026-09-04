@@ -48,10 +48,12 @@ async function fetchOneHorseHistory(page, atId, name, opts, write) {
         onProgress: (msg) => write('      · ' + msg)
     });
     const kosuCount = result.kosular?.length || 0;
-    if (!result.success) {
+    if (result.error === 'gecmis_yok') {
+        write('      ○ ilk koşu — TJK geçmişi yok');
+    } else if (!result.success) {
         write('      ⚠ veri alınamadı: ' + (result.error || 'bilinmeyen'));
     } else if (kosuCount === 0) {
-        write('      ⚠ 0 koşu — bu at için TJK geçmişi yok veya okunamadı');
+        write('      ⚠ 0 koşu — okunamadı');
     } else {
         write('      ✓ ' + kosuCount + ' koşu kaydedildi');
     }
@@ -60,35 +62,61 @@ async function fetchOneHorseHistory(page, atId, name, opts, write) {
 
 async function enrichRacesWithHorseHistory(races, opts = {}) {
     const toFetch = collectHorsesNeedingHistory(races);
-    if (!toFetch.length) return { races, fetched: 0, withKosular: 0, retried: 0 };
+    if (!toFetch.length) {
+        return { races, fetched: 0, withKosular: 0, noHistory: 0, retried: 0, stillMissing: 0 };
+    }
 
     const maxKosu = opts.maxKosu || 7;
     const delayMs = opts.horseDelayMs ?? 600;
+    const pageRecycleEvery = opts.pageRecycleEvery ?? 40;
     const cache = new Map();
     let page = opts.page || null;
-    let browser = null;
+    let browser = opts.browser || null;
     let ownBrowser = false;
+    let ownPage = false;
 
     const write = (line) => {
         if (opts.onLog) opts.onLog(line);
         else console.log(line);
     };
 
-    if (!page) {
+    async function ensurePage() {
+        if (page) return page;
         write('    🌐 Puppeteer tarayıcı açılıyor…');
         browser = await tjkScrape.launchBrowser();
         page = await browser.newPage();
         await page.setViewport({ width: 1920, height: 1080 });
         ownBrowser = true;
+        ownPage = true;
         write('    ✓ Tarayıcı hazır');
+        return page;
+    }
+
+    async function recyclePage(reason) {
+        if (!page) return;
+        const canRecycle = ownBrowser || browser;
+        if (!canRecycle) return;
+        write('    ♻ sayfa yenileniyor' + (reason ? ' (' + reason + ')' : '') + '…');
+        try { await page.close(); } catch (_) { /* */ }
+        page = await browser.newPage();
+        await page.setViewport({ width: 1920, height: 1080 });
+        if (opts.onPageRecycle) opts.onPageRecycle(page);
+    }
+
+    if (!page) {
+        await ensurePage();
     }
 
     const runBatch = async (batch, batchOpts = {}) => {
         const startedAt = Date.now();
         const failed = [];
+        let batchNoHistory = 0;
         for (let i = 0; i < batch.length; i++) {
             const { atId, name } = batch[i];
             if (i > 0 && delayMs > 0) await sleep(delayMs);
+            if (pageRecycleEvery > 0 && i > 0 && i % pageRecycleEvery === 0) {
+                await recyclePage((i + 1) + '. at');
+            }
             const label = (name || atId || '').toString().slice(0, 28);
             const prefix = batchOpts.retryPass ? '    ↻ [' : '    → [';
             write(prefix + (i + 1) + '/' + batch.length + '] ' + label + (batchOpts.retryPass ? ' yeniden…' : ' başlıyor…'));
@@ -100,11 +128,14 @@ async function enrichRacesWithHorseHistory(races, opts = {}) {
                     tableWaitMs: opts.tableWaitMs
                 }, write);
                 const kosuCount = result.kosular?.length || 0;
-                if (result.success && kosuCount > 0) {
+                if (kosuCount > 0) {
                     cache.set(atId, result.kosular);
+                } else if (result.error === 'gecmis_yok') {
+                    cache.set(atId, []);
+                    batchNoHistory++;
                 } else if (!cache.has(atId) || !(cache.get(atId) || []).length) {
                     cache.set(atId, []);
-                    if (result.retryable !== false && result.error !== 'gecmis_yok') {
+                    if (result.retryable !== false) {
                         failed.push({ atId, name });
                     }
                 }
@@ -131,21 +162,27 @@ async function enrichRacesWithHorseHistory(races, opts = {}) {
                 );
             }
         }
-        return failed;
+        return { failed, noHistory: batchNoHistory };
     };
 
     try {
-        let failed = await runBatch(toFetch);
+        let totalNoHistory = 0;
+        let batchResult = await runBatch(toFetch);
+        let failed = batchResult.failed;
+        totalNoHistory += batchResult.noHistory;
         let retried = 0;
-        const retryPasses = opts.retryEmptyPasses ?? 1;
+        const retryPasses = opts.retryEmptyPasses ?? 2;
         for (let pass = 0; pass < retryPasses && failed.length; pass++) {
+            await recyclePage('eksik at tur ' + (pass + 1));
             write('    ↻ ' + failed.length + ' at için eksik geçmiş yeniden deneniyor (tur ' + (pass + 1) + ')…');
             const retryBatch = failed;
-            failed = await runBatch(retryBatch, {
+            batchResult = await runBatch(retryBatch, {
                 retryPass: true,
                 maxRetry: (opts.maxRetry ?? 2) + 1,
                 pageRetries: (opts.pageRetries ?? 3) + 1
             });
+            failed = batchResult.failed;
+            totalNoHistory += batchResult.noHistory;
             retried += retryBatch.length;
         }
         if (failed.length) {
@@ -154,7 +191,15 @@ async function enrichRacesWithHorseHistory(races, opts = {}) {
         }
         attachKosularToRaces(races, cache);
         const withKosular = [...cache.values()].filter((k) => k.length > 0).length;
-        return { races, fetched: toFetch.length, withKosular, retried, stillMissing: failed.length };
+        return {
+            races,
+            fetched: toFetch.length,
+            withKosular,
+            noHistory: totalNoHistory,
+            retried,
+            stillMissing: failed.length,
+            failedHorses: failed
+        };
     } finally {
         if (ownBrowser && browser) {
             try { await browser.close(); } catch (_) { /* */ }

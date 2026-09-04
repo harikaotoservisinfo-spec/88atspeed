@@ -47,9 +47,17 @@ const db = new sqlite3.Database(path.join(__dirname, '..', 'atlar.db'));
     console.log('⏱ Toplam süre:', elapsedMin > 0 ? (elapsedMin + ' dk') : (Math.round((Date.now() - startedAt) / 1000) + ' sn'));
     console.log('✅ Tamamlandı:', result.basarili + '/' + result.hipodromSayisi, 'hipodrom');
     if (result.kosularStats) {
-        console.log('🐴 At geçmişi:', result.kosularStats.withData + '/' + result.kosularStats.total,
-            '(eksik:', result.kosularStats.missing + ')');
-        if (result.kosularStats.missing > 0) {
+        const ks = result.kosularStats;
+        console.log('🐴 At geçmişi:', ks.withData + '/' + ks.total, 'geçmişli',
+            '(eksik fetch:', ks.missing + ')');
+        if (result.enrichDetails?.length) {
+            for (const d of result.enrichDetails) {
+                console.log('   ' + d.hipodrom + ': ' + d.withKosular + ' geçmişli'
+                    + (d.noHistory ? ' · ' + d.noHistory + ' ilk koşu' : '')
+                    + (d.stillMissing ? ' · ' + d.stillMissing + ' eksik' : ''));
+            }
+        }
+        if (ks.missing > 0) {
             const hipArg = hipodromFilter ? (' --hipodrom ' + hipodromFilter) : '';
             const tarihArg = ' --tarih ' + tarih;
             console.log('🔧 Eksik atları tamamlamak için (sunucuda):');

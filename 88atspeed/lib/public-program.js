@@ -530,6 +530,7 @@ async function buildPublicProgram(db, tarih, opts = {}) {
     }
 
     const kosularStats = { total: 0, withData: 0, missing: 0 };
+    const enrichDetails = [];
     const results = [];
     try {
         for (let i = 0; i < selected.length; i++) {
@@ -544,13 +545,22 @@ async function buildPublicProgram(db, tarih, opts = {}) {
                         hip.name, '—', prog.kosuSayisi, 'koşu ·',
                         needCount, 'at geçmişi çekiliyor…'
                     );
+                    if (i > 0 && enrichPage) {
+                        try { await enrichPage.close(); } catch (_) { /* */ }
+                        enrichPage = await browser.newPage();
+                        await enrichPage.setViewport({ width: 1920, height: 1080 });
+                        console.log('    ♻ hipodrom değişimi — tarayıcı sayfası yenilendi');
+                    }
                     const enrich = await horseHistoryEnrich.enrichRacesWithHorseHistory(prog.races, {
                         page: enrichPage,
+                        browser,
+                        onPageRecycle: (p) => { enrichPage = p; },
                         maxKosu: opts.maxKosu || 7,
                         horseDelayMs: opts.horseDelayMs ?? 600,
                         maxRetry: opts.maxRetry || 2,
                         pageRetries: opts.pageRetries || 3,
-                        retryEmptyPasses: opts.retryEmptyPasses ?? 1,
+                        retryEmptyPasses: opts.retryEmptyPasses ?? 2,
+                        pageRecycleEvery: opts.pageRecycleEvery ?? 40,
                         onProgress(done, total, atId, name, meta) {
                             const pct = meta?.pct ?? Math.round((done / total) * 100);
                             const label = (name || atId || '').toString().slice(0, 28);
@@ -571,8 +581,18 @@ async function buildPublicProgram(db, tarih, opts = {}) {
                     kosularStats.total += stats.total;
                     kosularStats.withData += stats.withData;
                     kosularStats.missing += stats.missing;
-                    console.log('    ✓', enrich.withKosular + '/' + enrich.fetched, 'at geçmişi'
-                        + (enrich.stillMissing ? ' (' + enrich.stillMissing + ' eksik)' : ''));
+                    const summary = enrich.withKosular + ' geçmişli'
+                        + (enrich.noHistory ? ' · ' + enrich.noHistory + ' ilk koşu' : '')
+                        + (enrich.stillMissing ? ' · ' + enrich.stillMissing + ' eksik' : '');
+                    console.log('    ✓', summary + ' / ' + enrich.fetched + ' at'
+                        + (enrich.retried ? ' (' + enrich.retried + ' yeniden denendi)' : ''));
+                    enrichDetails.push({
+                        hipodrom: hip.name,
+                        withKosular: enrich.withKosular,
+                        noHistory: enrich.noHistory || 0,
+                        stillMissing: enrich.stillMissing || 0,
+                        fetched: enrich.fetched
+                    });
                 }
                 const row = {
                     tarih,
@@ -622,6 +642,7 @@ async function buildPublicProgram(db, tarih, opts = {}) {
         basarili: okCount,
         enrichKosular,
         kosularStats: enrichKosular ? kosularStats : null,
+        enrichDetails: enrichKosular ? enrichDetails : null,
         results
     };
 
