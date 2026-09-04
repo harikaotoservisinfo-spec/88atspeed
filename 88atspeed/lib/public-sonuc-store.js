@@ -186,16 +186,59 @@ async function syncBitisForKayit(db, kayit, normalizedRaces) {
     return { synced, kayitId: kayit.id };
 }
 
-async function syncBitisFromSonuclar(db, tarih, hipodrom, normalizedRaces) {
-    let kayit;
+function mergeNormalizedRaces(existing, incoming) {
+    const byNo = new Map();
+    for (const race of existing || []) {
+        byNo.set(String(race.raceNo), race);
+    }
+    for (const race of incoming || []) {
+        const no = String(race.raceNo);
+        const prev = byNo.get(no);
+        if (!prev || (race.horses?.length || 0) >= (prev.horses?.length || 0)) {
+            byNo.set(no, race);
+        }
+    }
+    return [...byNo.values()].sort(
+        (a, b) => (parseInt(a.raceNo, 10) || 0) - (parseInt(b.raceNo, 10) || 0)
+    );
+}
+
+async function findAllHesaplamaKayits(db, tarih, hipodrom) {
+    if (!tarih || !hipodrom) return [];
+    return new Promise((resolve, reject) => {
+        db.all(
+            `SELECT * FROM hesaplama_kayitlari WHERE tarih = ? AND hipodrom LIKE ?
+             ORDER BY kayit_tarihi DESC, id DESC`,
+            [tarih, '%' + hipodrom + '%'],
+            (err, rows) => (err ? reject(err) : resolve(rows || []))
+        );
+    });
+}
+
+async function syncBitisForAllKayits(db, tarih, hipodrom, normalizedRaces) {
+    let kayits = [];
     try {
-        kayit = await publicProgram.findHesaplamaKayit(db, { tarih, hipodrom });
+        kayits = await findAllHesaplamaKayits(db, tarih, hipodrom);
     } catch (err) {
         console.warn('sonuc bitis sync atlandı:', err.message);
-        return { synced: 0, kayitId: null };
+        return { synced: 0, kayitId: null, kayitIds: [] };
     }
-    if (!kayit) return { synced: 0, kayitId: null };
-    return syncBitisForKayit(db, kayit, normalizedRaces);
+    if (!kayits.length) return { synced: 0, kayitId: null, kayitIds: [] };
+
+    let synced = 0;
+    const kayitIds = [];
+    for (const kayit of kayits) {
+        const hit = await syncBitisForKayit(db, kayit, normalizedRaces);
+        if (hit.synced > 0) {
+            synced += hit.synced;
+            kayitIds.push(kayit.id);
+        }
+    }
+    return { synced, kayitId: kayitIds[0] || null, kayitIds };
+}
+
+async function syncBitisFromSonuclar(db, tarih, hipodrom, normalizedRaces) {
+    return syncBitisForAllKayits(db, tarih, hipodrom, normalizedRaces);
 }
 
 async function importSonuclarToKayit(db, opts = {}) {
@@ -264,10 +307,15 @@ async function importSonuclarToKayit(db, opts = {}) {
 
 async function persistPublicSonuclar(db, meta, normalizedRaces) {
     if (!db || !normalizedRaces.length) {
-        return { saved: false, raceCount: 0 };
+        return { saved: false, raceCount: 0, newRaces: [] };
     }
 
     await ensureSonucColumns(db);
+    const existing = await getStoredSonuclar(db, meta.tarih, meta.sehirId);
+    const prevRaceNos = new Set((existing?.races || []).map((r) => String(r.raceNo)));
+    const merged = mergeNormalizedRaces(existing?.races || [], normalizedRaces);
+    const newRaces = merged.filter((r) => !prevRaceNos.has(String(r.raceNo)));
+
     const payload = {
         version: 1,
         fetchedAt: new Date().toISOString(),
@@ -275,8 +323,8 @@ async function persistPublicSonuclar(db, meta, normalizedRaces) {
         tarih: meta.tarih,
         hipodrom: meta.hipodrom,
         sehirId: meta.sehirId,
-        raceCount: normalizedRaces.length,
-        races: normalizedRaces
+        raceCount: merged.length,
+        races: merged
     };
 
     const result = await dbRun(
@@ -287,14 +335,16 @@ async function persistPublicSonuclar(db, meta, normalizedRaces) {
         [JSON.stringify(payload), meta.tarih, String(meta.sehirId)]
     );
 
-    let bitisSync = { synced: 0, kayitId: null };
-    bitisSync = await syncBitisFromSonuclar(db, meta.tarih, meta.hipodrom, normalizedRaces);
+    const bitisSync = await syncBitisFromSonuclar(db, meta.tarih, meta.hipodrom, merged);
 
     return {
-        saved: result.changes > 0,
-        raceCount: normalizedRaces.length,
+        saved: result.changes > 0 || merged.length > 0,
+        raceCount: merged.length,
+        newRaceCount: newRaces.length,
+        newRaces: newRaces.map((r) => r.raceNo),
         bitisSynced: bitisSync.synced,
-        kayitId: bitisSync.kayitId
+        kayitId: bitisSync.kayitId,
+        kayitIds: bitisSync.kayitIds || []
     };
 }
 
@@ -337,12 +387,15 @@ function applyNormalizedToApiResult(result, normalizedRaces, persistInfo) {
 
 module.exports = {
     normalizeRaceResults,
+    mergeNormalizedRaces,
     persistPublicSonuclar,
     getStoredSonuclar,
     applyNormalizedToApiResult,
     ensureSonucColumns,
     importSonuclarToKayit,
     syncBitisForKayit,
+    syncBitisForAllKayits,
+    findAllHesaplamaKayits,
     parseSira,
     extractHorseNoFromName,
     cleanHorseName

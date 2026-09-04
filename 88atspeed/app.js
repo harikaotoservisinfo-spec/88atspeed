@@ -15,6 +15,7 @@ const hipodromFob = require('./lib/hipodrom-fob');
 const bitalihFob = require('./lib/bitalih-fob');
 const publicSonuclar = require('./lib/public-sonuclar');
 const publicSonucStore = require('./lib/public-sonuc-store');
+const sonucPoller = require('./lib/public-sonuc-poller');
 const tjkTvProxy = require('./lib/tjk-tv-proxy');
 const hipodromAuth = require('./lib/hipodrom-auth');
 const hipodromBet = require('./lib/hipodrom-bet');
@@ -341,6 +342,15 @@ app.post('/api/public/sonuclar/sync-kayit', async (req, res) => {
         console.error('public/sonuclar/sync-kayit:', err.message);
         res.status(500).json({ success: false, error: err.message });
     }
+});
+
+app.get('/api/public/sonuclar/poller-status', (req, res) => {
+    res.json({
+        success: true,
+        enabled: process.env.SONUC_POLLER !== '0',
+        intervalSec: 90,
+        activeHours: '10:00-23:00 Europe/Istanbul'
+    });
 });
 
 app.get('/api/public/muhtemeller', async (req, res) => {
@@ -1919,6 +1929,7 @@ app.listen(PORT, HOST, () => {
     } else {
         console.log('Kalibrasyon ısıtma kapalı. WARM_CALIBRATION=1 ile açılır.');
     }
+    sonucPoller.start(db);
 }).on('error', (err) => {
     console.error('Sunucu başlatılamadı:', err.message);
     process.exit(1);

@@ -1392,6 +1392,27 @@
         let currentHorses = [];
         let currentSonTestKayitId = null;
         let sonTestKayitSource = null;
+        let sonucBitisPollTimer = null;
+
+        function stopSonucBitisPolling() {
+            if (sonucBitisPollTimer) {
+                clearInterval(sonucBitisPollTimer);
+                sonucBitisPollTimer = null;
+            }
+        }
+
+        function startSonucBitisPolling() {
+            stopSonucBitisPolling();
+            if (!currentSonTestKayitId) return;
+            sonucBitisPollTimer = setInterval(async () => {
+                if (!currentSonTestKayitId || !currentRaces?.length) return;
+                if (getActiveTestTabId() !== 'son-test') return;
+                const sync = await syncKayitSonuclar(currentSonTestKayitId);
+                if (sync && (sync.bitisSynced > 0 || sync.raceCount > 0)) {
+                    await sonTestGoster(currentRaces, currentSonTestMeta, { skipCalibration: true });
+                }
+            }, 60000);
+        }
         let currentSonTestMeta = null;
         let currentHipodrom = null;
         let atSayisiSubView = 'field-size';
@@ -1726,6 +1747,7 @@
                 
                 sonTestKayitSource = 'getir';
                 currentSonTestKayitId = null;
+                stopSonucBitisPolling();
                 refreshTestTabs(currentRaces, {
                     source: 'getir',
                     tarih: tarih,
@@ -2626,6 +2648,7 @@
                 if (getActiveTestTabId() === 'son-test') {
                     await sonTestGoster(currentRaces, currentSonTestMeta, { skipCalibration: false });
                 }
+                startSonucBitisPolling();
                 const finalStats = countKosularStats(currentRaces);
                 let statusMsg = '✅ Kayıt #' + id + ' yüklendi — '
                     + (kayit.hipodrom || '') + ' ' + (kayit.tarih || '')
