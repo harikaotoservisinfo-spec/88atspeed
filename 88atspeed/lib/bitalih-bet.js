@@ -414,28 +414,108 @@ async function setStakeAmount(page, stake) {
     }, stake);
 }
 
-async function clickPlayButton(page) {
-    const patterns = [
-        'sabit oranlı oyna',
-        'sabit oranli oyna',
-        'hemen oyna',
-        'kuponu oyna',
-        'bahis yap',
-        'onayla',
-        'oyna'
-    ];
-    for (const pat of patterns) {
-        if (await clickByText(page, pat, false)) return true;
-    }
+async function clickSabitOranliOyna(page) {
     return page.evaluate(() => {
-        const btn = [...document.querySelectorAll('button, a')].find((b) => {
-            const t = (b.textContent || '').trim().toLowerCase();
-            return t.includes('sabit') && t.includes('oyna');
+        const btn = [...document.querySelectorAll('button')].find((b) => {
+            const t = (b.textContent || '').trim();
+            return t === 'Sabit Oranlı Oyna' && !b.disabled;
         });
         if (!btn) return false;
+        btn.scrollIntoView({ block: 'center', inline: 'center' });
         btn.click();
         return true;
     });
+}
+
+async function clickHemenOyna(page, timeoutMs = 12000) {
+    try {
+        await page.waitForFunction(() => {
+            const btn = [...document.querySelectorAll('button')].find((b) => {
+                const t = (b.textContent || '').trim();
+                return /^hemen oyna$/i.test(t) && !b.disabled;
+            });
+            return !!btn;
+        }, { timeout: timeoutMs, polling: 300 });
+    } catch (_) { /* devam */ }
+    return page.evaluate(() => {
+        const btn = [...document.querySelectorAll('button')].find((b) => {
+            const t = (b.textContent || '').trim();
+            return /^hemen oyna$/i.test(t) && !b.disabled;
+        });
+        if (!btn) return false;
+        btn.scrollIntoView({ block: 'center', inline: 'center' });
+        btn.click();
+        return true;
+    });
+}
+
+async function confirmBetModal(page) {
+    await sleep(600);
+    return page.evaluate(() => {
+        const btns = [...document.querySelectorAll('button, a')];
+        const confirm = btns.find((b) => {
+            const t = (b.textContent || '').trim();
+            return /^(onayla|evet|tamam|kabul et)$/i.test(t) && !b.disabled;
+        });
+        if (!confirm) return false;
+        confirm.click();
+        return true;
+    });
+}
+
+function watchBetResponses(page) {
+    const hits = [];
+    const handler = async (res) => {
+        const url = res.url();
+        if (!/\/api\//i.test(url)) return;
+        if (!/bet|kupon|coupon|ticket|play|slip|fixo/i.test(url)) return;
+        try {
+            const json = await res.json();
+            hits.push({ url, status: res.status(), body: json });
+        } catch (_) {
+            hits.push({ url, status: res.status(), body: null });
+        }
+    };
+    page.on('response', handler);
+    return {
+        hits,
+        detach: () => page.off('response', handler)
+    };
+}
+
+async function submitFixedOddsCoupon(page, stake) {
+    const sabitOk = await clickSabitOranliOyna(page);
+    if (!sabitOk) {
+        return { ok: false, step: 'sabit_oranli_not_found' };
+    }
+    await sleep(2000);
+
+    await setStakeAmount(page, stake);
+    await sleep(600);
+
+    const hemenOk = await clickHemenOyna(page);
+    if (!hemenOk) {
+        return { ok: false, step: 'hemen_oyna_disabled' };
+    }
+    await confirmBetModal(page);
+    await sleep(4000);
+    return { ok: true, step: 'submitted' };
+}
+
+async function detectBetSuccess(page, apiHits) {
+    const apiOk = apiHits.some((h) => {
+        if (h.status < 200 || h.status >= 300) return false;
+        const b = h.body;
+        if (!b || typeof b !== 'object') return false;
+        if (b.success === true) return true;
+        if (b.data?.success === true) return true;
+        if (b.data?.ticketId || b.data?.couponId || b.data?.betId) return true;
+        return false;
+    });
+    if (apiOk) return true;
+
+    const pageText = await page.evaluate(() => document.body?.innerText?.slice(0, 4000) || '');
+    return /başarı|kabul|biletiniz|oynanmış|kuponunuz|kupon oynandı|bahis oynandı/i.test(pageText);
 }
 
 async function selectBetTypeTab(page, betType) {
@@ -548,18 +628,22 @@ async function placeFixedOddsBetInternal(opts = {}) {
             };
         }
 
-        const played = await clickPlayButton(page);
-        if (!played) {
-            const err = new Error('Oyna butonu bulunamadı');
-            err.code = 'play_button_not_found';
+        const betWatch = watchBetResponses(page);
+        const submit = await submitFixedOddsCoupon(page, stake);
+        betWatch.detach();
+        if (!submit.ok) {
+            const err = new Error(submit.step === 'hemen_oyna_disabled'
+                ? 'Kupon kupona eklendi ama Hemen Oyna aktif olmadı — bakiye veya seçim kontrol edin'
+                : 'Sabit Oranlı Oyna butonu bulunamadı');
+            err.code = submit.step || 'play_button_not_found';
+            err.detail = submit;
             throw err;
         }
-        await sleep(3500);
 
-        const pageText = await page.evaluate(() => document.body?.innerText?.slice(0, 2500) || '');
-        const ok = /başarı|kabul|biletiniz|oynanmış|kuponunuz/i.test(pageText);
+        const ok = await detectBetSuccess(page, betWatch.hits);
         return {
             success: true,
+            confirmed: ok,
             message: ok ? ('Bahis oynandı — ' + betLabel + ' @ ' + horsePick.odd) : 'İşlem gönderildi — panelden kontrol edin',
             session,
             city,

@@ -12,6 +12,27 @@
     let shellReady = false;
     let autoStatus = null;
     let autoSetup = null;
+    const SESSION_STORE_KEY = 'bitalih:autoState';
+
+    function loadAutoState() {
+        try {
+            return JSON.parse(sessionStorage.getItem(SESSION_STORE_KEY) || '{}');
+        } catch (_) {
+            return {};
+        }
+    }
+
+    function saveAutoState(patch) {
+        const cur = loadAutoState();
+        sessionStorage.setItem(SESSION_STORE_KEY, JSON.stringify(Object.assign({}, cur, patch, {
+            updatedAt: Date.now()
+        })));
+    }
+
+    function clearAutoState() {
+        sessionStorage.removeItem(SESSION_STORE_KEY);
+    }
+
     let autoPipelineStarted = false;
 
     const $ = (sel, root) => (root || document).querySelector(sel);
@@ -84,7 +105,7 @@
             + (st.loggedIn ? ('Sunucu oturumu: ' + escapeHtml(st.displayName || 'açık') + (st.balance ? ' · ' + escapeHtml(st.balance) : ''))
                 : 'Otomatik giriş bekleniyor…')
             + '</span></div>'
-            + '<p class="pub-kazanc-system-desc">Kişisel otomasyon: Kazanç sekmesi açılınca giriş ve kupon otomatik kesilir.</p>'
+            + '<p class="pub-kazanc-system-desc">Sunucu oturumu açık kalır; sayfa yenilense veya sekmeler arası geçiş yapsanız tekrar giriş denenmez. Kupon için Sistem Oyna kullanın.</p>'
             + '<div class="pub-kazanc-system-login" id="pubKazancAutoLogin">'
             + '<input type="text" id="pubAutoUser" autocomplete="username" placeholder="TC kimlik no" value="' + escapeHtml(autoSetup?.username || '') + '">'
             + '<input type="password" id="pubAutoPass" autocomplete="current-password" placeholder="Şifre" value="' + escapeHtml(autoSetup?.password || '') + '">'
@@ -263,6 +284,7 @@
                     return { ok: false, error: err };
                 }
                 autoStatus = polled.data;
+                saveAutoState({ loggedIn: true, loginAttempted: true });
                 await refreshAutoStatus();
                 return { ok: true };
             } finally {
@@ -318,6 +340,7 @@
         }
 
         $('#pubAutoLoginBtn', root)?.addEventListener('click', async () => {
+            clearAutoState();
             const result = await performLogin();
             if (!result.ok) {
                 updateSystemMessages({ autoError: result.error });
@@ -330,7 +353,10 @@
             e.preventDefault();
             const result = await submitBet(false);
             if (!result.ok) updateSystemMessages({ autoError: result.error });
-            else updateSystemMessages({ autoOk: result.message });
+            else {
+                saveAutoState({ betPlaced: true, pipelineComplete: true });
+                updateSystemMessages({ autoOk: result.message });
+            }
         });
         $('#pubBetDryBtn', root)?.addEventListener('click', async () => {
             const result = await submitBet(true);
@@ -386,17 +412,33 @@
             return;
         }
 
-        setPipelineHint('Otomatik akış: durum kontrol ediliyor…');
+        const state = loadAutoState();
+        setPipelineHint('Sunucu oturumu kontrol ediliyor…');
         await refreshAutoStatus();
 
         let loggedIn = !!autoStatus?.loggedIn;
+        if (loggedIn) {
+            saveAutoState({ loggedIn: true });
+            setPipelineHint('Sunucu oturumu aktif — bağlı.');
+            if (state.pipelineComplete) {
+                return;
+            }
+        } else if (state.loggedIn) {
+            clearAutoState();
+        }
+
         if (!loggedIn && autoSetup.autoLoginOnLoad !== false) {
+            if (state.loginAttempted) {
+                setPipelineHint('Giriş zaten denendi — Sunucuda Giriş Yap ile tekrar deneyin');
+                return;
+            }
             if (!autoSetup.hasCredentials) {
                 setPipelineHint('Kimlik bilgisi yok — config/bitalih-auto.json kontrol edin');
                 updateSystemMessages({ autoError: 'Otomatik giriş için config dosyası gerekli' });
                 return;
             }
             setPipelineHint('Otomatik sunucu girişi başlatılıyor…');
+            saveAutoState({ loginAttempted: true });
             const login = await handlers.performLogin();
             if (!login.ok) {
                 setPipelineHint('Giriş başarısız');
@@ -404,15 +446,20 @@
                 return;
             }
             loggedIn = true;
-            updateSystemMessages({ autoOk: 'Sunucu girişi başarılı — artık Sistem Oyna kullanabilirsiniz.' });
-        } else if (loggedIn) {
-            updateSystemMessages({ autoOk: 'Sunucu oturumu aktif — kupon hazırlanıyor…' });
+            saveAutoState({ loggedIn: true, loginAttempted: true });
+            updateSystemMessages({ autoOk: 'Sunucu girişi başarılı.' });
         }
 
         if (!loggedIn) return;
 
         if (autoSetup.autoPlayOnLoad === false) {
             setPipelineHint('Otomatik kupon kapalı — Sistem Oyna ile manuel oynatın');
+            saveAutoState({ pipelineComplete: true });
+            return;
+        }
+
+        if (state.betPlaced || state.pipelineComplete) {
+            setPipelineHint('Otomatik kupon bu oturumda zaten çalıştı — Sistem Oyna ile tekrar oynatın');
             return;
         }
 
@@ -420,6 +467,7 @@
         setPipelineHint('Otomatik kupon kesiliyor…');
         const dryRun = !!autoSetup.autoPlayDryRun;
         const betResult = await handlers.submitBet(dryRun);
+        saveAutoState({ betPlaced: true, pipelineComplete: true });
         if (!betResult.ok) {
             setPipelineHint('Kupon başarısız');
             updateSystemMessages({ autoError: betResult.error });
