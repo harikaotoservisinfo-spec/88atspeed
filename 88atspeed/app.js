@@ -8,6 +8,7 @@ const { buildCalibrationBundle, clearCalibrationBundleCache } = require('./lib/c
 const adminAuth = require('./lib/admin-auth');
 const publicProgram = require('./lib/public-program');
 const muhtemellerFetch = require('./lib/muhtemeller-fetch');
+const yenibeygirBlt = require('./lib/yenibeygir-blt');
 const tjkTvProxy = require('./lib/tjk-tv-proxy');
 const hipodromAuth = require('./lib/hipodrom-auth');
 const hipodromBet = require('./lib/hipodrom-bet');
@@ -188,6 +189,28 @@ app.get('/api/public/program-sync', async (req, res) => {
         res.json({ success: true, ...overview });
     } catch (err) {
         console.error('public/program-sync:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.get('/api/public/yenibeygir-blt', async (req, res) => {
+    try {
+        let iso = req.query.iso;
+        let tarih = req.query.tarih;
+        if (!iso && tarih) iso = publicProgram.trToIso(tarih);
+        const hipodrom = req.query.hipodrom || req.query.hip || '';
+        if (!hipodrom) {
+            return res.status(400).json({ success: false, error: 'hipodrom parametresi gerekli' });
+        }
+        const data = await yenibeygirBlt.fetchBltForHipodrom({
+            iso,
+            tarih,
+            hipodrom,
+            refresh: req.query.refresh
+        });
+        res.json(data);
+    } catch (err) {
+        console.error('public/yenibeygir-blt:', err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 });

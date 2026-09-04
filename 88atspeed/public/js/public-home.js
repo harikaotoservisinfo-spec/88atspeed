@@ -23,11 +23,14 @@
         muhtSelectRunKey: null,
         progGanyanByRace: {},
         progGanyanMuhtKey: null,
-        progGanyanLoading: false
+        progGanyanLoading: false,
+        progBltData: null,
+        progBltHipId: null
     };
 
     const MUHT_REFRESH_SEC = 15;
     const PROG_GANYAN_REFRESH_SEC = 15;
+    const PROG_BLT_REFRESH_SEC = 300;
     const MUHT_SELECT_RESET_MS = 30000;
     const MUHT_RACE_ADVANCE_MS = 3 * 60 * 1000;
     const TJK_TV_DIRECT = 'https://tjktv-live.tjk.org/tjktv/tjktv.m3u8';
@@ -326,6 +329,9 @@
 
         renderRaceList(hip);
         refreshProgramGanyanOdds();
+        if (state.progBltHipId !== hip.id || !state.progBltData) {
+            refreshProgramBltData();
+        }
     }
 
     function normalizeHipLabel(s) {
@@ -458,13 +464,19 @@
         stopProgramGanyanPolling();
         if (!$('#panel-kosular')?.classList.contains('active')) return;
         let countdown = PROG_GANYAN_REFRESH_SEC;
+        let bltCountdown = PROG_BLT_REFRESH_SEC;
         progGanyanPollTimer = setInterval(() => {
             if (document.hidden) return;
             if (!$('#panel-kosular')?.classList.contains('active')) return;
             countdown -= 1;
+            bltCountdown -= 1;
             if (countdown <= 0) {
                 countdown = PROG_GANYAN_REFRESH_SEC;
                 refreshProgramGanyanOdds({ refresh: true });
+            }
+            if (bltCountdown <= 0) {
+                bltCountdown = PROG_BLT_REFRESH_SEC;
+                refreshProgramBltData({ refresh: true });
             }
         }, 1000);
     }
@@ -525,7 +537,19 @@
             { key: 'jokey', label: 'Jokey', cls: 'pub-prog-jokey', colCls: 'pub-col-jokey' },
             { key: 'taki', label: 'Takı', cls: 'pub-prog-taki', colCls: 'pub-col-taki' }
         ];
-        return cols.filter((c) => c.always || has(c.key));
+        const filtered = cols.filter((c) => c.always || has(c.key));
+        const bltCol = {
+            key: 'blt',
+            label: '@',
+            cls: 'pub-prog-blt',
+            colCls: 'pub-col-blt',
+            always: true,
+            title: 'Bülten (yenibeygir Blt)'
+        };
+        const takiIdx = filtered.findIndex((c) => c.key === 'taki');
+        if (takiIdx >= 0) filtered.splice(takiIdx + 1, 0, bltCol);
+        else filtered.push(bltCol);
+        return filtered;
     }
 
     function renderProgramColgroup(cols) {
@@ -540,9 +564,66 @@
             const odd = ctx?.ganyanMap?.[String(h.no)] || '';
             return odd || '—';
         }
+        if (col.key === 'blt') {
+            const blt = ctx?.bltMap?.[String(h.no)] || ctx?.bltByName?.[normalizeHorseName(h.name)] || '';
+            return blt || '—';
+        }
         if (col.key === 'name') return h.name || '—';
         const v = String(h[col.key] || '').trim();
         return v || '—';
+    }
+
+    function normalizeHorseName(s) {
+        return String(s || '').toLocaleUpperCase('tr-TR')
+            .normalize('NFD').replace(/\p{M}/gu, '')
+            .replace(/[^A-Z0-9]/g, '');
+    }
+
+    function getRaceBltMaps(raceNo) {
+        const race = state.progBltData?.races?.[String(raceNo)] || null;
+        return {
+            bltMap: race?.byNo || {},
+            bltByName: race?.byName || {}
+        };
+    }
+
+    function findBltLeaderNo(bltMap) {
+        let leaderNo = null;
+        let maxVal = -Infinity;
+        Object.entries(bltMap || {}).forEach(([no, val]) => {
+            const v = parseFloat(String(val).replace(',', '.'));
+            if (!isNaN(v) && v > maxVal) {
+                maxVal = v;
+                leaderNo = no;
+            }
+        });
+        return leaderNo;
+    }
+
+    async function refreshProgramBltData(opts = {}) {
+        const iso = state.iso || localTodayIso();
+        const hip = state.hipodromlar.find((h) => h.id === state.activeHipId);
+        if (!hip || !$('#panel-kosular')?.classList.contains('active')) return;
+
+        try {
+            const controller = new AbortController();
+            const tid = setTimeout(() => controller.abort(), 45000);
+            const res = await fetch(
+                '/api/public/yenibeygir-blt?iso=' + encodeURIComponent(iso)
+                + '&hipodrom=' + encodeURIComponent(hip.name)
+                + (opts.refresh ? '&refresh=1' : ''),
+                { signal: controller.signal }
+            );
+            clearTimeout(tid);
+            const data = await res.json();
+            if (!data.success) return;
+            state.progBltData = data;
+            state.progBltHipId = hip.id;
+            const activeHip = state.hipodromlar.find((h) => h.id === state.activeHipId);
+            if (activeHip) renderRaceList(activeHip);
+        } catch (_) {
+            /* sessiz */
+        }
     }
 
     function renderRaceList(hip) {
@@ -561,6 +642,8 @@
             const surfaceClass = getRaceSurfaceClass(race);
             const ganyanMap = getRaceGanyanMap(race.raceNo);
             const leaderNo = findGanyanLeaderNo(ganyanMap);
+            const bltMaps = getRaceBltMaps(race.raceNo);
+            const bltLeaderNo = findBltLeaderNo(bltMaps.bltMap);
             const head = cols.map((c) => {
                 const titleAttr = c.title ? ' title="' + escapeHtml(c.title) + '"' : '';
                 return '<th' + titleAttr + '>' + c.label + '</th>';
@@ -568,7 +651,7 @@
             const horses = race.horses || [];
             const body = horses.length
                 ? horses.map((h) => {
-                    const ctx = { ganyanMap };
+                    const ctx = { ganyanMap, ...bltMaps };
                     return '<tr>'
                         + cols.map((c) => {
                             let cls = c.cls;
@@ -576,6 +659,11 @@
                             if (c.key === 'ganyan') {
                                 if (!ganyanMap[String(h.no)]) cls += ' pub-prog-ganyan-empty';
                                 else if (leaderNo && String(h.no) === leaderNo) cls += ' pub-prog-ganyan-leader';
+                            }
+                            if (c.key === 'blt') {
+                                const hasBlt = bltMaps.bltMap[String(h.no)] || bltMaps.bltByName[normalizeHorseName(h.name)];
+                                if (!hasBlt) cls += ' pub-prog-blt-empty';
+                                else if (bltLeaderNo && String(h.no) === bltLeaderNo) cls += ' pub-prog-blt-leader';
                             }
                             return '<td class="' + cls + '">' + escapeHtml(val) + '</td>';
                         }).join('')
@@ -724,6 +812,7 @@
             pauseTjkTv();
             if (panelId === 'kosular') {
                 refreshProgramGanyanOdds();
+                refreshProgramBltData();
                 startProgramGanyanPolling();
             } else {
                 stopProgramGanyanPolling();
@@ -1489,6 +1578,8 @@
             state.muhtRaceCache = {};
             state.progGanyanByRace = {};
             state.progGanyanMuhtKey = null;
+            state.progBltData = null;
+            state.progBltHipId = null;
             loadVitrin(input.value);
             if ($('#panel-muhtemeller')?.classList.contains('active')) {
                 loadMuhtemeller(input.value);
