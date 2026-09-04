@@ -1532,6 +1532,12 @@
             + renderRehberTierList(data.top3)
             + '</div>'
             + '</div>'
+            + (raceCount === 0
+                ? '<div class="pub-rehber-help" style="margin-top:0;background:#fff8e1;border-color:#ffe082">'
+                + 'Henüz sonuçlanan koşu yok veya sonuçlar kaydedilmedi. '
+                + 'Koşular bittikçe liste otomatik dolacak — <em>Sonuçlar</em> sekmesinden bir hipodrom açmak senkronu hızlandırır.'
+                + '</div>'
+                : '')
             + '<div class="pub-rehber-help">'
             + '<strong>Nasıl okunur?</strong> Her sütun (R2, MTR, T9V, ASF, G1↕, G1⇄, GÖ, HYB, TAHMİN, @) '
             + 'koşu başına kendi sıralamasını üretir. <em>1. Bilen</em> = 1 numaralı tahmin kazandı; '

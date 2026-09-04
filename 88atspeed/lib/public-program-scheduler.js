@@ -218,6 +218,14 @@ function spawnTomorrowFetch(opts = {}) {
         console.log('program-scheduler: çekim zaten çalışıyor (pid ' + (loadState().childPid || '?') + ')');
         return false;
     }
+    try {
+        const { execSync } = require('child_process');
+        const out = execSync("pgrep -f 'fetch-public-program.js.*--yarin' || true", { encoding: 'utf8' }).trim();
+        if (out) {
+            console.log('program-scheduler: fetch-public-program-yarin zaten çalışıyor (pgrep)');
+            return false;
+        }
+    } catch (_) { /* */ }
     if (spawnInFlight) return false;
     spawnInFlight = true;
 
