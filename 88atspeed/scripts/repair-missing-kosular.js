@@ -6,8 +6,8 @@
  *   node scripts/repair-missing-kosular.js --db atlar.db --at-id 114236,104060,115482 --apply
  *   node scripts/repair-missing-kosular.js --db atlar.db --kayit 133 --race 6 --horse 5,6,8 --scan-depth
  *   node scripts/repair-missing-kosular.js --db atlar.db --tarih 04/09/2026 --hipodrom Bursa --fetch --apply
- *   node scripts/repair-missing-kosular.js --db atlar.db --at-id 114501 --fetch --apply   (Puppeteer doğrudan)
- *   node scripts/repair-missing-kosular.js --db atlar.db --at-id 114501 --fetch --api --apply  (HTTP API, admin gerekir)
+ *   node scripts/repair-missing-kosular.js --db atlar.db --at-id 114501 --fetch --apply   (Puppeteer doğrudan, varsayılan)
+ *   node scripts/repair-missing-kosular.js --db atlar.db --at-id 114501 --fetch --via-api --apply  (HTTP API, admin gerekir)
  */
 const http = require('http');
 const path = require('path');
@@ -19,6 +19,7 @@ const {
     loadGostergeEngines,
     buildFlatEntriesFromDb
 } = require('./ptest-terminal-lib');
+const publicProgram = require('../lib/public-program');
 
 const args = process.argv.slice(2);
 function argVal(flag) {
@@ -44,8 +45,9 @@ const cli = {
     fetchTimeoutMs: Number(argVal('--fetch-timeout')) || 300000,
     fetchQuick: args.includes('--fetch-quick'),
     maxAllKosu: argVal('--max-all-kosu') ? Number(argVal('--max-all-kosu')) : null,
-    apiBase: argVal('--api') || 'http://127.0.0.1:3023',
-    useApi: args.includes('--api'),
+    apiBase: argVal('--api-base') || argVal('--api') || 'http://127.0.0.1:3023',
+    useApi: args.includes('--via-api'),
+    noVitrin: args.includes('--no-vitrin'),
     verbose: args.includes('--verbose') || args.includes('-v')
 };
 
@@ -220,7 +222,7 @@ async function runFetchPlan(plan, delayMs) {
     hr('TJK fetch (' + modeLabel + ')');
     console.log('  Not: TJK atId sayfasından çekilir — tarih/hipodrom/at eşleşmesi atId ile garanti.');
     if (cli.useApi) {
-        console.log('  ⚠ --api modu admin oturumu gerektirir; varsayılan Puppeteer doğrudan kullanılır.');
+        console.log('  ⚠ --via-api modu admin oturumu gerektirir; varsayılan Puppeteer doğrudan kullanılır.');
     }
     if (cli.fetchQuick || cli.maxAllKosu === 7) {
         console.log('  Mod: son ' + (cli.maxAllKosu || 7) + ' koşu tam detay (~1-1.5 dk/at)');
@@ -273,6 +275,9 @@ async function runFetchPlan(plan, delayMs) {
                         + (data.atAdi ? ' · ' + data.atAdi : ''));
                 } else if (data.error === 'gecmis_yok') {
                     noHistory++;
+                    for (const row of plan) {
+                        if (row.atId === p.atId) row.noHistory = true;
+                    }
                     console.log('○ ilk koşu (geçmiş yok)');
                 } else {
                     fail++;
@@ -309,6 +314,15 @@ async function patchKayit(db, kayitId, table, patchFn) {
         });
     });
     return { patched: count, dryRun: false };
+}
+
+async function syncHesaplamaKayitToVitrin(db, kayitId) {
+    const row = await dbGet(db, `SELECT tarih, hipodrom FROM hesaplama_kayitlari WHERE id = ?`, [kayitId]);
+    if (!row) throw new Error('hesaplama kaydı yok #' + kayitId);
+    return publicProgram.publishHesaplamaKayitToVitrin(db, {
+        kayitId,
+        targetTarih: row.tarih
+    });
 }
 
 async function scanDepthGaps(db, horses) {
@@ -413,12 +427,25 @@ async function main() {
 
         hr('Tamir planı');
         const byKayit = new Map();
+        let planNoHistory = 0;
+        let planWithData = 0;
+        let planStillMissing = 0;
         for (const p of plan) {
             const kosular = p.fetched || p.donor?.kosular;
-            const source = p.fetched ? 'TJK fetch' : (p.donor ? 'indeks:' + p.donor.source : '—');
+            const source = p.fetched ? 'TJK fetch' : (p.donor ? 'indeks:' + p.donor.source : (p.noHistory ? 'ilk koşu' : '—'));
+            let status;
+            if (kosular?.length) {
+                status = kosular.length + ' koşu';
+                planWithData++;
+            } else if (p.noHistory) {
+                status = 'ilk koşu (TJK geçmişi yok — normal)';
+                planNoHistory++;
+            } else {
+                status = 'eksik fetch';
+                planStillMissing++;
+            }
             console.log('  ' + p.hipodrom + ' ' + p.tarih + ' K' + p.raceNo + ' #' + p.horseNo
-                + ' atId=' + p.atId + ' · kaynak: ' + source
-                + (kosular ? ' · ' + kosular.length + ' koşu' : ' · KAYNAK YOK')
+                + ' atId=' + p.atId + ' · kaynak: ' + source + ' · ' + status
                 + (cli.refresh && p.fetched ? ' · üzerine yaz' : ''));
             if (!kosular?.length) continue;
             const key = p.table + '|' + p.kayitId;
@@ -434,6 +461,7 @@ async function main() {
         }
 
         let totalPatched = 0;
+        const vitrinKayitIds = new Set();
         for (const [, job] of byKayit) {
             if (cli.kayitId && job.kayitId !== cli.kayitId) continue;
             const result = await patchKayit(db, job.kayitId, job.table, races => {
@@ -451,16 +479,37 @@ async function main() {
                 return n;
             });
             totalPatched += result.patched;
+            if (result.patched && job.table === 'hesaplama_kayitlari' && !result.dryRun) {
+                vitrinKayitIds.add(job.kayitId);
+            }
             if (result.patched) {
                 console.log('\n  ' + job.table + ' #' + job.kayitId + ': '
                     + result.patched + ' at ' + (result.dryRun ? '(dry-run)' : 'güncellendi'));
             }
         }
 
+        if (cli.apply && !cli.noVitrin && vitrinKayitIds.size) {
+            hr('Vitrin senkronu (public_gunluk_program)');
+            for (const kayitId of vitrinKayitIds) {
+                try {
+                    const pub = await syncHesaplamaKayitToVitrin(db, kayitId);
+                    console.log('  ✓ ' + pub.hipodrom + ' · vitrin güncellendi · '
+                        + pub.dataHits + ' at geçmişli');
+                } catch (e) {
+                    console.warn('  ⚠ vitrin sync hesaplama #' + kayitId + ': ' + e.message);
+                }
+            }
+        }
+
         hr('Özet');
         console.log('  Hedef: ' + targets.length);
+        console.log('  Geçmişli: ' + planWithData + ' · ilk koşu: ' + planNoHistory
+            + (planStillMissing ? ' · eksik fetch: ' + planStillMissing : ''));
         console.log('  Yama uygulanabilir: ' + [...byKayit.values()].reduce((s, j) => s + j.patches.length, 0));
         console.log('  Güncellenen at: ' + totalPatched + (cli.apply ? '' : ' (dry-run — --apply ile yaz)'));
+        if (cli.apply && vitrinKayitIds.size && !cli.noVitrin) {
+            console.log('  Vitrin senkronu: ' + vitrinKayitIds.size + ' hesaplama kaydı');
+        }
         if (!cli.apply && totalPatched) {
             console.log('\n  → Yazmak için: ... --apply');
         }
