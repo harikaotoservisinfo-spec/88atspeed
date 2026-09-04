@@ -1124,6 +1124,7 @@
                 loadMuhtemeller(iso);
             } else {
                 checkMuhtAutoAdvance();
+                renderMuhtemeller();
                 startMuhtPolling();
             }
             stopProgramGanyanPolling();
