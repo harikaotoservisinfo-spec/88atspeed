@@ -335,19 +335,39 @@
         return { title, meta: meta.join(' · ') };
     }
 
-    function getProgramColumns(race) {
-        const horses = race.horses || [];
+    function getRaceSurfaceClass(race) {
+        const text = [
+            race.pist,
+            race.mesafe,
+            race.kategori,
+            race.kcins_kosu,
+            race.baslik
+        ].filter(Boolean).join(' ');
+        if (/\bçim\b/i.test(text) || /^ç[:|]/i.test(text)) return 'pub-program-race-hdr--cim';
+        if (/\bkum\b/i.test(text) || /^k[:|]/i.test(text)) return 'pub-program-race-hdr--kum';
+        return '';
+    }
+
+    function getProgramColumns(kosular) {
+        const races = Array.isArray(kosular) ? kosular : (kosular.kosular || []);
+        const horses = races.flatMap((r) => r.horses || []);
         const has = (key) => horses.some((h) => String(h[key] || '').trim());
         const cols = [
-            { key: 'no', label: 'No', cls: 'pub-prog-no', always: true },
-            { key: 'name', label: 'At', cls: 'pub-prog-at', always: true },
-            { key: 'yas', label: 'Yaş', cls: 'pub-prog-yas' },
-            { key: 'siklet', label: 'Sıklet', cls: 'pub-prog-siklet' },
-            { key: 'hp', label: 'HP', cls: 'pub-prog-hp' },
-            { key: 'jokey', label: 'Jokey', cls: 'pub-prog-jokey' },
-            { key: 'taki', label: 'Takı', cls: 'pub-prog-taki' }
+            { key: 'no', label: 'No', cls: 'pub-prog-no', colCls: 'pub-col-no', always: true },
+            { key: 'name', label: 'At', cls: 'pub-prog-at', colCls: 'pub-col-name', always: true },
+            { key: 'yas', label: 'Yaş', cls: 'pub-prog-yas', colCls: 'pub-col-yas' },
+            { key: 'siklet', label: 'Sıklet', cls: 'pub-prog-siklet', colCls: 'pub-col-siklet' },
+            { key: 'hp', label: 'HP', cls: 'pub-prog-hp', colCls: 'pub-col-hp' },
+            { key: 'jokey', label: 'Jokey', cls: 'pub-prog-jokey', colCls: 'pub-col-jokey' },
+            { key: 'taki', label: 'Takı', cls: 'pub-prog-taki', colCls: 'pub-col-taki' }
         ];
         return cols.filter((c) => c.always || has(c.key));
+    }
+
+    function renderProgramColgroup(cols) {
+        return '<colgroup>'
+            + cols.map((c) => '<col class="' + c.colCls + '">').join('')
+            + '</colgroup>';
     }
 
     function programHorseCell(h, col) {
@@ -364,9 +384,12 @@
             return;
         }
 
+        const cols = getProgramColumns(kosular);
+        const colgroup = renderProgramColgroup(cols);
+
         el.innerHTML = '<div class="pub-program-list">' + kosular.map((race) => {
             const hdr = formatProgramRaceHeader(race);
-            const cols = getProgramColumns(race);
+            const surfaceClass = getRaceSurfaceClass(race);
             const head = cols.map((c) => '<th>' + c.label + '</th>').join('');
             const horses = race.horses || [];
             const body = horses.length
@@ -380,12 +403,13 @@
                 : '';
 
             return '<section class="pub-program-race" data-race="' + race.raceNo + '">'
-                + '<div class="pub-program-race-hdr">'
+                + '<div class="pub-program-race-hdr' + (surfaceClass ? ' ' + surfaceClass : '') + '">'
                 + '<span class="pub-program-race-title">' + escapeHtml(hdr.title) + '</span>'
                 + metaHtml
                 + '</div>'
                 + '<div class="pub-program-table-wrap">'
-                + '<table class="pub-program-table"><thead><tr>' + head + '</tr></thead><tbody>'
+                + '<table class="pub-program-table">' + colgroup
+                + '<thead><tr>' + head + '</tr></thead><tbody>'
                 + body + '</tbody></table>'
                 + '</div></section>';
         }).join('') + '</div>';
@@ -1247,14 +1271,6 @@
     function initTabs() {
         $$('.pub-tab').forEach((tab) => {
             tab.addEventListener('click', () => switchTab(tab.dataset.panel));
-        });
-        $('#sidebarTahminLink')?.addEventListener('click', (e) => {
-            e.preventDefault();
-            switchTab('tahminler');
-        });
-        $('#sidebarMuhtLink')?.addEventListener('click', (e) => {
-            e.preventDefault();
-            switchTab('muhtemeller');
         });
         updateTabIndicator();
         window.addEventListener('resize', updateTabIndicator);

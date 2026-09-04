@@ -1160,10 +1160,6 @@ a { color: inherit; text-decoration: none; }
     max-width: var(--pub-max);
     margin: 0 auto;
     padding: 0 20px 48px;
-    display: grid;
-    grid-template-columns: 1fr 300px;
-    gap: 24px;
-    align-items: start;
 }
 
 .pub-main { min-width: 0; }
@@ -1406,6 +1402,14 @@ a { color: inherit; text-decoration: none; }
     gap: 3px;
 }
 
+.pub-program-race-hdr--cim {
+    background: linear-gradient(90deg, #2e7d32, #1b5e20);
+}
+
+.pub-program-race-hdr--kum {
+    background: linear-gradient(90deg, #6d4c41, #4e342e);
+}
+
 .pub-program-race-title {
     font-size: 14px;
     font-weight: 800;
@@ -1427,6 +1431,7 @@ a { color: inherit; text-decoration: none; }
     width: 100%;
     border-collapse: collapse;
     font-size: 13px;
+    table-layout: fixed;
 }
 
 .pub-program-table th {
@@ -1464,8 +1469,19 @@ a { color: inherit; text-decoration: none; }
 
 .pub-prog-at {
     font-weight: 700;
-    min-width: 140px;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
+
+.pub-col-no { width: 42px; }
+.pub-col-name { width: 30%; }
+.pub-col-yas { width: 52px; }
+.pub-col-siklet { width: 58px; }
+.pub-col-hp { width: 48px; }
+.pub-col-jokey { width: 22%; }
+.pub-col-taki { width: 72px; }
 
 .pub-prog-yas,
 .pub-prog-siklet,
