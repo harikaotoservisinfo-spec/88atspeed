@@ -1,0 +1,295 @@
+/* 88ATSPEED — Kamuya açık vitrin */
+:root {
+    --lp-bg: #070d1a;
+    --lp-bg-soft: #0f1a33;
+    --lp-card: rgba(255, 255, 255, 0.04);
+    --lp-border: rgba(255, 255, 255, 0.1);
+    --lp-text: #f0f4ff;
+    --lp-muted: #9aa8c7;
+    --lp-accent: #5c7cfa;
+    --lp-accent-2: #22d3ee;
+    --lp-red: #ef5350;
+    --lp-blue: #42a5f5;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body.lp-body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--lp-bg);
+    color: var(--lp-text);
+    min-height: 100vh;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+}
+
+.lp-bg-glow {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(92, 124, 250, 0.25), transparent),
+        radial-gradient(ellipse 60% 40% at 100% 50%, rgba(34, 211, 238, 0.08), transparent);
+    z-index: 0;
+}
+
+.lp-shell {
+    position: relative;
+    z-index: 1;
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 0 24px 64px;
+}
+
+.lp-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 0;
+    gap: 16px;
+}
+
+.lp-logo {
+    display: flex;
+    gap: 4px;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+}
+
+.lp-logo .n88 { color: var(--lp-red); }
+.lp-logo .nat { color: var(--lp-accent); }
+.lp-logo .nsp { color: var(--lp-blue); }
+
+.lp-nav-actions { display: flex; gap: 12px; align-items: center; }
+
+.lp-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.lp-btn:hover { transform: translateY(-1px); }
+
+.lp-btn-ghost {
+    background: transparent;
+    color: var(--lp-muted);
+    border: 1px solid var(--lp-border);
+}
+
+.lp-btn-ghost:hover { color: var(--lp-text); border-color: rgba(255,255,255,0.2); }
+
+.lp-btn-primary {
+    background: linear-gradient(135deg, var(--lp-accent), #3b5bdb);
+    color: #fff;
+    box-shadow: 0 8px 24px rgba(92, 124, 250, 0.35);
+}
+
+.lp-hero {
+    text-align: center;
+    padding: 48px 0 56px;
+}
+
+.lp-eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--lp-accent-2);
+    margin-bottom: 20px;
+}
+
+.lp-hero h1 {
+    font-size: clamp(2rem, 5vw, 3.25rem);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.03em;
+    max-width: 720px;
+    margin: 0 auto 20px;
+}
+
+.lp-hero h1 span {
+    background: linear-gradient(90deg, #fff 0%, #a5b4fc 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.lp-lead {
+    font-size: 1.125rem;
+    color: var(--lp-muted);
+    max-width: 560px;
+    margin: 0 auto 36px;
+}
+
+.lp-hero-cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+.lp-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 16px;
+    margin: 56px 0;
+}
+
+.lp-stat {
+    background: var(--lp-card);
+    border: 1px solid var(--lp-border);
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+}
+
+.lp-stat strong {
+    display: block;
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 4px;
+}
+
+.lp-stat span { font-size: 13px; color: var(--lp-muted); }
+
+.lp-section-title {
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 32px;
+}
+
+.lp-features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+    margin-bottom: 64px;
+}
+
+.lp-feature {
+    background: var(--lp-card);
+    border: 1px solid var(--lp-border);
+    border-radius: 16px;
+    padding: 28px 24px;
+}
+
+.lp-feature-icon {
+    font-size: 28px;
+    margin-bottom: 14px;
+}
+
+.lp-feature h3 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.lp-feature p {
+    font-size: 14px;
+    color: var(--lp-muted);
+}
+
+.lp-footer {
+    border-top: 1px solid var(--lp-border);
+    padding-top: 32px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--lp-muted);
+}
+
+.lp-footer a { color: var(--lp-accent-2); text-decoration: none; }
+
+/* Giriş sayfası */
+.lp-login-wrap {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.lp-login-card {
+    width: 100%;
+    max-width: 400px;
+    background: var(--lp-card);
+    border: 1px solid var(--lp-border);
+    border-radius: 20px;
+    padding: 40px 32px;
+    backdrop-filter: blur(12px);
+}
+
+.lp-login-card h1 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin-bottom: 8px;
+    text-align: center;
+}
+
+.lp-login-card .lp-sub {
+    text-align: center;
+    color: var(--lp-muted);
+    font-size: 14px;
+    margin-bottom: 28px;
+}
+
+.lp-field { margin-bottom: 18px; }
+
+.lp-field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--lp-muted);
+    margin-bottom: 6px;
+    letter-spacing: 0.5px;
+}
+
+.lp-field input {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--lp-border);
+    background: rgba(0, 0, 0, 0.25);
+    color: var(--lp-text);
+    font-size: 15px;
+}
+
+.lp-field input:focus {
+    outline: none;
+    border-color: var(--lp-accent);
+    box-shadow: 0 0 0 3px rgba(92, 124, 250, 0.2);
+}
+
+.lp-login-card .lp-btn-primary { width: 100%; margin-top: 8px; }
+
+.lp-error {
+    display: none;
+    background: rgba(239, 83, 80, 0.15);
+    border: 1px solid rgba(239, 83, 80, 0.4);
+    color: #ffcdd2;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    margin-bottom: 16px;
+}
+
+.lp-back {
+    display: block;
+    text-align: center;
+    margin-top: 20px;
+    color: var(--lp-muted);
+    font-size: 13px;
+    text-decoration: none;
+}
+
+.lp-back:hover { color: var(--lp-text); }
+
+@media (max-width: 600px) {
+    .lp-nav { flex-direction: column; align-items: flex-start; }
+    .lp-hero { padding-top: 24px; }
+}

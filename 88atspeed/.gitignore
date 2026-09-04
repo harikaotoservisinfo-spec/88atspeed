@@ -1,0 +1,25 @@
+# 88ATSPEED
+node_modules/
+atlar.db
+data/
+hipodrom-profile/
+hipodrom-cookies.json
+hipodrom-tokens.json
+bitalih-cookies.json
+bitalih-session.json
+.DS_Store
+*.log
+.env
+*.yedek*
+*.yedek
+*.bozuk
+*.backup
+*.save
+*.son
+app.js.bozuk
+app.js.yedek
+app.js.sqlite.backup
+db-config.js.save
+sayfa_html.txt
+ankara_sayfa.html
+tjk_*.xlsx

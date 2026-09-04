@@ -3,512 +3,336 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>88ATSPEED | 7 Sekmeli Analiz Platformu</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #0f0c29 0%, #1a1a3e 50%, #24243e 100%);
-            min-height: 100vh;
-            color: #fff;
-        }
-        .container { max-width: 1600px; margin: 0 auto; padding: 20px; }
-        .header {
-            text-align: center;
-            background: linear-gradient(135deg, rgba(255,152,0,0.1), rgba(76,175,80,0.1));
-            backdrop-filter: blur(10px);
-            border-radius: 24px;
-            padding: 25px;
-            margin-bottom: 25px;
-            border: 1px solid rgba(255,152,0,0.3);
-        }
-        .logo {
-            display: flex;
-            justify-content: center;
-            gap: 5px;
-            font-size: 48px;
-            font-weight: 800;
-        }
-        .logo-88 { color: #ff9800; text-shadow: 0 0 20px rgba(255,152,0,0.5); }
-        .logo-at { color: #4CAF50; text-shadow: 0 0 20px rgba(76,175,80,0.5); }
-        .logo-speed { color: #2196F3; text-shadow: 0 0 20px rgba(33,150,243,0.5); }
-        .subtitle { color: rgba(255,255,255,0.6); margin-top: 8px; font-size: 13px; letter-spacing: 2px; }
-        
-        /* Kontrol Paneli */
-        .global-controls {
-            background: rgba(30, 30, 60, 0.7);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 20px 25px;
-            margin-bottom: 25px;
-            display: flex;
-            justify-content: center;
-            align-items: flex-end;
-            gap: 15px;
-            flex-wrap: wrap;
-            border: 1px solid rgba(255,152,0,0.3);
-        }
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .control-label {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            font-weight: 700;
-            color: #ff9800;
-            text-align: center;
-        }
-        .global-select, .global-date, .global-btn {
-            padding: 12px 20px;
-            font-size: 14px;
-            font-weight: 600;
-            border-radius: 12px;
-            border: 1px solid rgba(255,152,0,0.3);
-            cursor: pointer;
-            font-family: 'Inter', sans-serif;
-            height: 48px;
-            min-width: 160px;
-        }
-        .global-select, .global-date {
-            background: rgba(0,0,0,0.5);
-            color: white;
-        }
-        .global-select option { text-align: center; }
-        .global-btn {
-            background: linear-gradient(135deg, #ff9800, #f44336);
-            border: none;
-            color: white;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        .global-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(255,152,0,0.4); }
-        .save-btn { background: linear-gradient(135deg, #2196F3, #1976D2); }
-        
-        /* Sekmeler */
-        .tabs {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 25px;
-        }
-        .tab-btn {
-            padding: 12px 22px;
-            font-size: 13px;
-            font-weight: 600;
-            border-radius: 40px;
-            cursor: pointer;
-            transition: all 0.3s;
-            background: rgba(30, 30, 60, 0.5);
-            border: 1px solid rgba(255,255,255,0.1);
-            font-family: 'Inter', sans-serif;
-            text-align: center;
-            min-width: 110px;
-        }
-        .tab-btn:hover { background: rgba(255,152,0,0.2); transform: translateY(-2px); }
-        .tab-btn.active { background: linear-gradient(135deg, #ff9800, #f44336); border-color: transparent; box-shadow: 0 5px 20px rgba(255,152,0,0.4); }
-        
-        /* İçerik Alanları */
-        .tab-content {
-            display: none;
-            animation: fadeIn 0.4s ease;
-            background: rgba(30, 30, 60, 0.4);
-            border-radius: 20px;
-            padding: 20px;
-            min-height: 500px;
-        }
-        .tab-content.active { display: block; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .status {
-            padding: 12px;
-            border-radius: 12px;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-        .status-loading { background: rgba(255,152,0,0.2); color: #ff9800; }
-        .status-success { background: rgba(76,175,80,0.2); color: #4CAF50; }
-        .status-error { background: rgba(244,67,54,0.2); color: #f44336; }
-        .info-box { text-align: center; padding: 60px; color: rgba(255,255,255,0.5); }
-        
-        .race-card {
-            background: rgba(30, 30, 60, 0.6);
-            border-radius: 16px;
-            margin-bottom: 20px;
-            overflow-x: auto;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-        .race-header {
-            background: linear-gradient(135deg, rgba(255,152,0,0.2), rgba(76,175,80,0.1));
-            padding: 15px 20px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-        .race-header h3 { font-size: 17px; font-weight: 700; }
-        .race-badge {
-            background: #ff9800;
-            width: 28px;
-            height: 28px;
-            border-radius: 8px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 10px;
-            font-size: 14px;
-        }
-        .table-wrapper { padding: 15px; overflow-x: auto; }
-        table { border-collapse: collapse; font-size: 11px; width: 100%; min-width: 2800px; }
-        th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); border-right: 1px solid rgba(255,255,255,0.05); }
-        th { background: rgba(0,0,0,0.4); color: #ff9800; font-weight: 600; position: sticky; top: 0; }
-        .horse-no { font-weight: 800; color: #ff9800; text-align: center; background: rgba(0,0,0,0.3); }
-        .son800-badge {
-            background: linear-gradient(135deg, #ff9800, #f44336);
-            padding: 3px 8px;
-            border-radius: 15px;
-            font-size: 10px;
-            font-weight: 700;
-            display: inline-block;
-        }
-        .sticky-col { position: sticky; left: 0; background: #1a1a3e; z-index: 1; }
-        .sticky-col2 { position: sticky; left: 50px; background: #1a1a3e; z-index: 1; }
-        .sticky-col3 { position: sticky; left: 180px; background: #1a1a3e; z-index: 1; }
-    </style>
+    <meta name="description" content="88 AT SPEED — Günlük at yarışı programı, tahminler ve premium analiz.">
+    <title>88 AT SPEED | Günlük Yarış Programı & Tahminler</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@700;800;900&display=swap" rel="stylesheet">
+    <link href="css/public-site.css?v=20260904vitrinfix" rel="stylesheet">
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div class="logo">
-                <span class="logo-88">88</span>
-                <span class="logo-at">AT</span>
-                <span class="logo-speed">SPEED</span>
+<body class="pub-body">
+    <div class="pub-strip pub-strip-premium">
+        <div class="pub-strip-marquee" aria-hidden="true">
+            <div class="pub-strip-marquee-inner">
+                <span>🏇 TJK günlük program</span><span class="pub-strip-dot">◆</span>
+                <span>Veri odaklı tahmin platformu</span><span class="pub-strip-dot">◆</span>
+                <span>Canlı muhtemeller</span><span class="pub-strip-dot">◆</span>
+                <span>AI destekli analiz</span><span class="pub-strip-dot">◆</span>
             </div>
-            <div class="subtitle">7 SEKMELİ PROFESYONEL ANALİZ PLATFORMU</div>
-        </div>
-        
-        <div class="global-controls">
-            <div class="control-group">
-                <div class="control-label">📅 TARİH</div>
-                <input type="date" id="tarihSelect" class="global-date" onchange="this.blur(); loadHipodromlar();">
-            </div>
-            <div class="control-group">
-                <div class="control-label">🏟️ HIPODROM</div>
-                <select id="hipodromSelect" class="global-select">
-                    <option value="">Tarih seçiniz</option>
-                </select>
-            </div>
-            <div class="control-group">
-                <div class="control-label">🚀 İŞLEM</div>
-                <button id="getirBtn" class="global-btn">GETİR</button>
-            </div>
-            <div class="control-group">
-                <div class="control-label">💾 KAYIT</div>
-                <button id="kaydetBtn" class="global-btn save-btn">KAYDET</button>
+            <div class="pub-strip-marquee-inner" aria-hidden="true">
+                <span>🏇 TJK günlük program</span><span class="pub-strip-dot">◆</span>
+                <span>Veri odaklı tahmin platformu</span><span class="pub-strip-dot">◆</span>
+                <span>Canlı muhtemeller</span><span class="pub-strip-dot">◆</span>
+                <span>AI destekli analiz</span><span class="pub-strip-dot">◆</span>
             </div>
         </div>
-        
-        <div id="status"></div>
-        
-        <div class="tabs">
-            <div class="tab-btn active" data-tab="hesaplama">📊 HESAPLAMA</div>
-            <div class="tab-btn" data-tab="yonetim">⚙️ YÖNETİM</div>
-            <div class="tab-btn" data-tab="karsilastirma">🆚 KARŞILAŞTIRMA</div>
-            <div class="tab-btn" data-tab="gosterim">👁️ GÖSTERİM</div>
-        </div>
-        
-        <div id="tab-hesaplama" class="tab-content active"><div class="info-box">📊 HESAPLAMA - GETİR butonuna tıklayın</div></div>
-        <div id="tab-yonetim" class="tab-content"><iframe src="yonetim.html" style="width:100%; min-height:600px; border:none; background:transparent;"></iframe></div>
-        <div id="tab-karsilastirma" class="tab-content"><iframe src="karsilastirma.html" style="width:100%; min-height:600px; border:none; background:transparent;"></iframe></div>
-        <div id="tab-gosterim" class="tab-content"><iframe src="gosterim_full.html" style="width:100%; min-height:600px; border:none; background:transparent;"></iframe></div>
+        <a href="/yonetim" class="pub-strip-admin">Yönetici Girişi <span>→</span></a>
     </div>
 
-    <script>
-        let veriCache = {};
-        let currentRaces = null;
-        let currentHorses = [];
-        
-        function createStatusDiv() {
-            let statusDiv = document.getElementById('status');
-            if (!statusDiv) {
-                statusDiv = document.createElement('div');
-                statusDiv.id = 'status';
-                statusDiv.className = 'status';
-                document.querySelector('.global-controls').after(statusDiv);
-            }
-            return statusDiv;
-        }
-        
-        const statusDiv = createStatusDiv();
-        
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('tarihSelect').value = today;
-        
-        document.getElementById('tarihSelect').addEventListener('change', function() { loadHipodromlar(); this.blur(); });
-        document.getElementById('getirBtn').onclick = fetchProgram;
-        document.getElementById('kaydetBtn').onclick = veriKaydet;
-        
-        // SEKME GEÇİŞLERİ
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const tabId = this.dataset.tab;
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                this.classList.add('active');
-                document.getElementById('tab-' + tabId).classList.add('active');
-            });
-        });
-        
-        async function loadHipodromlar() {
-            let tarihInput = document.getElementById('tarihSelect').value;
-            if (!tarihInput) return;
-            let parts = tarihInput.split('-');
-            let tarih = parts[2] + '/' + parts[1] + '/' + parts[0];
-            let hipodromSelect = document.getElementById('hipodromSelect');
-            hipodromSelect.innerHTML = '<option value="">Hipodromlar yükleniyor...</option>';
-            statusDiv.innerHTML = '<div class="status status-loading">⏳ ' + tarih + ' tarihi için hipodromlar listeleniyor...</div>';
-            try {
-                let response = await fetch('/api/hipodromlar?tarih=' + tarih);
-                let result = await response.json();
-                if (result.success && result.hipodromlar && result.hipodromlar.length > 0) {
-                    hipodromSelect.innerHTML = '<option value="">Hipodrom seçin</option>';
-                    for (let i = 0; i < result.hipodromlar.length; i++) {
-                        let option = document.createElement('option');
-                        option.value = result.hipodromlar[i].id;
-                        option.textContent = result.hipodromlar[i].name;
-                        hipodromSelect.appendChild(option);
-                    }
-                    statusDiv.innerHTML = '<div class="status status-success">✅ ' + tarih + ' tarihinde ' + result.hipodromlar.length + ' hipodromda yarış var</div>';
-                } else {
-                    hipodromSelect.innerHTML = '<option value="">Hipodrom bulunamadı</option>';
-                    statusDiv.innerHTML = '<div class="status status-error">⚠️ ' + tarih + ' tarihinde yarış bulunamadı</div>';
-                }
-            } catch(e) {
-                hipodromSelect.innerHTML = '<option value="">Bağlantı hatası</option>';
-                statusDiv.innerHTML = '<div class="status status-error">❌ Sunucuya bağlanılamıyor</div>';
-            }
-        }
-        
-        async function getAtTumVeriler(atId, atAdi) {
-            if (veriCache[atId]) return veriCache[atId];
-            if (!atId) return { kosular: [] };
-            try {
-                let res = await fetch('/api/at-tum-veriler?id=' + atId + '&adi=' + encodeURIComponent(atAdi));
-                let data = await res.json();
-                if (data.success) {
-                    veriCache[atId] = data.kosular;
-                    return data.kosular;
-                }
-            } catch(e) { console.error(e); }
-            return [];
-        }
-        
-        function escapeHtml(s) {
-            if (!s) return '-';
-            return s.replace(/[&<>]/g, function(m) {
-                return m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;';
-            });
-        }
-        
-        async function fetchProgram() {
-            let hipodromId = document.getElementById('hipodromSelect').value;
-            let hipodromSelect = document.getElementById('hipodromSelect');
-            let hipodromText = hipodromSelect.options[hipodromSelect.selectedIndex] ? hipodromSelect.options[hipodromSelect.selectedIndex].text : '';
-            let tarihInput = document.getElementById('tarihSelect').value;
-            
-            if (!tarihInput) {
-                statusDiv.innerHTML = '<div class="status status-error">❌ Lütfen bir tarih seçin!</div>';
-                return;
-            }
-            let parts = tarihInput.split('-');
-            let tarih = parts[2] + '/' + parts[1] + '/' + parts[0];
-            
-            if (!hipodromId) {
-                statusDiv.innerHTML = '<div class="status status-error">❌ Lütfen bir hipodrom seçin!</div>';
-                return;
-            }
-            
-            // HESAPLAMA sekmesini aktif yap
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.querySelector('.tab-btn[data-tab="hesaplama"]').classList.add('active');
-            document.getElementById('tab-hesaplama').classList.add('active');
-            
-            let sonucDiv = document.getElementById('tab-hesaplama');
-            statusDiv.innerHTML = '<div class="status status-loading">⏳ ' + hipodromText + ' programı çekiliyor...</div>';
-            sonucDiv.innerHTML = '<div class="info-box">🏇 Veriler çekiliyor...</div>';
-            
-            try {
-                let response = await fetch('/api/yaris-programi?sehir=' + hipodromId + '&sehirAdi=' + encodeURIComponent(hipodromText) + '&tarih=' + tarih);
-                let result = await response.json();
-                if (!result.success) throw new Error(result.error);
-                
-                currentRaces = result.data;
-                currentHorses = [];
-                for (let i = 0; i < currentRaces.length; i++) {
-                    for (let j = 0; j < currentRaces[i].horses.length; j++) {
-                        let horse = currentRaces[i].horses[j];
-                        currentHorses.push({ ...horse, raceNo: currentRaces[i].raceNo });
-                    }
-                }
-                
-                let uniqueIds = [];
-                let idsMap = {};
-                for (let i = 0; i < currentHorses.length; i++) {
-                    let id = currentHorses[i].atId;
-                    if (id && !idsMap[id]) {
-                        idsMap[id] = true;
-                        uniqueIds.push(id);
-                    }
-                }
-                
-                statusDiv.innerHTML = '<div class="status status-loading">⏳ ' + uniqueIds.length + ' at analiz ediliyor...</div>';
-                for (let i = 0; i < uniqueIds.length; i++) {
-                    await getAtTumVeriler(uniqueIds[i], '');
-                    statusDiv.innerHTML = '<div class="status status-loading">⏳ Analiz: ' + (i+1) + '/' + uniqueIds.length + ' at tamamlandı...</div>';
-                }
-                
-                hesaplamaGoster(currentRaces);
-                statusDiv.innerHTML = '<div class="status status-success">✅ ' + hipodromText + ': ' + result.totalRaces + ' koşu, ' + result.totalHorses + ' at analiz edildi.</div>';
-                
-            } catch (error) {
-                statusDiv.innerHTML = '<div class="status status-error">❌ Hata: ' + error.message + '</div>';
-                sonucDiv.innerHTML = '<div class="info-box">❌ ' + error.message + '</div>';
-            }
-        }
-        
-        function hesaplamaGoster(races) {
-            if (!races || races.length === 0) {
-                document.getElementById('tab-hesaplama').innerHTML = '<div class="info-box">📋 Veri bulunamadı</div>';
-                return;
-            }
-            
-            let genelHtml = '';
-            
-            for (let raceIdx = 0; raceIdx < races.length; raceIdx++) {
-                const race = races[raceIdx];
-                
-                let thead = '<thead><tr>';
-                thead += '<th class="sticky-col">#</th>';
-                thead += '<th class="sticky-col2">AT İSMİ</th>';
-                thead += '<th class="sticky-col3">AT ID</th>';
-                for (let k = 1; k <= 7; k++) {
-                    thead += '<th colspan="8" style="text-align:center;background:#ff9800;color:#000;">KOŞU ' + k + '</th>';
-                }
-                thead += '</tr>';
-                thead += '<tr>';
-                thead += '<th class="sticky-col">#</th>';
-                thead += '<th class="sticky-col2">AT İSMİ</th>';
-                thead += '<th class="sticky-col3">AT ID</th>';
-                for (let k = 1; k <= 7; k++) {
-                    thead += '<th>TARİH</th><th>ŞEHİR</th><th>MESAFE</th><th>SIRA</th><th>AT DEREÇE</th><th>BİR.DEREÇE</th><th>SON800-1</th><th>SON800-2</th>';
-                }
-                thead += '</tr></thead>';
-                
-                let tbody = '<tbody>';
-                for (let j = 0; j < race.horses.length; j++) {
-                    const horse = race.horses[j];
-                    const kosular = veriCache[horse.atId] || [];
-                    tbody += '<tr>';
-                    tbody += '<td class="horse-no sticky-col">' + horse.no + '</td>';
-                    tbody += '<td class="sticky-col2"><strong>' + escapeHtml(horse.name) + '</strong></td>';
-                    tbody += '<td class="sticky-col3">' + (horse.atId || '-') + '</td>';
-                    for (let k = 0; k < 7; k++) {
-                        const kose = kosular[k] || {};
-                        tbody += '<td>' + (kose.tarih || '-') + '</td>';
-                        tbody += '<td>' + (kose.sehir || '-') + '</td>';
-                        tbody += '<td>' + (kose.mesafe || '-') + '</td>';
-                        tbody += '<td>' + (kose.sira || '-') + '</td>';
-                        tbody += '<td>' + (kose.at_derece || '-') + '</td>';
-                        tbody += '<td>' + (kose.birinci_derece || '-') + '</td>';
-                        tbody += '<td><span class="son800-badge">' + (kose.son800_bir || '-') + '</span></td>';
-                        tbody += '<td><span class="son800-badge">' + (kose.son800_iki || '-') + '</span></td>';
-                    }
-                    tbody += '</tr>';
-                }
-                tbody += '</tbody>';
-                
-                let raceMesafe = (race.mesafe && race.mesafe !== '?') ? race.mesafe + ' ' + (race.pist || '') : '?';
-                
-                genelHtml += '<div class="race-card">';
-                genelHtml += '<div class="race-header"><h3>🏁 ' + race.raceNo + '. KOŞU (' + race.horseCount + ' at) - MESAFE: ' + raceMesafe + '</h3></div>';
-                genelHtml += '<div class="table-wrapper">';
-                genelHtml += '<table border="0" cellpadding="5" cellspacing="0">';
-                genelHtml += thead;
-                genelHtml += tbody;
-                genelHtml += '</table>';
-                genelHtml += '</div></div>';
-            }
-            
-            document.getElementById('tab-hesaplama').innerHTML = genelHtml;
-        }
-        
-        async function veriKaydet() {
-            if (!currentRaces) {
-                statusDiv.innerHTML = '<div class="status status-error">❌ Önce GETİR butonuna tıklayın!</div>';
-                return;
-            }
-            
-            let hipodromSelect = document.getElementById('hipodromSelect');
-            let sehirAdi = hipodromSelect.options[hipodromSelect.selectedIndex] ? hipodromSelect.options[hipodromSelect.selectedIndex].text : '';
-            let tarihInput = document.getElementById('tarihSelect').value;
-            let parts = tarihInput.split('-');
-            let tarih = parts[2] + '/' + parts[1] + '/' + parts[0];
-            
-            let veri = {
-                hipodrom: sehirAdi,
-                hipodromId: document.getElementById('hipodromSelect').value,
-                tarih: tarih,
-                raceCount: currentRaces.length,
-                totalHorses: currentHorses.length,
-                data: []
-            };
-            
-            for (let i = 0; i < currentRaces.length; i++) {
-                let race = currentRaces[i];
-                let raceData = {
-                    raceNo: race.raceNo,
-                    mesafe: race.mesafe || '?',
-                    pist: race.pist || '?',
-                    horses: []
-                };
-                for (let j = 0; j < race.horses.length; j++) {
-                    let horse = race.horses[j];
-                    let kosular = veriCache[horse.atId] || [];
-                    raceData.horses.push({
-                        no: horse.no,
-                        name: horse.name,
-                        atId: horse.atId,
-                        kosular: kosular
-                    });
-                }
-                veri.data.push(raceData);
-            }
-            
-            statusDiv.innerHTML = '<div class="status status-loading">⏳ Veri kaydediliyor...</div>';
-            try {
-                let response = await fetch('/api/hesaplama-kaydet', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(veri)
-                });
-                let result = await response.json();
-                if (result.success) {
-                    statusDiv.innerHTML = '<div class="status status-success">✅ Veri başarıyla kaydedildi!</div>';
-                } else {
-                    throw new Error(result.error);
-                }
-            } catch (error) {
-                statusDiv.innerHTML = '<div class="status status-error">❌ Kayıt hatası: ' + error.message + '</div>';
-            }
-        }
-        
-        loadHipodromlar();
-    </script>
+    <header class="pub-header pub-header-ultra">
+        <div class="pub-header-bg" aria-hidden="true">
+            <div class="pub-header-mesh"></div>
+            <div class="pub-header-orb pub-header-orb-1"></div>
+            <div class="pub-header-orb pub-header-orb-2"></div>
+            <div class="pub-header-orb pub-header-orb-3"></div>
+            <div class="pub-header-rays"></div>
+            <div class="pub-header-stripe"></div>
+        </div>
+        <div class="pub-header-inner">
+            <div class="pub-header-brand">
+                <a href="/" class="pub-logo-ultra" aria-label="88 AT SPEED">
+                    <div class="pub-logo-ring">
+                        <div class="pub-logo-orbit"></div>
+                        <div class="pub-logo-core">
+                            <span class="pub-logo-num">88</span>
+                            <span class="pub-logo-core-shine"></span>
+                        </div>
+                    </div>
+                    <div class="pub-logo-type">
+                        <span class="pub-logo-at">AT</span><span class="pub-logo-speed">SPEED</span>
+                        <span class="pub-logo-underline" aria-hidden="true"></span>
+                    </div>
+                </a>
+                <p class="pub-header-tagline">
+                    <span class="pub-tagline-badge">⚡ PRO</span>
+                    TJK günlük program · Veri odaklı tahmin platformu
+                </p>
+            </div>
+            <div class="pub-header-mid">
+                <div class="pub-live-panel">
+                    <div class="pub-live-status">
+                        <span class="pub-live-ring"><span class="pub-live-dot"></span></span>
+                        <div class="pub-live-text">
+                            <span class="pub-live-title">Canlı Program</span>
+                            <span class="pub-live-sub">Anlık veri akışı</span>
+                        </div>
+                    </div>
+                    <div class="pub-live-clock-wrap">
+                        <time id="pubHeaderClock" class="pub-header-clock" datetime="">—</time>
+                        <span id="pubHeaderDate" class="pub-header-date"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="pub-header-actions">
+                <a href="#gunun-kosulari" class="pub-cta pub-cta-glass">
+                    <span class="pub-cta-icon-wrap"><span class="pub-cta-icon">🏁</span></span>
+                    <span class="pub-cta-text">
+                        <strong>Günün Koşuları</strong>
+                        <small>Program &amp; saatler</small>
+                    </span>
+                    <span class="pub-cta-shimmer" aria-hidden="true"></span>
+                </a>
+                <a href="#panel-tahminler" class="pub-cta pub-cta-fire" id="pubHeaderTahminBtn">
+                    <span class="pub-cta-icon-wrap"><span class="pub-cta-icon">🎯</span></span>
+                    <span class="pub-cta-text">
+                        <strong>Tahminleri Gör</strong>
+                        <small>Analiz &amp; sıralama</small>
+                    </span>
+                    <span class="pub-cta-glow" aria-hidden="true"></span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <nav class="pub-subnav pub-subnav-premium" aria-label="Ana sekmeler">
+        <div class="pub-subnav-glow" aria-hidden="true"></div>
+        <div class="pub-subnav-inner">
+            <div class="pub-tab-track" id="pubTabTrack">
+                <div class="pub-tab-indicator" id="pubTabIndicator" aria-hidden="true"></div>
+                <button type="button" class="pub-tab pub-tab-premium active" data-panel="kosular" data-accent="#e53935">
+                    <span class="pub-tab-ico">🏁</span><span class="pub-tab-label">Günün Koşuları</span>
+                </button>
+                <button type="button" class="pub-tab pub-tab-premium" data-panel="tahminler" data-accent="#7b1fa2">
+                    <span class="pub-tab-ico">🎯</span><span class="pub-tab-label">Tahminler</span>
+                </button>
+                <button type="button" class="pub-tab pub-tab-premium" data-panel="muhtemeller" data-accent="#f57c00">
+                    <span class="pub-tab-ico">💰</span><span class="pub-tab-label">Muhtemeller</span>
+                </button>
+                <button type="button" class="pub-tab pub-tab-premium" data-panel="hazir" data-accent="#00897b">
+                    <span class="pub-tab-ico">📋</span><span class="pub-tab-label">Hazır Kupon</span>
+                </button>
+                <button type="button" class="pub-tab pub-tab-premium" data-panel="sonuclar" data-accent="#1565c0">
+                    <span class="pub-tab-ico">🏆</span><span class="pub-tab-label">Sonuçlar</span>
+                </button>
+                <button type="button" class="pub-tab pub-tab-premium" data-panel="kazanc" data-accent="#2e7d32">
+                    <span class="pub-tab-ico">💎</span><span class="pub-tab-label">Kazanç</span>
+                </button>
+                <button type="button" class="pub-tab pub-tab-premium" data-panel="rehber" data-accent="#455a64">
+                    <span class="pub-tab-ico">📖</span><span class="pub-tab-label">Rehber</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="pub-layout">
+        <main class="pub-main">
+            <div class="pub-date-bar" id="gunun-kosulari">
+                <div class="pub-date-bar-text">
+                    <h2>Günün Koşuları</h2>
+                    <p id="pubDateLabel">Yükleniyor…</p>
+                    <p class="pub-yarin-status-line" id="pubYarinStatusLine" hidden aria-live="polite"></p>
+                </div>
+                <div class="pub-date-controls">
+                    <div class="pub-date-pills" role="tablist" aria-label="Program günü">
+                        <button type="button" class="pub-date-pill active" id="pubDatePillToday" data-iso="today">Bugün</button>
+                        <button type="button" class="pub-date-pill" id="pubDatePillTomorrow" data-iso="tomorrow">
+                            <span class="pub-date-pill-label">Yarın</span>
+                            <span class="pub-date-pill-badge" id="pubYarinPillBadge" hidden aria-hidden="true"></span>
+                        </button>
+                    </div>
+                    <input type="date" id="pubDateInput" class="pub-date-input" aria-label="Tarih seçin">
+                </div>
+            </div>
+
+            <!-- Günün Koşuları paneli -->
+            <section id="panel-kosular" class="pub-tab-panel active">
+                <div id="pubHipTabs" class="pub-hip-tabs" role="tablist"></div>
+                <div id="pubHipInfo" class="pub-hip-info" style="display:none"></div>
+                <div class="pub-fob-toolbar" id="pubFobToolbar">
+                    <label class="pub-fob-label" for="pubFobMode">Sabit İhtimalli</label>
+                    <select id="pubFobMode" class="pub-fob-select" aria-label="Bahis türü seçin">
+                        <option value="off">Kapalı</option>
+                        <option value="compare">Bahis Türlerini Kıyasla</option>
+                        <option value="ganyan">Ganyan</option>
+                        <option value="ilk2">İlk 2</option>
+                        <option value="ilk3">İlk 3</option>
+                    </select>
+                    <span class="pub-fob-source" id="pubFobSource">Kaynak: hipodrom.com</span>
+                    <span class="pub-fob-status" id="pubFobStatus" aria-live="polite"></span>
+                </div>
+                <div id="pubRacePanel" class="pub-race-panel">
+                    <div id="pubRaceList" class="pub-loading">
+                        <div class="pub-spinner"></div>
+                        Program yükleniyor…
+                    </div>
+                </div>
+                <div class="pub-program-sync pub-program-sync-inline" id="pubProgramSync" aria-live="polite">
+                    <div class="pub-program-sync-hdr">
+                        <span>📡 Program çekim durumu</span>
+                        <button type="button" class="pub-program-sync-refresh" id="pubProgramSyncRefresh" title="Yenile">↻</button>
+                    </div>
+                    <div class="pub-program-sync-body" id="pubProgramSyncBody">
+                        <div class="pub-loading pub-program-sync-loading"><div class="pub-spinner"></div> Durum kontrol ediliyor…</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tahminler paneli -->
+            <section id="panel-tahminler" class="pub-tab-panel">
+                <div id="pubTahminHipTabs" class="pub-tahmin-hip-tabs" role="tablist" hidden></div>
+                <div id="pubTahminContent" class="pub-tahmin-grid">
+                    <div class="pub-empty">
+                        <div class="pub-empty-icon">🎯</div>
+                        <h3>Tahminler</h3>
+                        <p>Önce günün koşularını yükleyin; tahminler koşu bazında burada listelenir.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Muhtemeller (TJK VHS) -->
+            <section id="panel-muhtemeller" class="pub-tab-panel">
+                <div class="pub-tjk-tv-wrap" id="pubTjkTvWrap">
+                    <div class="pub-tjk-tv-hdr">
+                        <span class="pub-tjk-tv-title"><span class="pub-tjk-tv-dot"></span> TJK TV Canlı Yayın</span>
+                        <div class="pub-tjk-tv-links">
+                            <a class="pub-tjk-tv-link" href="https://www.tjk.org/TR/YarisSever/Static/Canli" target="_blank" rel="noopener noreferrer">TJK resmi ↗</a>
+                            <a class="pub-tjk-tv-link" href="https://www.youtube.com/@TJKTVCANLIYAYIN" target="_blank" rel="noopener noreferrer">YouTube ↗</a>
+                        </div>
+                    </div>
+                    <div class="pub-tjk-tv-player">
+                        <video id="pubTjkTvVideo" class="pub-tjk-tv-video" controls playsinline muted preload="none"></video>
+                        <div id="pubTjkTvLoading" class="pub-tjk-tv-loading">
+                            <div class="pub-spinner"></div>
+                            <span>Yayın yükleniyor…</span>
+                        </div>
+                        <div id="pubTjkTvFallback" class="pub-tjk-tv-fallback" hidden>
+                            <p>Yayın şu an yüklenemedi.</p>
+                            <p class="pub-tjk-tv-fallback-hint">Bağlantınızı kontrol edip tekrar deneyin.</p>
+                            <button type="button" class="pub-btn pub-btn-white" id="pubTjkTvRetry">Yeniden dene</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="pub-muht-wrap">
+                    <div class="pub-muht-toolbar">
+                        <div class="pub-muht-toolbar-left">
+                            <span class="pub-muht-live" id="pubMuhtLiveBadge" hidden aria-hidden="true">
+                                <span class="pub-live-dot"></span> CANLI
+                            </span>
+                            <p id="pubMuhtLabel">TJK resmi muhtemeller yükleniyor…</p>
+                        </div>
+                        <div class="pub-muht-toolbar-right">
+                            <span class="pub-muht-updated" id="pubMuhtUpdated" title="Son güncelleme">—</span>
+                            <label class="pub-muht-auto" title="Otomatik yenileme">
+                                <input type="checkbox" id="pubMuhtAutoRefresh" checked>
+                                <span class="pub-muht-auto-label">Otomatik</span>
+                                <span class="pub-muht-countdown" id="pubMuhtCountdown">15s</span>
+                            </label>
+                            <button type="button" class="pub-muht-refresh-btn" id="pubMuhtRefreshBtn" title="Şimdi yenile" aria-label="Şimdi yenile">↻</button>
+                            <span class="pub-muht-source">Kaynak: vhs.tjk.org</span>
+                        </div>
+                    </div>
+                    <div id="pubMuhtHipTabs" class="pub-hip-tabs pub-muht-hip-tabs" role="tablist"></div>
+                    <div id="pubMuhtKosuTabs" class="pub-muht-kosu-tabs"></div>
+                    <div id="pubMuhtContent" class="pub-muht-content">
+                        <div class="pub-loading"><div class="pub-spinner"></div>Program listesi yükleniyor…</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Hazır Kupon -->
+            <section id="panel-hazir" class="pub-tab-panel">
+                <div class="pub-widget">
+                    <div class="pub-widget-hdr">Hazır Kuponlar</div>
+                    <div class="pub-widget-body pub-empty">
+                        <div class="pub-empty-icon">📋</div>
+                        <h3>Yakında</h3>
+                        <p>Uzman hazır kupon önerileri bu alanda yayınlanacak.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Sonuçlar -->
+            <section id="panel-sonuclar" class="pub-tab-panel">
+                <div class="pub-sonuc-toolbar">
+                    <div>
+                        <h2 class="pub-sonuc-title">Koşu Sonuçları</h2>
+                        <p id="pubSonucLabel" class="pub-sonuc-label">TJK resmi sonuçları</p>
+                    </div>
+                    <button type="button" class="pub-sonuc-refresh" id="pubSonucRefresh" title="Sonuçları yenile">↻ Yenile</button>
+                </div>
+                <div id="pubSonucHipTabs" class="pub-hip-tabs" role="tablist"></div>
+                <div id="pubSonucHipInfo" class="pub-hip-info" style="display:none"></div>
+                <div id="pubSonucList">
+                    <div class="pub-empty">
+                        <div class="pub-empty-icon">🏆</div>
+                        <h3>Sonuçlar</h3>
+                        <p>Günün koşuları yüklendikten sonra TJK sonuçları burada görünür.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Kazanç — Hipodrom.com hesap bağlantısı -->
+            <section id="panel-kazanc" class="pub-tab-panel">
+                <div class="pub-kazanc-wrap" id="pubKazancRoot">
+                    <div id="pubKazancContent" class="pub-kazanc-content">
+                        <div class="pub-loading"><div class="pub-spinner"></div>Yükleniyor…</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Rehber -->
+            <section id="panel-rehber" class="pub-tab-panel">
+                <div class="pub-widget">
+                    <div class="pub-widget-hdr">Nasıl Kullanılır?</div>
+                    <div class="pub-widget-body" style="font-size:14px;line-height:1.7;color:#444">
+                        <p><strong>1.</strong> Üstten tarihi seçin veya bugünün programına bakın.</p>
+                        <p style="margin-top:10px"><strong>2.</strong> Hipodrom sekmesinden şehri seçin.</p>
+                        <p style="margin-top:10px"><strong>3.</strong> Koşu kartına tıklayarak tahmin detaylarını görün.</p>
+                        <p style="margin-top:10px"><strong>4.</strong> <em>Tahminler</em> sekmesinde tüm koşuların özet sıralaması listelenir.</p>
+                        <p style="margin-top:16px;padding:12px;background:#fff3e0;border-radius:8px;font-size:13px">
+                            ⚡ Programlar bir gün önceden otomatik çekilir. Detaylı analiz araçları yönetim panelindedir.
+                        </p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <footer class="pub-footer">
+        <div class="pub-footer-inner">
+            <div>
+                <h4>Program</h4>
+                <ul>
+                    <li><a href="#gunun-kosulari">Günün Koşuları</a></li>
+                    <li><a href="#panel-tahminler">Tahminler</a></li>
+                    <li><a href="#hazir">Hazır Kupon</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4>Analiz</h4>
+                <ul>
+                    <li><a href="/yonetim">Yönetim Paneli</a></li>
+                    <li><a href="#rehber">Kullanım Rehberi</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4>Kurumsal</h4>
+                <ul>
+                    <li><a href="#">Hakkımızda</a></li>
+                    <li><a href="#">İletişim</a></li>
+                    <li><a href="#">Gizlilik</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4>88 AT SPEED</h4>
+                <p style="font-size:13px;line-height:1.6">Profesyonel at yarışı veri analizi ve tahmin platformu.</p>
+            </div>
+        </div>
+        <div class="pub-footer-bottom">© 2026 88 AT SPEED · Tüm hakları saklıdır</div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js" crossorigin="anonymous"></script>
+    <script src="js/pub-ads.js?v=20260903kazanc"></script>
+    <script src="js/pub-kazanc.js?v=20260904fixflow"></script>
+    <script src="js/public-home.js?v=20260904vitrinfix"></script>
 </body>
 </html>
