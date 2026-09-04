@@ -4,7 +4,7 @@ const fs = require('fs');
 const sqlite3 = require('sqlite3').verbose();
 const tjkScrape = require('./lib/tjk-scrape');
 const { buildCalibrationFlat, clearCalibrationFlatCache } = require('./lib/calibration-flat-build');
-const { buildCalibrationBundle, clearCalibrationBundleCache } = require('./lib/calibration-bundle');
+const { buildCalibrationBundle, clearCalibrationBundleCache, getBundleStatus, primeBundleFromDisk, scheduleBackgroundRebuild } = require('./lib/calibration-bundle');
 const adminAuth = require('./lib/admin-auth');
 const publicProgram = require('./lib/public-program');
 const raceMetaEnrich = require('./lib/race-meta-enrich');
@@ -1458,6 +1458,10 @@ app.get('/api/kamu-program-kayit', async (req, res) => {
 });
 
 /** Kalibrasyon paketi — sunucuda kalibre edilmiş motor durumu (~0.5MB, tarayıcıya flat gönderilmez) */
+app.get('/api/calibration-bundle/status', (req, res) => {
+    res.json({ success: true, ...getBundleStatus() });
+});
+
 app.get('/api/calibration-bundle', async (req, res) => {
     try {
         const built = await buildCalibrationBundle();
@@ -1465,7 +1469,8 @@ app.get('/api/calibration-bundle', async (req, res) => {
             success: true,
             bundle: built.bundle,
             flatCount: built.flatCount,
-            buildMs: built.buildMs
+            buildMs: built.buildMs,
+            source: built.source || 'memory'
         });
     } catch (err) {
         console.error('calibration-bundle:', err);
@@ -1498,7 +1503,8 @@ app.get('/api/hesaplama-kayit/:id', async (req, res) => {
         } else if (row) {
             try {
                 let veri = JSON.parse(row.veri);
-                veri = await publicProgram.enrichHesaplamaVeriMesafe(db, veri, row);
+                const enrichOpts = req.query.quick === '1' ? { skipTjkFetch: true } : {};
+                veri = await publicProgram.enrichHesaplamaVeriMesafe(db, veri, row, enrichOpts);
                 row.veri = veri;
                 res.json({ success: true, kayit: row });
             } catch (parseErr) {
@@ -1855,6 +1861,9 @@ app.listen(PORT, HOST, () => {
     console.log(`📍 http://${HOST}:${PORT}`);
     console.log(`💾 SQLite veritabanı hazır: atlar.db`);
     console.log(`🐎 API'ler aktif!\n`);
+    if (primeBundleFromDisk()) {
+        console.log('📦 Kalibrasyon bundle disk önbelleği yüklendi (MTR/HYB anında hazır)');
+    }
     if (process.env.WARM_CALIBRATION === '1') {
         setTimeout(() => {
             buildCalibrationFlat()
@@ -1864,16 +1873,20 @@ app.listen(PORT, HOST, () => {
                 .catch(function(err) {
                     console.warn('Kalibrasyon flat önbellek ısıtma atlandı:', err.message);
                 });
-            buildCalibrationBundle()
-                .then(function(b) {
-                    console.log('🔥 Kalibrasyon bundle önbellek: ' + b.flatCount + ' satır (' + b.buildMs + 'ms)');
-                })
-                .catch(function(err) {
-                    console.warn('Kalibrasyon bundle ısıtma atlandı:', err.message);
-                });
-        }, 15000);
+            if (!getBundleStatus().ready) {
+                buildCalibrationBundle()
+                    .then(function(b) {
+                        console.log('🔥 Kalibrasyon bundle önbellek: ' + b.flatCount + ' satır (' + b.buildMs + 'ms)');
+                    })
+                    .catch(function(err) {
+                        console.warn('Kalibrasyon bundle ısıtma atlandı:', err.message);
+                    });
+            } else {
+                scheduleBackgroundRebuild();
+            }
+        }, 3000);
     } else {
-        console.log('Kalibrasyon ısıtma kapalı (ilk istekte önbelleklenir). WARM_CALIBRATION=1 ile açılır.');
+        console.log('Kalibrasyon ısıtma kapalı. WARM_CALIBRATION=1 ile açılır.');
     }
 }).on('error', (err) => {
     console.error('Sunucu başlatılamadı:', err.message);

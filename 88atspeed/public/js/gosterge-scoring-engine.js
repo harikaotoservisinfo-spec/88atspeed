@@ -1618,6 +1618,63 @@ const GostergeScoringEngine = (function () {
         cachedAllColorRows = null;
     }
 
+    function isFullyImportedFromBundle() {
+        return isCalibrated()
+            && (typeof HybridTahminScoringEngine === 'undefined'
+                || HybridTahminScoringEngine.isCalibrated?.())
+            && (typeof AtestSonGosterge1Tahmin === 'undefined'
+                || AtestSonGosterge1Tahmin.isCalibrated?.());
+    }
+
+    async function importBundleFromApiResponse(serverJson) {
+        if (!serverJson?.success || !serverJson.bundle?.gosterge) return false;
+        const b = serverJson.bundle;
+        if (!importCalibrationBundle(b.gosterge)) return false;
+        if (typeof BasariPctScoringEngine !== 'undefined' && b.basari?.weightsBySize) {
+            BasariPctScoringEngine.importBundle?.(b.basari);
+        }
+        if (typeof HybridTahminScoringEngine !== 'undefined' && b.hybrid) {
+            HybridTahminScoringEngine.importCalibrationBundle?.(b.hybrid);
+        }
+        if (typeof AtestSonGosterge1Tahmin !== 'undefined' && b.g1) {
+            AtestSonGosterge1Tahmin.importRates?.(b.g1);
+        }
+        if (typeof AtestSonRenkTahmin !== 'undefined') {
+            AtestSonRenkTahmin.onBundleLoaded?.();
+        }
+        return isFullyImportedFromBundle();
+    }
+
+    async function calibrateFromFlatPayload(flatEntries, bitisMap) {
+        if (!flatEntries?.length) return false;
+        const host = makeBitisHost(flatEntries, bitisMap || {}, function(entries) {
+            let withBitis = 0, b1 = 0, b12 = 0, b123 = 0;
+            for (const entry of entries || []) {
+                let b = entry._bitisPos;
+                if (b == null || b < 1) {
+                    b = AtSpeedUtils.extractBitisFromHorseName(entry.row?.name);
+                }
+                if (b == null || b < 1) continue;
+                withBitis++;
+                if (b === 1) b1++;
+                if (b <= 2) b12++;
+                if (b <= 3) b123++;
+            }
+            return { matchedRows: (entries || []).length, withBitis, b1, b12, b123 };
+        });
+        if (typeof HybridTahminScoringEngine !== 'undefined') {
+            await HybridTahminScoringEngine.calibrateFromFlatEntries(
+                flatEntries, host.bitisValueForSort, { host: host });
+        } else {
+            await calibrate(flatEntries, host);
+        }
+        if (typeof AtestSonGosterge1Tahmin !== 'undefined') {
+            AtestSonGosterge1Tahmin.calibrateFromFlatEntries(
+                flatEntries, host.bitisValueForSort);
+        }
+        return isFullyImportedFromBundle();
+    }
+
     /** PUANLAMA TEST bitiş + hesaplama kayıtlarından kalibrasyon verisi oluştur */
     async function buildFlatEntriesFromApi(options) {
         if (cachedFlatBuild && !options?.forceRefresh) return cachedFlatBuild;
@@ -1628,28 +1685,30 @@ const GostergeScoringEngine = (function () {
                     const serverRes = await fetch('/api/calibration-bundle');
                     if (serverRes.ok) {
                         const serverJson = await serverRes.json();
-                        if (serverJson.success && serverJson.bundle?.gosterge) {
-                            importCalibrationBundle(serverJson.bundle.gosterge);
-                            if (typeof BasariPctScoringEngine !== 'undefined'
-                                && serverJson.bundle.basari?.weightsBySize) {
-                                BasariPctScoringEngine.importBundle?.(serverJson.bundle.basari);
-                            }
-                            if (typeof HybridTahminScoringEngine !== 'undefined'
-                                && serverJson.bundle.hybrid) {
-                                HybridTahminScoringEngine.importCalibrationBundle?.(
-                                    serverJson.bundle.hybrid);
-                            }
-                            if (typeof AtestSonGosterge1Tahmin !== 'undefined'
-                                && serverJson.bundle.g1) {
-                                AtestSonGosterge1Tahmin.importRates?.(serverJson.bundle.g1);
-                            }
-                            if (isCalibrated()) {
-                                cachedFlatBuild = { flatEntries: [], bitisMap: {} };
+                        if (await importBundleFromApiResponse(serverJson)) {
+                            cachedFlatBuild = { flatEntries: [], bitisMap: {} };
+                            return cachedFlatBuild;
+                        }
+                    }
+                } catch (_) { /* bundle yoksa tarayıcı fallback */ }
+
+                try {
+                    const flatRes = await fetch('/api/calibration-flat-build');
+                    if (flatRes.ok) {
+                        const flatJson = await flatRes.json();
+                        if (flatJson.success && flatJson.flatEntries?.length) {
+                            const ok = await calibrateFromFlatPayload(
+                                flatJson.flatEntries, flatJson.bitisMap || {});
+                            if (ok) {
+                                cachedFlatBuild = {
+                                    flatEntries: flatJson.flatEntries,
+                                    bitisMap: flatJson.bitisMap || {}
+                                };
                                 return cachedFlatBuild;
                             }
                         }
                     }
-                } catch (_) { /* bundle yoksa tarayıcı fallback */ }
+                } catch (_) { /* flat-build fallback */ }
 
                 const IE = options?.IE || IstatistikEngine;
                 const bitisRes = await fetch('/api/puanlama-bitis-sonuclari');
@@ -1665,40 +1724,43 @@ const GostergeScoringEngine = (function () {
         const flat = [];
         for (let ki = 0; ki < kayitlar.length; ki++) {
             const meta = kayitlar[ki];
-            const res = await fetch('/api/hesaplama-kayit/' + meta.id);
-            const json = await res.json();
-            if (!json.success || !json.kayit?.veri) continue;
-            const kayit = json.kayit;
-            const races = kayit.veri || [];
-            const raceEntries = races.map((race, i) => {
-                const raceNo = race.raceNo || (i + 1);
-                const pkg = IE.buildRaceIstatistikPackage(race, kayit.hipodrom, kayit.tarih);
-                return { race, raceNo, pkg };
-            });
-            if (raceEntries.length) IE.applyProgramGlobalPctScales(raceEntries.map(e => e.pkg));
-            for (const { raceNo, pkg } of raceEntries) {
-                for (const row of pkg.rows) {
-                    row._extraSectionMeta = (pkg.extraSections || []).map(sec => ({
-                        id: sec.id,
-                        label: sec.label,
-                        depthsKey: sec.depthsKey
-                    }));
-                    const key = rowKeyParts(kayit.id, raceNo, row.no);
-                    const bitisRaw = bitisMap[key];
-                    const fromName = AtSpeedUtils.extractBitisFromHorseName(row.name);
-                    const bitisPos = bitisRaw != null && bitisRaw >= 1 ? bitisRaw : fromName;
-                    flat.push({
-                        row,
-                        tarih: kayit.tarih,
-                        raceNo,
-                        hipodrom: kayit.hipodrom,
-                        kayitId: kayit.id,
-                        _bitisPos: bitisPos != null && bitisPos >= 1 ? bitisPos : null
-                    });
+            const res = await fetch('/api/hesaplama-kayit/' + meta.id + '?quick=1');
+                const json = await res.json();
+                if (!json.success || !json.kayit?.veri) continue;
+                const kayit = json.kayit;
+                const races = kayit.veri || [];
+                const raceEntries = races.map((race, i) => {
+                    const raceNo = race.raceNo || (i + 1);
+                    const pkg = IE.buildRaceIstatistikPackage(race, kayit.hipodrom, kayit.tarih);
+                    return { race, raceNo, pkg };
+                });
+                if (raceEntries.length) IE.applyProgramGlobalPctScales(raceEntries.map(e => e.pkg));
+                for (const { raceNo, pkg } of raceEntries) {
+                    for (const row of pkg.rows) {
+                        row._extraSectionMeta = (pkg.extraSections || []).map(sec => ({
+                            id: sec.id,
+                            label: sec.label,
+                            depthsKey: sec.depthsKey
+                        }));
+                        const key = rowKeyParts(kayit.id, raceNo, row.no);
+                        const bitisRaw = bitisMap[key];
+                        const fromName = AtSpeedUtils.extractBitisFromHorseName(row.name);
+                        const bitisPos = bitisRaw != null && bitisRaw >= 1 ? bitisRaw : fromName;
+                        flat.push({
+                            row,
+                            tarih: kayit.tarih,
+                            raceNo,
+                            hipodrom: kayit.hipodrom,
+                            kayitId: kayit.id,
+                            _bitisPos: bitisPos != null && bitisPos >= 1 ? bitisPos : null
+                        });
+                    }
                 }
-            }
-            if (ki > 0 && ki % 3 === 0) await yieldToMain();
+                if (ki > 0 && ki % 3 === 0) await yieldToMain();
         }
+                if (flat.length) {
+                    await calibrateFromFlatPayload(flat, bitisMap);
+                }
                 cachedFlatBuild = { flatEntries: flat, bitisMap };
                 return cachedFlatBuild;
             } finally {

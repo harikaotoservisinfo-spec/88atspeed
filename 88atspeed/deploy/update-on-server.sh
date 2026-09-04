@@ -86,6 +86,11 @@ pm2 delete 88atspeed-bitalih 2>/dev/null || true
 pm2 start ecosystem.config.js
 pm2 save
 
+echo "🔥 Kalibrasyon bundle ısıtılıyor (arka plan, ~40sn)..."
+nohup node "$APP_DIR/scripts/warm-calibration-bundle.js" --db "$APP_DIR/atlar.db" \
+  >> "$APP_DIR/data/calib-warm.log" 2>&1 &
+echo "  Log: $APP_DIR/data/calib-warm.log"
+
 echo "🌐 Nginx..."
 if [ -f "/etc/letsencrypt/live/88atspeed.lerta.tr/fullchain.pem" ]; then
   cp "$APP_DIR/deploy/nginx-88atspeed.conf" /etc/nginx/sites-available/88atspeed.conf

@@ -1043,7 +1043,7 @@ async function publishHesaplamaKayitlarToVitrin(db, opts = {}) {
     return results;
 }
 
-async function enrichHesaplamaVeriMesafe(db, veri, kayitMeta = {}) {
+async function enrichHesaplamaVeriMesafe(db, veri, kayitMeta = {}, opts = {}) {
     let enriched = raceMetaEnrich.enrichRacesMeta(veri || []);
     const needsMesafe = enriched.some((r) => !raceMetaEnrich.raceMetaFilled(r.mesafe));
     if (!needsMesafe) return enriched;
@@ -1063,7 +1063,8 @@ async function enrichHesaplamaVeriMesafe(db, veri, kayitMeta = {}) {
         } catch (_) { /* */ }
     }
 
-    if (enriched.some((r) => !raceMetaEnrich.raceMetaFilled(r.mesafe))
+    if (!opts.skipTjkFetch
+        && enriched.some((r) => !raceMetaEnrich.raceMetaFilled(r.mesafe))
         && tarih && kayitMeta.hipodrom) {
         try {
             const { hipodromlar } = await resolveHipodromList(db, tarih, { maxAttempts: 2, timeoutMs: 30000 });
