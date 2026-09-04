@@ -33,8 +33,28 @@ rsync -av --delete \
 rm -rf "$TMP"
 
 cd "$APP_DIR"
-npm install --production
-npm rebuild sqlite3
+
+# Sadece package-lock değiştiyse npm install (puppeteer/sqlite3 uzun sürebilir)
+LOCK_HASH="$(sha256sum package-lock.json 2>/dev/null | awk '{print $1}')"
+LOCK_STAMP="$APP_DIR/.deploy-package-lock.sha256"
+NEED_NPM=1
+if [ -f "$LOCK_STAMP" ] && [ -f node_modules/express/package.json ] && [ -f node_modules/sqlite3/package.json ]; then
+  OLD_HASH="$(cat "$LOCK_STAMP" 2>/dev/null || true)"
+  if [ "$LOCK_HASH" = "$OLD_HASH" ]; then
+    NEED_NPM=0
+    echo "📦 node_modules güncel (package-lock değişmedi) — npm install atlandı"
+  fi
+fi
+
+if [ "$NEED_NPM" = "1" ]; then
+  echo "📦 npm install başlıyor (puppeteer indirilmez, 2-5 dk sürebilir)..."
+  export PUPPETEER_SKIP_DOWNLOAD=1
+  export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1
+  export PUPPETEER_EXECUTABLE_PATH="${PUPPETEER_EXECUTABLE_PATH:-/usr/bin/google-chrome-stable}"
+  npm install --production --no-audit --prefer-offline --loglevel=error
+  npm rebuild sqlite3 --loglevel=error
+  echo "$LOCK_HASH" > "$LOCK_STAMP"
+fi
 
 echo "🔧 PM2 (fork modu, ecosystem.config.js)..."
 pm2 delete 88atspeed 2>/dev/null || true
