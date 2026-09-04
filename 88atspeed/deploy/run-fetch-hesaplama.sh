@@ -25,7 +25,7 @@ mkdir -p "$LOG_DIR"
 run_fetch() {
     cd "$ROOT"
     echo "===== $(date -Iseconds) fetch başladı =====" | tee -a "$LOG_FILE"
-    exec npm run fetch:hesaplama-full -- "$@" 2>&1 | tee -a "$LOG_FILE"
+    exec node scripts/fetch-hesaplama-full.js --bugun "$@" 2>&1 | tee -a "$LOG_FILE"
 }
 
 case "$CMD" in
