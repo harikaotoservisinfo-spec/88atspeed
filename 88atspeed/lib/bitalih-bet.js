@@ -360,16 +360,103 @@ async function clickHorseOdds(page, horseName, betType, horseNo) {
 }
 
 async function setStakeAmount(page, stake) {
+    try {
+        await page.waitForFunction(() => {
+            const inputs = [...document.querySelectorAll('input')].filter((i) => {
+                if (i.type === 'checkbox' || i.type === 'hidden') return false;
+                const cls = i.className || '';
+                return i.type === 'number'
+                    || (i.type === 'text' && (cls.includes('h-10') || cls.includes('font-bold')));
+            });
+            return inputs.length > 0;
+        }, { timeout: 12000, polling: 300 });
+    } catch (_) { /* devam */ }
+
     return page.evaluate((amount) => {
-        const inputs = [...document.querySelectorAll('input')];
-        const misli = inputs.find((i) => i.type === 'number' || /misli|tutar|miktar|bahis/i.test(i.placeholder || i.name || i.id || ''));
+        const inputs = [...document.querySelectorAll('input')].filter((i) => {
+            if (i.type === 'checkbox' || i.type === 'hidden') return false;
+            const style = window.getComputedStyle(i);
+            if (style.display === 'none' || style.visibility === 'hidden') return false;
+            return true;
+        });
+
+        let misli = inputs.find((i) => i.type === 'number'
+            || /misli|tutar|miktar|bahis/i.test(i.placeholder || i.name || i.id || ''));
+
+        if (!misli) {
+            misli = inputs.find((i) => {
+                const cls = i.className || '';
+                return i.type === 'text' && (cls.includes('h-10') || cls.includes('font-bold'));
+            });
+        }
+
+        if (!misli) {
+            misli = inputs.find((i) => i.type === 'text' && /^\d+$/.test(String(i.value || '').trim()));
+        }
+
+        if (!misli) {
+            misli = inputs.find((i) => i.type === 'text');
+        }
+
         if (!misli) return false;
+
         misli.focus();
-        misli.value = String(amount);
+        misli.click();
+        misli.select?.();
+        const val = String(amount);
+        const desc = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
+        if (desc?.set) desc.set.call(misli, val);
+        else misli.value = val;
         misli.dispatchEvent(new Event('input', { bubbles: true }));
         misli.dispatchEvent(new Event('change', { bubbles: true }));
+        misli.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
         return true;
     }, stake);
+}
+
+async function clickPlayButton(page) {
+    const patterns = [
+        'sabit oranlı oyna',
+        'sabit oranli oyna',
+        'hemen oyna',
+        'kuponu oyna',
+        'bahis yap',
+        'onayla',
+        'oyna'
+    ];
+    for (const pat of patterns) {
+        if (await clickByText(page, pat, false)) return true;
+    }
+    return page.evaluate(() => {
+        const btn = [...document.querySelectorAll('button, a')].find((b) => {
+            const t = (b.textContent || '').trim().toLowerCase();
+            return t.includes('sabit') && t.includes('oyna');
+        });
+        if (!btn) return false;
+        btn.click();
+        return true;
+    });
+}
+
+async function selectBetTypeTab(page, betType) {
+    if (betType === 'ganyan') {
+        const ok = await clickByText(page, 'Ganyan', true);
+        if (ok) await sleep(1200);
+        return ok;
+    }
+    if (betType === 'ilk2' || betType === 'ilk3' || betType === 'ilk4') {
+        const ok = await page.evaluate(() => {
+            const btn = [...document.querySelectorAll('button')].find((b) => {
+                const t = (b.textContent || '').trim();
+                return t === 'İlk 2-3-4' || t === 'İlk 2' || t.includes('İlk 2');
+            });
+            if (btn) { btn.click(); return true; }
+            return false;
+        });
+        if (ok) await sleep(1200);
+        return ok;
+    }
+    return false;
 }
 
 async function getAutoStatus() {
@@ -418,6 +505,7 @@ async function placeFixedOddsBetInternal(opts = {}) {
         await sleep(3500);
         await dismissCookieBanner(page);
         await waitForRaceTable(page, horseName, horseNo, 25000);
+        await selectBetTypeTab(page, betType);
 
         let horsePick = await clickHorseOdds(page, horseName, betType, horseNo);
         if (!horsePick?.ok && betType === 'ilk2') {
@@ -434,7 +522,7 @@ async function placeFixedOddsBetInternal(opts = {}) {
             err.detail = Object.assign({}, horsePick, { horseNo });
             throw err;
         }
-        await sleep(1500);
+        await sleep(2000);
 
         const stakeOk = await setStakeAmount(page, stake);
         if (!stakeOk) {
@@ -460,14 +548,7 @@ async function placeFixedOddsBetInternal(opts = {}) {
             };
         }
 
-        const playPatterns = ['hemen oyna', 'oyna', 'kuponu oyna', 'bahis yap', 'onayla'];
-        let played = false;
-        for (const pat of playPatterns) {
-            if (await clickByText(page, pat, false)) {
-                played = true;
-                break;
-            }
-        }
+        const played = await clickPlayButton(page);
         if (!played) {
             const err = new Error('Oyna butonu bulunamadı');
             err.code = 'play_button_not_found';

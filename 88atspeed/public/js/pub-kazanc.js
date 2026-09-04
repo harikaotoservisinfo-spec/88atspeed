@@ -39,17 +39,37 @@
         return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
+    const BET_TYPES = [
+        { v: 'ganyan', l: 'Ganyan' },
+        { v: 'ilk2', l: 'İlk 2' },
+        { v: 'ilk3', l: 'İlk 3' },
+        { v: 'ilk4', l: 'İlk 4' }
+    ];
+
     function betTypeOptions(selected) {
-        const types = [
-            { v: 'ganyan', l: 'Ganyan' },
-            { v: 'ilk2', l: 'İlk 2' },
-            { v: 'ilk3', l: 'İlk 3' },
-            { v: 'ilk4', l: 'İlk 4' }
-        ];
-        return types.map((t) => {
+        return BET_TYPES.map((t) => {
             const sel = (selected || 'ilk2') === t.v ? ' selected' : '';
             return '<option value="' + t.v + '"' + sel + '>' + t.l + '</option>';
         }).join('');
+    }
+
+    function betTypeChips(selected) {
+        const cur = selected || 'ilk2';
+        return '<div class="pub-kazanc-bet-types" id="pubBetTypeChips">'
+            + '<span class="pub-kazanc-bet-types-label">Bahis türü</span>'
+            + BET_TYPES.map((t) => {
+                const active = cur === t.v ? ' pub-kazanc-bet-chip-active' : '';
+                return '<button type="button" class="pub-kazanc-bet-chip' + active + '" data-bet-type="' + t.v + '">' + t.l + '</button>';
+            }).join('')
+            + '</div>';
+    }
+
+    function syncBetTypeChips(root, betType) {
+        root.querySelectorAll('.pub-kazanc-bet-chip').forEach((btn) => {
+            btn.classList.toggle('pub-kazanc-bet-chip-active', btn.dataset.betType === betType);
+        });
+        const sel = $('#pubBetType', root);
+        if (sel) sel.value = betType;
     }
 
     function renderSystemPlayPanel(opts) {
@@ -71,6 +91,7 @@
             + '<button type="button" class="pub-kazanc-strip-btn pub-kazanc-strip-btn-primary" id="pubAutoLoginBtn">Sunucuda Giriş Yap</button>'
             + '</div>'
             + '<p class="pub-kazanc-system-hint" id="pubAutoPipelineHint">Otomatik akış başlatılıyor…</p>'
+            + betTypeChips(bet.betType)
             + '<form id="pubKazancBetForm" class="pub-kazanc-system-form">'
             + '<input type="text" id="pubBetCity" value="' + escapeHtml(bet.city || 'Bursa') + '" placeholder="Şehir">'
             + '<input type="number" id="pubBetRace" value="' + (bet.raceNo || 1) + '" min="1" max="15" placeholder="Koşu">'
@@ -315,6 +336,13 @@
             const result = await submitBet(true);
             if (!result.ok) updateSystemMessages({ autoError: result.error });
             else updateSystemMessages({ autoOk: result.message });
+        });
+
+        root.querySelectorAll('.pub-kazanc-bet-chip').forEach((btn) => {
+            btn.addEventListener('click', () => syncBetTypeChips(root, btn.dataset.betType));
+        });
+        $('#pubBetType', root)?.addEventListener('change', (e) => {
+            syncBetTypeChips(root, e.target.value);
         });
 
         root.querySelectorAll('.pub-kazanc-quicknav-btn').forEach((btn) => {
