@@ -49,14 +49,39 @@ function trToIso(tr) {
     return `${m[3]}-${m[2]}-${m[1]}`;
 }
 
-function tomorrowTr() {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return formatTrDate(d);
+function todayTr() {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Europe/Istanbul',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    }).formatToParts(new Date());
+    const day = parts.find((p) => p.type === 'day')?.value || '01';
+    const month = parts.find((p) => p.type === 'month')?.value || '01';
+    const year = parts.find((p) => p.type === 'year')?.value || '1970';
+    return `${day}/${month}/${year}`;
 }
 
-function todayTr() {
-    return formatTrDate(new Date());
+function tomorrowTr() {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Europe/Istanbul',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    }).formatToParts(new Date(Date.now() + 86400000));
+    const day = parts.find((p) => p.type === 'day')?.value || '01';
+    const month = parts.find((p) => p.type === 'month')?.value || '01';
+    const year = parts.find((p) => p.type === 'year')?.value || '1970';
+    return `${day}/${month}/${year}`;
+}
+
+function safeParseJson(raw, fallback) {
+    if (raw == null || raw === '') return fallback;
+    try {
+        return typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch (_) {
+        return fallback;
+    }
 }
 
 function startOfTrDay(tr) {
@@ -694,6 +719,7 @@ async function buildPublicProgram(db, tarih, opts = {}) {
 }
 
 async function archivePastPublicPrograms(db) {
+    await ensureTables(db);
     const rows = await new Promise((resolve, reject) => {
         db.all(
             `SELECT DISTINCT tarih FROM public_gunluk_program WHERE durum = 'yayinda'`,
@@ -717,10 +743,29 @@ async function archivePastPublicPrograms(db) {
     return archived;
 }
 
-async function getPublicVitrin(db, tarih, opts = {}) {
-    if (opts.archivePast !== false) {
-        await archivePastPublicPrograms(db);
+async function filterVitrinByTjkCache(tarih, hipodromlar) {
+    const entry = tjkListCache.get(tarih);
+    if (!entry || Date.now() - entry.at >= TJK_CACHE_MS) {
+        getTjkHipodromlarCached(tarih, { timeoutMs: 8000, maxAttempts: 1 }).catch(() => {});
+        return hipodromlar;
     }
+    const tjkIds = new Set(
+        (entry.hipodromlar || [])
+            .filter((h) => isDomesticHipodrom(h.name))
+            .map((h) => String(h.id))
+    );
+    if (!tjkIds.size) return hipodromlar;
+    const before = hipodromlar.length;
+    const filtered = hipodromlar.filter((h) => tjkIds.has(String(h.id)));
+    const removed = before - filtered.length;
+    if (removed > 0) {
+        console.log('vitrin ' + tarih + ': TJK önbellek filtresi ile ' + removed + ' fazla hipodrom çıkarıldı');
+    }
+    return filtered;
+}
+
+async function getPublicVitrin(db, tarih, opts = {}) {
+    await ensureTables(db);
 
     if (isPastTrDate(tarih)) {
         return {
@@ -747,10 +792,10 @@ async function getPublicVitrin(db, tarih, opts = {}) {
         ilkKosuSaat: r.ilk_kosu_saat,
         durum: r.durum,
         kosular: mergeTahminIntoKosular(
-            JSON.parse(r.program_json || '[]'),
+            safeParseJson(r.program_json, []),
             r.tahmin_json
         ),
-        tahminler: r.tahmin_json ? JSON.parse(r.tahmin_json) : null,
+        tahminler: safeParseJson(r.tahmin_json, null),
         yayinTarihi: r.yayin_tarihi,
         cekilmeTarihi: r.cekilme_tarihi
     }));
@@ -759,25 +804,9 @@ async function getPublicVitrin(db, tarih, opts = {}) {
 
     if (opts.tjkValidate !== false) {
         try {
-            const { hipodromlar: tjkList } = await getTjkHipodromlarCached(tarih, {
-                timeoutMs: opts.timeoutMs || 20000,
-                maxAttempts: opts.maxAttempts || 2
-            });
-            const tjkIds = new Set(
-                (tjkList || [])
-                    .filter((h) => isDomesticHipodrom(h.name))
-                    .map((h) => String(h.id))
-            );
-            if (tjkIds.size > 0) {
-                const before = hipodromlar.length;
-                hipodromlar = hipodromlar.filter((h) => tjkIds.has(String(h.id)));
-                const removed = before - hipodromlar.length;
-                if (removed > 0) {
-                    console.log('vitrin ' + tarih + ': TJK filtresi ile ' + removed + ' fazla hipodrom çıkarıldı');
-                }
-            }
+            hipodromlar = await filterVitrinByTjkCache(tarih, hipodromlar);
         } catch (err) {
-            console.warn('getPublicVitrin TJK doğrulama atlandı:', err.message);
+            console.warn('getPublicVitrin TJK filtresi atlandı:', err.message);
         }
     }
 
@@ -915,7 +944,7 @@ function summarizeDayStatus(tarih, dbRows, tjkRows) {
 }
 
 async function getProgramSyncForDate(db, tarih, opts = {}) {
-    const vitrin = await getPublicVitrin(db, tarih);
+    const vitrin = await getPublicVitrin(db, tarih, { tjkValidate: false });
     let tjkRows = [];
     let tjkError = null;
     let tjkCached = false;

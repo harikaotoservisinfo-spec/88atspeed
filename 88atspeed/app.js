@@ -44,8 +44,9 @@ let browser = null;
 
 // SQLite Veritabanı Bağlantısı
 const db = new sqlite3.Database('atlar.db');
-publicProgram.ensureTables(db).catch((e) => console.warn('public_gunluk_program:', e.message));
-publicProgram.archivePastPublicPrograms(db).catch((e) => console.warn('public_gunluk_program arşiv:', e.message));
+publicProgram.ensureTables(db)
+    .then(() => publicProgram.archivePastPublicPrograms(db))
+    .catch((e) => console.warn('public_gunluk_program setup:', e.message));
 
 const hipodromCache = new Map();
 const HIPODROM_CACHE_MS = 10 * 60 * 1000;

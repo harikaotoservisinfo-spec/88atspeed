@@ -308,6 +308,17 @@
         }
     }
 
+    async function parseJsonResponse(res) {
+        const text = await res.text();
+        if (!text) throw new Error('Sunucu boş yanıt döndü (HTTP ' + res.status + ')');
+        try {
+            return JSON.parse(text);
+        } catch (_) {
+            const snippet = text.replace(/\s+/g, ' ').trim().slice(0, 120);
+            throw new Error('Sunucu JSON yerine başka yanıt döndü (HTTP ' + res.status + '): ' + snippet);
+        }
+    }
+
     async function loadVitrin(iso) {
         const raceList = $('#pubRaceList');
         const hipTabs = $('#pubHipTabs');
@@ -324,7 +335,10 @@
                 signal: controller.signal
             });
             clearTimeout(tid);
-            const data = await res.json();
+            const data = await parseJsonResponse(res);
+            if (!res.ok || data.success === false) {
+                throw new Error(data.error || ('HTTP ' + res.status));
+            }
 
             state.iso = clampedIso;
             state.tarih = data.tarih || isoToTr(clampedIso);
