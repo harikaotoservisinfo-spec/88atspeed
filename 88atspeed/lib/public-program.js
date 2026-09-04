@@ -757,7 +757,7 @@ async function archivePastPublicPrograms(db) {
     return archived;
 }
 
-async function filterVitrinByTjk(tarih, hipodromlar) {
+async function filterVitrinByTjk(tarih, hipodromlar, opts = {}) {
     if (!hipodromlar.length) return [];
 
     let tjkHips = [];
@@ -768,6 +768,13 @@ async function filterVitrinByTjk(tarih, hipodromlar) {
     if (cacheFresh) {
         tjkHips = cached.hipodromlar || [];
         source = 'cache';
+    } else if (opts.cacheOnly) {
+        if (cached?.hipodromlar?.length) {
+            tjkHips = cached.hipodromlar;
+            source = 'stale-cache';
+        } else {
+            return hipodromlar;
+        }
     } else {
         try {
             const hit = await getTjkHipodromlarCached(tarih, {
@@ -890,7 +897,8 @@ async function getPublicVitrin(db, tarih, opts = {}) {
     if (opts.tjkValidate !== false) {
         try {
             const before = hipodromlar.length;
-            hipodromlar = await filterVitrinByTjk(tarih, hipodromlar);
+            const cacheOnlyTjk = opts.cacheOnlyTjk === true || opts.fast === true;
+            hipodromlar = await filterVitrinByTjk(tarih, hipodromlar, { cacheOnly: cacheOnlyTjk });
             if (before > hipodromlar.length && hipodromlar.length >= 0) {
                 const tjkEntry = tjkListCache.get(tarih);
                 const allowedIds = new Set(

@@ -47,6 +47,8 @@ let browser = null;
 
 // SQLite Veritabanı Bağlantısı
 const db = new sqlite3.Database('atlar.db');
+db.run('PRAGMA journal_mode = WAL');
+db.run('PRAGMA busy_timeout = 5000');
 publicProgram.ensureTables(db)
     .then(() => publicProgram.archivePastPublicPrograms(db))
     .then(() => publicProgram.startTjkListWarmer())
@@ -175,17 +177,32 @@ app.get('/yonetim', (req, res) => {
 });
 
 /** Kamuya açık vitrin — günlük program & tahminler */
+const vitrinResponseCache = new Map();
+const VITRIN_CACHE_MS = 45000;
+
 app.get('/api/public/vitrin', async (req, res) => {
     try {
         let tarih = req.query.tarih;
         if (!tarih && req.query.iso) tarih = publicProgram.isoToTr(req.query.iso);
         if (!tarih) tarih = publicProgram.todayTr();
-        const vitrin = await publicProgram.getPublicVitrin(db, tarih);
-        res.json({
+
+        const cacheKey = tarih;
+        const cached = vitrinResponseCache.get(cacheKey);
+        if (cached && Date.now() - cached.at < VITRIN_CACHE_MS) {
+            return res.json(cached.body);
+        }
+
+        const vitrin = await publicProgram.getPublicVitrin(db, tarih, {
+            pruneDb: false,
+            cacheOnlyTjk: true
+        });
+        const body = {
             success: true,
             ...vitrin,
             iso: publicProgram.trToIso(tarih)
-        });
+        };
+        vitrinResponseCache.set(cacheKey, { at: Date.now(), body });
+        res.json(body);
     } catch (err) {
         console.error('public/vitrin:', err.message);
         res.status(500).json({ success: false, error: err.message });

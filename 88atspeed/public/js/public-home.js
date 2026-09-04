@@ -336,6 +336,9 @@
         tomorrowPill?.classList.toggle('active', isTomorrow);
     }
 
+    let vitrinAbortController = null;
+    let vitrinLoadSeq = 0;
+
     function renderYarinFetchUi() {
         const bar = $('#gunun-kosulari');
         const statusLine = $('#pubYarinStatusLine');
@@ -344,29 +347,34 @@
         const hipTabs = $('#pubHipTabs');
         const f = state.yarinFetch || {};
         const isTomorrow = isTomorrowIso(state.iso);
-        const loading = f.running || f.status === 'running' || f.status === 'pending';
-        const ready = !!f.tahminReady || (!!f.ready && (f.scoredHorses || 0) > 0);
+        const yarinBusy = f.running || f.status === 'running' || f.status === 'pending';
+        const ready = !!f.tahminReady;
 
         bar?.classList.remove('pub-date-bar-loading', 'pub-date-bar-ready');
         tomorrowPill?.classList.remove('pub-date-pill-loading', 'pub-date-pill-ready');
         hipTabs?.classList.remove('pub-hip-tabs-ready');
 
-        if (loading) {
-            bar?.classList.add('pub-date-bar-loading');
+        if (yarinBusy) {
             tomorrowPill?.classList.add('pub-date-pill-loading');
+            if (isTomorrow) {
+                bar?.classList.add('pub-date-bar-loading');
+            }
             if (badge) {
                 badge.hidden = false;
                 badge.innerHTML = '<span class="pub-yarin-spin" title="Yükleniyor"></span>';
             }
             if (statusLine) {
-                statusLine.hidden = false;
                 const progress = (f.enrichTotal > 0)
                     ? (' (' + (f.enrichDone || 0) + '/' + f.enrichTotal + ' at)')
                     : '';
+                const prefix = isTomorrow ? '' : 'Yarın: ';
+                statusLine.hidden = false;
+                statusLine.className = 'pub-yarin-status-line'
+                    + (isTomorrow ? '' : ' pub-yarin-status-line-secondary');
                 statusLine.innerHTML = '<span class="pub-yarin-spin"></span>'
                     + '<span>'
-                    + escapeHtml(trToDisplay(f.yarinTarih || isoToTr(localTomorrowIso())))
-                    + ' — ' + escapeHtml(f.message || 'yeni günün koşuları yükleniyor…')
+                    + prefix
+                    + escapeHtml(f.message || 'yeni günün koşuları yükleniyor…')
                     + escapeHtml(progress)
                     + '</span>';
             }
@@ -430,16 +438,28 @@
         const clampedIso = clampProgramIso(iso);
         const dateInput = $('#pubDateInput');
         if (dateInput && dateInput.value !== clampedIso) dateInput.value = clampedIso;
+
+        const loadId = ++vitrinLoadSeq;
+        if (vitrinAbortController) vitrinAbortController.abort();
+        vitrinAbortController = new AbortController();
+
         raceList.innerHTML = '<div class="pub-loading"><div class="pub-spinner"></div>Program yükleniyor…</div>';
         hipTabs.innerHTML = '';
 
-        try {
-            const controller = new AbortController();
-            const tid = setTimeout(() => controller.abort(), 30000);
-            const res = await fetch('/api/public/vitrin?iso=' + encodeURIComponent(clampedIso), {
-                signal: controller.signal
-            });
-            clearTimeout(tid);
+        const maxAttempts = 3;
+        let lastErr = null;
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            if (loadId !== vitrinLoadSeq) return;
+            const signal = vitrinAbortController.signal;
+            try {
+                const tid = setTimeout(() => vitrinAbortController?.abort(), 90000);
+                const res = await fetch('/api/public/vitrin?iso=' + encodeURIComponent(clampedIso), {
+                    signal,
+                    cache: 'no-store'
+                });
+                clearTimeout(tid);
+                if (loadId !== vitrinLoadSeq) return;
             const data = await parseJsonResponse(res);
             if (!res.ok || data.success === false) {
                 throw new Error(data.error || ('HTTP ' + res.status));
@@ -476,19 +496,39 @@
 
             renderHipodromTabs();
             renderSonucHipTabs();
-            const first = state.hipodromlar[0];
-            selectHipodrom(first.id);
+            selectHipodrom(state.hipodromlar[0].id);
             renderTahminAll();
             if ($('#panel-kosular')?.classList.contains('active')) {
                 startProgramGanyanPolling();
             }
-        } catch (err) {
-            raceList.innerHTML = '<div class="pub-empty">'
-                + '<div class="pub-empty-icon">⚠️</div>'
-                + '<h3>Yükleme hatası</h3>'
-                + '<p>' + escapeHtml(err.message || 'Bağlantı kurulamadı') + '</p>'
-                + '</div>';
+            return;
+            } catch (err) {
+                lastErr = err;
+                if (loadId !== vitrinLoadSeq) return;
+                const retryable = err.name === 'AbortError'
+                    || /aborted|network|fetch|failed/i.test(err.message || '');
+                if (attempt < maxAttempts && retryable) {
+                    raceList.innerHTML = '<div class="pub-loading"><div class="pub-spinner"></div>'
+                        + 'Yeniden deneniyor (' + (attempt + 1) + '/' + maxAttempts + ')…</div>';
+                    await new Promise((r) => setTimeout(r, 1500 * attempt));
+                    vitrinAbortController = new AbortController();
+                    continue;
+                }
+                break;
+            }
         }
+
+        if (loadId !== vitrinLoadSeq) return;
+        const msg = lastErr?.name === 'AbortError'
+            ? 'Sunucu yanıt vermedi. Arka planda veri çekimi sürüyor olabilir — birkaç saniye sonra tekrar deneyin.'
+            : (lastErr?.message || 'Bağlantı kurulamadı');
+        raceList.innerHTML = '<div class="pub-empty">'
+            + '<div class="pub-empty-icon">⚠️</div>'
+            + '<h3>Yükleme hatası</h3>'
+            + '<p>' + escapeHtml(msg) + '</p>'
+            + '<p><button type="button" class="pub-btn-retry" id="pubVitrinRetry">Tekrar dene</button></p>'
+            + '</div>';
+        $('#pubVitrinRetry')?.addEventListener('click', () => loadVitrin(clampedIso));
     }
 
     function renderHipodromTabs() {

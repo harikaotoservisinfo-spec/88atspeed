@@ -1,21 +1,23 @@
 /**
- * Her gün 18:30 (TR) yarının TJK programını tam veriyle çeker (at geçmişi + tahmin).
+ * Yarın programı çekimi — ayrı child process (web sunucusunu bloklamaz).
  */
 const fs = require('fs');
 const path = require('path');
+const { spawn } = require('child_process');
 const publicProgram = require('./public-program');
-const { buildPublicTahmin, assessTahminReadiness } = require('./public-tahmin-build');
+const { assessTahminReadiness } = require('./public-tahmin-build');
 
 const SCHEDULE_HOUR = 18;
 const SCHEDULE_MINUTE = 30;
 const CHECK_MS = 60 * 1000;
 const STARTUP_DELAY_MS = 45 * 1000;
 const STATE_FILE = path.join(__dirname, '..', 'data', 'yarin-fetch-state.json');
-const DB_PATH = path.join(__dirname, '..', 'atlar.db');
+const LOG_FILE = '/var/log/88atspeed-program.log';
 const STALE_RUNNING_MS = 3 * 60 * 60 * 1000;
+const APP_ROOT = path.join(__dirname, '..');
 
 let timer = null;
-let running = false;
+let spawnInFlight = false;
 
 function turkeyNowParts() {
     const parts = new Intl.DateTimeFormat('en-GB', {
@@ -54,6 +56,7 @@ function markTodayFetchDone(meta = {}) {
     saveState({
         lastRunDate: publicProgram.todayTr(),
         lastRunAt: new Date().toISOString(),
+        childPid: null,
         ...meta
     });
 }
@@ -74,15 +77,32 @@ function markError(err, meta = {}) {
         error: String(err?.message || err || 'Bilinmeyen hata'),
         finishedAt: new Date().toISOString(),
         tahminReady: false,
+        childPid: null,
         ...meta
     });
 }
 
-function isRunningFromState(state) {
-    if (running) return true;
-    if (state.status !== 'running' || !state.startedAt) return false;
+function isPidAlive(pid) {
+    if (!pid) return false;
+    try {
+        process.kill(pid, 0);
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
+function isBackgroundFetchActive() {
+    const state = loadState();
+    if (state.status !== 'running') return false;
+    if (isPidAlive(state.childPid)) return true;
+    if (!state.startedAt) return false;
     const age = Date.now() - new Date(state.startedAt).getTime();
     return age < STALE_RUNNING_MS;
+}
+
+function isRunningFromState(state) {
+    return isBackgroundFetchActive() || (state?.status === 'running' && isPidAlive(state?.childPid));
 }
 
 function phaseMessage(state) {
@@ -101,6 +121,16 @@ function phaseMessage(state) {
     return 'Yeni günün koşuları yükleniyor…';
 }
 
+function countYarinHipodroms(db, tarih) {
+    return new Promise((resolve, reject) => {
+        db.get(
+            `SELECT COUNT(*) AS c FROM public_gunluk_program WHERE tarih = ? AND durum = 'yayinda'`,
+            [tarih],
+            (err, row) => (err ? reject(err) : resolve(row?.c || 0))
+        );
+    });
+}
+
 async function getStatus(db) {
     const state = loadState();
     const yarinTarih = publicProgram.tomorrowTr();
@@ -110,17 +140,17 @@ async function getStatus(db) {
     let tahminQuality = { ready: false, totalHorses: 0, scoredHorses: 0, ratio: 0, hipodromSayisi: 0 };
     if (db) {
         try {
-            const vitrin = await publicProgram.getPublicVitrin(db, yarinTarih, { pruneDb: false });
-            vitrinCount = (vitrin.hipodromlar || []).length;
+            vitrinCount = await countYarinHipodroms(db, yarinTarih);
             tahminQuality = await assessTahminReadiness(db, yarinTarih);
         } catch (_) { /* */ }
     }
 
     const tahminReady = !!tahminQuality.ready;
+    const bgActive = isBackgroundFetchActive();
     let status = 'idle';
     let message = '';
 
-    if (isRunningFromState(state)) {
+    if (bgActive) {
         status = 'running';
         message = phaseMessage(state);
     } else if (tahminReady) {
@@ -146,7 +176,7 @@ async function getStatus(db) {
         yarinIso,
         ready: tahminReady,
         tahminReady,
-        hipodromSayisi: vitrinCount,
+        hipodromSayisi: vitrinCount || tahminQuality.hipodromSayisi,
         totalHorses: tahminQuality.totalHorses,
         scoredHorses: tahminQuality.scoredHorses,
         tahminRatio: tahminQuality.ratio,
@@ -158,138 +188,77 @@ async function getStatus(db) {
         lastRunDate: state.lastRunDate || null,
         basarili: state.basarili || 0,
         scheduleDue: isScheduleDue(),
-        running: status === 'running' || status === 'pending'
+        running: status === 'running' || status === 'pending',
+        backgroundActive: bgActive
     };
 }
 
-async function fetchTomorrowProgram(db, opts = {}) {
-    const tarih = publicProgram.tomorrowTr();
-    const enrichKosular = opts.enrichKosular !== false;
+function spawnTomorrowFetch(opts = {}) {
+    if (isBackgroundFetchActive()) {
+        console.log('program-scheduler: çekim zaten çalışıyor (pid ' + (loadState().childPid || '?') + ')');
+        return false;
+    }
+    if (spawnInFlight) return false;
+    spawnInFlight = true;
 
+    const tarih = publicProgram.tomorrowTr();
     markRunning({
         yarinTarih: tarih,
         source: opts.source || 'scheduler',
         phase: 'program',
         enrichDone: 0,
-        enrichTotal: 0
-    });
-    console.log('program-scheduler: yarın TAM veri çekimi —', tarih);
-
-    const result = await publicProgram.buildPublicProgram(db, tarih, {
-        onlyDomestic: true,
-        publish: true,
-        source: 'tjk',
-        syncHesaplama: true,
-        enrichKosular,
-        trigger: opts.trigger || 'scheduler-full',
-        timeoutMs: 120000,
-        maxAttempts: 5,
-        hipDelayMs: 3000,
-        horseDelayMs: opts.horseDelayMs ?? 600,
-        maxKosu: opts.maxKosu ?? 7,
-        onEnrichProgress: (progress) => {
-            saveState({
-                phase: 'enrich',
-                enrichDone: progress.done,
-                enrichTotal: progress.total,
-                enrichHipodrom: progress.hipodrom,
-                enrichPct: progress.pct,
-                enrichEtaSec: progress.etaSec
-            });
-        }
+        enrichTotal: 0,
+        childPid: null
     });
 
-    console.log(
-        'program-scheduler: program tamam —',
-        result.basarili + '/' + result.hipodromSayisi,
-        'hipodrom'
-    );
-    if (result.kosularStats) {
-        console.log(
-            'program-scheduler: at geçmişi —',
-            result.kosularStats.withData + '/' + result.kosularStats.total
-        );
-    }
-
-    let tahminSummary = null;
-    if (result.basarili > 0) {
-        saveState({ phase: 'tahmin' });
-        try {
-            tahminSummary = await buildPublicTahmin(db, tarih, {
-                save: true,
-                dbPath: DB_PATH
-            });
-            console.log(
-                'program-scheduler: tahmin tamam —',
-                tahminSummary.hipodromSayisi,
-                'hipodrom'
-            );
-        } catch (err) {
-            console.warn('program-scheduler: tahmin hatası:', err.message);
-            throw err;
+    try {
+        if (!fs.existsSync(path.dirname(LOG_FILE))) {
+            fs.mkdirSync(path.dirname(LOG_FILE), { recursive: true });
         }
-    }
+        fs.appendFileSync(LOG_FILE, '\n--- spawn ' + new Date().toISOString() + ' ---\n');
+    } catch (_) { /* */ }
 
-    const quality = await assessTahminReadiness(db, tarih);
-    if (!quality.ready) {
-        throw new Error(
-            'Tahmin verisi yetersiz: ' + quality.scoredHorses + '/' + quality.totalHorses
-            + ' at skorlu (min %35 gerekli)'
-        );
-    }
+    const npmArgs = ['run', 'fetch:public-program-yarin'];
+    if (opts.force) npmArgs.push('--', '--force');
 
-    return { tarih, result, tahminSummary, quality };
+    const logFd = fs.openSync(LOG_FILE, 'a');
+    const child = spawn('npm', npmArgs, {
+        cwd: APP_ROOT,
+        detached: true,
+        stdio: ['ignore', logFd, logFd],
+        env: { ...process.env, PROGRAM_SCHEDULER_CHILD: '1' }
+    });
+    child.unref();
+    saveState({ childPid: child.pid, spawnAt: new Date().toISOString() });
+    console.log('program-scheduler: child process başlatıldı pid', child.pid, '→', npmArgs.join(' '));
+    spawnInFlight = false;
+    return true;
 }
 
 async function runIfDue(db, opts = {}) {
-    if (running) return null;
     if (!opts.force && !isScheduleDue()) return null;
 
     const today = publicProgram.todayTr();
     const state = loadState();
 
     if (!opts.force) {
-        if (isRunningFromState(state)) return null;
-        const quality = await assessTahminReadiness(db, publicProgram.tomorrowTr());
-        if (state.lastRunDate === today && quality.ready) return null;
+        if (isBackgroundFetchActive()) return null;
+        if (db) {
+            const quality = await assessTahminReadiness(db, publicProgram.tomorrowTr());
+            if (state.lastRunDate === today && quality.ready) return null;
+        } else if (state.lastRunDate === today && state.tahminReady) {
+            return null;
+        }
     }
 
-    running = true;
-    const startedAt = Date.now();
-    try {
-        const out = await fetchTomorrowProgram(db, { source: opts.source || 'scheduler' });
-        markTodayFetchDone({
-            status: 'done',
-            phase: 'done',
-            finishedAt: new Date().toISOString(),
-            yarinTarih: out.tarih,
-            hipodromSayisi: out.result.hipodromSayisi,
-            basarili: out.result.basarili,
-            tahminReady: true,
-            scoredHorses: out.quality.scoredHorses,
-            totalHorses: out.quality.totalHorses,
-            tahminRatio: out.quality.ratio,
-            elapsedSec: Math.round((Date.now() - startedAt) / 1000),
-            source: opts.source || 'scheduler'
-        });
-        console.log(
-            'program-scheduler: TAM veri bitti —',
-            out.tarih,
-            '(' + Math.round((Date.now() - startedAt) / 1000) + ' sn)'
-        );
-        return out;
-    } catch (err) {
-        markError(err, { lastRunDate: today, source: opts.source || 'scheduler', phase: 'error' });
-        console.error('program-scheduler: hata:', err.message);
-        throw err;
-    } finally {
-        running = false;
-    }
+    const spawned = spawnTomorrowFetch({ force: !!opts.force, source: opts.source || 'scheduler' });
+    return spawned ? { spawned: true } : null;
 }
 
 async function wasTodayFetchDone(db) {
     const state = loadState();
     if (state.lastRunDate !== publicProgram.todayTr()) return false;
+    if (isBackgroundFetchActive()) return false;
     if (!db) return !!(state.tahminReady && state.status === 'done');
     const quality = await assessTahminReadiness(db, publicProgram.tomorrowTr());
     return quality.ready;
@@ -300,13 +269,16 @@ function start(db, opts = {}) {
         console.log('program-scheduler: kapalı (PROGRAM_SCHEDULER=0)');
         return;
     }
+    if (process.env.PROGRAM_SCHEDULER_CHILD === '1') {
+        return;
+    }
     if (timer) return;
 
     console.log(
         'program-scheduler: başlatıldı (TR '
         + String(SCHEDULE_HOUR).padStart(2, '0') + ':'
         + String(SCHEDULE_MINUTE).padStart(2, '0')
-        + ' — tam veri: program + at geçmişi + tahmin)'
+        + ' — child process, web sunucusu bloklanmaz)'
     );
 
     setTimeout(() => {
@@ -329,9 +301,10 @@ module.exports = {
     start,
     stop,
     runIfDue,
-    fetchTomorrowProgram,
+    spawnTomorrowFetch,
     getStatus,
     isScheduleDue,
+    isBackgroundFetchActive,
     wasTodayFetchDone,
     loadState,
     markRunning,

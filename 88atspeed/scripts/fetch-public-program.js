@@ -12,6 +12,7 @@ const path = require('path');
 const publicProgram = require('../lib/public-program');
 const { buildPublicTahmin } = require('../lib/public-tahmin-build');
 const programScheduler = require('../lib/public-program-scheduler');
+const { fetchTomorrowProgramFull } = require('../lib/yarin-program-fetch');
 
 const args = process.argv.slice(2);
 let tarih = publicProgram.tomorrowTr();
@@ -58,7 +59,7 @@ const opts = {
     }
 
     if (isNightlyYarin) {
-        const out = await programScheduler.fetchTomorrowProgram(db, { source: 'cli' });
+        const out = await fetchTomorrowProgramFull(db, { source: 'cli' });
         programScheduler.markTodayFetchDone({
             status: 'done',
             phase: 'done',
