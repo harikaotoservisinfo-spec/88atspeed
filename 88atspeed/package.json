@@ -66,6 +66,8 @@
     "fetch:public-program-bugun": "node scripts/fetch-public-program.js --bugun",
     "fetch:public-program-hipodrom": "node scripts/fetch-public-program.js --bugun --source hipodrom",
     "fetch:public-program-tjk": "node scripts/fetch-public-program.js --bugun --tjk",
+    "fetch:hesaplama-full": "node scripts/fetch-hesaplama-full.js --bugun",
+    "fetch:hesaplama-full-tahmin": "node scripts/fetch-hesaplama-full.js --bugun --tahmin",
     "fetch:public-program-ankara": "node scripts/fetch-public-program.js --bugun --hipodrom Ankara",
     "sync:public-to-hesaplama": "node scripts/sync-public-to-hesaplama.js",
     "publish:test-vitrin": "node scripts/publish-kayit-to-vitrin.js --kaynak 02/09/2026 --bugun --hipodrom İstanbul,Elazığ --build-tahmin",

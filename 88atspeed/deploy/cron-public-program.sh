@@ -5,8 +5,8 @@ set -euo pipefail
 
 APP_DIR="/var/www/88atspeed"
 MARKER="# 88atspeed-public-program"
-CRON_LINE="0 20 * * * cd $APP_DIR && /usr/bin/npm run fetch:public-program >> /var/log/88atspeed-program.log 2>&1 $MARKER"
-CRON_LINE2="30 20 * * * cd $APP_DIR && /usr/bin/npm run fetch:public-program >> /var/log/88atspeed-program.log 2>&1 $MARKER"
+CRON_LINE="0 20 * * * cd $APP_DIR && /usr/bin/npm run fetch:public-program-tjk >> /var/log/88atspeed-program.log 2>&1 $MARKER"
+CRON_LINE2="30 20 * * * cd $APP_DIR && /usr/bin/npm run fetch:public-program-tjk >> /var/log/88atspeed-program.log 2>&1 $MARKER"
 
 touch /var/log/88atspeed-program.log
 

@@ -480,7 +480,9 @@ app.post('/api/admin/public-program-cek', async (req, res) => {
         const built = await publicProgram.buildPublicProgram(db, tarih, {
             onlyDomestic,
             publish: req.body?.publish !== false,
-            source: req.body?.source || 'hipodrom',
+            source: req.body?.source || 'tjk',
+            enrichKosular: req.body?.enrichKosular === true,
+            syncHesaplama: req.body?.syncHesaplama !== false && (req.body?.source || 'tjk') === 'tjk',
             trigger: 'admin'
         });
         clearCalibrationFlatCache();

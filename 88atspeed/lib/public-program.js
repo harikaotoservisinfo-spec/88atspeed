@@ -5,6 +5,7 @@ const cheerio = require('cheerio');
 const tjkScrape = require('./tjk-scrape');
 const hipodromProgram = require('./hipodrom-program');
 const { mergeTahminIntoKosular } = require('./public-tahmin-build');
+const horseHistoryEnrich = require('./horse-history-enrich');
 
 const DOMESTIC_HINT = /(ankara|izmir|istanbul|bursa|adana|elaz|diyarbak|kocaeli|antalya|şanlıurfa|urfa|karma)/i;
 
@@ -98,22 +99,24 @@ function racesToHesaplamaVeri(races) {
         baslik: race.baslik || '',
         kcins_kosu: race.kcins_kosu || '',
         kategori: race.kategori || '',
-        horseCount: (race.horses || []).length,
-        horses: (race.horses || []).map((h) => ({
-            no: h.no,
-            name: h.name,
-            atId: h.atId || '',
-            yas: h.yas || '',
-            siklet: h.siklet || '',
-            hp: h.hp || '',
-            taki: h.taki || '',
-            jokey: h.jokey || '',
-            antrenor: h.antrenor || '',
-            sahip: h.sahip || '',
-            start: h.start || '',
-            kosular: Array.isArray(h.kosular) ? h.kosular : []
-        }))
-    }));
+        horseCount: (race.horses || []).filter((h) => !tjkScrape.isKosmazText(h.name)).length,
+        horses: (race.horses || [])
+            .filter((h) => !tjkScrape.isKosmazText(h.name))
+            .map((h) => ({
+                no: h.no,
+                name: h.name,
+                atId: h.atId || '',
+                yas: h.yas || '',
+                siklet: h.siklet || '',
+                hp: h.hp || '',
+                taki: h.taki || '',
+                jokey: h.jokey || '',
+                antrenor: h.antrenor || '',
+                sahip: h.sahip || '',
+                start: h.start || '',
+                kosular: Array.isArray(h.kosular) ? h.kosular : []
+            }))
+    })).filter((race) => race.horses.length > 0);
 }
 
 function mergeHesaplamaVeri(existingRaces, newRaces) {
@@ -432,7 +435,7 @@ async function buildPublicProgramFromHipodrom(db, tarih, opts = {}) {
             };
             await saveProgramRow(db, row);
             let hesaplamaSync = null;
-            if (opts.syncHesaplama !== false) {
+            if (opts.syncHesaplama === true) {
                 try {
                     hesaplamaSync = await syncProgramToHesaplamaKayit(db, row);
                 } catch (syncErr) {
@@ -499,6 +502,7 @@ async function buildPublicProgram(db, tarih, opts = {}) {
     await ensureTables(db);
     const onlyDomestic = opts.onlyDomestic !== false;
     const publish = opts.publish !== false;
+    const enrichKosular = opts.enrichKosular === true;
     const hipDelayMs = opts.hipDelayMs ?? 2500;
     const fetchOpts = {
         maxAttempts: opts.maxAttempts || 5,
@@ -506,43 +510,84 @@ async function buildPublicProgram(db, tarih, opts = {}) {
     };
 
     const { hipodromlar, source: hipSource } = await resolveHipodromList(db, tarih, fetchOpts);
-    const selected = hipodromlar.filter((h) => !onlyDomestic || isDomesticHipodrom(h.name));
+    let selected = hipodromlar.filter((h) => !onlyDomestic || isDomesticHipodrom(h.name));
+    if (opts.hipodromFilter) {
+        const q = String(opts.hipodromFilter).toLowerCase();
+        selected = selected.filter((h) => normalizeHipodromName(h.name).includes(q));
+        if (!selected.length) {
+            const fallback = FALLBACK_HIPODROMS.find((h) => h.name.toLowerCase().includes(q));
+            if (fallback) selected = [fallback];
+        }
+    }
 
+    let browser = null;
+    let enrichPage = null;
+    if (enrichKosular) {
+        browser = await tjkScrape.launchBrowser();
+        enrichPage = await browser.newPage();
+        await enrichPage.setViewport({ width: 1920, height: 1080 });
+        console.log('🐴 At geçmişi modu açık (TJK Puppeteer kosular[])');
+    }
+
+    const kosularStats = { total: 0, withData: 0, missing: 0 };
     const results = [];
-    for (let i = 0; i < selected.length; i++) {
-        const hip = selected[i];
-        if (i > 0 && hipDelayMs > 0) await sleep(hipDelayMs);
-        try {
-            const prog = await fetchHipodromProgram(tarih, hip, fetchOpts);
-            const row = {
-                tarih,
-                hipodromId: hip.id,
-                hipodrom: hip.name,
-                kosuSayisi: prog.kosuSayisi,
-                races: prog.races,
-                durum: publish ? 'yayinda' : 'taslak'
-            };
-            await saveProgramRow(db, row);
-            let hesaplamaSync = null;
-            if (opts.syncHesaplama !== false) {
-                try {
-                    hesaplamaSync = await syncProgramToHesaplamaKayit(db, row);
-                } catch (syncErr) {
-                    console.warn('  ⚠ hesaplama sync:', hip.name, syncErr.message);
+    try {
+        for (let i = 0; i < selected.length; i++) {
+            const hip = selected[i];
+            if (i > 0 && hipDelayMs > 0) await sleep(hipDelayMs);
+            try {
+                const prog = await fetchHipodromProgram(tarih, hip, fetchOpts);
+                if (enrichKosular) {
+                    console.log('  ↳', hip.name, '—', prog.kosuSayisi, 'koşu · at geçmişi çekiliyor…');
+                    const enrich = await horseHistoryEnrich.enrichRacesWithHorseHistory(prog.races, {
+                        page: enrichPage,
+                        maxKosu: opts.maxKosu || 7,
+                        horseDelayMs: opts.horseDelayMs ?? 600,
+                        maxRetry: opts.maxRetry || 1
+                    });
+                    const stats = horseHistoryEnrich.countKosularStats(prog.races);
+                    kosularStats.total += stats.total;
+                    kosularStats.withData += stats.withData;
+                    kosularStats.missing += stats.missing;
+                    console.log('    ✓', enrich.withKosular + '/' + enrich.fetched, 'at geçmişi');
                 }
+                const row = {
+                    tarih,
+                    hipodromId: hip.id,
+                    hipodrom: hip.name,
+                    kosuSayisi: prog.kosuSayisi,
+                    races: prog.races,
+                    durum: publish ? 'yayinda' : 'taslak'
+                };
+                await saveProgramRow(db, row);
+                let hesaplamaSync = null;
+                if (opts.syncHesaplama !== false) {
+                    try {
+                        hesaplamaSync = await syncProgramToHesaplamaKayit(db, row);
+                    } catch (syncErr) {
+                        console.warn('  ⚠ hesaplama sync:', hip.name, syncErr.message);
+                    }
+                }
+                results.push({
+                    hipodrom: hip.name,
+                    kosuSayisi: prog.kosuSayisi,
+                    hesaplamaId: hesaplamaSync?.id || null,
+                    hesaplamaUpdated: !!hesaplamaSync?.updated,
+                    kosularWithData: enrichKosular
+                        ? horseHistoryEnrich.countKosularStats(prog.races).withData
+                        : null,
+                    ok: true
+                });
+                console.log('  ✓', hip.name, '—', prog.kosuSayisi, 'koşu'
+                    + (hesaplamaSync ? ' · hesaplama #' + hesaplamaSync.id : ''));
+            } catch (err) {
+                results.push({ hipodrom: hip.name, ok: false, error: err.message });
+                console.warn('  ✗', hip.name, '—', err.message);
             }
-            results.push({
-                hipodrom: hip.name,
-                kosuSayisi: prog.kosuSayisi,
-                hesaplamaId: hesaplamaSync?.id || null,
-                hesaplamaUpdated: !!hesaplamaSync?.updated,
-                ok: true
-            });
-            console.log('  ✓', hip.name, '—', prog.kosuSayisi, 'koşu'
-                + (hesaplamaSync ? ' · hesaplama #' + hesaplamaSync.id : ''));
-        } catch (err) {
-            results.push({ hipodrom: hip.name, ok: false, error: err.message });
-            console.warn('  ✗', hip.name, '—', err.message);
+        }
+    } finally {
+        if (browser) {
+            try { await browser.close(); } catch (_) { /* */ }
         }
     }
 
@@ -552,6 +597,8 @@ async function buildPublicProgram(db, tarih, opts = {}) {
         hipodromKaynagi: hipSource,
         hipodromSayisi: selected.length,
         basarili: okCount,
+        enrichKosular,
+        kosularStats: enrichKosular ? kosularStats : null,
         results
     };
 
@@ -559,7 +606,7 @@ async function buildPublicProgram(db, tarih, opts = {}) {
         try {
             await logFetchRun(db, {
                 tarih,
-                trigger: opts.trigger || 'api',
+                trigger: opts.trigger || (enrichKosular ? 'tjk-full' : 'api'),
                 hipodromSayisi: selected.length,
                 basarili: okCount,
                 results,
@@ -955,6 +1002,8 @@ module.exports = {
     isDomesticHipodrom,
     FALLBACK_HIPODROMS,
     ensureTables,
+    enrichRacesWithHorseHistory: horseHistoryEnrich.enrichRacesWithHorseHistory,
+    countKosularStats: horseHistoryEnrich.countKosularStats,
     buildPublicProgram,
     buildPublicProgramFromHipodrom,
     getPublicVitrin,
