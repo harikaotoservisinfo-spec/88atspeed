@@ -538,12 +538,32 @@ async function buildPublicProgram(db, tarih, opts = {}) {
             try {
                 const prog = await fetchHipodromProgram(tarih, hip, fetchOpts);
                 if (enrichKosular) {
-                    console.log('  ↳', hip.name, '—', prog.kosuSayisi, 'koşu · at geçmişi çekiliyor…');
+                    const needCount = horseHistoryEnrich.collectHorsesNeedingHistory(prog.races).length;
+                    console.log(
+                        '  [' + (i + 1) + '/' + selected.length + '] ↳',
+                        hip.name, '—', prog.kosuSayisi, 'koşu ·',
+                        needCount, 'at geçmişi çekiliyor…'
+                    );
                     const enrich = await horseHistoryEnrich.enrichRacesWithHorseHistory(prog.races, {
                         page: enrichPage,
                         maxKosu: opts.maxKosu || 7,
                         horseDelayMs: opts.horseDelayMs ?? 600,
-                        maxRetry: opts.maxRetry || 1
+                        maxRetry: opts.maxRetry || 1,
+                        onProgress(done, total, atId, name, meta) {
+                            const pct = meta?.pct ?? Math.round((done / total) * 100);
+                            const label = (name || atId || '').toString().slice(0, 28);
+                            const elapsed = meta?.elapsedSec ?? 0;
+                            const eta = meta?.etaSec ?? 0;
+                            const etaMin = Math.floor(eta / 60);
+                            const etaSec = eta % 60;
+                            const etaStr = etaMin > 0 ? (etaMin + ' dk ' + etaSec + ' sn') : (etaSec + ' sn');
+                            console.log(
+                                '    [' + done + '/' + total + '] %' + pct
+                                + ' · ' + label
+                                + ' · geçen ' + elapsed + ' sn'
+                                + ' · kalan ~' + etaStr
+                            );
+                        }
                     });
                     const stats = horseHistoryEnrich.countKosularStats(prog.races);
                     kosularStats.total += stats.total;

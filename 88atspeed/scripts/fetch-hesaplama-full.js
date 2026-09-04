@@ -28,6 +28,7 @@ for (let i = 0; i < args.length; i++) {
 const db = new sqlite3.Database(path.join(__dirname, '..', 'atlar.db'));
 
 (async function main() {
+    const startedAt = Date.now();
     console.log('📥 Eski format tam veri çekimi:', tarih, hipodromFilter ? ('· ' + hipodromFilter) : '');
     const result = await publicProgram.buildPublicProgram(db, tarih, {
         source: 'tjk',
@@ -42,6 +43,8 @@ const db = new sqlite3.Database(path.join(__dirname, '..', 'atlar.db'));
     });
 
     console.log('📋 Kaynak: TJK + Puppeteer kosular[]');
+    const elapsedMin = Math.round((Date.now() - startedAt) / 60000);
+    console.log('⏱ Toplam süre:', elapsedMin > 0 ? (elapsedMin + ' dk') : (Math.round((Date.now() - startedAt) / 1000) + ' sn'));
     console.log('✅ Tamamlandı:', result.basarili + '/' + result.hipodromSayisi, 'hipodrom');
     if (result.kosularStats) {
         console.log('🐴 At geçmişi:', result.kosularStats.withData + '/' + result.kosularStats.total,

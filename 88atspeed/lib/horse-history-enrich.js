@@ -7,6 +7,14 @@ function sleep(ms) {
     return new Promise((r) => setTimeout(r, ms));
 }
 
+function formatEta(sec) {
+    if (!sec || sec < 0) return '—';
+    if (sec < 60) return sec + ' sn';
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return m + ' dk ' + s + ' sn';
+}
+
 function collectHorsesNeedingHistory(races) {
     const byId = new Map();
     for (const race of races || []) {
@@ -50,6 +58,7 @@ async function enrichRacesWithHorseHistory(races, opts = {}) {
     }
 
     try {
+        const startedAt = Date.now();
         for (let i = 0; i < toFetch.length; i++) {
             const { atId, name } = toFetch[i];
             if (i > 0 && delayMs > 0) await sleep(delayMs);
@@ -63,10 +72,20 @@ async function enrichRacesWithHorseHistory(races, opts = {}) {
                 console.warn('    ⚠ at', atId, name || '', '—', err.message);
                 cache.set(atId, []);
             }
+            const done = i + 1;
+            const pct = Math.round((done / toFetch.length) * 100);
+            const elapsedSec = Math.round((Date.now() - startedAt) / 1000);
+            const etaSec = done > 0 ? Math.round((elapsedSec / done) * (toFetch.length - done)) : 0;
             if (opts.onProgress) {
-                opts.onProgress(i + 1, toFetch.length, atId, name);
-            } else if ((i + 1) % 10 === 0 || i === toFetch.length - 1) {
-                console.log('    at geçmişi:', i + 1, '/', toFetch.length);
+                opts.onProgress(done, toFetch.length, atId, name, { pct, elapsedSec, etaSec });
+            } else {
+                const label = (name || atId || '').toString().slice(0, 28);
+                console.log(
+                    '    [' + done + '/' + toFetch.length + '] %' + pct
+                    + ' · ' + label
+                    + ' · geçen ' + formatEta(elapsedSec)
+                    + ' · kalan ~' + formatEta(etaSec)
+                );
             }
         }
         attachKosularToRaces(races, cache);
