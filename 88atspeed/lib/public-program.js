@@ -743,25 +743,96 @@ async function archivePastPublicPrograms(db) {
     return archived;
 }
 
-async function filterVitrinByTjkCache(tarih, hipodromlar) {
-    const entry = tjkListCache.get(tarih);
-    if (!entry || Date.now() - entry.at >= TJK_CACHE_MS) {
-        getTjkHipodromlarCached(tarih, { timeoutMs: 8000, maxAttempts: 1 }).catch(() => {});
-        return hipodromlar;
+async function filterVitrinByTjk(tarih, hipodromlar) {
+    if (!hipodromlar.length) return [];
+
+    let tjkHips = [];
+    let source = 'none';
+    const cached = tjkListCache.get(tarih);
+    const cacheFresh = cached && Date.now() - cached.at < TJK_CACHE_MS;
+
+    if (cacheFresh) {
+        tjkHips = cached.hipodromlar || [];
+        source = 'cache';
+    } else {
+        try {
+            const hit = await getTjkHipodromlarCached(tarih, {
+                timeoutMs: 10000,
+                maxAttempts: 2
+            });
+            tjkHips = hit.hipodromlar || [];
+            source = hit.cached ? 'cache' : 'live';
+        } catch (err) {
+            if (cached?.hipodromlar?.length) {
+                tjkHips = cached.hipodromlar;
+                source = 'stale-cache';
+                console.warn('vitrin TJK canlı liste alınamadı, eski önbellek kullanılıyor:', err.message);
+            } else {
+                console.warn('vitrin ' + tarih + ': TJK listesi yok — hipodromlar gizlendi:', err.message);
+                return [];
+            }
+        }
     }
+
     const tjkIds = new Set(
-        (entry.hipodromlar || [])
+        tjkHips
             .filter((h) => isDomesticHipodrom(h.name))
             .map((h) => String(h.id))
     );
-    if (!tjkIds.size) return hipodromlar;
-    const before = hipodromlar.length;
+    if (!tjkIds.size) {
+        console.warn('vitrin ' + tarih + ': TJK yerli hipodrom bulunamadı');
+        return [];
+    }
+
     const filtered = hipodromlar.filter((h) => tjkIds.has(String(h.id)));
-    const removed = before - filtered.length;
-    if (removed > 0) {
-        console.log('vitrin ' + tarih + ': TJK önbellek filtresi ile ' + removed + ' fazla hipodrom çıkarıldı');
+    const removed = hipodromlar.filter((h) => !tjkIds.has(String(h.id)));
+    if (removed.length > 0) {
+        console.log(
+            'vitrin ' + tarih + ': TJK filtresi (' + source + ') — çıkarılan: '
+            + removed.map((h) => h.name).join(', ')
+        );
     }
     return filtered;
+}
+
+async function prunePublicProgramNotInTjk(db, tarih, allowedIds) {
+    if (!db || !tarih || !allowedIds?.size) return 0;
+    const ids = [...allowedIds];
+    const placeholders = ids.map(() => '?').join(',');
+    const result = await dbRun(
+        db,
+        `UPDATE public_gunluk_program SET durum = 'arsiv'
+         WHERE tarih = ? AND durum = 'yayinda' AND hipodrom_id NOT IN (${placeholders})`,
+        [tarih, ...ids]
+    );
+    if (result.changes > 0) {
+        console.log('public_gunluk_program: ' + result.changes + ' TJK dışı kayıt arşivlendi (' + tarih + ')');
+    }
+    return result.changes || 0;
+}
+
+let tjkWarmTimer = null;
+
+function startTjkListWarmer() {
+    const warm = async () => {
+        for (const tarih of [todayTr(), tomorrowTr()]) {
+            try {
+                await getTjkHipodromlarCached(tarih, { timeoutMs: 15000, maxAttempts: 2 });
+            } catch (err) {
+                console.warn('TJK liste ısıtma ' + tarih + ':', err.message);
+            }
+        }
+    };
+    warm();
+    if (tjkWarmTimer) clearInterval(tjkWarmTimer);
+    tjkWarmTimer = setInterval(warm, 60000);
+}
+
+function stopTjkListWarmer() {
+    if (tjkWarmTimer) {
+        clearInterval(tjkWarmTimer);
+        tjkWarmTimer = null;
+    }
 }
 
 async function getPublicVitrin(db, tarih, opts = {}) {
@@ -804,16 +875,32 @@ async function getPublicVitrin(db, tarih, opts = {}) {
 
     if (opts.tjkValidate !== false) {
         try {
-            hipodromlar = await filterVitrinByTjkCache(tarih, hipodromlar);
+            const before = hipodromlar.length;
+            hipodromlar = await filterVitrinByTjk(tarih, hipodromlar);
+            if (before > hipodromlar.length && hipodromlar.length >= 0) {
+                const tjkEntry = tjkListCache.get(tarih);
+                const allowedIds = new Set(
+                    (tjkEntry?.hipodromlar || [])
+                        .filter((h) => isDomesticHipodrom(h.name))
+                        .map((h) => String(h.id))
+                );
+                if (allowedIds.size && opts.pruneDb !== false) {
+                    prunePublicProgramNotInTjk(db, tarih, allowedIds).catch((err) => {
+                        console.warn('vitrin DB arşivleme atlandı:', err.message);
+                    });
+                }
+            }
         } catch (err) {
             console.warn('getPublicVitrin TJK filtresi atlandı:', err.message);
+            hipodromlar = [];
         }
     }
 
     return {
         tarih,
         hipodromlar,
-        yayinli: hipodromlar.length > 0
+        yayinli: hipodromlar.length > 0,
+        tjkFiltered: opts.tjkValidate !== false
     };
 }
 
@@ -1218,6 +1305,10 @@ module.exports = {
     buildPublicProgram,
     buildPublicProgramFromHipodrom,
     getPublicVitrin,
+    getTjkHipodromlarCached,
+    startTjkListWarmer,
+    stopTjkListWarmer,
+    filterVitrinByTjk,
     fetchHipodromProgram,
     resolveHipodromList,
     queryHipodromlarFromDb,

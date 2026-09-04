@@ -48,6 +48,7 @@ let browser = null;
 const db = new sqlite3.Database('atlar.db');
 publicProgram.ensureTables(db)
     .then(() => publicProgram.archivePastPublicPrograms(db))
+    .then(() => publicProgram.startTjkListWarmer())
     .catch((e) => console.warn('public_gunluk_program setup:', e.message));
 
 const hipodromCache = new Map();
