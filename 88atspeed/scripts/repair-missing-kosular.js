@@ -5,7 +5,7 @@
  *   node scripts/repair-missing-kosular.js --db atlar.db --scan
  *   node scripts/repair-missing-kosular.js --db atlar.db --at-id 114236,104060,115482 --apply
  *   node scripts/repair-missing-kosular.js --db atlar.db --kayit 133 --race 6 --horse 5,6,8 --scan-depth
- *   node scripts/repair-missing-kosular.js --db atlar.db --kayit 133 --race 6 --horse 5,6,8 --refresh --apply
+ *   node scripts/repair-missing-kosular.js --db atlar.db --tarih 04/09/2026 --hipodrom Bursa --fetch --apply
  */
 const http = require('http');
 const path = require('path');
@@ -29,6 +29,8 @@ const cli = {
     kayitId: argVal('--kayit') ? Number(argVal('--kayit')) : null,
     raceNo: argVal('--race') ? Number(argVal('--race')) : null,
     horseNos: (argVal('--horse') || '').split(',').map(s => s.trim()).filter(Boolean).map(Number),
+    tarih: argVal('--tarih') || '',
+    hipodrom: argVal('--hipodrom') || '',
     scan: args.includes('--scan'),
     scanDepth: args.includes('--scan-depth'),
     refresh: args.includes('--refresh'),
@@ -116,11 +118,26 @@ function collectHorsesFromKayitlar(kayitlar) {
     return { horses, indexByAtId };
 }
 
+function normalizeHipLabel(s) {
+    return String(s || '').toLocaleLowerCase('tr-TR')
+        .normalize('NFD').replace(/\p{M}/gu, '').trim();
+}
+
 function filterByContext(horses) {
     return horses.filter(h => {
         if (cli.kayitId && Number(h.kayitId) !== cli.kayitId) return false;
         if (cli.raceNo && Number(h.raceNo) !== cli.raceNo) return false;
         if (cli.horseNos.length && !cli.horseNos.includes(Number(h.horseNo))) return false;
+        if (cli.tarih) {
+            const t = String(h.tarih || '');
+            const want = cli.tarih;
+            if (t !== want && !t.includes(want) && !want.includes(t)) return false;
+        }
+        if (cli.hipodrom) {
+            const target = normalizeHipLabel(cli.hipodrom);
+            const hip = normalizeHipLabel(h.hipodrom);
+            if (hip !== target && !hip.includes(target) && !target.includes(hip)) return false;
+        }
         return true;
     });
 }

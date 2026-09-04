@@ -152,6 +152,86 @@ async function gotoWithHeaders(page, url) {
     await new Promise(r => setTimeout(r, 2000));
 }
 
+async function waitForAtKosuTable(page, timeoutMs = 22000) {
+    try {
+        await page.waitForSelector('table.tablesorter', { timeout: timeoutMs });
+    } catch (_) { /* yavaş sayfa */ }
+    try {
+        await page.waitForFunction(
+            () => {
+                const tables = document.querySelectorAll('table.tablesorter');
+                const kosuTablosu = tables.length >= 2 ? tables[1] : tables[0];
+                if (!kosuTablosu) return false;
+                const rows = kosuTablosu.querySelectorAll('tbody tr');
+                if (!rows.length) return true;
+                for (const row of rows) {
+                    const tarihCell = row.querySelector('td:first-child');
+                    const tarihText = tarihCell?.innerText?.trim() || '';
+                    const link = tarihCell?.querySelector('a');
+                    if (link?.href && /\d{2}\.\d{2}\.\d{4}/.test(tarihText)) return true;
+                }
+                return false;
+            },
+            { timeout: timeoutMs, polling: 400 }
+        );
+    } catch (_) { /* tablo geç yüklenebilir */ }
+}
+
+function readAnaKosularEval() {
+    return function readAnaKosular() {
+        function parseRow(row) {
+            const cell = n => {
+                const el = row.querySelector('td:nth-child(' + n + ')');
+                return el ? el.innerText.replace(/\s+/g, ' ').trim() : '';
+            };
+            const tarihCell = row.querySelector('td:first-child');
+            const tarihLink = tarihCell?.querySelector('a');
+            const tarihText = tarihCell?.innerText?.trim() || '';
+            if (!tarihLink?.href || !/\d{2}\.\d{2}\.\d{4}/.test(tarihText)) return null;
+            const pistRaw = cell(4);
+            let pist = '';
+            if (/çim/i.test(pistRaw)) pist = 'Çim';
+            else if (/kum/i.test(pistRaw)) pist = 'Kum';
+            else if (/sentetik/i.test(pistRaw)) pist = 'Sentetik';
+            else pist = pistRaw;
+            return {
+                tarih: tarihText,
+                tarihLink: tarihLink.href,
+                sehir: cell(2),
+                mesafe: cell(3),
+                pist,
+                pist_raw: pistRaw,
+                sira: cell(5),
+                at_derece_ana_tablo: cell(6) || '-',
+                siklet: cell(7),
+                taki: cell(8).replace(/\s+/g, ' ').trim(),
+                grup: cell(12),
+                kcins: cell(14),
+                hp: cell(17)
+            };
+        }
+        const tables = document.querySelectorAll('table.tablesorter');
+        const kosuTablosu = tables.length >= 2 ? tables[1] : tables[0];
+        if (!kosuTablosu) return { rows: [], tableCount: tables.length, rowCount: 0 };
+        const data = [];
+        const allRows = kosuTablosu.querySelectorAll('tbody tr');
+        for (const row of allRows) {
+            const rec = parseRow(row);
+            if (rec) data.push(rec);
+        }
+        return { rows: data, tableCount: tables.length, rowCount: allRows.length };
+    };
+}
+
+async function readAnaKosularFromPage(page) {
+    const parsed = await page.evaluate(readAnaKosularEval());
+    return {
+        anaKosular: parsed.rows || [],
+        tableCount: parsed.tableCount || 0,
+        rowCount: parsed.rowCount || 0
+    };
+}
+
 function isKosmazText(text) {
     if (!text) return false;
     return /\(\s*koşmaz\s*\)/i.test(text)
@@ -611,73 +691,54 @@ function mergeKosuRetry(prev, next) {
 
 async function fetchAtKosularFromPage(page, atId, atAdi, opts = {}) {
     const maxKosu = opts.maxKosu || 7;
-    const maxRetry = opts.maxRetry ?? 1;
+    const maxRetry = opts.maxRetry ?? 2;
+    const pageRetries = opts.pageRetries ?? 3;
     const atUrl = 'https://www.tjk.org/TR/YarisSever/Query/ConnectedPage/AtKosuBilgileri?QueryParameter_AtId=' + atId;
-    await gotoWithHeaders(page, atUrl);
-    if (opts.onProgress) opts.onProgress('at sayfası yüklendi');
 
-    const pageOk = await page.evaluate(() => {
-        const title = document.querySelector('h2.tableTitle');
-        if (!title) return false;
-        const text = title.innerText.trim().toLowerCase();
-        return text && !text.includes('bulunamadı');
-    });
-    if (!pageOk) {
-        return { success: false, error: 'sayfa_erisim', atAdi: atAdi || '', atId, kosular: [], quality: {} };
+    let pageOk = false;
+    let pageTitle = '';
+    let anaKosular = [];
+    let rowHint = { tableCount: 0, rowCount: 0 };
+
+    for (let pageAttempt = 0; pageAttempt < pageRetries; pageAttempt++) {
+        if (pageAttempt > 0) {
+            if (opts.onProgress) opts.onProgress('sayfa yeniden deneniyor ' + (pageAttempt + 1) + '/' + pageRetries);
+            await new Promise(r => setTimeout(r, 1500));
+        }
+        await gotoWithHeaders(page, atUrl);
+        if (opts.onProgress && pageAttempt === 0) opts.onProgress('at sayfası yüklendi');
+        await waitForAtKosuTable(page, opts.tableWaitMs || 22000);
+
+        pageOk = await page.evaluate(() => {
+            const title = document.querySelector('h2.tableTitle');
+            if (!title) return false;
+            const text = title.innerText.trim().toLowerCase();
+            return text && !text.includes('bulunamadı');
+        });
+        if (!pageOk) {
+            if (pageAttempt < pageRetries - 1) continue;
+            return { success: false, error: 'sayfa_erisim', atAdi: atAdi || '', atId, kosular: [], quality: {}, retryable: true };
+        }
+
+        pageTitle = await page.evaluate(() => document.querySelector('h2.tableTitle')?.innerText?.trim() || '');
+        const parsed = await readAnaKosularFromPage(page);
+        anaKosular = parsed.anaKosular;
+        rowHint = { tableCount: parsed.tableCount, rowCount: parsed.rowCount };
+        if (anaKosular.length > 0) break;
+        if (rowHint.rowCount > 0 && pageAttempt < pageRetries - 1) {
+            if (opts.onProgress) opts.onProgress('tabloda ' + rowHint.rowCount + ' satır var, parse bekleniyor…');
+            continue;
+        }
+        break;
     }
 
-    const pageTitle = await page.evaluate(() => document.querySelector('h2.tableTitle')?.innerText?.trim() || '');
+    if (!pageOk) {
+        return { success: false, error: 'sayfa_erisim', atAdi: atAdi || '', atId, kosular: [], quality: {}, retryable: true };
+    }
+
     const atIsmi = pageTitle || atAdi;
-    const anaKosular = await page.evaluate(() => {
-        function parseRow(row) {
-            const cell = n => {
-                const el = row.querySelector('td:nth-child(' + n + ')');
-                return el ? el.innerText.replace(/\s+/g, ' ').trim() : '';
-            };
-            const tarihCell = row.querySelector('td:first-child');
-            const tarihLink = tarihCell?.querySelector('a');
-            const tarihText = tarihCell?.innerText?.trim() || '';
-            if (!tarihLink?.href || !/\d{2}\.\d{2}\.\d{4}/.test(tarihText)) return null;
-            const pistRaw = cell(4);
-            let pist = '';
-            if (/^K:|kum/i.test(pistRaw)) pist = 'Kum';
-            else if (/^Ç:|^C:|^S:|çim/i.test(pistRaw)) pist = 'Çim';
-            else if (/sentetik/i.test(pistRaw)) pist = 'Sentetik';
-            else pist = pistRaw;
-            return {
-                tarih: tarihText,
-                tarihLink: tarihLink.href,
-                sehir: cell(2),
-                mesafe: cell(3),
-                pist,
-                pist_raw: pistRaw,
-                sira: cell(5),
-                at_derece_ana_tablo: cell(6) || '-',
-                siklet: cell(7),
-                taki: cell(8).replace(/\s+/g, ' ').trim(),
-                grup: cell(12),
-                kcins: cell(14),
-                hp: cell(17)
-            };
-        }
-        const tables = document.querySelectorAll('table.tablesorter');
-        const kosuTablosu = tables.length >= 2 ? tables[1] : tables[0];
-        if (!kosuTablosu) return [];
-        const data = [];
-        for (const row of kosuTablosu.querySelectorAll('tbody tr')) {
-            const rec = parseRow(row);
-            if (rec) data.push(rec);
-        }
-        return data;
-    });
 
     if (!anaKosular.length) {
-        const rowHint = await page.evaluate(() => {
-            const tables = document.querySelectorAll('table.tablesorter');
-            const kosuTablosu = tables.length >= 2 ? tables[1] : tables[0];
-            const rows = kosuTablosu ? kosuTablosu.querySelectorAll('tbody tr').length : 0;
-            return { tableCount: tables.length, rowCount: rows };
-        });
         if (opts.onProgress) {
             if (rowHint.rowCount > 0) {
                 opts.onProgress('⚠ tabloda ' + rowHint.rowCount + ' satır var ama parse edilemedi');
@@ -685,7 +746,17 @@ async function fetchAtKosularFromPage(page, atId, atAdi, opts = {}) {
                 opts.onProgress('koşu geçmişi yok (ilk koşu veya TJK kaydı boş)');
             }
         }
-    } else if (opts.onProgress) {
+        return {
+            success: false,
+            error: rowHint.rowCount > 0 ? 'tablo_parse' : 'gecmis_yok',
+            atAdi: atIsmi,
+            atId,
+            kosular: [],
+            quality: {},
+            retryable: rowHint.rowCount > 0
+        };
+    }
+    if (opts.onProgress) {
         opts.onProgress('tabloda ' + anaKosular.length + ' koşu bulundu, ilk ' + Math.min(maxKosu, anaKosular.length) + ' detay çekilecek');
     }
 

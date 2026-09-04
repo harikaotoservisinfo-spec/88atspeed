@@ -49,6 +49,12 @@ const db = new sqlite3.Database(path.join(__dirname, '..', 'atlar.db'));
     if (result.kosularStats) {
         console.log('🐴 At geçmişi:', result.kosularStats.withData + '/' + result.kosularStats.total,
             '(eksik:', result.kosularStats.missing + ')');
+        if (result.kosularStats.missing > 0) {
+            const hipArg = hipodromFilter ? (' --hipodrom ' + hipodromFilter) : '';
+            const tarihArg = ' --tarih ' + tarih;
+            console.log('🔧 Eksik atları tamamlamak için (sunucuda):');
+            console.log('   node scripts/repair-missing-kosular.js --db atlar.db' + tarihArg + hipArg + ' --fetch --apply');
+        }
     }
 
     const failed = (result.results || []).filter((r) => !r.ok);

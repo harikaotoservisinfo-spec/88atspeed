@@ -548,7 +548,9 @@ async function buildPublicProgram(db, tarih, opts = {}) {
                         page: enrichPage,
                         maxKosu: opts.maxKosu || 7,
                         horseDelayMs: opts.horseDelayMs ?? 600,
-                        maxRetry: opts.maxRetry || 1,
+                        maxRetry: opts.maxRetry || 2,
+                        pageRetries: opts.pageRetries || 3,
+                        retryEmptyPasses: opts.retryEmptyPasses ?? 1,
                         onProgress(done, total, atId, name, meta) {
                             const pct = meta?.pct ?? Math.round((done / total) * 100);
                             const label = (name || atId || '').toString().slice(0, 28);
@@ -569,7 +571,8 @@ async function buildPublicProgram(db, tarih, opts = {}) {
                     kosularStats.total += stats.total;
                     kosularStats.withData += stats.withData;
                     kosularStats.missing += stats.missing;
-                    console.log('    ✓', enrich.withKosular + '/' + enrich.fetched, 'at geçmişi');
+                    console.log('    ✓', enrich.withKosular + '/' + enrich.fetched, 'at geçmişi'
+                        + (enrich.stillMissing ? ' (' + enrich.stillMissing + ' eksik)' : ''));
                 }
                 const row = {
                     tarih,
