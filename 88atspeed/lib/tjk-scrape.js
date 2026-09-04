@@ -671,6 +671,24 @@ async function fetchAtKosularFromPage(page, atId, atAdi, opts = {}) {
         return data;
     });
 
+    if (!anaKosular.length) {
+        const rowHint = await page.evaluate(() => {
+            const tables = document.querySelectorAll('table.tablesorter');
+            const kosuTablosu = tables.length >= 2 ? tables[1] : tables[0];
+            const rows = kosuTablosu ? kosuTablosu.querySelectorAll('tbody tr').length : 0;
+            return { tableCount: tables.length, rowCount: rows };
+        });
+        if (opts.onProgress) {
+            if (rowHint.rowCount > 0) {
+                opts.onProgress('⚠ tabloda ' + rowHint.rowCount + ' satır var ama parse edilemedi');
+            } else {
+                opts.onProgress('koşu geçmişi yok (ilk koşu veya TJK kaydı boş)');
+            }
+        }
+    } else if (opts.onProgress) {
+        opts.onProgress('tabloda ' + anaKosular.length + ' koşu bulundu, ilk ' + Math.min(maxKosu, anaKosular.length) + ' detay çekilecek');
+    }
+
     const sonuclar = [];
     const qualityLog = [];
 

@@ -77,7 +77,15 @@ async function enrichRacesWithHorseHistory(races, opts = {}) {
                     maxRetry: opts.maxRetry ?? 1,
                     onProgress: (msg) => write('      · ' + msg)
                 });
-                cache.set(atId, result.success && result.kosular?.length ? result.kosular : []);
+                const kosuCount = result.kosular?.length || 0;
+                if (!result.success) {
+                    write('      ⚠ veri alınamadı: ' + (result.error || 'bilinmeyen'));
+                } else if (kosuCount === 0) {
+                    write('      ⚠ 0 koşu — bu at için TJK geçmişi yok veya okunamadı');
+                } else {
+                    write('      ✓ ' + kosuCount + ' koşu kaydedildi');
+                }
+                cache.set(atId, result.success && kosuCount ? result.kosular : []);
             } catch (err) {
                 write('      ⚠ hata: ' + err.message);
                 cache.set(atId, []);
