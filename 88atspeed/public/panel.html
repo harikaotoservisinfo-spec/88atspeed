@@ -137,6 +137,27 @@
             text-align: center; min-width: 72px;
             border-left: 2px solid #ffb74d;
         }
+        .son-test-table.sontest-bas-table .col-bitis,
+        .son-test-table.sontest-bas-table th.col-bitis-hdr {
+            min-width: 48px;
+            text-align: center;
+            font-weight: 800;
+            border-left: 2px solid #fdd835;
+        }
+        .son-test-table.sontest-bas-table th.col-bitis-hdr {
+            background: #fff59d;
+            color: #f57f17;
+            font-size: 10px;
+        }
+        .son-test-table.sontest-bas-table .col-bitis {
+            background: #fffde7;
+            color: #6d4c41;
+            font-size: 12px;
+        }
+        .son-test-table.sontest-bas-table .col-bitis-win {
+            color: #f57f17;
+            font-size: 14px;
+        }
         .son-test-table.sontest-bas-table tbody tr.bas-pick-1 > td.col-tahmin {
             background: linear-gradient(135deg, #ff9800, #f57c00) !important;
             color: #fff !important;
@@ -1740,6 +1761,46 @@
             return parts.join(' · ') || '—';
         }
 
+        async function loadSonTestBitisMap() {
+            try {
+                const res = await fetch('/api/puanlama-bitis-sonuclari');
+                const json = await res.json();
+                if (json.success) return json.sonuclar || {};
+            } catch (_) { /* */ }
+            return {};
+        }
+
+        function resolveSonTestBitis(horse, race, meta, bitisMap) {
+            const kayitId = meta?.kayitId;
+            if (!kayitId || race?.raceNo == null || horse?.no == null) return null;
+            const key = String(kayitId) + '|' + race.raceNo + '|' + String(horse.no);
+            const val = bitisMap[key];
+            return val != null && val >= 1 ? val : null;
+        }
+
+        function sonTestBitisCell(bitis) {
+            if (bitis == null) {
+                return '<td class="col-bitis" title="TJK sonucu henüz yok">—</td>';
+            }
+            const cls = bitis === 1 ? 'col-bitis col-bitis-win' : 'col-bitis';
+            return '<td class="' + cls + '" title="Bitiş sırası: ' + bitis + '">' + bitis + '</td>';
+        }
+
+        async function syncKayitSonuclar(kayitId) {
+            if (!kayitId) return null;
+            try {
+                const res = await fetch('/api/public/sonuclar/sync-kayit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ kayitId: Number(kayitId) })
+                });
+                const json = await res.json();
+                return json.success ? json : null;
+            } catch (_) {
+                return null;
+            }
+        }
+
         async function sonTestGoster(races, meta, opts) {
             opts = opts || {};
             const el = document.getElementById('sonTestContent');
@@ -1793,6 +1854,11 @@
                 : 0;
             const programTarih = meta?.tarih || null;
             const hedefSehir = meta?.hipodrom || currentHipodrom || '';
+            let bitisMap = {};
+            if (meta?.kayitId) {
+                bitisMap = await loadSonTestBitisMap();
+            }
+            const showBitisCol = !!meta?.kayitId;
             let html = '<div class="son-test-wrap">';
             html += '<p class="astest-note">Tüm test sekmelerindeki <strong>BAŞ+</strong> skorları yan yana — '
                 + '👥 KOŞU AT SAYISI, 🏟️ ŞEHİR, 🏇 KOŞU CİNSİ, 🎽 TAKİ, 🌿 PİST, 📊 HP, ⚖️ SİKLET. '
@@ -1845,6 +1911,9 @@
                         + escapeHtml(src.label) + '</th>';
                 }
                 html += '<th class="col-tahmin-hdr" title="7 BAŞ+ boyut karışımı · dimension-tahmin motoru">TAHMİN</th>';
+                if (showBitisCol) {
+                    html += '<th class="col-bitis-hdr" title="TJK bitiş sırası · kayıt #' + escapeHtml(String(meta.kayitId)) + '">BİTİŞ</th>';
+                }
                 for (let ri = 0; ri < renkScenarioCols.length; ri++) {
                     const sc = renkScenarioCols[ri];
                     const edge = ri === 0 && !ptestCols.length ? ' col-renk-scenario-first' : '';
@@ -1861,7 +1930,7 @@
                     html += AtestSonGosterimCols.renderHeaderCells(escapeHtml);
                 }
                 html += '</tr></thead><tbody>';
-                const totalCols = 4 + SON_TEST_BAS_SOURCES.length + extraTahminColCount + gosColCount;
+                const totalCols = 4 + SON_TEST_BAS_SOURCES.length + extraTahminColCount + gosColCount + (showBitisCol ? 1 : 0);
                 if (!horses.length) {
                     html += '<tr><td colspan="' + totalCols + '" class="col-name">At yok</td></tr>';
                 } else {
@@ -1938,6 +2007,9 @@
                             html += astestSonTestBasCell(row.basBySource[src.key], edge.trim());
                         }
                         html += astestSonTestTahminCell(row.tahmin);
+                        if (showBitisCol) {
+                            html += sonTestBitisCell(resolveSonTestBitis(h, race, meta, bitisMap));
+                        }
                         for (let ri = 0; ri < renkScenarioCols.length; ri++) {
                             html += astestSonTestRenkScenarioCell(
                                 row.renkTahmin, renkCalibrated, ri === 0 && !ptestCols.length);
@@ -2534,6 +2606,7 @@
                         + ' — ' + kosStats.withData + ' at geçmişi kayıttan yüklendi…</div>';
                 }
                 syncVeriCacheFromRaces(currentRaces);
+                const syncInfo = await syncKayitSonuclar(id);
                 currentHorses = [];
                 for (let i = 0; i < currentRaces.length; i++) {
                     for (let j = 0; j < (currentRaces[i].horses || []).length; j++) {
@@ -2554,9 +2627,15 @@
                     await sonTestGoster(currentRaces, currentSonTestMeta, { skipCalibration: false });
                 }
                 const finalStats = countKosularStats(currentRaces);
-                statusDiv.innerHTML = '<div class="status status-success">✅ Kayıt #' + id + ' yüklendi — '
+                let statusMsg = '✅ Kayıt #' + id + ' yüklendi — '
                     + (kayit.hipodrom || '') + ' ' + (kayit.tarih || '')
-                    + ' · ' + finalStats.withData + '/' + finalStats.total + ' at geçmişi</div>';
+                    + ' · ' + finalStats.withData + '/' + finalStats.total + ' at geçmişi';
+                if (syncInfo?.bitisSynced > 0) {
+                    statusMsg += ' · ' + syncInfo.bitisSynced + ' BİTİŞ TJK\'dan yazıldı';
+                } else if (syncInfo?.raceCount > 0 && !syncInfo?.bitisSynced) {
+                    statusMsg += ' · TJK: ' + syncInfo.raceCount + ' koşu (at eşleşmesi bekleniyor)';
+                }
+                statusDiv.innerHTML = '<div class="status status-success">' + statusMsg + '</div>';
             } catch (error) {
                 const errHtml = '<div class="info-box">❌ ' + escapeHtml(error.message) + '</div>';
                 document.getElementById('sonTestContent').innerHTML = errHtml;

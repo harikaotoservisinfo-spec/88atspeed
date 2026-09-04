@@ -14,6 +14,7 @@ const liderformGp = require('./lib/liderform-gp');
 const hipodromFob = require('./lib/hipodrom-fob');
 const bitalihFob = require('./lib/bitalih-fob');
 const publicSonuclar = require('./lib/public-sonuclar');
+const publicSonucStore = require('./lib/public-sonuc-store');
 const tjkTvProxy = require('./lib/tjk-tv-proxy');
 const hipodromAuth = require('./lib/hipodrom-auth');
 const hipodromBet = require('./lib/hipodrom-bet');
@@ -313,6 +314,31 @@ app.get('/api/public/sonuclar', async (req, res) => {
         res.json(data);
     } catch (err) {
         console.error('public/sonuclar:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.post('/api/public/sonuclar/sync-kayit', async (req, res) => {
+    try {
+        const kayitId = req.body?.kayitId || req.query?.kayitId;
+        const tarih = req.body?.tarih || req.query?.tarih;
+        const hipodrom = req.body?.hipodrom || req.query?.hipodrom;
+        const refresh = req.body?.refresh !== false && req.query?.refresh !== '0';
+        if (!kayitId && !(tarih && hipodrom)) {
+            return res.status(400).json({
+                success: false,
+                error: 'kayitId veya tarih+hipodrom gerekli'
+            });
+        }
+        const data = await publicSonucStore.importSonuclarToKayit(db, {
+            kayitId: kayitId ? Number(kayitId) : undefined,
+            tarih,
+            hipodrom,
+            refresh
+        });
+        res.json(data);
+    } catch (err) {
+        console.error('public/sonuclar/sync-kayit:', err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 });

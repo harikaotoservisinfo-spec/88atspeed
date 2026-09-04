@@ -116,7 +116,12 @@ function findHorseMatch(programHorses, resultHorse) {
     }
     const target = normalizeName(resultHorse.name);
     if (!target) return null;
-    return list.find((h) => normalizeName(h.name) === target) || null;
+    let hit = list.find((h) => normalizeName(h.name) === target);
+    if (hit) return hit;
+    return list.find((h) => {
+        const progName = normalizeName(cleanHorseName(h.name));
+        return progName === target || progName.includes(target) || target.includes(progName);
+    }) || null;
 }
 
 async function loadPuanlamaStore(db) {
@@ -140,15 +145,10 @@ async function savePuanlamaStore(db, store) {
     );
 }
 
-async function syncBitisFromSonuclar(db, tarih, hipodrom, normalizedRaces) {
-    let kayit;
-    try {
-        kayit = await publicProgram.findHesaplamaKayit(db, { tarih, hipodrom });
-    } catch (err) {
-        console.warn('sonuc bitis sync atlandı:', err.message);
-        return { synced: 0, kayitId: null };
+async function syncBitisForKayit(db, kayit, normalizedRaces) {
+    if (!kayit || !normalizedRaces?.length) {
+        return { synced: 0, kayitId: kayit?.id || null };
     }
-    if (!kayit) return { synced: 0, kayitId: null };
 
     let veri = [];
     try {
@@ -186,6 +186,82 @@ async function syncBitisFromSonuclar(db, tarih, hipodrom, normalizedRaces) {
     return { synced, kayitId: kayit.id };
 }
 
+async function syncBitisFromSonuclar(db, tarih, hipodrom, normalizedRaces) {
+    let kayit;
+    try {
+        kayit = await publicProgram.findHesaplamaKayit(db, { tarih, hipodrom });
+    } catch (err) {
+        console.warn('sonuc bitis sync atlandı:', err.message);
+        return { synced: 0, kayitId: null };
+    }
+    if (!kayit) return { synced: 0, kayitId: null };
+    return syncBitisForKayit(db, kayit, normalizedRaces);
+}
+
+async function importSonuclarToKayit(db, opts = {}) {
+    const kayit = await publicProgram.findHesaplamaKayit(db, opts);
+    if (!kayit) throw new Error('Hesaplama kaydı bulunamadı');
+
+    let veri = [];
+    try {
+        veri = JSON.parse(kayit.veri || '[]');
+    } catch (_) {
+        throw new Error('Kayıt verisi okunamadı #' + kayit.id);
+    }
+
+    const sehirId = kayit.hipodrom_id
+        || publicProgram.FALLBACK_HIPODROMS?.find((h) => {
+            const n = String(kayit.hipodrom || '').toLocaleLowerCase('tr-TR');
+            return h.name.toLocaleLowerCase('tr-TR') === n || n.includes(h.name.toLocaleLowerCase('tr-TR'));
+        })?.id;
+
+    let normalized = [];
+    if (!opts.refresh) {
+        const stored = sehirId
+            ? await getStoredSonuclar(db, kayit.tarih, sehirId)
+            : null;
+        if (stored?.races?.length) normalized = stored.races;
+    }
+
+    if (!normalized.length) {
+        const publicSonuclar = require('./public-sonuclar');
+        const fetched = await publicSonuclar.fetchSonuclarForHipodrom({
+            tarih: kayit.tarih,
+            hipodrom: kayit.hipodrom,
+            hipodromId: sehirId,
+            refresh: opts.refresh !== false,
+            expectedRaceCount: veri.length,
+            db
+        });
+        normalized = fetched.races || [];
+    }
+
+    if (!normalized.length) {
+        return {
+            success: true,
+            kayitId: kayit.id,
+            tarih: kayit.tarih,
+            hipodrom: kayit.hipodrom,
+            raceCount: 0,
+            bitisSynced: 0,
+            message: 'Henüz TJK sonucu yok'
+        };
+    }
+
+    const bitisSync = await syncBitisForKayit(db, kayit, normalized);
+    return {
+        success: true,
+        kayitId: kayit.id,
+        tarih: kayit.tarih,
+        hipodrom: kayit.hipodrom,
+        raceCount: normalized.length,
+        bitisSynced: bitisSync.synced,
+        message: bitisSync.synced > 0
+            ? null
+            : 'Sonuçlar alındı ancak at eşleşmesi yapılamadı'
+    };
+}
+
 async function persistPublicSonuclar(db, meta, normalizedRaces) {
     if (!db || !normalizedRaces.length) {
         return { saved: false, raceCount: 0 };
@@ -212,9 +288,7 @@ async function persistPublicSonuclar(db, meta, normalizedRaces) {
     );
 
     let bitisSync = { synced: 0, kayitId: null };
-    if (result.changes > 0) {
-        bitisSync = await syncBitisFromSonuclar(db, meta.tarih, meta.hipodrom, normalizedRaces);
-    }
+    bitisSync = await syncBitisFromSonuclar(db, meta.tarih, meta.hipodrom, normalizedRaces);
 
     return {
         saved: result.changes > 0,
@@ -267,6 +341,8 @@ module.exports = {
     getStoredSonuclar,
     applyNormalizedToApiResult,
     ensureSonucColumns,
+    importSonuclarToKayit,
+    syncBitisForKayit,
     parseSira,
     extractHorseNoFromName,
     cleanHorseName
