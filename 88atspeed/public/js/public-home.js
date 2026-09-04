@@ -6,6 +6,7 @@
         iso: '',
         hipodromlar: [],
         activeHipId: null,
+        activeTahminHipId: null,
         vitrin: null,
         muhtemeller: null,
         muhtIso: null,
@@ -349,15 +350,72 @@
 
         el.querySelectorAll('.pub-race-card').forEach((card) => {
             card.addEventListener('click', () => {
+                if (state.activeHipId) selectTahminHipodrom(state.activeHipId);
                 switchTab('tahminler');
                 const raceNo = card.dataset.race;
                 const target = document.querySelector('[data-tahmin-race="' + raceNo + '"]');
-                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
             });
         });
     }
 
-    function renderTahminPanel(hip) {
+    function formatTahminRaceHeader(race) {
+        const kosuLine = race.raceNo + '. Koşu';
+        const metaParts = [];
+        if (race.mesafe || race.pist) {
+            metaParts.push([race.mesafe, race.pist].filter(Boolean).join(' '));
+        }
+        const alt = race.kategori || race.kcins_kosu || '';
+        if (alt && !String(alt).match(/^\d+\.\s*Koşu$/i)) {
+            metaParts.push(alt);
+        } else if (race.baslik && !String(race.baslik).match(/^\d+\.\s*Koşu$/i)) {
+            metaParts.push(race.baslik);
+        }
+        return { kosuLine, metaLine: metaParts.join(' · ') };
+    }
+
+    function renderTahminHipTabs() {
+        const tabsEl = $('#pubTahminHipTabs');
+        if (!tabsEl) return;
+        if (!state.hipodromlar.length) {
+            tabsEl.hidden = true;
+            tabsEl.innerHTML = '';
+            return;
+        }
+        tabsEl.hidden = false;
+        tabsEl.innerHTML = state.hipodromlar.map((h) => {
+            const sub = h.kosuSayisi + ' koşu'
+                + (h.ilkKosuSaat ? ' · 1. ' + h.ilkKosuSaat : '');
+            return '<button type="button" class="pub-tahmin-hip-tab" data-id="' + escapeHtml(h.id) + '" role="tab">'
+                + escapeHtml(h.name) + '<small>' + escapeHtml(sub) + '</small></button>';
+        }).join('');
+
+        tabsEl.querySelectorAll('.pub-tahmin-hip-tab').forEach((btn) => {
+            btn.addEventListener('click', () => selectTahminHipodrom(btn.dataset.id));
+        });
+    }
+
+    function selectTahminHipodrom(id) {
+        state.activeTahminHipId = id;
+        $$('.pub-tahmin-hip-tab').forEach((t) => t.classList.toggle('active', t.dataset.id === id));
+        const hip = state.hipodromlar.find((h) => h.id === id);
+        renderTahminRaces(hip);
+    }
+
+    function renderTahminAll() {
+        renderTahminHipTabs();
+        if (!state.hipodromlar.length) {
+            renderTahminRaces(null);
+            return;
+        }
+        const keepId = state.activeTahminHipId
+            && state.hipodromlar.some((h) => h.id === state.activeTahminHipId)
+            ? state.activeTahminHipId
+            : state.hipodromlar[0].id;
+        selectTahminHipodrom(keepId);
+    }
+
+    function renderTahminRaces(hip) {
         const el = $('#pubTahminContent');
         if (!hip || !hip.kosular || !hip.kosular.length) {
             el.innerHTML = '<div class="pub-empty"><div class="pub-empty-icon">🎯</div>'
@@ -376,17 +434,26 @@
                     + '</tr>').join('')
                 : '<tr><td colspan="4" style="text-align:center;color:#888">Tahmin henüz üretilmedi</td></tr>';
 
-            const hdrMeta = race.mesafe
-                ? ' · ' + escapeHtml(String(race.mesafe) + ' ' + (race.pist || ''))
+            const hdr = formatTahminRaceHeader(race);
+            const metaHtml = hdr.metaLine
+                ? '<span class="pub-tahmin-card-meta">' + escapeHtml(hdr.metaLine) + '</span>'
                 : '';
 
             return '<div class="pub-tahmin-card" data-tahmin-race="' + race.raceNo + '">'
-                + '<div class="pub-tahmin-card-hdr">' + race.raceNo + '. Koşu' + hdrMeta + '</div>'
+                + '<div class="pub-tahmin-card-hdr">'
+                + '<span class="pub-tahmin-card-kosu">' + escapeHtml(hdr.kosuLine) + '</span>'
+                + metaHtml
+                + '</div>'
                 + '<table class="pub-tahmin-table"><thead><tr>'
                 + '<th>#</th><th>No</th><th>At</th><th>Skor</th></tr></thead><tbody>'
                 + rows + '</tbody></table>'
                 + '</div>';
         }).join('') + '</div>';
+    }
+
+    function renderTahminPanel(hip) {
+        if (hip && hip.id) state.activeTahminHipId = hip.id;
+        renderTahminAll();
     }
 
     function switchTab(panelId) {
