@@ -1821,6 +1821,14 @@ a { color: inherit; text-decoration: none; }
     opacity: 0.55;
 }
 
+.pub-sonuc-pending .pub-sonuc-pending-msg {
+    padding: 14px 18px;
+    color: #666;
+    font-size: 14px;
+    font-style: italic;
+    border-top: 1px dashed #e0e0e0;
+}
+
 /* Eski koşu kartları (yedek) */
 .pub-race-card {
     display: grid;

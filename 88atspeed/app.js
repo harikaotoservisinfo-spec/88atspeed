@@ -306,7 +306,8 @@ app.get('/api/public/sonuclar', async (req, res) => {
             tarih,
             hipodrom,
             hipodromId,
-            refresh: req.query.refresh
+            refresh: req.query.refresh,
+            expectedRaceCount: req.query.kosuSayisi || req.query.expectedRaceCount
         });
         res.json(data);
     } catch (err) {
@@ -768,6 +769,7 @@ async function getBrowserInstance() {
 
 hipodromAuth.setBrowserFactory(getBrowserInstance);
 hipodromBrowser.setBrowserFactory(getBrowserInstance);
+publicSonuclar.setBrowserFactory(getBrowserInstance);
 
 async function gotoWithHeaders(page, url) {
     await page.setExtraHTTPHeaders(getBrowserHeaders());

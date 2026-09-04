@@ -967,6 +967,26 @@ async function fetchRaceSonuclari(page, sehirId, sehirAdi, tarih, raceNo) {
     }, String(raceNo));
 }
 
+function pickSonucEra(tarih) {
+    const m = String(tarih || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!m) return 'lastWeek';
+    const raceDay = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+    const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Europe/Istanbul',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    }).formatToParts(new Date());
+    const day = parts.find((p) => p.type === 'day')?.value || '01';
+    const month = parts.find((p) => p.type === 'month')?.value || '01';
+    const year = parts.find((p) => p.type === 'year')?.value || '1970';
+    const today = new Date(Number(year), Number(month) - 1, Number(day));
+    today.setHours(0, 0, 0, 0);
+    raceDay.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((today - raceDay) / 86400000);
+    return diffDays >= 0 && diffDays <= 1 ? 'today' : 'lastWeek';
+}
+
 function parseSonucPageEval() {
     return function parseSonucPage() {
         function isKosmazText(text) {
@@ -1048,37 +1068,213 @@ function parseSonucPageEval() {
     };
 }
 
-async function fetchHipodromSonuclari(page, sehirId, sehirAdi, tarih, opts = {}) {
-    const url = 'https://www.tjk.org/TR/YarisSever/Info/Sehir/GunlukYarisSonuclari?SehirId=' + sehirId
-        + '&QueryParameter_Tarih=' + encodeURIComponent(tarih)
-        + '&SehirAdi=' + encodeURIComponent(sehirAdi) + '&Era=lastWeek';
-    await gotoWithHeaders(page, url);
+function parseSonucSingleRaceEval() {
+    return function parseSonucSingleRace() {
+        function isKosmazText(text) {
+            if (!text) return false;
+            return /\(\s*koşmaz\s*\)/i.test(text) || /\(\s*kosmaz\s*\)/i.test(text)
+                || /\(\s*çekildi\s*\)/i.test(text) || /^koşmaz$/i.test(String(text).trim());
+        }
+        function parseNameCell(nameCell) {
+            if (!nameCell) return { name: '', taki_badges: [], kosmaz: false };
+            const fullText = nameCell.innerText || '';
+            const link = nameCell.querySelector('a');
+            const name = (link?.innerText || fullText.split('\n')[0] || '')
+                .replace(/\(\s*koşmaz\s*\)/gi, '').replace(/\s+/g, ' ').trim();
+            const badges = [...nameCell.querySelectorAll('span.aciklamaFancy')]
+                .map((s) => s.innerText.trim())
+                .filter((t) => t && t.length <= 6 && /^[A-ZÇĞİÖŞÜ0-9]+$/i.test(t));
+            return { name, taki_badges: badges, kosmaz: isKosmazText(fullText) };
+        }
+
+        const seen = new Set();
+        const tabs = [...document.querySelectorAll('a[href^="#"]')]
+            .filter((a) => /^\d+\.\s*Koşu/i.test((a.innerText || '').trim()))
+            .filter((a) => {
+                const href = a.getAttribute('href');
+                if (!href || seen.has(href)) return false;
+                seen.add(href);
+                return true;
+            });
+        let activeTab = tabs.find((a) => a.parentElement?.classList.contains('active') || a.classList.contains('active'));
+        if (!activeTab && location.hash) {
+            activeTab = tabs.find((a) => a.getAttribute('href') === location.hash);
+        }
+        if (!activeTab && tabs.length) activeTab = tabs[0];
+
+        const raceNoMatch = (activeTab?.innerText || '').match(/^(\d+)\./);
+        const raceNo = raceNoMatch ? raceNoMatch[1] : '1';
+        const bt = document.body.innerText || '';
+        const hdrRe = new RegExp(raceNo + '\\.\\s*Koşu\\s+\\d+\\.\\d+\\s*\\n([^\\n]+(?:Kum|Çim|Sentetik)[^\\n]*)', 'i');
+        const hdrMatch = bt.match(hdrRe);
+        const raceHeaderLine = hdrMatch ? hdrMatch[1] : '';
+
+        const tables = [...document.querySelectorAll('table')].filter((t) => {
+            const ths = [...t.querySelectorAll('thead th')].map((x) => x.innerText.trim());
+            return ths.includes('At İsmi');
+        });
+        const idx = (parseInt(raceNo, 10) || 1) - 1;
+        let target = tables.find((t) => t.querySelectorAll('tbody tr').length > 0 && t.offsetParent !== null);
+        if (!target) target = tables[idx];
+        if (!target) target = tables.find((t) => t.querySelectorAll('tbody tr').length > 0);
+        if (!target) return null;
+
+        const horses = [];
+        for (const row of target.querySelectorAll('tbody tr')) {
+            const sira = row.querySelector('td:nth-child(2)')?.innerText?.trim() || '';
+            const no = row.querySelector('td:nth-child(1)')?.innerText?.trim() || '';
+            const nameCell = row.querySelector('td:nth-child(3)');
+            if (!nameCell) continue;
+            const parsed = parseNameCell(nameCell);
+            const link = nameCell.querySelector('a');
+            let atId = '';
+            const href = link?.getAttribute('href') || '';
+            const m = href.match(/AtId=(\d+)/);
+            if (m) atId = m[1];
+            const derece = row.querySelector('td:nth-child(10)')?.innerText?.trim() || '';
+            const kosmaz = parsed.kosmaz || /^koşmaz$/i.test(derece);
+            const horse = {
+                sira,
+                no,
+                name: parsed.name || link?.innerText?.trim() || '',
+                atId,
+                yas: row.querySelector('td:nth-child(4)')?.innerText?.trim() || '',
+                jokey: row.querySelector('td:nth-child(5)')?.innerText?.trim() || '',
+                siklet: row.querySelector('td:nth-child(6)')?.innerText?.trim() || '',
+                derece: kosmaz ? 'Koşmaz' : derece,
+                gny: row.querySelector('td:nth-child(11)')?.innerText?.trim() || '',
+                hp: row.querySelector('td:nth-child(16)')?.innerText?.trim() || '',
+                taki: parsed.taki_badges.join(' '),
+                kosmaz
+            };
+            if (horse.name || horse.sira) horses.push(horse);
+        }
+
+        if (!horses.length) return null;
+        return { raceNo, raceHeaderLine, horses, horseCount: horses.length };
+    };
+}
+
+function mergeSonucRaces(primary, secondary) {
+    const byNo = new Map();
+    for (const race of [...(primary || []), ...(secondary || [])]) {
+        const no = String(race?.raceNo || '');
+        if (!no) continue;
+        const prev = byNo.get(no);
+        if (!prev || (race.horses?.length || 0) > (prev.horses?.length || 0)) {
+            byNo.set(no, race);
+        }
+    }
+    return [...byNo.values()].sort(
+        (a, b) => (parseInt(a.raceNo, 10) || 0) - (parseInt(b.raceNo, 10) || 0)
+    );
+}
+
+async function getSonucRaceTabs(page) {
+    return page.evaluate(() => {
+        const seen = new Set();
+        return [...document.querySelectorAll('a[href^="#"]')]
+            .filter((a) => /^\d+\.\s*Koşu/i.test((a.innerText || '').trim()))
+            .filter((a) => {
+                const href = a.getAttribute('href');
+                if (!href || seen.has(href)) return false;
+                seen.add(href);
+                return true;
+            })
+            .map((a) => ({ href: a.getAttribute('href'), text: a.innerText.trim() }));
+    });
+}
+
+async function clickSonucAllRaces(page) {
+    await page.evaluate(() => {
+        const all = [...document.querySelectorAll('a')].find((a) => (a.innerText || '').trim() === 'Tüm Koşular');
+        if (all) all.click();
+    });
+    await new Promise((r) => setTimeout(r, 2000));
+}
+
+async function waitForSonucTables(page, opts = {}) {
+    const waitMs = opts.waitMs || 25000;
+    const minTables = opts.minResultTables || 1;
+    const minRaces = opts.expectedRaceCount || 0;
     try {
-        await page.waitForSelector('.gunluk-tabs, table.tablesorter, table thead th', { timeout: opts.waitMs || 20000 });
+        await page.waitForSelector('a[href^="#"], table thead th', { timeout: Math.min(waitMs, 15000) });
     } catch (_) { /* sayfa yavaş */ }
     try {
-        await page.waitForFunction(
-            () => {
-                const tables = document.querySelectorAll('table');
-                for (const table of tables) {
-                    const ths = [...table.querySelectorAll('thead th')].map((x) => x.innerText.trim());
-                    if (ths.includes('At İsmi') && table.querySelectorAll('tbody tr').length) return true;
-                }
-                return false;
-            },
-            { timeout: opts.waitMs || 25000, polling: 500 }
-        );
+        await page.waitForFunction((needTables, needRaces) => {
+            const tables = [...document.querySelectorAll('table')].filter((t) => {
+                const ths = [...t.querySelectorAll('thead th')].map((x) => x.innerText.trim());
+                return ths.includes('At İsmi');
+            });
+            const withRows = tables.filter((t) => t.querySelectorAll('tbody tr').length > 0);
+            if (needRaces > 0) {
+                const target = Math.min(needRaces, tables.length || needRaces);
+                return withRows.length >= target;
+            }
+            return withRows.length >= needTables;
+        }, { timeout: waitMs, polling: 500 }, minTables, minRaces);
     } catch (_) { /* henüz sonuç yok */ }
+    await new Promise((r) => setTimeout(r, opts.settleMs || 1200));
+}
 
-    const parsed = await page.evaluate(parseSonucPageEval());
+async function fetchHipodromSonuclari(page, sehirId, sehirAdi, tarih, opts = {}) {
+    const era = opts.era || pickSonucEra(tarih);
+    const url = 'https://www.tjk.org/TR/YarisSever/Info/Sehir/GunlukYarisSonuclari?SehirId=' + sehirId
+        + '&QueryParameter_Tarih=' + encodeURIComponent(tarih)
+        + '&SehirAdi=' + encodeURIComponent(sehirAdi) + '&Era=' + era;
+    await gotoWithHeaders(page, url);
+
+    const tabLinks = await getSonucRaceTabs(page);
+    await clickSonucAllRaces(page);
+    await waitForSonucTables(page, {
+        waitMs: opts.waitMs || 25000,
+        expectedRaceCount: opts.expectedRaceCount || tabLinks.length || 0,
+        minResultTables: tabLinks.length || 1
+    });
+
+    let parsed = await page.evaluate(parseSonucPageEval());
+    let races = parsed.races || [];
+
+    if (tabLinks.length > 0 && races.length < tabLinks.length) {
+        const tabRaces = [];
+        for (const tab of tabLinks) {
+            await page.evaluate((href) => {
+                const el = document.querySelector('a[href="' + href + '"]');
+                if (el) el.click();
+            }, tab.href);
+            await new Promise((r) => setTimeout(r, opts.tabWaitMs || 1000));
+            try {
+                await page.waitForFunction(() => {
+                    const tables = [...document.querySelectorAll('table')].filter((t) => {
+                        const ths = [...t.querySelectorAll('thead th')].map((x) => x.innerText.trim());
+                        return ths.includes('At İsmi');
+                    });
+                    return tables.some((t) => t.querySelectorAll('tbody tr').length > 0);
+                }, { timeout: 5000, polling: 300 });
+            } catch (_) { /* tab yavaş */ }
+            const one = await page.evaluate(parseSonucSingleRaceEval());
+            if (one?.horses?.length) tabRaces.push(one);
+        }
+        races = mergeSonucRaces(races, tabRaces);
+        await clickSonucAllRaces(page);
+    }
+
+    if (races.length < tabLinks.length) {
+        await new Promise((r) => setTimeout(r, 1500));
+        const retry = await page.evaluate(parseSonucPageEval());
+        races = mergeSonucRaces(races, retry.races);
+    }
+
     return {
         url,
         sehirId: String(sehirId),
         sehirAdi,
         tarih,
-        hasResults: parsed.raceCount > 0,
-        races: parsed.races,
-        raceCount: parsed.raceCount
+        era,
+        hasResults: races.length > 0,
+        races,
+        raceCount: races.length,
+        tabCount: tabLinks.length
     };
 }
 
@@ -1105,5 +1301,8 @@ module.exports = {
     fetchAtKosularFromPage,
     fetchRaceSonuclari,
     fetchHipodromSonuclari,
-    parseSonucPageEval
+    parseSonucPageEval,
+    parseSonucSingleRaceEval,
+    pickSonucEra,
+    mergeSonucRaces
 };

@@ -1050,7 +1050,7 @@
                 + escapeHtml(h.name) + '<small>' + escapeHtml(saat) + '</small></button>';
         }).join('');
         el.querySelectorAll('.pub-hip-tab').forEach((btn) => {
-            btn.addEventListener('click', () => selectSonucHip(btn.dataset.id));
+            btn.addEventListener('click', () => selectSonucHip(btn.dataset.id, { forceRefresh: true }));
         });
     }
 
@@ -1088,25 +1088,57 @@
         return { title, meta };
     }
 
+    function mergeSonucWithProgram(progRaces, apiRaces) {
+        const byNo = new Map();
+        for (const race of apiRaces || []) {
+            byNo.set(String(race.raceNo), race);
+        }
+        const programList = progRaces || [];
+        if (!programList.length) return apiRaces || [];
+        return programList.map((progRace) => {
+            const no = String(progRace.raceNo);
+            const hit = byNo.get(no);
+            if (hit) return hit;
+            return {
+                raceNo: no,
+                raceHeaderLine: '',
+                horses: [],
+                horseCount: 0,
+                pending: true
+            };
+        });
+    }
+
     function renderSonuclarList(hip, data) {
         const el = $('#pubSonucList');
         const label = $('#pubSonucLabel');
         if (!el) return;
 
         const progRaces = hip?.kosular || [];
+        const apiRaces = data?.races || [];
+        const mergedRaces = mergeSonucWithProgram(progRaces, apiRaces);
+        const finishedCount = apiRaces.filter((r) => (r.horses || []).length > 0).length;
+        const hasAnyResults = finishedCount > 0 || data?.hasResults;
 
         if (label) {
             const parts = [];
             if (state.tarih) parts.push(trToDisplay(state.tarih));
-            if (data?.raceCount) parts.push(data.raceCount + ' koşu sonuçlandı');
-            else parts.push('henüz sonuç yok');
+            if (hasAnyResults) {
+                parts.push(finishedCount + ' koşu sonuçlandı');
+                if (progRaces.length > finishedCount) {
+                    parts.push((progRaces.length - finishedCount) + ' koşu bekleniyor');
+                }
+            } else {
+                parts.push('henüz sonuç yok');
+            }
+            if (data?.stale) parts.push('güncelleniyor…');
             if (state.sonucLastUpdate) {
                 parts.push('güncelleme ' + new Date(state.sonucLastUpdate).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }));
             }
             label.textContent = parts.join(' · ');
         }
 
-        if (!data?.hasResults) {
+        if (!hasAnyResults) {
             el.innerHTML = '<div class="pub-empty">'
                 + '<div class="pub-empty-icon">⏳</div>'
                 + '<h3>Henüz sonuç yok</h3>'
@@ -1115,12 +1147,23 @@
             return;
         }
 
-        const races = data.races || [];
+        const races = mergedRaces;
         el.innerHTML = '<div class="pub-program-list">' + races.map((race) => {
             const progRace = progRaces.find((r) => String(r.raceNo) === String(race.raceNo));
             const hdr = formatSonucRaceHeader(race, progRace);
             const surfaceClass = progRace ? getRaceSurfaceClass(progRace) : getRaceSurfaceClass({ pist: race.raceHeaderLine });
             const horses = race.horses || [];
+
+            if (race.pending || !horses.length) {
+                return '<section class="pub-program-race pub-sonuc-race pub-sonuc-pending" data-race="' + race.raceNo + '">'
+                    + '<div class="pub-program-race-hdr' + (surfaceClass ? ' ' + surfaceClass : '') + '">'
+                    + '<span class="pub-program-race-title">' + escapeHtml(hdr.title) + '</span>'
+                    + (hdr.meta ? '<span class="pub-program-race-meta">' + escapeHtml(hdr.meta) + '</span>' : '')
+                    + '</div>'
+                    + '<div class="pub-sonuc-pending-msg">Sonuç bekleniyor…</div>'
+                    + '</section>';
+            }
+
             const head = '<th>S</th><th>No</th><th>At</th><th>Derece</th><th>Gny</th><th>HP</th><th>Jokey</th>';
             const body = horses.map((h) => {
                 let cls = 'pub-sonuc-row';
@@ -1153,6 +1196,38 @@
         }).join('') + '</div>';
     }
 
+    async function fetchSonuclarApi(iso, hip, opts = {}) {
+        const attempts = opts.attempts || 3;
+        let lastErr;
+        const qs = '/api/public/sonuclar?iso=' + encodeURIComponent(iso)
+            + '&hipodrom=' + encodeURIComponent(hip.name)
+            + '&hipodromId=' + encodeURIComponent(hip.id)
+            + '&kosuSayisi=' + encodeURIComponent(hip.kosuSayisi || (hip.kosular || []).length || 0)
+            + (opts.refresh ? '&refresh=1' : '');
+
+        for (let i = 0; i < attempts; i++) {
+            const controller = new AbortController();
+            const tid = setTimeout(() => controller.abort(), 90000);
+            try {
+                const res = await fetch(qs, { signal: controller.signal });
+                clearTimeout(tid);
+                const data = await parseJsonResponse(res);
+                if (!res.ok || data.success === false) {
+                    throw new Error(data.error || ('HTTP ' + res.status));
+                }
+                return data;
+            } catch (err) {
+                clearTimeout(tid);
+                lastErr = err;
+                if (err.name === 'AbortError') throw err;
+                if (i < attempts - 1) {
+                    await new Promise((r) => setTimeout(r, 1200 * (i + 1)));
+                }
+            }
+        }
+        throw lastErr || new Error('Sonuç alınamadı');
+    }
+
     async function refreshSonuclarData(opts = {}) {
         const iso = state.iso || localTodayIso();
         const hipId = state.sonucHipId || state.activeHipId;
@@ -1167,23 +1242,19 @@
         }
 
         try {
-            const controller = new AbortController();
-            const tid = setTimeout(() => controller.abort(), 90000);
-            const res = await fetch(
-                '/api/public/sonuclar?iso=' + encodeURIComponent(iso)
-                + '&hipodrom=' + encodeURIComponent(hip.name)
-                + '&hipodromId=' + encodeURIComponent(hip.id)
-                + (opts.refresh ? '&refresh=1' : ''),
-                { signal: controller.signal }
-            );
-            clearTimeout(tid);
-            const data = await res.json();
-            if (!data.success) throw new Error(data.error || 'Sonuç alınamadı');
+            const data = await fetchSonuclarApi(iso, hip, { refresh: !!opts.refresh });
             state.sonucData = data;
             state.sonucHipId = hip.id;
             state.sonucLastUpdate = Date.now();
             state.sonucByHip[hip.id] = { data, fetchedAt: state.sonucLastUpdate };
             renderSonuclarList(hip, data);
+            if (data.stale) {
+                setTimeout(() => {
+                    if (state.sonucHipId === hip.id && $('#panel-sonuclar')?.classList.contains('active')) {
+                        refreshSonuclarData({ refresh: true });
+                    }
+                }, 2500);
+            }
         } catch (err) {
             if (el) {
                 el.innerHTML = '<div class="pub-empty">'
