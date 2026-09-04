@@ -367,6 +367,7 @@
     function renderProgramColgroup(cols) {
         return '<colgroup>'
             + cols.map((c) => '<col class="' + c.colCls + '">').join('')
+            + '<col class="pub-col-spacer">'
             + '</colgroup>';
     }
 
@@ -390,13 +391,15 @@
         el.innerHTML = '<div class="pub-program-list">' + kosular.map((race) => {
             const hdr = formatProgramRaceHeader(race);
             const surfaceClass = getRaceSurfaceClass(race);
-            const head = cols.map((c) => '<th>' + c.label + '</th>').join('');
+            const head = cols.map((c) => '<th>' + c.label + '</th>').join('')
+                + '<th class="pub-col-spacer-hdr" aria-hidden="true"></th>';
             const horses = race.horses || [];
             const body = horses.length
                 ? horses.map((h) => '<tr>'
                     + cols.map((c) => '<td class="' + c.cls + '">' + escapeHtml(programHorseCell(h, c)) + '</td>').join('')
+                    + '<td class="pub-col-spacer-cell" aria-hidden="true"></td>'
                     + '</tr>').join('')
-                : '<tr><td colspan="' + cols.length + '" class="pub-prog-empty">At listesi yok</td></tr>';
+                : '<tr><td colspan="' + (cols.length + 1) + '" class="pub-prog-empty">At listesi yok</td></tr>';
 
             const metaHtml = hdr.meta
                 ? '<span class="pub-program-race-meta">' + escapeHtml(hdr.meta) + '</span>'

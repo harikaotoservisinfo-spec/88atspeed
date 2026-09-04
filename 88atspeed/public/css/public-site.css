@@ -1436,7 +1436,7 @@ a { color: inherit; text-decoration: none; }
 
 .pub-program-table th {
     background: #f7f7f7;
-    padding: 8px 10px;
+    padding: 6px 8px;
     text-align: left;
     font-size: 11px;
     text-transform: uppercase;
@@ -1447,7 +1447,7 @@ a { color: inherit; text-decoration: none; }
 }
 
 .pub-program-table td {
-    padding: 8px 10px;
+    padding: 6px 8px;
     border-bottom: 1px solid #f3f3f3;
     vertical-align: middle;
 }
@@ -1461,10 +1461,10 @@ a { color: inherit; text-decoration: none; }
 }
 
 .pub-prog-no {
-    width: 42px;
     text-align: center;
     font-weight: 800;
     color: var(--pub-red);
+    padding-right: 4px !important;
 }
 
 .pub-prog-at {
@@ -1473,31 +1473,45 @@ a { color: inherit; text-decoration: none; }
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    padding-left: 4px !important;
 }
 
-.pub-col-no { width: 42px; }
-.pub-col-name { width: 30%; }
-.pub-col-yas { width: 52px; }
-.pub-col-siklet { width: 58px; }
-.pub-col-hp { width: 48px; }
-.pub-col-jokey { width: 22%; }
-.pub-col-taki { width: 72px; }
+/* Sabit sütun genişlikleri — sağdaki spacer boş alanı doldurur */
+.pub-col-no { width: 36px; }
+.pub-col-name { width: 200px; }
+.pub-col-yas { width: 44px; }
+.pub-col-siklet { width: 52px; }
+.pub-col-hp { width: 40px; }
+.pub-col-jokey { width: 132px; }
+.pub-col-taki { width: 56px; }
+.pub-col-spacer { width: auto; }
+
+.pub-col-spacer-hdr {
+    padding: 0 !important;
+    border: none;
+    background: transparent;
+}
 
 .pub-prog-yas,
 .pub-prog-siklet,
 .pub-prog-hp {
     text-align: center;
     white-space: nowrap;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
 }
 
 .pub-prog-jokey {
     font-size: 12px;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .pub-prog-taki {
     font-size: 12px;
     color: #555;
+    white-space: nowrap;
 }
 
 .pub-prog-empty {
@@ -1942,8 +1956,6 @@ a { color: inherit; text-decoration: none; }
 
 /* Responsive */
 @media (max-width: 960px) {
-    .pub-layout { grid-template-columns: 1fr; }
-    .pub-sidebar { position: static; }
     .pub-promo-row { grid-template-columns: 1fr; }
     .pub-race-card {
         grid-template-columns: 70px 1fr;
