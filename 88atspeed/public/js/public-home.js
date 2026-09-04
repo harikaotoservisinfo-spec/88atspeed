@@ -33,6 +33,9 @@
         progFobHipId: null,
         progFobLoading: false,
         progFobMode: 'off',
+        progBtData: null,
+        progBtHipId: null,
+        progBtLoading: false,
         sonucData: null,
         sonucHipId: null,
         sonucLastUpdate: null,
@@ -44,6 +47,7 @@
     const PROG_BLT_REFRESH_SEC = 300;
     const PROG_GP_REFRESH_SEC = 300;
     const PROG_FOB_REFRESH_SEC = 60;
+    const PROG_BT_REFRESH_SEC = 60;
     const SONUC_REFRESH_SEC = 120;
     const MUHT_SELECT_RESET_MS = 30000;
     const MUHT_RACE_ADVANCE_MS = 3 * 60 * 1000;
@@ -354,6 +358,7 @@
         if (state.progFobMode !== 'off') {
             refreshProgramFobData();
         }
+        refreshProgramBtData();
     }
 
     function normalizeHipLabel(s) {
@@ -489,6 +494,7 @@
         let bltCountdown = PROG_BLT_REFRESH_SEC;
         let gpCountdown = PROG_GP_REFRESH_SEC;
         let fobCountdown = PROG_FOB_REFRESH_SEC;
+        let btCountdown = PROG_BT_REFRESH_SEC;
         progGanyanPollTimer = setInterval(() => {
             if (document.hidden) return;
             if (!$('#panel-kosular')?.classList.contains('active')) return;
@@ -496,6 +502,7 @@
             bltCountdown -= 1;
             gpCountdown -= 1;
             fobCountdown -= 1;
+            btCountdown -= 1;
             if (countdown <= 0) {
                 countdown = PROG_GANYAN_REFRESH_SEC;
                 refreshProgramGanyanOdds({ refresh: true });
@@ -511,6 +518,10 @@
             if (state.progFobMode !== 'off' && fobCountdown <= 0) {
                 fobCountdown = PROG_FOB_REFRESH_SEC;
                 refreshProgramFobData({ refresh: true });
+            }
+            if (btCountdown <= 0) {
+                btCountdown = PROG_BT_REFRESH_SEC;
+                refreshProgramBtData({ refresh: true });
             }
         }, 1000);
     }
@@ -555,6 +566,15 @@
         if (/\bçim\b/i.test(text) || /^ç[:|]/i.test(text)) return 'pub-program-race-hdr--cim';
         if (/\bkum\b/i.test(text) || /^k[:|]/i.test(text)) return 'pub-program-race-hdr--kum';
         return '';
+    }
+
+    function getBitalihColumnDefs() {
+        return [
+            { key: 'bt_ganyan', label: 'Ganyan', cls: 'pub-prog-bt', colCls: 'pub-col-bt', betKey: 'ganyan', title: "Bi'Talih Ganyan" },
+            { key: 'bt_ilk2', label: 'İlk 2', cls: 'pub-prog-bt', colCls: 'pub-col-bt', betKey: 'ilk2', title: "Bi'Talih İlk 2" },
+            { key: 'bt_ilk3', label: 'İlk 3', cls: 'pub-prog-bt', colCls: 'pub-col-bt', betKey: 'ilk3', title: "Bi'Talih İlk 3" },
+            { key: 'bt_ilk4', label: 'İlk 4', cls: 'pub-prog-bt', colCls: 'pub-col-bt', betKey: 'ilk4', title: "Bi'Talih İlk 4" }
+        ];
     }
 
     function getFobColumnDefs() {
@@ -612,6 +632,7 @@
         const takiIdx = filtered.findIndex((c) => c.key === 'taki');
         if (takiIdx >= 0) filtered.splice(takiIdx + 1, 0, bltCol, gp2Col);
         else filtered.push(bltCol, gp2Col);
+        filtered.push(...getBitalihColumnDefs());
         const fobCols = getFobColumnDefs();
         if (fobCols.length) filtered.push(...fobCols);
         return filtered;
@@ -659,6 +680,14 @@
             const odd = ctx?.fobMaps?.[betKey]?.[String(h.no)] || '';
             if (odd) return odd;
             if (state.progFobLoading) return '…';
+            return '—';
+        }
+        if (col.key && col.key.startsWith('bt_')) {
+            const betKey = col.betKey || col.key.replace(/^bt_/, '');
+            const maps = ctx?.btMaps?.[betKey] || {};
+            const odd = maps.byNo?.[String(h.no)] || maps.byName?.[normalizeHorseName(h.name)] || '';
+            if (odd) return odd;
+            if (state.progBtLoading) return '…';
             return '—';
         }
         if (col.key === 'name') return h.name || '—';
@@ -800,6 +829,65 @@
             state.progFobHipId = null;
             renderRaceList(hip);
             refreshProgramFobData({ refresh: true });
+        }
+    }
+
+    function getRaceBtMaps(raceNo) {
+        const race = state.progBtData?.races?.[String(raceNo)] || null;
+        const bets = race?.bets || {};
+        const out = {};
+        ['ganyan', 'ilk2', 'ilk3', 'ilk4'].forEach((key) => {
+            out[key] = {
+                byNo: bets[key]?.byNo || {},
+                byName: bets[key]?.byName || {}
+            };
+        });
+        return out;
+    }
+
+    function findBtLeaderNo(maps) {
+        let leaderNo = null;
+        let minVal = Infinity;
+        Object.entries(maps?.byNo || {}).forEach(([no, val]) => {
+            const v = parseFloat(String(val).replace(',', '.'));
+            if (!isNaN(v) && v > 0 && v < minVal) {
+                minVal = v;
+                leaderNo = no;
+            }
+        });
+        return leaderNo;
+    }
+
+    async function refreshProgramBtData(opts = {}) {
+        const hip = state.hipodromlar.find((h) => h.id === state.activeHipId);
+        if (!hip || !$('#panel-kosular')?.classList.contains('active')) return;
+        if (state.progBtLoading && !opts.refresh) return;
+
+        state.progBtLoading = true;
+        const activeHip = hip;
+        renderRaceList(activeHip);
+
+        try {
+            const controller = new AbortController();
+            const tid = setTimeout(() => controller.abort(), 45000);
+            const res = await fetch(
+                '/api/public/bitalih-fob?hipodrom=' + encodeURIComponent(hip.name)
+                + (opts.refresh ? '&refresh=1' : ''),
+                { signal: controller.signal }
+            );
+            clearTimeout(tid);
+            const data = await res.json();
+            if (!data.success) return;
+            state.progBtData = data;
+            state.progBtHipId = hip.id;
+            const cur = state.hipodromlar.find((h) => h.id === state.activeHipId);
+            if (cur) renderRaceList(cur);
+        } catch (_) {
+            /* sessiz */
+        } finally {
+            state.progBtLoading = false;
+            const cur = state.hipodromlar.find((h) => h.id === state.activeHipId);
+            if (cur) renderRaceList(cur);
         }
     }
 
@@ -1079,9 +1167,21 @@
         }
 
         const cols = getProgramColumns(kosular);
-        const colWidths = { taki: computeTakiColWidth(kosular), blt: 40, gp2: 40, fob_ganyan: 52, fob_ilk2: 48, fob_ilk3: 48 };
+        const colWidths = {
+            taki: computeTakiColWidth(kosular),
+            blt: 40,
+            gp2: 40,
+            bt_ganyan: 52,
+            bt_ilk2: 48,
+            bt_ilk3: 48,
+            bt_ilk4: 48,
+            fob_ganyan: 52,
+            fob_ilk2: 48,
+            fob_ilk3: 48
+        };
         cols.forEach((c) => {
             if (c.key && c.key.startsWith('fob_') && !colWidths[c.key]) colWidths[c.key] = 52;
+            if (c.key && c.key.startsWith('bt_') && !colWidths[c.key]) colWidths[c.key] = 48;
         });
         const colgroup = renderProgramColgroup(cols, colWidths);
 
@@ -1100,6 +1200,13 @@
                 ilk2: findFobLeaderNo(raceFobMaps.ilk2),
                 ilk3: findFobLeaderNo(raceFobMaps.ilk3)
             };
+            const btMaps = getRaceBtMaps(race.raceNo);
+            const btLeaders = {
+                ganyan: findBtLeaderNo(btMaps.ganyan),
+                ilk2: findBtLeaderNo(btMaps.ilk2),
+                ilk3: findBtLeaderNo(btMaps.ilk3),
+                ilk4: findBtLeaderNo(btMaps.ilk4)
+            };
             const head = cols.map((c) => {
                 const titleAttr = c.title ? ' title="' + escapeHtml(c.title) + '"' : '';
                 return '<th' + titleAttr + '>' + c.label + '</th>';
@@ -1107,7 +1214,7 @@
             const horses = race.horses || [];
             const body = horses.length
                 ? horses.map((h) => {
-                    const ctx = { ganyanMap, ...bltMaps, ...gpMaps, fobMaps: raceFobMaps };
+                    const ctx = { ganyanMap, ...bltMaps, ...gpMaps, fobMaps: raceFobMaps, btMaps };
                     return '<tr>'
                         + cols.map((c) => {
                             let cls = c.cls;
@@ -1133,6 +1240,14 @@
                                 if (!hasFob && state.progFobLoading) cls += ' pub-prog-fob-loading';
                                 else if (!hasFob) cls += ' pub-prog-fob-empty';
                                 else if (fobLeaders[betKey] && String(h.no) === fobLeaders[betKey]) cls += ' pub-prog-fob-leader';
+                            }
+                            if (c.key && c.key.startsWith('bt_')) {
+                                const betKey = c.betKey || c.key.replace(/^bt_/, '');
+                                const maps = btMaps[betKey] || {};
+                                const hasBt = maps.byNo?.[String(h.no)] || maps.byName?.[normalizeHorseName(h.name)];
+                                if (!hasBt && state.progBtLoading) cls += ' pub-prog-bt-loading';
+                                else if (!hasBt) cls += ' pub-prog-bt-empty';
+                                else if (btLeaders[betKey] && String(h.no) === btLeaders[betKey]) cls += ' pub-prog-bt-leader';
                             }
                             return '<td class="' + cls + '">' + escapeHtml(val) + '</td>';
                         }).join('')
@@ -2067,6 +2182,9 @@
             state.progFobData = null;
             state.progFobHipId = null;
             state.progFobLoading = false;
+            state.progBtData = null;
+            state.progBtHipId = null;
+            state.progBtLoading = false;
             state.sonucData = null;
             state.sonucHipId = null;
             state.sonucLastUpdate = null;
