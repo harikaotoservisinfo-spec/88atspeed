@@ -11,6 +11,21 @@ function ensureGosterimEngine() {
     enginesReady = true;
 }
 
+function atCacheKey(atId) {
+    return atId != null && atId !== '' ? String(atId) : '';
+}
+
+function resolveHorseKosular(veriCache, horse) {
+    const key = atCacheKey(horse?.atId);
+    const cached = key && veriCache ? veriCache[key] : null;
+    if (cached?.length) return cached;
+    return horse?.kosular || [];
+}
+
+function horseHasHistory(horse, veriCache) {
+    return resolveHorseKosular(veriCache, horse).length > 0;
+}
+
 function horseKey(h) {
     if (h?.atId != null && h.atId !== '') return String(h.atId);
     if (h?.no != null && h.no !== '') return 'no:' + String(h.no);
@@ -41,8 +56,9 @@ function collectMatchingHorseKeys(race, meta) {
     const G = global.GosterimEngine;
     if (!G) return new Set();
 
+    const veriCache = meta?.veriCache || null;
     const horses = (race.horses || []).map((h) => Object.assign({}, h, {
-        kosular: h.kosular || []
+        kosular: resolveHorseKosular(veriCache, h)
     }));
     const calcRace = Object.assign({}, race, { horses });
     const rows = G.buildRaceRows(calcRace, {
@@ -67,7 +83,8 @@ function collectMatchingHorseKeys(race, meta) {
 
 function annotateRaceHorses(race, meta) {
     if (!race?.horses?.length) return race;
-    const hasHistory = race.horses.some((h) => (h.kosular || []).length > 0);
+    const veriCache = meta?.veriCache || null;
+    const hasHistory = race.horses.some((h) => horseHasHistory(h, veriCache));
     if (!hasHistory) return race;
 
     let matched;
@@ -86,21 +103,24 @@ function annotateRaceHorses(race, meta) {
     return Object.assign({}, race, { horses });
 }
 
-function raceNeedsAnnotation(race) {
+function raceNeedsAnnotation(race, meta) {
     const horses = race?.horses || [];
     if (!horses.length) return false;
-    if (horses.every((h) => typeof h.t1drTest1 === 'boolean')) return false;
-    return horses.some((h) => (h.kosular || []).length > 0);
+    if (!meta?.force && horses.every((h) => typeof h.t1drTest1 === 'boolean')) return false;
+    const veriCache = meta?.veriCache || null;
+    return horses.some((h) => horseHasHistory(h, veriCache));
 }
 
 function annotateKosular(kosular, meta) {
     return (kosular || []).map((race) => {
-        if (!raceNeedsAnnotation(race)) return race;
+        if (!raceNeedsAnnotation(race, meta)) return race;
         return annotateRaceHorses(race, meta);
     });
 }
 
 module.exports = {
+    atCacheKey,
+    resolveHorseKosular,
     horseKey,
     t1drEqualsTest1,
     collectMatchingHorseKeys,

@@ -118,6 +118,14 @@ async function buildAtIdKosularIndex(db) {
     return index;
 }
 
+function veriCacheFromAtIndex(atIndex) {
+    const veriCache = {};
+    for (const [atId, rec] of atIndex) {
+        if (rec?.kosular?.length) veriCache[atId] = rec.kosular;
+    }
+    return veriCache;
+}
+
 function resolveHorseKosular(veriCache, horse) {
     const key = atCacheKey(horse?.atId);
     const cached = key != null ? veriCache[key] : null;
@@ -394,7 +402,7 @@ async function buildTahminForHipodrom(db, tarih, hipodromRow, opts = {}) {
         scored++;
     }
 
-    const annotatedRaces = annotateKosular(races, meta);
+    const annotatedRaces = annotateKosular(races, { ...meta, veriCache });
 
     return {
         hipodrom: hipodromRow.hipodrom,
@@ -568,5 +576,7 @@ module.exports = {
     mergeTahminIntoKosular,
     ensureCalibration,
     assessTahminReadiness,
-    getProgramRows
+    getProgramRows,
+    buildAtIdKosularIndex,
+    veriCacheFromAtIndex
 };
