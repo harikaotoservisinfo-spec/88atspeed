@@ -209,7 +209,7 @@
         const horses = races.flatMap((r) => r.horses || []);
         return all.filter((col) => horses.some((h) => {
             const t = h.scores?.[col.scoreKey];
-            return t && t.rank != null && t.pct != null && t.pct > 0;
+            return t && t.rank != null && (t.pct != null || t.score != null);
         }));
     }
 
@@ -892,6 +892,12 @@
             + '</colgroup>';
     }
 
+    function isPlaceholderBtOdd(val) {
+        if (val == null || val === '' || val === '—') return true;
+        const v = parseFloat(String(val).replace(',', '.'));
+        return !isNaN(v) && v <= 1.01;
+    }
+
     function programHorseCell(h, col, ctx) {
         if (col.key === 'ganyan') {
             const odd = ctx?.ganyanMap?.[String(h.no)] || '';
@@ -918,7 +924,7 @@
             const betKey = col.betKey || col.key.replace(/^bt_/, '');
             const maps = ctx?.btMaps?.[betKey] || {};
             const odd = maps.byNo?.[String(h.no)] || maps.byName?.[normalizeHorseName(h.name)] || '';
-            if (odd) return odd;
+            if (odd && !isPlaceholderBtOdd(odd)) return odd;
             if (state.progBtLoading) return '…';
             return '—';
         }
@@ -1177,30 +1183,23 @@
         renderRaceList(hip);
 
         try {
-            for (let i = 0; i < raceNos.length; i++) {
-                const raceNo = raceNos[i];
-                const controller = new AbortController();
-                const tid = setTimeout(() => controller.abort(), 35000);
-                try {
-                    const res = await fetch(
-                        '/api/public/liderform-gp?iso=' + encodeURIComponent(iso)
-                        + '&hipodrom=' + encodeURIComponent(hip.name)
-                        + '&races=' + encodeURIComponent(String(raceNo))
-                        + (opts.refresh ? '&refresh=1' : ''),
-                        { signal: controller.signal }
-                    );
-                    const data = await res.json();
-                    if (data.success && data.races) {
-                        Object.assign(state.progGpData.races, data.races);
-                        const activeHip = state.hipodromlar.find((h) => h.id === state.activeHipId);
-                        if (activeHip) renderRaceList(activeHip);
-                    }
-                } catch (_) {
-                    /* tek koşu atlanır */
-                } finally {
-                    clearTimeout(tid);
-                }
+            const controller = new AbortController();
+            const tid = setTimeout(() => controller.abort(), 120000);
+            const res = await fetch(
+                '/api/public/liderform-gp?iso=' + encodeURIComponent(iso)
+                + '&hipodrom=' + encodeURIComponent(hip.name)
+                + '&races=' + encodeURIComponent(raceNos.join(','))
+                + (opts.refresh ? '&refresh=1' : ''),
+                { signal: controller.signal }
+            );
+            clearTimeout(tid);
+            const data = await res.json();
+            if (data.success && data.races) {
+                state.progGpData = { success: true, races: data.races, hipodrom: hip.name };
+                state.progGpHipId = hip.id;
             }
+        } catch (_) {
+            /* disk önbellek veya kısmi veri kalır */
         } finally {
             state.progGpLoading = false;
             const activeHip = state.hipodromlar.find((h) => h.id === state.activeHipId);

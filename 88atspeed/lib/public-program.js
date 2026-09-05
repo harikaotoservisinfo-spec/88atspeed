@@ -918,7 +918,7 @@ async function getPublicVitrin(db, tarih, opts = {}) {
             safeParseJson(r.program_json, []),
             r.tahmin_json
         )),
-        tahminler: safeParseJson(r.tahmin_json, null),
+        tahminler: null,
         yayinTarihi: r.yayin_tarihi,
         cekilmeTarihi: r.cekilme_tarihi
     }));

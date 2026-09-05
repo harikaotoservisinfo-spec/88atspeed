@@ -117,6 +117,17 @@ nginx -t && systemctl reload nginx || echo "⚠️  Nginx reload atlandı — ba
 echo "⏰ Yarın programı cron (18:30 TR)..."
 bash "$APP_DIR/deploy/cron-public-program.sh" || echo "⚠️  Cron kurulumu atlandı"
 
+echo "⏰ Liderform GP önbellek cron..."
+bash "$APP_DIR/deploy/cron-liderform-gp.sh" || echo "⚠️  GP cron atlandı"
+
+ISO_TODAY="$(date -u +%Y-%m-%d)"
+echo "📊 Liderform GP önbellek ısıtma ($ISO_TODAY)..."
+nohup node "$APP_DIR/scripts/prefetch-liderform-gp.js" --iso "$ISO_TODAY" \
+  >> "$APP_DIR/data/liderform-gp-prefetch.log" 2>&1 &
+
+echo "⏰ Yarın programı cron (18:30 TR)..."
+bash "$APP_DIR/deploy/cron-public-program.sh" || echo "⚠️  Cron kurulumu atlandı"
+
 echo "🧹 Haftalık disk temizliği cron..."
 bash "$APP_DIR/deploy/cron-disk-cleanup.sh" || echo "⚠️  Disk cron atlandı"
 
