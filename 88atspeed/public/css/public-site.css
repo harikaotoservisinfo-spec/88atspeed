@@ -1716,29 +1716,18 @@ a { color: inherit; text-decoration: none; }
     font-weight: 900;
     line-height: 1;
     cursor: default;
-    -webkit-text-stroke: 0.6px #000;
-    text-stroke: 0.6px #000;
-    paint-order: stroke fill;
-    transform-origin: center;
-    animation: yildiz-yanip 1s ease-in-out infinite;
+    text-shadow: 0 0 1px rgba(0, 0, 0, 0.2);
 }
 
-@keyframes yildiz-yanip {
-    0% {
-        text-shadow: 0 0 1px #000, 0 0 1px rgba(57, 255, 20, 0.15);
-        transform: scale(0.92);
-        filter: brightness(0.85);
-    }
-    50% {
-        text-shadow: 0 0 2px #000, 0 0 10px rgba(57, 255, 20, 1);
-        transform: scale(1.22);
-        filter: brightness(1.45);
-    }
-    100% {
-        text-shadow: 0 0 1px #000, 0 0 1px rgba(57, 255, 20, 0.15);
-        transform: scale(0.92);
-        filter: brightness(0.85);
-    }
+/* Son koşuda sahada ayırt edici (1-2 atta olup diğerlerinde olmayan) yıldız:
+   fosforlu yeşil parıltıyla vurgulanır — siyah kenar/yanıp sönme yok. */
+.pub-prog-yildiz-star.vurgu {
+    font-size: 13px;
+    text-shadow:
+        0 0 2px #39ff14,
+        0 0 5px #39ff14,
+        0 0 9px rgba(57, 255, 20, 0.8);
+    filter: brightness(1.12);
 }
 
 .pub-prog-yildiz-empty {

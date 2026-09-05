@@ -181,8 +181,8 @@ function computeHorseYildizlar(G, rows, colEtiket, maxSira) {
     }
     const list = [...seen.values()]
         .sort((a, b) => (a.sira - b.sira) || String(a.sutun).localeCompare(String(b.sutun)))
-        .map((e) => ({ c: e.renk, t: e.ad + ' · ' + e.sutun + ' · ' + pencereEtiket + ' ' + e.sayi + ' kez' }));
-    if (matched) list.unshift({ c: '#f5a623', t: 'T1×DR = TEST1 eşleşme' });
+        .map((e) => ({ c: e.renk, t: e.ad + ' · ' + e.sutun + ' · ' + pencereEtiket + ' ' + e.sayi + ' kez', ad: e.ad }));
+    if (matched) list.unshift({ c: '#f5a623', t: 'T1×DR = TEST1 eşleşme', ad: 'T1×DR eşleşme' });
     return list;
 }
 
@@ -245,7 +245,31 @@ function analyzeRace(race, meta) {
             son1: computeHorseYildizlar(G, horseRows, colEtiket, 1)
         });
     }
+    markSon1Ayirtedici(yildizlar);
     return { matched, kirmizi, mor, mavi, yesil, yesilSatir, yildizlar };
+}
+
+/**
+ * SON koşu (son1) penceresinde sahada AYIRT EDİCİ yıldızları işaretler:
+ * bir kural (ad) yarışta yalnızca 1 veya 2 atta varsa, o atların ilgili
+ * SON yıldızları vurgulanır (s.v = true). Diğerlerinde olmayan → belirleyici.
+ */
+function markSon1Ayirtedici(yildizlar) {
+    const freq = new Map(); // ad -> kaç atta var
+    for (const [, w] of yildizlar) {
+        const seenAd = new Set();
+        for (const s of w.son1 || []) {
+            if (s.ad && !seenAd.has(s.ad)) {
+                seenAd.add(s.ad);
+                freq.set(s.ad, (freq.get(s.ad) || 0) + 1);
+            }
+        }
+    }
+    for (const [, w] of yildizlar) {
+        for (const s of w.son1 || []) {
+            if (s.ad && freq.get(s.ad) <= 2) s.v = true;
+        }
+    }
 }
 
 function collectMatchingHorseKeys(race, meta) {
@@ -305,7 +329,10 @@ function annotateRaceHorses(race, meta) {
 function raceNeedsAnnotation(race, meta) {
     const horses = race?.horses || [];
     if (!horses.length) return false;
-    if (!meta?.force && horses.every((h) => typeof h.t1drTest1 === 'boolean' && Array.isArray(h.yildizlar) && Array.isArray(h.yildizlarSon2) && Array.isArray(h.yildizlarSon1))) return false;
+    const sekilTamam = (h) => typeof h.t1drTest1 === 'boolean'
+        && Array.isArray(h.yildizlar) && Array.isArray(h.yildizlarSon2) && Array.isArray(h.yildizlarSon1)
+        && (!h.yildizlarSon1.length || 'ad' in h.yildizlarSon1[0]);
+    if (!meta?.force && horses.every(sekilTamam)) return false;
     const veriCache = meta?.veriCache || null;
     return horses.some((h) => horseHasHistory(h, veriCache));
 }

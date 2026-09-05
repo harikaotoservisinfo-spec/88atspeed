@@ -887,9 +887,10 @@
 
     function renderStarRun(list) {
         if (!Array.isArray(list) || !list.length) return '<span class="pub-prog-yildiz-empty">—</span>';
-        return list.map((y) =>
-            '<span class="pub-prog-yildiz-star" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">★</span>'
-        ).join('');
+        return list.map((y) => {
+            const cls = 'pub-prog-yildiz-star' + (y.v ? ' vurgu' : '');
+            return '<span class="' + cls + '" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">★</span>';
+        }).join('');
     }
 
     function formatYildizGrupCell(h) {
