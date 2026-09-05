@@ -893,6 +893,19 @@
         }).join('');
     }
 
+    // Kronolojik SON 7: koşular (k=sira) arası ince ayraç; en eski → en yeni
+    function renderStarRunKron(list) {
+        if (!Array.isArray(list) || !list.length) return '<span class="pub-prog-yildiz-empty">—</span>';
+        let html = '';
+        let prevK = null;
+        list.forEach((y) => {
+            if (prevK !== null && y.k !== prevK) html += '<span class="pub-yildiz-ayrac" title="' + escapeHtml((y.k || '') + '. koşu') + '"></span>';
+            prevK = y.k;
+            html += '<span class="pub-prog-yildiz-star" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">★</span>';
+        });
+        return html;
+    }
+
     function formatIvmeCell(h) {
         const iv = h.yildizIvme;
         if (!iv) return '';
@@ -917,16 +930,17 @@
 
     function formatYildizGrupCell(h) {
         const rows = [
-            { lbl: '7', title: 'Son 7 yarış', list: h.yildizlar, vurgu: null },
+            { lbl: '7', title: 'Son 7 yarış — kronolojik (en eski → en yeni)', list: h.yildizlar, vurgu: null },
             { lbl: '2', title: 'Son 2 yarış', list: h.yildizlarSon2, vurgu: 'vurgu-kirmizi' },
             { lbl: 'S', title: 'Son yarış', list: h.yildizlarSon1, vurgu: 'vurgu' }
         ];
-        const starHtml = rows.map((r) =>
-            '<div class="pub-prog-yildiz-satir">'
-            + '<span class="pub-prog-yildiz-lbl" title="' + escapeHtml(r.title) + '">' + r.lbl + '</span>'
-            + '<span class="pub-prog-yildiz-wrap">' + renderStarRun(r.list, r.vurgu) + '</span>'
-            + '</div>'
-        ).join('');
+        const starHtml = rows.map((r) => {
+            const inner = r.lbl === '7' ? renderStarRunKron(r.list) : renderStarRun(r.list, r.vurgu);
+            return '<div class="pub-prog-yildiz-satir">'
+                + '<span class="pub-prog-yildiz-lbl" title="' + escapeHtml(r.title) + '">' + r.lbl + '</span>'
+                + '<span class="pub-prog-yildiz-wrap">' + inner + '</span>'
+                + '</div>';
+        }).join('');
         return starHtml + formatIvmeCell(h);
     }
 
