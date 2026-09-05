@@ -15,6 +15,7 @@ const hipodromFob = require('./lib/hipodrom-fob');
 const bitalihFob = require('./lib/bitalih-fob');
 const publicSonuclar = require('./lib/public-sonuclar');
 const publicSonucStore = require('./lib/public-sonuc-store');
+const publicRehberLeaderboard = require('./lib/public-rehber-leaderboard');
 const sonucPoller = require('./lib/public-sonuc-poller');
 const programScheduler = require('./lib/public-program-scheduler');
 const tjkTvProxy = require('./lib/tjk-tv-proxy');
@@ -48,7 +49,7 @@ let browser = null;
 // SQLite Veritabanı Bağlantısı
 const db = new sqlite3.Database('atlar.db');
 db.run('PRAGMA journal_mode = WAL');
-db.run('PRAGMA busy_timeout = 5000');
+db.run('PRAGMA busy_timeout = 15000');
 publicProgram.ensureTables(db)
     .then(() => publicProgram.archivePastPublicPrograms(db))
     .then(() => publicProgram.startTjkListWarmer())
@@ -224,7 +225,7 @@ app.get('/api/public/yarin-fetch-status', async (req, res) => {
 app.get('/api/public/program-sync', async (req, res) => {
     try {
         const overview = await publicProgram.getProgramSyncOverview(db, {
-            live: req.query.live !== '0'
+            live: req.query.live === '1'
         });
         res.json({ success: true, ...overview });
     } catch (err) {
@@ -381,6 +382,23 @@ app.get('/api/public/sonuclar/poller-status', (req, res) => {
         intervalSec: 90,
         activeHours: '10:00-23:00 Europe/Istanbul'
     });
+});
+
+app.get('/api/public/rehber-leaderboard', async (req, res) => {
+    try {
+        let iso = req.query.iso;
+        const tarih = req.query.tarih;
+        if (!iso && tarih) iso = publicProgram.trToIso(tarih);
+        const data = await publicRehberLeaderboard.buildRehberLeaderboard(db, {
+            iso,
+            tarih,
+            includeBlt: req.query.blt !== '0'
+        });
+        res.json(data);
+    } catch (err) {
+        console.error('public/rehber-leaderboard:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 app.get('/api/public/muhtemeller', async (req, res) => {
