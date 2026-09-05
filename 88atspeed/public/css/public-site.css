@@ -1730,6 +1730,17 @@ a { color: inherit; text-decoration: none; }
     filter: brightness(1.12);
 }
 
+/* Son 2 yarışta ayırt edici (1-2 atta olup diğerlerinde olmayan) yıldız:
+   yumuşak kırmızı parıltıyla vurgulanır. */
+.pub-prog-yildiz-star.vurgu-kirmizi {
+    font-size: 13px;
+    text-shadow:
+        0 0 2px #ff7b7b,
+        0 0 5px #ff5a5a,
+        0 0 9px rgba(255, 90, 90, 0.75);
+    filter: brightness(1.1);
+}
+
 .pub-prog-yildiz-empty {
     color: #bbb;
     font-size: 11px;

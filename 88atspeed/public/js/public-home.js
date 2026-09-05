@@ -885,24 +885,24 @@
         }];
     }
 
-    function renderStarRun(list) {
+    function renderStarRun(list, vurguCls) {
         if (!Array.isArray(list) || !list.length) return '<span class="pub-prog-yildiz-empty">—</span>';
         return list.map((y) => {
-            const cls = 'pub-prog-yildiz-star' + (y.v ? ' vurgu' : '');
+            const cls = 'pub-prog-yildiz-star' + (y.v && vurguCls ? ' ' + vurguCls : '');
             return '<span class="' + cls + '" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">★</span>';
         }).join('');
     }
 
     function formatYildizGrupCell(h) {
         const rows = [
-            { lbl: '7', title: 'Son 7 yarış', list: h.yildizlar },
-            { lbl: '2', title: 'Son 2 yarış', list: h.yildizlarSon2 },
-            { lbl: 'S', title: 'Son yarış', list: h.yildizlarSon1 }
+            { lbl: '7', title: 'Son 7 yarış', list: h.yildizlar, vurgu: null },
+            { lbl: '2', title: 'Son 2 yarış', list: h.yildizlarSon2, vurgu: 'vurgu-kirmizi' },
+            { lbl: 'S', title: 'Son yarış', list: h.yildizlarSon1, vurgu: 'vurgu' }
         ];
         return rows.map((r) =>
             '<div class="pub-prog-yildiz-satir">'
             + '<span class="pub-prog-yildiz-lbl" title="' + escapeHtml(r.title) + '">' + r.lbl + '</span>'
-            + '<span class="pub-prog-yildiz-wrap">' + renderStarRun(r.list) + '</span>'
+            + '<span class="pub-prog-yildiz-wrap">' + renderStarRun(r.list, r.vurgu) + '</span>'
             + '</div>'
         ).join('');
     }

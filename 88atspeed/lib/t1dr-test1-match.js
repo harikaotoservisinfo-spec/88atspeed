@@ -3,6 +3,9 @@
  */
 const { loadGostergeEngines } = require('../scripts/ptest-terminal-lib');
 
+// Yıldız veri şeması sürümü — değiştikçe artır ki eski kayıtlar yeniden hesaplansın.
+const YILDIZ_SURUM = 3;
+
 let enginesReady = false;
 
 function ensureGosterimEngine() {
@@ -245,20 +248,21 @@ function analyzeRace(race, meta) {
             son1: computeHorseYildizlar(G, horseRows, colEtiket, 1)
         });
     }
-    markSon1Ayirtedici(yildizlar);
+    markAyirtedici(yildizlar, 'son1');
+    markAyirtedici(yildizlar, 'son2');
     return { matched, kirmizi, mor, mavi, yesil, yesilSatir, yildizlar };
 }
 
 /**
- * SON koşu (son1) penceresinde sahada AYIRT EDİCİ yıldızları işaretler:
+ * Verilen pencerede (son1 / son2) sahada AYIRT EDİCİ yıldızları işaretler:
  * bir kural (ad) yarışta yalnızca 1 veya 2 atta varsa, o atların ilgili
- * SON yıldızları vurgulanır (s.v = true). Diğerlerinde olmayan → belirleyici.
+ * yıldızları vurgulanır (s.v = true). Diğerlerinde olmayan → belirleyici.
  */
-function markSon1Ayirtedici(yildizlar) {
+function markAyirtedici(yildizlar, win) {
     const freq = new Map(); // ad -> kaç atta var
     for (const [, w] of yildizlar) {
         const seenAd = new Set();
-        for (const s of w.son1 || []) {
+        for (const s of w[win] || []) {
             if (s.ad && !seenAd.has(s.ad)) {
                 seenAd.add(s.ad);
                 freq.set(s.ad, (freq.get(s.ad) || 0) + 1);
@@ -266,7 +270,7 @@ function markSon1Ayirtedici(yildizlar) {
         }
     }
     for (const [, w] of yildizlar) {
-        for (const s of w.son1 || []) {
+        for (const s of w[win] || []) {
             if (s.ad && freq.get(s.ad) <= 2) s.v = true;
         }
     }
@@ -320,7 +324,8 @@ function annotateRaceHorses(race, meta) {
             satirTamYesil: !!yesilSatirFlag,
             yildizlar: yildizSet.son7 || [],
             yildizlarSon2: yildizSet.son2 || [],
-            yildizlarSon1: yildizSet.son1 || []
+            yildizlarSon1: yildizSet.son1 || [],
+            _yv: YILDIZ_SURUM
         });
     });
     return Object.assign({}, race, { horses });
@@ -329,9 +334,8 @@ function annotateRaceHorses(race, meta) {
 function raceNeedsAnnotation(race, meta) {
     const horses = race?.horses || [];
     if (!horses.length) return false;
-    const sekilTamam = (h) => typeof h.t1drTest1 === 'boolean'
-        && Array.isArray(h.yildizlar) && Array.isArray(h.yildizlarSon2) && Array.isArray(h.yildizlarSon1)
-        && (!h.yildizlarSon1.length || 'ad' in h.yildizlarSon1[0]);
+    const sekilTamam = (h) => h._yv === YILDIZ_SURUM
+        && Array.isArray(h.yildizlar) && Array.isArray(h.yildizlarSon2) && Array.isArray(h.yildizlarSon1);
     if (!meta?.force && horses.every(sekilTamam)) return false;
     const veriCache = meta?.veriCache || null;
     return horses.some((h) => horseHasHistory(h, veriCache));
