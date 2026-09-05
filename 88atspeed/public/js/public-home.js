@@ -939,9 +939,15 @@
 
     function formatHorseNameCell(h) {
         const name = escapeHtml(h.name || '—');
-        if (!h.t1drTest1) return name;
-        return '<span class="pub-prog-t1dr-star" title="T1×DR=TEST1 — geçmiş koşuda eşleşme var">★</span> '
-            + '<span class="pub-prog-at-name">' + name + '</span>';
+        let stars = '';
+        if (h.t1drTest1) {
+            stars += '<span class="pub-prog-t1dr-star" title="T1×DR=TEST1 — geçmiş koşuda eşleşme var">★</span>';
+        }
+        if (h.test123Kirmizi) {
+            stars += '<span class="pub-prog-t123-star" title="TEST1·TEST2·TEST3 kırmızı">★</span>';
+        }
+        if (!stars) return name;
+        return stars + ' <span class="pub-prog-at-name">' + name + '</span>';
     }
 
     function normalizeHorseName(s) {

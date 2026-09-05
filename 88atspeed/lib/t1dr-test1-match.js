@@ -51,10 +51,31 @@ function t1drEqualsTest1(t1dr, test1) {
     return false;
 }
 
-function collectMatchingHorseKeys(race, meta) {
+function isKirmiziYazi(cls) {
+    return !!(cls && /\bkirmizi-yazi\b/.test(cls));
+}
+
+/** SIRA=1 (en yeni koşu) satırında TEST1 + TEST2 + TEST3 üçünün de kırmızı-yazı olması */
+function rowTest123Kirmizi(G, row) {
+    const COL = G.COL;
+    const cols = [COL.TEST1, COL.TEST2, COL.TEST3];
+    for (let i = 0; i < cols.length; i++) {
+        if (!isKirmiziYazi(G.getCellClass(cols[i], row.classes))) return false;
+    }
+    return true;
+}
+
+/**
+ * Bir koşuyu tek geçişte analiz eder:
+ *  - matched: T1×DR = TEST1 eşleşmesi olan atlar (sarı yıldız)
+ *  - kirmizi: en yeni koşu satırında TEST1/TEST2/TEST3 üçü de kırmızı olan atlar (kırmızı yıldız)
+ */
+function analyzeRace(race, meta) {
     ensureGosterimEngine();
     const G = global.GosterimEngine;
-    if (!G) return new Set();
+    const matched = new Set();
+    const kirmizi = new Set();
+    if (!G) return { matched, kirmizi };
 
     const veriCache = meta?.veriCache || null;
     const horses = (race.horses || []).map((h) => Object.assign({}, h, {
@@ -67,18 +88,22 @@ function collectMatchingHorseKeys(race, meta) {
         raceIndex: 0
     });
     const COL = G.COL;
-    const matched = new Set();
 
     for (const row of rows || []) {
-        const t1dr = row.values[COL.TEST1_ENTEGRE];
-        const test1 = row.values[COL.TEST1];
-        if (!t1drEqualsTest1(t1dr, test1)) continue;
         const hi = row.meta?.horseIndex;
         const horse = hi != null ? calcRace.horses[hi] : null;
         const key = horse ? horseKey(horse) : null;
-        if (key) matched.add(key);
+        if (!key) continue;
+        const t1dr = row.values[COL.TEST1_ENTEGRE];
+        const test1 = row.values[COL.TEST1];
+        if (t1drEqualsTest1(t1dr, test1)) matched.add(key);
+        if (row.values[0] === '1' && rowTest123Kirmizi(G, row)) kirmizi.add(key);
     }
-    return matched;
+    return { matched, kirmizi };
+}
+
+function collectMatchingHorseKeys(race, meta) {
+    return analyzeRace(race, meta).matched;
 }
 
 function annotateRaceHorses(race, meta) {
@@ -88,8 +113,11 @@ function annotateRaceHorses(race, meta) {
     if (!hasHistory) return race;
 
     let matched;
+    let kirmizi;
     try {
-        matched = collectMatchingHorseKeys(race, meta);
+        const analysis = analyzeRace(race, meta);
+        matched = analysis.matched;
+        kirmizi = analysis.kirmizi;
     } catch (_) {
         return race;
     }
@@ -97,8 +125,9 @@ function annotateRaceHorses(race, meta) {
     const horses = race.horses.map((h) => {
         const key = horseKey(h);
         const flag = key && matched.has(key);
-        if (!flag && !h.t1drTest1) return h;
-        return Object.assign({}, h, { t1drTest1: !!flag });
+        const kirmiziFlag = key && kirmizi.has(key);
+        if (!flag && !kirmiziFlag && !h.t1drTest1 && !h.test123Kirmizi) return h;
+        return Object.assign({}, h, { t1drTest1: !!flag, test123Kirmizi: !!kirmiziFlag });
     });
     return Object.assign({}, race, { horses });
 }
@@ -106,7 +135,7 @@ function annotateRaceHorses(race, meta) {
 function raceNeedsAnnotation(race, meta) {
     const horses = race?.horses || [];
     if (!horses.length) return false;
-    if (!meta?.force && horses.every((h) => typeof h.t1drTest1 === 'boolean')) return false;
+    if (!meta?.force && horses.every((h) => typeof h.t1drTest1 === 'boolean' && typeof h.test123Kirmizi === 'boolean')) return false;
     const veriCache = meta?.veriCache || null;
     return horses.some((h) => horseHasHistory(h, veriCache));
 }
@@ -123,6 +152,7 @@ module.exports = {
     resolveHorseKosular,
     horseKey,
     t1drEqualsTest1,
+    analyzeRace,
     collectMatchingHorseKeys,
     annotateRaceHorses,
     annotateKosular
