@@ -86,8 +86,18 @@ function annotateRaceHorses(race, meta) {
     return Object.assign({}, race, { horses });
 }
 
+function raceNeedsAnnotation(race) {
+    const horses = race?.horses || [];
+    if (!horses.length) return false;
+    if (horses.every((h) => typeof h.t1drTest1 === 'boolean')) return false;
+    return horses.some((h) => (h.kosular || []).length > 0);
+}
+
 function annotateKosular(kosular, meta) {
-    return (kosular || []).map((race) => annotateRaceHorses(race, meta));
+    return (kosular || []).map((race) => {
+        if (!raceNeedsAnnotation(race)) return race;
+        return annotateRaceHorses(race, meta);
+    });
 }
 
 module.exports = {
