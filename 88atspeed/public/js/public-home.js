@@ -865,9 +865,140 @@
         else filtered.push(bltCol, gp2Col);
         filtered.push(...getBitalihColumnDefs());
         filtered.push(...getTahminScoreColumnDefs(kosular));
+        filtered.push(...getYildizColumnDef(kosular));
         const fobCols = getFobColumnDefs();
         if (fobCols.length) filtered.push(...fobCols);
         return filtered;
+    }
+
+    function getYildizColumnDef(kosular) {
+        const races = Array.isArray(kosular) ? kosular : (kosular?.kosular || []);
+        const horses = races.flatMap((r) => r.horses || []);
+        const hasStars = horses.some((h) => Array.isArray(h.yildizlar) && h.yildizlar.length);
+        if (!hasStars) return [];
+        return [{
+            key: 'yildizGrup',
+            label: 'GÖSTERGE',
+            cls: 'pub-prog-yildizgrup',
+            colCls: 'pub-col-yildizgrup',
+            title: 'Son 7 / Son 2 / Son yarış renk kuralları (üstten alta)'
+        }];
+    }
+
+    function renderStarRun(list, vurguCls) {
+        if (!Array.isArray(list) || !list.length) return '<span class="pub-prog-yildiz-empty">—</span>';
+        return list.map((y) => {
+            const cls = 'pub-prog-yildiz-star' + (y.v && vurguCls ? ' ' + vurguCls : '');
+            return '<span class="' + cls + '" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">★</span>';
+        }).join('');
+    }
+
+    // Kronolojik SON 7: koşular (k=sira) arası ince ayraç; en eski → en yeni
+    function renderStarRunKron(list) {
+        if (!Array.isArray(list) || !list.length) return '<span class="pub-prog-yildiz-empty">—</span>';
+        let html = '';
+        let prevK = null;
+        list.forEach((y) => {
+            if (prevK !== null && y.k !== prevK) html += '<span class="pub-yildiz-ayrac" title="' + escapeHtml((y.k || '') + '. koşu') + '"></span>';
+            prevK = y.k;
+            html += '<span class="pub-prog-yildiz-star" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">★</span>';
+        });
+        return html;
+    }
+
+    function formatIvmeCell(h) {
+        const iv = h.yildizIvme;
+        if (!iv) return '';
+        const d = Array.isArray(iv.d) ? iv.d : [null, null, null];
+        const chip = (label, v, yeni) => {
+            let txt;
+            let cls;
+            if (yeni) { txt = '↑yeni'; cls = 'pos'; }
+            else if (v == null) { txt = '—'; cls = 'nil'; }
+            else { txt = (v >= 0 ? '+' : '') + v + '%'; cls = v > 0 ? 'pos' : (v < 0 ? 'neg' : 'nil'); }
+            return '<span class="pub-ivme-chip ' + cls + '"><b>' + label + '</b>&nbsp;' + txt + '</span>';
+        };
+        const dens = (x) => (x == null ? '—' : x);
+        const tip = 'Ayrık pencere yıldız yoğunluğu (yıldız/koşu)\n'
+            + 'taban 3-7: ' + dens(d[0]) + ' · 2. koşu: ' + dens(d[1]) + ' · son koşu: ' + dens(d[2]);
+        return '<div class="pub-prog-ivme" title="' + escapeHtml(tip) + '">'
+            + '<span class="pub-ivme-lbl">İVME</span>'
+            + chip('3-7→2', iv.t2, iv.t2y)
+            + chip('2→1', iv.t1, iv.t1y)
+            + '</div>';
+    }
+
+    function ivmeArrow(v, yeni) {
+        if (yeni) return '<span class="pub-yk-arrow pos">↑yeni</span>';
+        if (v == null) return '<span class="pub-yk-arrow nil">—</span>';
+        const dir = v > 0 ? '↗' : (v < 0 ? '↘' : '→');
+        const cls = v > 0 ? 'pos' : (v < 0 ? 'neg' : 'nil');
+        return '<span class="pub-yk-arrow ' + cls + '">' + dir + (v >= 0 ? '+' : '') + v + '%</span>';
+    }
+
+    // "7" satırı: her yarış ayrı sütun (yıldızlar üstte, koşu-başı sayı altta),
+    // yarışlar 7→1 kronolojik; taban(3-7)→2 ve 2→1 geçişlerinde ivme okları.
+    function formatKronGrid(h) {
+        const list = Array.isArray(h.yildizlar) ? h.yildizlar : [];
+        if (!list.length) return '<span class="pub-prog-yildiz-empty">—</span>';
+        const iv = h.yildizIvme || {};
+        const byK = new Map();
+        list.forEach((y) => {
+            const k = y.k;
+            if (!byK.has(k)) byK.set(k, []);
+            byK.get(k).push(y);
+        });
+        const sep = (arrowHtml) => '<div class="pub-yk-sep"><span class="pub-yk-line"></span>' + arrowHtml + '</div>';
+        let html = '<div class="pub-yk-grid">';
+        let prevGroup = null;
+        for (let k = 7; k >= 1; k--) {
+            const arr = byK.get(k);
+            if (!arr) continue;
+            const group = k >= 3 ? 'taban' : (k === 2 ? 'orta' : 'guncel');
+            if (prevGroup === 'taban' && group === 'orta') html += sep(ivmeArrow(iv.t2, iv.t2y));
+            if ((prevGroup === 'taban' || prevGroup === 'orta') && group === 'guncel') html += sep(ivmeArrow(iv.t1, iv.t1y));
+            const stars = arr.map((y) =>
+                '<span class="pub-prog-yildiz-star" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">★</span>'
+            ).join('');
+            html += '<div class="pub-yk-col" title="' + k + '. koşu">'
+                + '<span class="pub-yk-stars">' + stars + '</span>'
+                + '<span class="pub-yk-n">' + arr.length + '</span>'
+                + '<span class="pub-yk-k">' + k + '</span>'
+                + '</div>';
+            prevGroup = group;
+        }
+        html += '</div>';
+        return html;
+    }
+
+    function formatYildizGrupCell(h) {
+        const rows = [
+            { lbl: '2', title: 'Son 2 yarış', list: h.yildizlarSon2, vurgu: 'vurgu-kirmizi' },
+            { lbl: 'S', title: 'Son yarış', list: h.yildizlarSon1, vurgu: 'vurgu' }
+        ];
+        const kron = '<div class="pub-prog-yildiz-satir kron">'
+            + '<span class="pub-prog-yildiz-lbl" title="' + escapeHtml('Son 7 yarış — kronolojik (en eski → en yeni), koşu-başı yıldız + ivme') + '">7</span>'
+            + '<span class="pub-prog-yildiz-wrap">' + formatKronGrid(h) + '</span>'
+            + '</div>';
+        const aggHtml = rows.map((r) =>
+            '<div class="pub-prog-yildiz-satir">'
+            + '<span class="pub-prog-yildiz-lbl" title="' + escapeHtml(r.title) + '">' + r.lbl + '</span>'
+            + '<span class="pub-prog-yildiz-wrap">' + renderStarRun(r.list, r.vurgu) + '</span>'
+            + '</div>'
+        ).join('');
+        return kron + aggHtml;
+    }
+
+    function computeYildizGrupWidth(kosular) {
+        let maxTotal = 0;
+        for (const race of kosular || []) {
+            for (const h of race.horses || []) {
+                const n = Array.isArray(h.yildizlar) ? h.yildizlar.length : 0;
+                if (n > maxTotal) maxTotal = n;
+            }
+        }
+        // tek satır yıldızlar yan yana + sütun boşlukları + ayraç/ok + etiket
+        return Math.min(2000, Math.max(620, maxTotal * 11 + 190));
     }
 
     function computeTakiColWidth(kosular) {
@@ -878,7 +1009,7 @@
                 if (len > maxChars) maxChars = len;
             }
         }
-        return Math.min(128, Math.max(56, maxChars * 7 + 18));
+        return Math.min(100, Math.max(44, maxChars * 6 + 12));
     }
 
     function renderProgramColgroup(cols, colWidths) {
@@ -932,16 +1063,15 @@
             const t = h.scores?.[col.scoreKey];
             return formatScoreCell(t);
         }
+        if (col.key === 'yildizGrup') return formatYildizGrupCell(h);
         if (col.key === 'name') return formatHorseNameCell(h);
         const v = String(h[col.key] || '').trim();
         return v || '—';
     }
 
     function formatHorseNameCell(h) {
-        const name = escapeHtml(h.name || '—');
-        if (!h.t1drTest1) return name;
-        return '<span class="pub-prog-t1dr-star" title="T1×DR=TEST1 — geçmiş koşuda eşleşme var">★</span> '
-            + '<span class="pub-prog-at-name">' + name + '</span>';
+        // Yıldızlar artık GÖSTERGE sütununda gösteriliyor; isim hücresi sade kalır.
+        return escapeHtml(h.name || '—');
     }
 
     function normalizeHorseName(s) {
@@ -1641,29 +1771,30 @@
         const cols = getProgramColumns(kosular);
         const colWidths = {
             taki: computeTakiColWidth(kosular),
-            blt: 40,
-            gp2: 40,
-            bt_ganyan: 52,
-            bt_ilk2: 48,
-            bt_ilk3: 48,
-            bt_ilk4: 48,
-            score_tahmin: 58,
-            score_r2: 52,
-            score_mtr: 52,
-            score_t9v: 52,
-            score_asf: 52,
-            score_g1side: 52,
-            score_g1pair: 52,
-            score_go: 52,
-            score_hyb: 52,
-            fob_ganyan: 52,
-            fob_ilk2: 48,
-            fob_ilk3: 48
+            blt: 30,
+            gp2: 30,
+            bt_ganyan: 44,
+            bt_ilk2: 40,
+            bt_ilk3: 40,
+            bt_ilk4: 40,
+            score_tahmin: 46,
+            score_r2: 40,
+            score_mtr: 40,
+            score_t9v: 40,
+            score_asf: 40,
+            score_g1side: 40,
+            score_g1pair: 40,
+            score_go: 40,
+            score_hyb: 40,
+            yildizGrup: computeYildizGrupWidth(kosular),
+            fob_ganyan: 44,
+            fob_ilk2: 40,
+            fob_ilk3: 40
         };
         cols.forEach((c) => {
-            if (c.key && c.key.startsWith('fob_') && !colWidths[c.key]) colWidths[c.key] = 52;
-            if (c.key && c.key.startsWith('bt_') && !colWidths[c.key]) colWidths[c.key] = 48;
-            if (c.key && c.key.startsWith('score_') && !colWidths[c.key]) colWidths[c.key] = 52;
+            if (c.key && c.key.startsWith('fob_') && !colWidths[c.key]) colWidths[c.key] = 42;
+            if (c.key && c.key.startsWith('bt_') && !colWidths[c.key]) colWidths[c.key] = 40;
+            if (c.key && c.key.startsWith('score_') && !colWidths[c.key]) colWidths[c.key] = 40;
         });
         const colgroup = renderProgramColgroup(cols, colWidths);
 
@@ -1703,6 +1834,7 @@
                             let cls = c.cls;
                             const val = programHorseCell(h, c, ctx);
                             const isNameCol = c.key === 'name';
+                            const isRawCol = isNameCol || c.key === 'yildizGrup';
                             if (c.key === 'ganyan') {
                                 if (!ganyanMap[String(h.no)]) cls += ' pub-prog-ganyan-empty';
                                 else if (leaderNo && String(h.no) === leaderNo) cls += ' pub-prog-ganyan-leader';
@@ -1739,7 +1871,7 @@
                                 else if (t.rank === 1) cls += ' pub-prog-score-leader';
                                 if (c.scoreKey === 'tahmin' && t?.rank === 1) cls += ' pub-prog-score-tahmin-top';
                             }
-                            return '<td class="' + cls + '">' + (isNameCol ? val : escapeHtml(val)) + '</td>';
+                            return '<td class="' + cls + '">' + (isRawCol ? val : escapeHtml(val)) + '</td>';
                         }).join('')
                         + '<td class="pub-col-spacer-cell" aria-hidden="true"></td>'
                         + '</tr>';
