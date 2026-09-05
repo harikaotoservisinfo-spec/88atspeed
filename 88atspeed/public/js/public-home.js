@@ -876,17 +876,33 @@
         const horses = races.flatMap((r) => r.horses || []);
         const hasStars = horses.some((h) => Array.isArray(h.yildizlar) && h.yildizlar.length);
         if (!hasStars) return [];
-        return [{
-            key: 'yildizlar',
-            label: 'GÖSTERGE',
-            cls: 'pub-prog-yildiz',
-            colCls: 'pub-col-yildiz',
-            title: 'Son 7 yarışta uygulanan renk kuralları (her kural/sütun ayrı yıldız)'
-        }];
+        return [
+            {
+                key: 'yildizlar',
+                label: 'SON 7',
+                cls: 'pub-prog-yildiz',
+                colCls: 'pub-col-yildiz',
+                title: 'Son 7 yarışta uygulanan renk kuralları (her kural/sütun ayrı yıldız)'
+            },
+            {
+                key: 'yildizlarSon2',
+                label: 'SON 2',
+                cls: 'pub-prog-yildiz pub-prog-yildiz-son2',
+                colCls: 'pub-col-yildiz-son2',
+                title: 'Son 2 yarışta uygulanan renk kuralları'
+            },
+            {
+                key: 'yildizlarSon1',
+                label: 'SON',
+                cls: 'pub-prog-yildiz pub-prog-yildiz-son1',
+                colCls: 'pub-col-yildiz-son1',
+                title: 'Son yarışta (en yeni koşu) uygulanan renk kuralları'
+            }
+        ];
     }
 
-    function formatYildizCell(h) {
-        const list = Array.isArray(h.yildizlar) ? h.yildizlar : [];
+    function formatYildizCell(h, field) {
+        const list = Array.isArray(h[field]) ? h[field] : [];
         if (!list.length) return '<span class="pub-prog-yildiz-empty">—</span>';
         return list.map((y) =>
             '<span class="pub-prog-yildiz-star" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">★</span>'
@@ -955,7 +971,7 @@
             const t = h.scores?.[col.scoreKey];
             return formatScoreCell(t);
         }
-        if (col.key === 'yildizlar') return formatYildizCell(h);
+        if (col.key === 'yildizlar' || col.key === 'yildizlarSon2' || col.key === 'yildizlarSon1') return formatYildizCell(h, col.key);
         if (col.key === 'name') return formatHorseNameCell(h);
         const v = String(h[col.key] || '').trim();
         return v || '—';
@@ -1679,6 +1695,8 @@
             score_go: 52,
             score_hyb: 52,
             yildizlar: 200,
+            yildizlarSon2: 90,
+            yildizlarSon1: 70,
             fob_ganyan: 52,
             fob_ilk2: 48,
             fob_ilk3: 48
@@ -1726,7 +1744,7 @@
                             let cls = c.cls;
                             const val = programHorseCell(h, c, ctx);
                             const isNameCol = c.key === 'name';
-                            const isRawCol = isNameCol || c.key === 'yildizlar';
+                            const isRawCol = isNameCol || c.key === 'yildizlar' || c.key === 'yildizlarSon2' || c.key === 'yildizlarSon1';
                             if (c.key === 'ganyan') {
                                 if (!ganyanMap[String(h.no)]) cls += ' pub-prog-ganyan-empty';
                                 else if (leaderNo && String(h.no) === leaderNo) cls += ' pub-prog-ganyan-leader';

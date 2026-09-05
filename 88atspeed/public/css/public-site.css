@@ -1660,10 +1660,18 @@ a { color: inherit; text-decoration: none; }
 }
 
 .pub-col-yildiz { width: 200px; min-width: 120px; }
+.pub-col-yildiz-son2 { width: 90px; min-width: 64px; }
+.pub-col-yildiz-son1 { width: 70px; min-width: 48px; }
 
-.pub-program-table th.pub-col-yildiz {
+.pub-program-table th.pub-col-yildiz,
+.pub-program-table th.pub-col-yildiz-son2,
+.pub-program-table th.pub-col-yildiz-son1 {
     background: #ede7f6;
     color: #4527a0;
+}
+
+.pub-program-table th.pub-col-yildiz-son1 {
+    background: #d1c4e9;
 }
 
 .pub-prog-yildiz {

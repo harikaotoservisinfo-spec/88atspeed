@@ -139,13 +139,18 @@ function buildColEtiket(G) {
 }
 
 /**
- * Bir atın SIRA 1-7 satırlarından, kural×sütun bazında yıldız listesi üretir.
+ * Bir atın SIRA 1..maxSira satırlarından, kural×sütun bazında yıldız listesi üretir.
  * Aynı kural farklı sütunlarda ateşlenirse ayrı yıldız olur (kullanıcı isteği).
+ * T1×DR=TEST1 eşleşmesi bu pencerede varsa başa altın yıldız eklenir.
  * Dönüş: [{ c: renk, t: başlık }] — katalog sırasına göre.
  */
-function computeHorseYildizlar(G, rows, colEtiket) {
+function computeHorseYildizlar(G, rows, colEtiket, maxSira) {
+    const limit = maxSira || 7;
+    const pencereEtiket = 'son ' + limit + '\'de';
     const maxCol = Math.max(...Object.values(G.COL));
+    const COL = G.COL;
     const seen = new Map(); // token|sutun -> {renk, ad, sutun, sayi, sira}
+    let matched = false;
     const bump = (rule, sutun) => {
         const key = rule.token + '|' + sutun;
         let e = seen.get(key);
@@ -157,7 +162,8 @@ function computeHorseYildizlar(G, rows, colEtiket) {
     };
     for (const row of rows) {
         const sira = parseInt(row.values[0], 10);
-        if (isNaN(sira) || sira < 1 || sira > 7) continue;
+        if (isNaN(sira) || sira < 1 || sira > limit) continue;
+        if (t1drEqualsTest1(row.values[COL.TEST1_ENTEGRE], row.values[COL.TEST1])) matched = true;
         const sc = row.classes?.satirClass || '';
         if (sc) {
             for (const rule of YILDIZ_SATIR_KURALLARI) {
@@ -173,9 +179,11 @@ function computeHorseYildizlar(G, rows, colEtiket) {
             }
         }
     }
-    return [...seen.values()]
+    const list = [...seen.values()]
         .sort((a, b) => (a.sira - b.sira) || String(a.sutun).localeCompare(String(b.sutun)))
-        .map((e) => ({ c: e.renk, t: e.ad + ' · ' + e.sutun + ' · son 7\'de ' + e.sayi + ' kez' }));
+        .map((e) => ({ c: e.renk, t: e.ad + ' · ' + e.sutun + ' · ' + pencereEtiket + ' ' + e.sayi + ' kez' }));
+    if (matched) list.unshift({ c: '#f5a623', t: 'T1×DR = TEST1 eşleşme' });
+    return list;
 }
 
 /**
@@ -231,11 +239,11 @@ function analyzeRace(race, meta) {
     }
 
     for (const [key, horseRows] of rowsByKey) {
-        const list = computeHorseYildizlar(G, horseRows, colEtiket);
-        if (matched.has(key)) {
-            list.unshift({ c: '#f5a623', t: 'T1×DR = TEST1 eşleşme' });
-        }
-        yildizlar.set(key, list);
+        yildizlar.set(key, {
+            son7: computeHorseYildizlar(G, horseRows, colEtiket, 7),
+            son2: computeHorseYildizlar(G, horseRows, colEtiket, 2),
+            son1: computeHorseYildizlar(G, horseRows, colEtiket, 1)
+        });
     }
     return { matched, kirmizi, mor, mavi, yesil, yesilSatir, yildizlar };
 }
@@ -278,7 +286,7 @@ function annotateRaceHorses(race, meta) {
         const maviFlag = key && mavi.has(key);
         const yesilFlag = key && yesil.has(key);
         const yesilSatirFlag = key && yesilSatir.has(key);
-        const yildizList = (key && yildizlar.get(key)) || [];
+        const yildizSet = (key && yildizlar.get(key)) || {};
         return Object.assign({}, h, {
             t1drTest1: !!flag,
             test123Kirmizi: !!kirmiziFlag,
@@ -286,7 +294,9 @@ function annotateRaceHorses(race, meta) {
             fark8002Yanip: !!maviFlag,
             test1Yesil: !!yesilFlag,
             satirTamYesil: !!yesilSatirFlag,
-            yildizlar: yildizList
+            yildizlar: yildizSet.son7 || [],
+            yildizlarSon2: yildizSet.son2 || [],
+            yildizlarSon1: yildizSet.son1 || []
         });
     });
     return Object.assign({}, race, { horses });
@@ -295,7 +305,7 @@ function annotateRaceHorses(race, meta) {
 function raceNeedsAnnotation(race, meta) {
     const horses = race?.horses || [];
     if (!horses.length) return false;
-    if (!meta?.force && horses.every((h) => typeof h.t1drTest1 === 'boolean' && Array.isArray(h.yildizlar))) return false;
+    if (!meta?.force && horses.every((h) => typeof h.t1drTest1 === 'boolean' && Array.isArray(h.yildizlar) && Array.isArray(h.yildizlarSon2) && Array.isArray(h.yildizlarSon1))) return false;
     const veriCache = meta?.veriCache || null;
     return horses.some((h) => horseHasHistory(h, veriCache));
 }
