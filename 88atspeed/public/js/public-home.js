@@ -955,6 +955,9 @@
         if (h.test1Yesil) {
             stars += '<span class="pub-prog-t1yesil-star" title="Son 7 yarışta TEST1 hücresi yeşil">★</span>';
         }
+        if (h.satirTamYesil) {
+            stars += '<span class="pub-prog-satiryesil-star" title="Son 7 yarışta satır tam yeşil (TEST4=TEST6)">★</span>';
+        }
         if (!stars) return name;
         return stars + ' <span class="pub-prog-at-name">' + name + '</span>';
     }
