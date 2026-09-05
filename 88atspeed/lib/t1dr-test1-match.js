@@ -4,7 +4,7 @@
 const { loadGostergeEngines } = require('../scripts/ptest-terminal-lib');
 
 // Yıldız veri şeması sürümü — değiştikçe artır ki eski kayıtlar yeniden hesaplansın.
-const YILDIZ_SURUM = 3;
+const YILDIZ_SURUM = 4;
 
 let enginesReady = false;
 
@@ -106,7 +106,7 @@ const YILDIZ_KURALLARI = [
     { token: 'eslesme-yesil',              renk: '#2e7d32', ad: 'Yeşil eşleşme' },
     { token: 'guclu-sehir-eslesme',        renk: '#1b5e20', ad: 'Güçlü şehir eşleşme' },
     { token: 'fosfor-yesil-hucre',         renk: '#43a047', ad: 'Yeşil (TEST4=TEST6)' },
-    { token: 'fosfor-yesil-satir',         renk: '#00bfa5', ad: 'Satır tam yeşil', satir: true },
+    { token: 'fosfor-yesil-satir',         renk: '#111111', ad: 'Satır tam sarı', satir: true },
     { token: 'fosfor-yesil-koyu-yazi',     renk: '#1b5e20', ad: 'Koyu yeşil (en negatif)' },
     { token: 'yesil-yazi',                 renk: '#66bb6a', ad: 'Yeşil yazı (TEST5)' },
     { token: 'fosfor-sari-yazi',           renk: '#f9a825', ad: 'Sarı (TEST1-2 yakın)' },

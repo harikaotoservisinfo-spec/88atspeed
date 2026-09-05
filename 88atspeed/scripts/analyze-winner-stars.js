@@ -30,7 +30,7 @@ const KURALLAR = [
     { token: 'eslesme-yesil',              ad: 'Yeşil eşleşme' },
     { token: 'guclu-sehir-eslesme',        ad: 'Güçlü şehir eşleşme' },
     { token: 'fosfor-yesil-hucre',         ad: 'Yeşil (TEST4=TEST6)' },
-    { token: 'fosfor-yesil-satir',         ad: 'Satır tam yeşil', satir: true },
+    { token: 'fosfor-yesil-satir',         ad: 'Satır tam sarı', satir: true },
     { token: 'fosfor-yesil-koyu-yazi',     ad: 'Koyu yeşil (en negatif)' },
     { token: 'yesil-yazi',                 ad: 'Yeşil yazı (TEST5)' },
     { token: 'fosfor-sari-yazi',           ad: 'Sarı (TEST1-2 yakın)' },
