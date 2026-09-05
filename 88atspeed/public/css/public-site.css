@@ -1687,11 +1687,11 @@ a { color: inherit; text-decoration: none; }
 }
 .pub-yk-stars {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: center;
     gap: 0 1px;
-    max-width: 54px;
-    flex: 1 1 auto;
+    white-space: nowrap;
+    flex: 0 0 auto;
 }
 .pub-yk-n {
     font-size: 10px;
@@ -1762,7 +1762,7 @@ a { color: inherit; text-decoration: none; }
 .pub-ivme-chip.neg { background: #fdecec; color: #c62828; }
 .pub-ivme-chip.nil { background: #f0f0f0; color: #999; }
 
-.pub-col-yildizgrup { width: 620px; min-width: 420px; }
+.pub-col-yildizgrup { min-width: 420px; }
 
 .pub-program-table th.pub-col-yildizgrup {
     background: #ede7f6;

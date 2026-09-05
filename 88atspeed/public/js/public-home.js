@@ -989,6 +989,18 @@
         return kron + aggHtml;
     }
 
+    function computeYildizGrupWidth(kosular) {
+        let maxTotal = 0;
+        for (const race of kosular || []) {
+            for (const h of race.horses || []) {
+                const n = Array.isArray(h.yildizlar) ? h.yildizlar.length : 0;
+                if (n > maxTotal) maxTotal = n;
+            }
+        }
+        // tek satır yıldızlar yan yana + sütun boşlukları + ayraç/ok + etiket
+        return Math.min(2000, Math.max(620, maxTotal * 11 + 190));
+    }
+
     function computeTakiColWidth(kosular) {
         let maxChars = 4;
         for (const race of kosular || []) {
@@ -1774,7 +1786,7 @@
             score_g1pair: 40,
             score_go: 40,
             score_hyb: 40,
-            yildizGrup: 620,
+            yildizGrup: computeYildizGrupWidth(kosular),
             fob_ganyan: 44,
             fob_ilk2: 40,
             fob_ilk3: 40
