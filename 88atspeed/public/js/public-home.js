@@ -904,9 +904,10 @@
     function formatYildizCell(h, field) {
         const list = Array.isArray(h[field]) ? h[field] : [];
         if (!list.length) return '<span class="pub-prog-yildiz-empty">—</span>';
-        return list.map((y) =>
+        const stars = list.map((y) =>
             '<span class="pub-prog-yildiz-star" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">★</span>'
         ).join('');
+        return '<span class="pub-prog-yildiz-wrap">' + stars + '</span>';
     }
 
     function computeTakiColWidth(kosular) {

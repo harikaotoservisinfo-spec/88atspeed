@@ -1677,18 +1677,25 @@ a { color: inherit; text-decoration: none; }
 .pub-prog-yildiz {
     text-align: left;
     white-space: normal;
-    line-height: 1.35;
-    padding: 3px 6px !important;
+    overflow: hidden;
+    line-height: 1.2;
+    padding: 3px 5px !important;
+}
+
+.pub-prog-yildiz-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1px;
+    max-width: 100%;
 }
 
 .pub-prog-yildiz-star {
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 900;
     line-height: 1;
-    margin-right: 1px;
-    letter-spacing: -1px;
     cursor: default;
-    text-shadow: 0 0 1px rgba(0, 0, 0, 0.25);
+    text-shadow: 0 0 1px rgba(0, 0, 0, 0.2);
 }
 
 .pub-prog-yildiz-empty {
