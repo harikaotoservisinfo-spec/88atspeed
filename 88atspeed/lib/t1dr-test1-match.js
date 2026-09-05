@@ -4,7 +4,7 @@
 const { loadGostergeEngines } = require('../scripts/ptest-terminal-lib');
 
 // Yıldız veri şeması sürümü — değiştikçe artır ki eski kayıtlar yeniden hesaplansın.
-const YILDIZ_SURUM = 4;
+const YILDIZ_SURUM = 5;
 
 let enginesReady = false;
 
@@ -219,6 +219,7 @@ function analyzeRace(race, meta) {
     const COL = G.COL;
     const colEtiket = buildColEtiket(G);
     const rowsByKey = new Map();
+    const raceCounts = new Map(); // key -> {s7, s2, s1} koşu sayıları
 
     for (const row of rows || []) {
         const hi = row.meta?.horseIndex;
@@ -238,6 +239,9 @@ function analyzeRace(race, meta) {
         if (!isNaN(sira) && sira >= 1 && sira <= 7) {
             if (rowTest1Green(G, row)) yesil.add(key);
             if (rowSatirTamYesil(row)) yesilSatir.add(key);
+            let rc = raceCounts.get(key);
+            if (!rc) { rc = { s7: 0, s2: 0, s1: 0 }; raceCounts.set(key, rc); }
+            rc.s7++; if (sira <= 2) rc.s2++; if (sira <= 1) rc.s1++;
         }
     }
 
@@ -250,7 +254,43 @@ function analyzeRace(race, meta) {
     }
     markAyirtedici(yildizlar, 'son1');
     markAyirtedici(yildizlar, 'son2');
-    return { matched, kirmizi, mor, mavi, yesil, yesilSatir, yildizlar };
+    const ivmeMap = computeIvme(yildizlar, raceCounts);
+    return { matched, kirmizi, mor, mavi, yesil, yesilSatir, yildizlar, ivme: ivmeMap };
+}
+
+/** base yoğunluğundan target yoğunluğuna % değişim. base=0 & target>0 → 'yeni'. */
+function ivmeYuzde(base, target) {
+    if (base == null || target == null) return { v: null, yeni: false };
+    if (base === 0) return { v: null, yeni: target > 0 };
+    return { v: Math.round((target / base - 1) * 100), yeni: false };
+}
+
+/**
+ * MODEL B — ayrık pencere ivmesi. Yıldız yoğunluğu = ayrık yıldız / ayrık koşu.
+ *   taban = 3-7. koşu · orta = 2. koşu · güncel = 1. koşu
+ *   t2 = taban→orta % · t1 = orta→güncel %
+ */
+function computeIvme(yildizlar, raceCounts) {
+    const out = new Map();
+    for (const [key, w] of yildizlar) {
+        const rc = raceCounts.get(key) || { s7: 0, s2: 0, s1: 0 };
+        const n7 = (w.son7 || []).length, n2 = (w.son2 || []).length, n1 = (w.son1 || []).length;
+        const baseN = n7 - n2, midN = n2 - n1, curN = n1;
+        const baseR = rc.s7 - rc.s2, midR = rc.s2 - rc.s1, curR = rc.s1;
+        const dBase = baseR > 0 ? baseN / baseR : null;
+        const dMid = midR > 0 ? midN / midR : null;
+        const dCur = curR > 0 ? curN / curR : null;
+        const a = ivmeYuzde(dBase, dMid);
+        const b = ivmeYuzde(dMid, dCur);
+        out.set(key, {
+            t2: a.v, t2y: a.yeni,
+            t1: b.v, t1y: b.yeni,
+            d: [dBase == null ? null : Math.round(dBase * 10) / 10,
+                dMid == null ? null : Math.round(dMid * 10) / 10,
+                dCur == null ? null : Math.round(dCur * 10) / 10]
+        });
+    }
+    return out;
 }
 
 /**
@@ -293,6 +333,7 @@ function annotateRaceHorses(race, meta) {
     let yesil;
     let yesilSatir;
     let yildizlar;
+    let ivme;
     try {
         const analysis = analyzeRace(race, meta);
         matched = analysis.matched;
@@ -302,6 +343,7 @@ function annotateRaceHorses(race, meta) {
         yesil = analysis.yesil;
         yesilSatir = analysis.yesilSatir;
         yildizlar = analysis.yildizlar;
+        ivme = analysis.ivme;
     } catch (_) {
         return race;
     }
@@ -315,6 +357,7 @@ function annotateRaceHorses(race, meta) {
         const yesilFlag = key && yesil.has(key);
         const yesilSatirFlag = key && yesilSatir.has(key);
         const yildizSet = (key && yildizlar.get(key)) || {};
+        const ivmeSet = (key && ivme && ivme.get(key)) || null;
         return Object.assign({}, h, {
             t1drTest1: !!flag,
             test123Kirmizi: !!kirmiziFlag,
@@ -325,6 +368,7 @@ function annotateRaceHorses(race, meta) {
             yildizlar: yildizSet.son7 || [],
             yildizlarSon2: yildizSet.son2 || [],
             yildizlarSon1: yildizSet.son1 || [],
+            yildizIvme: ivmeSet,
             _yv: YILDIZ_SURUM
         });
     });

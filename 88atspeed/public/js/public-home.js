@@ -893,18 +893,41 @@
         }).join('');
     }
 
+    function formatIvmeCell(h) {
+        const iv = h.yildizIvme;
+        if (!iv) return '';
+        const d = Array.isArray(iv.d) ? iv.d : [null, null, null];
+        const chip = (label, v, yeni) => {
+            let txt;
+            let cls;
+            if (yeni) { txt = '↑yeni'; cls = 'pos'; }
+            else if (v == null) { txt = '—'; cls = 'nil'; }
+            else { txt = (v >= 0 ? '+' : '') + v + '%'; cls = v > 0 ? 'pos' : (v < 0 ? 'neg' : 'nil'); }
+            return '<span class="pub-ivme-chip ' + cls + '"><b>' + label + '</b>&nbsp;' + txt + '</span>';
+        };
+        const dens = (x) => (x == null ? '—' : x);
+        const tip = 'Ayrık pencere yıldız yoğunluğu (yıldız/koşu)\n'
+            + 'taban 3-7: ' + dens(d[0]) + ' · 2. koşu: ' + dens(d[1]) + ' · son koşu: ' + dens(d[2]);
+        return '<div class="pub-prog-ivme" title="' + escapeHtml(tip) + '">'
+            + '<span class="pub-ivme-lbl">İVME</span>'
+            + chip('3-7→2', iv.t2, iv.t2y)
+            + chip('2→1', iv.t1, iv.t1y)
+            + '</div>';
+    }
+
     function formatYildizGrupCell(h) {
         const rows = [
             { lbl: '7', title: 'Son 7 yarış', list: h.yildizlar, vurgu: null },
             { lbl: '2', title: 'Son 2 yarış', list: h.yildizlarSon2, vurgu: 'vurgu-kirmizi' },
             { lbl: 'S', title: 'Son yarış', list: h.yildizlarSon1, vurgu: 'vurgu' }
         ];
-        return rows.map((r) =>
+        const starHtml = rows.map((r) =>
             '<div class="pub-prog-yildiz-satir">'
             + '<span class="pub-prog-yildiz-lbl" title="' + escapeHtml(r.title) + '">' + r.lbl + '</span>'
             + '<span class="pub-prog-yildiz-wrap">' + renderStarRun(r.list, r.vurgu) + '</span>'
             + '</div>'
         ).join('');
+        return starHtml + formatIvmeCell(h);
     }
 
     function computeTakiColWidth(kosular) {
