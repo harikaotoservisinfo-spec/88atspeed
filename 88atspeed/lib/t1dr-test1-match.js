@@ -4,7 +4,7 @@
 const { loadGostergeEngines } = require('../scripts/ptest-terminal-lib');
 
 // Yıldız veri şeması sürümü — değiştikçe artır ki eski kayıtlar yeniden hesaplansın.
-const YILDIZ_SURUM = 6;
+const YILDIZ_SURUM = 7;
 
 let enginesReady = false;
 
@@ -324,9 +324,13 @@ function computeIvme(yildizlar, raceCounts) {
     const out = new Map();
     for (const [key, w] of yildizlar) {
         const rc = raceCounts.get(key) || { s7: 0, s2: 0, s1: 0 };
-        const n7 = w.n7 != null ? w.n7 : (w.son7 || []).length;
-        const n2 = (w.son2 || []).length, n1 = (w.son1 || []).length;
-        const baseN = n7 - n2, midN = n2 - n1, curN = n1;
+        // Kronolojik SON 7 listesindeki koşu-başı gerçek yıldız sayıları (k = sira)
+        let baseN = 0, midN = 0, curN = 0;
+        for (const s of w.son7 || []) {
+            if (s.k === 1) curN++;
+            else if (s.k === 2) midN++;
+            else if (s.k >= 3 && s.k <= 7) baseN++;
+        }
         const baseR = rc.s7 - rc.s2, midR = rc.s2 - rc.s1, curR = rc.s1;
         const dBase = baseR > 0 ? baseN / baseR : null;
         const dMid = midR > 0 ? midN / midR : null;
