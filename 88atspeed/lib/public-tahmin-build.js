@@ -12,6 +12,7 @@ const {
 
 let enginesLoaded = false;
 let calibrationPromise = null;
+let cachedBundle = null;
 
 function loadEngineFile(file, globalName) {
     const src = fs.readFileSync(path.join(ROOT, 'public/js', file), 'utf8');
@@ -51,27 +52,47 @@ async function ensureCalibration(db, dbPath) {
         const { buildCalibrationBundle } = require('./calibration-bundle');
         const built = await buildCalibrationBundle(dbPath || path.join(ROOT, 'atlar.db'));
         loadScoringEngines();
-        const b = built.bundle;
-        const G = global.GostergeScoringEngine;
-        if (!G.importCalibrationBundle?.(b.gosterge)) {
+        cachedBundle = built.bundle;
+        if (!applyScoringBundle(cachedBundle)) {
             throw new Error('Gösterge kalibrasyon paketi yüklenemedi');
         }
-        if (global.BasariPctScoringEngine && b.basari?.weightsBySize) {
-            global.BasariPctScoringEngine.importBundle?.(b.basari);
-        }
-        if (global.HybridTahminScoringEngine && b.hybrid) {
-            global.HybridTahminScoringEngine.importCalibrationBundle?.(b.hybrid);
-        }
-        if (global.AtestSonGosterge1Tahmin && b.g1) {
-            global.AtestSonGosterge1Tahmin.importRates?.(b.g1);
-        }
-        if (global.AtestSonRenkTahmin) {
-            global.AtestSonRenkTahmin.onBundleLoaded?.();
-        }
-        G.loadSharedCalibrationBundle = async () => true;
         return { flatCount: built.flatCount };
     })();
     return calibrationPromise;
+}
+
+// Imports the calibration bundle into all scoring engines. Idempotent and
+// cheap (plain object assignment), so it can be re-run before each hipodrom.
+function applyScoringBundle(b) {
+    if (!b) return false;
+    const G = global.GostergeScoringEngine;
+    if (!G?.importCalibrationBundle?.(b.gosterge)) return false;
+    if (global.BasariPctScoringEngine && b.basari?.weightsBySize) {
+        global.BasariPctScoringEngine.importBundle?.(b.basari);
+    }
+    if (global.HybridTahminScoringEngine && b.hybrid) {
+        global.HybridTahminScoringEngine.importCalibrationBundle?.(b.hybrid);
+    }
+    if (global.AtestSonGosterge1Tahmin && b.g1) {
+        global.AtestSonGosterge1Tahmin.importRates?.(b.g1);
+    }
+    if (global.AtestSonRenkTahmin) {
+        global.AtestSonRenkTahmin.onBundleLoaded?.();
+    }
+    G.loadSharedCalibrationBundle = async () => true;
+    return true;
+}
+
+// Scoring a hipodrom can clear the engines' calibration flags as a side
+// effect (observed: after the first hipodrom, GostergeScoringEngine.isCalibrated()
+// flips to false, so every subsequent hipodrom scored 0 columns). Re-apply the
+// cached bundle before each hipodrom so calibration is guaranteed to be on.
+function reassertCalibration() {
+    if (!cachedBundle) return false;
+    const gosOk = global.GostergeScoringEngine?.isCalibrated?.();
+    const hybOk = global.HybridTahminScoringEngine?.isCalibrated?.();
+    if (gosOk && hybOk) return true;
+    return applyScoringBundle(cachedBundle);
 }
 
 function atCacheKey(atId) {
@@ -376,6 +397,8 @@ async function buildTahminForHipodrom(db, tarih, hipodromRow, opts = {}) {
         return { hipodrom: hipodromRow.hipodrom, raceCount: 0, scored: 0, byRace: {} };
     }
 
+    reassertCalibration();
+
     const atIndex = await buildAtIdKosularIndex(db);
     const veriCache = {};
     let dataHits = 0;
@@ -589,6 +612,7 @@ module.exports = {
     buildTahminForHipodrom,
     mergeTahminIntoKosular,
     ensureCalibration,
+    reassertCalibration,
     assessTahminReadiness,
     getProgramRows
 };
