@@ -865,9 +865,32 @@
         else filtered.push(bltCol, gp2Col);
         filtered.push(...getBitalihColumnDefs());
         filtered.push(...getTahminScoreColumnDefs(kosular));
+        filtered.push(...getYildizColumnDef(kosular));
         const fobCols = getFobColumnDefs();
         if (fobCols.length) filtered.push(...fobCols);
         return filtered;
+    }
+
+    function getYildizColumnDef(kosular) {
+        const races = Array.isArray(kosular) ? kosular : (kosular?.kosular || []);
+        const horses = races.flatMap((r) => r.horses || []);
+        const hasStars = horses.some((h) => Array.isArray(h.yildizlar) && h.yildizlar.length);
+        if (!hasStars) return [];
+        return [{
+            key: 'yildizlar',
+            label: 'GÖSTERGE',
+            cls: 'pub-prog-yildiz',
+            colCls: 'pub-col-yildiz',
+            title: 'Son 7 yarışta uygulanan renk kuralları (her kural/sütun ayrı yıldız)'
+        }];
+    }
+
+    function formatYildizCell(h) {
+        const list = Array.isArray(h.yildizlar) ? h.yildizlar : [];
+        if (!list.length) return '<span class="pub-prog-yildiz-empty">—</span>';
+        return list.map((y) =>
+            '<span class="pub-prog-yildiz-star" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">★</span>'
+        ).join('');
     }
 
     function computeTakiColWidth(kosular) {
@@ -932,34 +955,15 @@
             const t = h.scores?.[col.scoreKey];
             return formatScoreCell(t);
         }
+        if (col.key === 'yildizlar') return formatYildizCell(h);
         if (col.key === 'name') return formatHorseNameCell(h);
         const v = String(h[col.key] || '').trim();
         return v || '—';
     }
 
     function formatHorseNameCell(h) {
-        const name = escapeHtml(h.name || '—');
-        let stars = '';
-        if (h.t1drTest1) {
-            stars += '<span class="pub-prog-t1dr-star" title="T1×DR=TEST1 — geçmiş koşuda eşleşme var">★</span>';
-        }
-        if (h.test123Kirmizi) {
-            stars += '<span class="pub-prog-t123-star" title="TEST1·TEST2·TEST3 kırmızı">★</span>';
-        }
-        if (h.test9Yanip) {
-            stars += '<span class="pub-prog-t9-star" title="TEST9 yanıp sönen renk kuralı">★</span>';
-        }
-        if (h.fark8002Yanip) {
-            stars += '<span class="pub-prog-f8002-star" title="8002-8001 yanıp sönen kural">★</span>';
-        }
-        if (h.test1Yesil) {
-            stars += '<span class="pub-prog-t1yesil-star" title="Son 7 yarışta TEST1 hücresi yeşil">★</span>';
-        }
-        if (h.satirTamYesil) {
-            stars += '<span class="pub-prog-satiryesil-star" title="Son 7 yarışta satır tam yeşil (TEST4=TEST6)">★</span>';
-        }
-        if (!stars) return name;
-        return stars + ' <span class="pub-prog-at-name">' + name + '</span>';
+        // Yıldızlar artık GÖSTERGE sütununda gösteriliyor; isim hücresi sade kalır.
+        return escapeHtml(h.name || '—');
     }
 
     function normalizeHorseName(s) {
@@ -1674,6 +1678,7 @@
             score_g1pair: 52,
             score_go: 52,
             score_hyb: 52,
+            yildizlar: 200,
             fob_ganyan: 52,
             fob_ilk2: 48,
             fob_ilk3: 48
@@ -1721,6 +1726,7 @@
                             let cls = c.cls;
                             const val = programHorseCell(h, c, ctx);
                             const isNameCol = c.key === 'name';
+                            const isRawCol = isNameCol || c.key === 'yildizlar';
                             if (c.key === 'ganyan') {
                                 if (!ganyanMap[String(h.no)]) cls += ' pub-prog-ganyan-empty';
                                 else if (leaderNo && String(h.no) === leaderNo) cls += ' pub-prog-ganyan-leader';
@@ -1757,7 +1763,7 @@
                                 else if (t.rank === 1) cls += ' pub-prog-score-leader';
                                 if (c.scoreKey === 'tahmin' && t?.rank === 1) cls += ' pub-prog-score-tahmin-top';
                             }
-                            return '<td class="' + cls + '">' + (isNameCol ? val : escapeHtml(val)) + '</td>';
+                            return '<td class="' + cls + '">' + (isRawCol ? val : escapeHtml(val)) + '</td>';
                         }).join('')
                         + '<td class="pub-col-spacer-cell" aria-hidden="true"></td>'
                         + '</tr>';
