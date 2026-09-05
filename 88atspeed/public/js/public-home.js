@@ -876,38 +876,34 @@
         const horses = races.flatMap((r) => r.horses || []);
         const hasStars = horses.some((h) => Array.isArray(h.yildizlar) && h.yildizlar.length);
         if (!hasStars) return [];
-        return [
-            {
-                key: 'yildizlar',
-                label: 'SON 7',
-                cls: 'pub-prog-yildiz',
-                colCls: 'pub-col-yildiz',
-                title: 'Son 7 yarışta uygulanan renk kuralları (her kural/sütun ayrı yıldız)'
-            },
-            {
-                key: 'yildizlarSon2',
-                label: 'SON 2',
-                cls: 'pub-prog-yildiz pub-prog-yildiz-son2',
-                colCls: 'pub-col-yildiz-son2',
-                title: 'Son 2 yarışta uygulanan renk kuralları'
-            },
-            {
-                key: 'yildizlarSon1',
-                label: 'SON',
-                cls: 'pub-prog-yildiz pub-prog-yildiz-son1',
-                colCls: 'pub-col-yildiz-son1',
-                title: 'Son yarışta (en yeni koşu) uygulanan renk kuralları'
-            }
-        ];
+        return [{
+            key: 'yildizGrup',
+            label: 'GÖSTERGE',
+            cls: 'pub-prog-yildizgrup',
+            colCls: 'pub-col-yildizgrup',
+            title: 'Son 7 / Son 2 / Son yarış renk kuralları (üstten alta)'
+        }];
     }
 
-    function formatYildizCell(h, field) {
-        const list = Array.isArray(h[field]) ? h[field] : [];
-        if (!list.length) return '<span class="pub-prog-yildiz-empty">—</span>';
-        const stars = list.map((y) =>
+    function renderStarRun(list) {
+        if (!Array.isArray(list) || !list.length) return '<span class="pub-prog-yildiz-empty">—</span>';
+        return list.map((y) =>
             '<span class="pub-prog-yildiz-star" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">★</span>'
         ).join('');
-        return '<span class="pub-prog-yildiz-wrap">' + stars + '</span>';
+    }
+
+    function formatYildizGrupCell(h) {
+        const rows = [
+            { lbl: '7', title: 'Son 7 yarış', list: h.yildizlar },
+            { lbl: '2', title: 'Son 2 yarış', list: h.yildizlarSon2 },
+            { lbl: 'S', title: 'Son yarış', list: h.yildizlarSon1 }
+        ];
+        return rows.map((r) =>
+            '<div class="pub-prog-yildiz-satir">'
+            + '<span class="pub-prog-yildiz-lbl" title="' + escapeHtml(r.title) + '">' + r.lbl + '</span>'
+            + '<span class="pub-prog-yildiz-wrap">' + renderStarRun(r.list) + '</span>'
+            + '</div>'
+        ).join('');
     }
 
     function computeTakiColWidth(kosular) {
@@ -972,7 +968,7 @@
             const t = h.scores?.[col.scoreKey];
             return formatScoreCell(t);
         }
-        if (col.key === 'yildizlar' || col.key === 'yildizlarSon2' || col.key === 'yildizlarSon1') return formatYildizCell(h, col.key);
+        if (col.key === 'yildizGrup') return formatYildizGrupCell(h);
         if (col.key === 'name') return formatHorseNameCell(h);
         const v = String(h[col.key] || '').trim();
         return v || '—';
@@ -1695,9 +1691,7 @@
             score_g1pair: 52,
             score_go: 52,
             score_hyb: 52,
-            yildizlar: 200,
-            yildizlarSon2: 90,
-            yildizlarSon1: 70,
+            yildizGrup: 240,
             fob_ganyan: 52,
             fob_ilk2: 48,
             fob_ilk3: 48
@@ -1745,7 +1739,7 @@
                             let cls = c.cls;
                             const val = programHorseCell(h, c, ctx);
                             const isNameCol = c.key === 'name';
-                            const isRawCol = isNameCol || c.key === 'yildizlar' || c.key === 'yildizlarSon2' || c.key === 'yildizlarSon1';
+                            const isRawCol = isNameCol || c.key === 'yildizGrup';
                             if (c.key === 'ganyan') {
                                 if (!ganyanMap[String(h.no)]) cls += ' pub-prog-ganyan-empty';
                                 else if (leaderNo && String(h.no) === leaderNo) cls += ' pub-prog-ganyan-leader';
