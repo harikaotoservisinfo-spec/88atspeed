@@ -41,7 +41,8 @@
         sonucHipId: null,
         sonucLastUpdate: null,
         sonucLoading: false,
-        yarinFetch: null
+        yarinFetch: null,
+        rehberData: null
     };
 
     const MUHT_REFRESH_SEC = 15;
@@ -60,6 +61,7 @@
     let muhtPollTimer = null;
     let progGanyanPollTimer = null;
     let sonucPollTimer = null;
+    let rehberPollTimer = null;
     let muhtSelectTimer = null;
     let tjkTvLoaded = false;
     let tjkHls = null;
@@ -324,6 +326,16 @@
         }
     }
 
+    function isRetryableLoadError(err, res) {
+        if (err?.name === 'AbortError') return true;
+        const status = res?.status;
+        if (status === 502 || status === 503 || status === 504) return true;
+        const msg = err?.message || '';
+        if (/aborted|network|fetch failed|failed to fetch/i.test(msg)) return true;
+        if (/HTTP 502|HTTP 503|HTTP 504|Bad Gateway|Gateway Timeout/i.test(msg)) return true;
+        return false;
+    }
+
     function isTomorrowIso(iso) {
         return iso === localTomorrowIso();
     }
@@ -446,15 +458,16 @@
         raceList.innerHTML = '<div class="pub-loading"><div class="pub-spinner"></div>Program yükleniyor…</div>';
         hipTabs.innerHTML = '';
 
-        const maxAttempts = 3;
+        const maxAttempts = 5;
         let lastErr = null;
 
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             if (loadId !== vitrinLoadSeq) return;
             const signal = vitrinAbortController.signal;
+            let res = null;
             try {
                 const tid = setTimeout(() => vitrinAbortController?.abort(), 90000);
-                const res = await fetch('/api/public/vitrin?iso=' + encodeURIComponent(clampedIso), {
+                res = await fetch('/api/public/vitrin?iso=' + encodeURIComponent(clampedIso), {
                     signal,
                     cache: 'no-store'
                 });
@@ -501,16 +514,17 @@
             if ($('#panel-kosular')?.classList.contains('active')) {
                 startProgramGanyanPolling();
             }
+            if ($('#panel-rehber')?.classList.contains('active')) {
+                loadRehberLeaderboard({ silent: true });
+            }
             return;
             } catch (err) {
                 lastErr = err;
                 if (loadId !== vitrinLoadSeq) return;
-                const retryable = err.name === 'AbortError'
-                    || /aborted|network|fetch|failed/i.test(err.message || '');
-                if (attempt < maxAttempts && retryable) {
+                if (attempt < maxAttempts && isRetryableLoadError(err, res)) {
                     raceList.innerHTML = '<div class="pub-loading"><div class="pub-spinner"></div>'
-                        + 'Yeniden deneniyor (' + (attempt + 1) + '/' + maxAttempts + ')…</div>';
-                    await new Promise((r) => setTimeout(r, 1500 * attempt));
+                        + 'Sunucu hazırlanıyor, yeniden deneniyor (' + (attempt + 1) + '/' + maxAttempts + ')…</div>';
+                    await new Promise((r) => setTimeout(r, 2000 * attempt));
                     vitrinAbortController = new AbortController();
                     continue;
                 }
@@ -905,9 +919,16 @@
             const t = h.scores?.[col.scoreKey];
             return formatScoreCell(t);
         }
-        if (col.key === 'name') return h.name || '—';
+        if (col.key === 'name') return formatHorseNameCell(h);
         const v = String(h[col.key] || '').trim();
         return v || '—';
+    }
+
+    function formatHorseNameCell(h) {
+        const name = escapeHtml(h.name || '—');
+        if (!h.t1drTest1) return name;
+        return '<span class="pub-prog-t1dr-star" title="T1×DR=TEST1 — geçmiş koşuda eşleşme var">★</span> '
+            + '<span class="pub-prog-at-name">' + name + '</span>';
     }
 
     function normalizeHorseName(s) {
@@ -1450,6 +1471,159 @@
         startSonucPolling();
     }
 
+    const REHBER_COL_CLS = {
+        r2: 'pub-rehber-col--r2',
+        tahmin: 'pub-rehber-col--tahmin',
+        blt: 'pub-rehber-col--at'
+    };
+
+    function renderRehberTierList(rows) {
+        if (!rows || !rows.length) {
+            return '<div class="pub-rehber-empty-row">Henüz değerlendirilecek koşu yok</div>';
+        }
+        return '<ol class="pub-rehber-list">' + rows.map((row, idx) => {
+            const rankCls = idx === 0 ? ' pub-rehber-row--top1' : (idx === 1 ? ' pub-rehber-row--top2' : (idx === 2 ? ' pub-rehber-row--top3' : ''));
+            const colCls = REHBER_COL_CLS[row.id] || '';
+            return '<li class="pub-rehber-row' + rankCls + '">'
+                + '<span class="pub-rehber-rank">' + (idx + 1) + '</span>'
+                + '<span class="pub-rehber-col ' + colCls + '">' + escapeHtml(row.label) + '</span>'
+                + '<span class="pub-rehber-hits">' + row.hits + '/' + row.total + '</span>'
+                + '<span class="pub-rehber-pct">%' + row.pct + '</span>'
+                + '</li>';
+        }).join('') + '</ol>';
+    }
+
+    function renderRehberPanel(data, opts = {}) {
+        const root = $('#pubRehberRoot');
+        if (!root) return;
+
+        const loadingNote = opts.loading
+            ? '<div class="pub-rehber-sub" style="color:#1565c0"><span class="pub-yarin-spin"></span> Güncelleniyor…</div>'
+            : '';
+
+        if (!data || data.success === false) {
+            if (!opts.loading) {
+                root.innerHTML = '<div class="pub-empty"><div class="pub-empty-icon">📅</div>'
+                    + '<h3>Veri alınamadı</h3><p>Lütfen yenileyin.</p></div>';
+            }
+            return;
+        }
+
+        const dateLabel = data.tarih ? trToDisplay(data.tarih) : (state.tarih ? trToDisplay(state.tarih) : 'Bugün');
+        const raceCount = data.raceCount || 0;
+        const hipCount = data.hipodromCount || state.hipodromlar.length || 0;
+        const finishedHips = data.finishedHipCount || 0;
+        const updated = data.updatedAt
+            ? new Date(data.updatedAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+            : '';
+
+        root.innerHTML = '<div class="pub-rehber-wrap">'
+            + '<div class="pub-rehber-hdr">'
+            + '<div>'
+            + '<h2 class="pub-rehber-title">Günün Tahmin Liderleri</h2>'
+            + '<div class="pub-rehber-sub">' + escapeHtml(dateLabel)
+            + ' · ' + raceCount + ' sonuçlanan koşu'
+            + ' · ' + hipCount + ' hipodrom'
+            + (finishedHips ? ' (' + finishedHips + ' sonuçlu)' : '')
+            + (updated ? ' · güncelleme ' + escapeHtml(updated) : '')
+            + '</div>'
+            + loadingNote
+            + '</div>'
+            + '<button type="button" class="pub-rehber-refresh" id="pubRehberRefresh">Yenile</button>'
+            + '</div>'
+            + '<div class="pub-rehber-grid">'
+            + '<div class="pub-rehber-card">'
+            + '<div class="pub-rehber-card-hdr pub-rehber-card-hdr--gold">1. Bilen'
+            + '<div class="pub-rehber-card-desc">Kazananı en çok doğru tahmin eden sütunlar</div></div>'
+            + renderRehberTierList(data.top1)
+            + '</div>'
+            + '<div class="pub-rehber-card">'
+            + '<div class="pub-rehber-card-hdr pub-rehber-card-hdr--silver">1–2 Bilen'
+            + '<div class="pub-rehber-card-desc">İlk iki atı tam sırayla bilen sütunlar</div></div>'
+            + renderRehberTierList(data.top2)
+            + '</div>'
+            + '<div class="pub-rehber-card">'
+            + '<div class="pub-rehber-card-hdr pub-rehber-card-hdr--bronze">1–2–3 Bilen'
+            + '<div class="pub-rehber-card-desc">Podyumu tam sırayla bilen sütunlar</div></div>'
+            + renderRehberTierList(data.top3)
+            + '</div>'
+            + '</div>'
+            + (raceCount === 0
+                ? '<div class="pub-rehber-help" style="margin-top:0;background:#fff8e1;border-color:#ffe082">'
+                + 'Henüz sonuçlanan koşu yok veya sonuçlar kaydedilmedi. '
+                + 'Koşular bittikçe liste otomatik dolacak — <em>Sonuçlar</em> sekmesinden bir hipodrom açmak senkronu hızlandırır.'
+                + '</div>'
+                : '')
+            + '<div class="pub-rehber-help">'
+            + '<strong>Nasıl okunur?</strong> Her sütun (R2, MTR, T9V, ASF, G1↕, G1⇄, GÖ, HYB, TAHMİN, @) '
+            + 'koşu başına kendi sıralamasını üretir. <em>1. Bilen</em> = 1 numaralı tahmin kazandı; '
+            + '<em>1–2 Bilen</em> = ilk iki tahmin 1. ve 2. oldu; <em>1–2–3 Bilen</em> = podyum tam isabet. '
+            + 'Liste gün içinde sonuçlandıkça güncellenir.'
+            + '</div>'
+            + '</div>';
+
+        $('#pubRehberRefresh')?.addEventListener('click', () => loadRehberLeaderboard({ refresh: true }));
+    }
+
+    async function loadRehberLeaderboard(opts = {}) {
+        const root = $('#pubRehberRoot');
+        if (!root || !$('#panel-rehber')?.classList.contains('active')) return;
+
+        const iso = state.iso || localTodayIso();
+        if (!opts.silent && !state.rehberData) {
+            root.innerHTML = '<div class="pub-loading"><div class="pub-spinner"></div>Liderlik tablosu yükleniyor…</div>';
+        } else if (state.rehberData) {
+            renderRehberPanel(state.rehberData, { loading: true });
+        }
+
+        try {
+            const res = await fetch('/api/public/rehber-leaderboard?iso=' + encodeURIComponent(iso));
+            const data = await parseJsonResponse(res);
+            if (!res.ok || data.success === false) {
+                throw new Error(data.error || ('HTTP ' + res.status));
+            }
+            state.rehberData = data;
+            renderRehberPanel(data);
+        } catch (err) {
+            if (state.rehberData) {
+                renderRehberPanel(state.rehberData);
+                return;
+            }
+            root.innerHTML = '<div class="pub-empty"><div class="pub-empty-icon">⚠️</div>'
+                + '<h3>Liderlik tablosu yüklenemedi</h3>'
+                + '<p>' + escapeHtml(err.message || 'Bağlantı hatası') + '</p>'
+                + '<button type="button" class="pub-btn pub-btn-white" id="pubRehberRetry" style="margin-top:12px">Tekrar dene</button></div>';
+            $('#pubRehberRetry')?.addEventListener('click', () => loadRehberLeaderboard({ refresh: true }));
+        }
+    }
+
+    function startRehberPolling() {
+        stopRehberPolling();
+        if (!$('#panel-rehber')?.classList.contains('active')) return;
+        let countdown = SONUC_REFRESH_SEC;
+        rehberPollTimer = setInterval(() => {
+            if (document.hidden) return;
+            if (!$('#panel-rehber')?.classList.contains('active')) return;
+            countdown -= 1;
+            if (countdown <= 0) {
+                countdown = SONUC_REFRESH_SEC;
+                loadRehberLeaderboard({ silent: true });
+            }
+        }, 1000);
+    }
+
+    function stopRehberPolling() {
+        if (rehberPollTimer) {
+            clearInterval(rehberPollTimer);
+            rehberPollTimer = null;
+        }
+    }
+
+    function initRehberPanel() {
+        loadRehberLeaderboard();
+        startRehberPolling();
+    }
+
     function renderRaceList(hip) {
         const el = $('#pubRaceList');
         const kosular = hip.kosular || [];
@@ -1522,6 +1696,7 @@
                         + cols.map((c) => {
                             let cls = c.cls;
                             const val = programHorseCell(h, c, ctx);
+                            const isNameCol = c.key === 'name';
                             if (c.key === 'ganyan') {
                                 if (!ganyanMap[String(h.no)]) cls += ' pub-prog-ganyan-empty';
                                 else if (leaderNo && String(h.no) === leaderNo) cls += ' pub-prog-ganyan-leader';
@@ -1558,7 +1733,7 @@
                                 else if (t.rank === 1) cls += ' pub-prog-score-leader';
                                 if (c.scoreKey === 'tahmin' && t?.rank === 1) cls += ' pub-prog-score-tahmin-top';
                             }
-                            return '<td class="' + cls + '">' + escapeHtml(val) + '</td>';
+                            return '<td class="' + cls + '">' + (isNameCol ? val : escapeHtml(val)) + '</td>';
                         }).join('')
                         + '<td class="pub-col-spacer-cell" aria-hidden="true"></td>'
                         + '</tr>';
@@ -1705,6 +1880,7 @@
             stopMuhtPolling();
             pauseTjkTv();
             stopSonucPolling();
+            stopRehberPolling();
             if (panelId === 'kosular') {
                 refreshProgramGanyanOdds();
                 refreshProgramBltData();
@@ -1715,6 +1891,9 @@
             }
             if (panelId === 'sonuclar') {
                 initSonuclarPanel();
+            }
+            if (panelId === 'rehber') {
+                initRehberPanel();
             }
         }
         if (panelId === 'kazanc') {
@@ -2498,6 +2677,7 @@
         state.sonucByHip = {};
         state.sonucHipId = null;
         state.sonucLastUpdate = null;
+        state.rehberData = null;
         loadVitrin(clamped);
         if ($('#panel-muhtemeller')?.classList.contains('active')) {
             loadMuhtemeller(clamped);
