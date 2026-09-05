@@ -433,7 +433,79 @@ function ensureTables(db) {
     });
 }
 
-function saveProgramRow(db, row) {
+function normalizeScoreName(name) {
+    return String(name || '')
+        .toLocaleUpperCase('tr-TR')
+        .normalize('NFD')
+        .replace(/\p{M}/gu, '')
+        .replace(/[^A-Z0-9]/g, '');
+}
+
+function scoreHorseKeys(h) {
+    const keys = [];
+    if (h?.atId != null && h.atId !== '') keys.push('at:' + String(h.atId));
+    if (h?.no != null && h.no !== '') keys.push('no:' + String(h.no));
+    const nm = normalizeScoreName(h?.name);
+    if (nm) keys.push('nm:' + nm);
+    return keys;
+}
+
+/**
+ * Bir program yeniden çekildiğinde/yayınlandığında, daha önce
+ * `build:public-tahmin` tarafından hesaplanmış per-at skor sütunları
+ * (`h.scores`) `program_json` içinde yaşadığı için kaybolur. Bu yardımcı,
+ * mevcut satırdaki skorları yeni programa (koşu no + at no/atId/isim
+ * eşleşmesiyle) taşıyarak sütunların kalıcı olmasını sağlar.
+ */
+async function preservePreviousScores(db, row) {
+    const races = row.races || [];
+    if (!races.length) return races;
+    let existing;
+    try {
+        existing = await dbGet(
+            db,
+            'SELECT program_json FROM public_gunluk_program WHERE tarih = ? AND hipodrom_id = ?',
+            [row.tarih, String(row.hipodromId)]
+        );
+    } catch (_) {
+        return races;
+    }
+    const prevRaces = safeParseJson(existing?.program_json, null);
+    if (!Array.isArray(prevRaces) || !prevRaces.length) return races;
+
+    const scoreByRace = new Map();
+    for (const pr of prevRaces) {
+        const key = String(pr?.raceNo);
+        const map = new Map();
+        for (const h of pr?.horses || []) {
+            if (!h?.scores) continue;
+            const hasCell = Object.keys(h.scores).some((k) => h.scores[k] != null);
+            if (!hasCell) continue;
+            for (const hk of scoreHorseKeys(h)) {
+                if (!map.has(hk)) map.set(hk, h.scores);
+            }
+        }
+        if (map.size) scoreByRace.set(key, map);
+    }
+    if (!scoreByRace.size) return races;
+
+    return races.map((race) => {
+        const map = scoreByRace.get(String(race?.raceNo));
+        if (!map) return race;
+        const horses = (race.horses || []).map((h) => {
+            if (h?.scores) return h;
+            let scores = null;
+            for (const hk of scoreHorseKeys(h)) {
+                if (map.has(hk)) { scores = map.get(hk); break; }
+            }
+            return scores ? Object.assign({}, h, { scores }) : h;
+        });
+        return Object.assign({}, race, { horses });
+    });
+}
+
+async function saveProgramRow(db, row) {
+    const races = await preservePreviousScores(db, row);
     return new Promise((resolve, reject) => {
         const sql = `INSERT INTO public_gunluk_program
             (tarih, hipodrom_id, hipodrom, kosu_sayisi, ilk_kosu_saat, program_json, tahmin_json, durum, yayin_tarihi)
@@ -447,14 +519,14 @@ function saveProgramRow(db, row) {
                 durum=excluded.durum,
                 cekilme_tarihi=CURRENT_TIMESTAMP,
                 yayin_tarihi=excluded.yayin_tarihi`;
-        const ilkSaat = row.races?.[0]?.saat || '';
+        const ilkSaat = races?.[0]?.saat || '';
         db.run(sql, [
             row.tarih,
             row.hipodromId,
             row.hipodrom,
             row.kosuSayisi || 0,
             ilkSaat,
-            JSON.stringify(row.races || []),
+            JSON.stringify(races || []),
             row.tahminler ? JSON.stringify(row.tahminler) : null,
             row.durum || 'yayinda',
             row.durum === 'yayinda' ? new Date().toISOString() : null
@@ -1359,6 +1431,8 @@ module.exports = {
     isDomesticHipodrom,
     FALLBACK_HIPODROMS,
     ensureTables,
+    saveProgramRow,
+    preservePreviousScores,
     enrichRacesWithHorseHistory: horseHistoryEnrich.enrichRacesWithHorseHistory,
     countKosularStats: horseHistoryEnrich.countKosularStats,
     buildPublicProgram,
