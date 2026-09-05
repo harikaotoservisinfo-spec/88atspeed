@@ -949,6 +949,9 @@
         if (h.test9Yanip) {
             stars += '<span class="pub-prog-t9-star" title="TEST9 yanıp sönen renk kuralı">★</span>';
         }
+        if (h.fark8002Yanip) {
+            stars += '<span class="pub-prog-f8002-star" title="8002-8001 yanıp sönen kural">★</span>';
+        }
         if (!stars) return name;
         return stars + ' <span class="pub-prog-at-name">' + name + '</span>';
     }
