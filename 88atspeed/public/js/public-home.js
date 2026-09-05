@@ -952,6 +952,9 @@
         if (h.fark8002Yanip) {
             stars += '<span class="pub-prog-f8002-star" title="8002-8001 yanıp sönen kural">★</span>';
         }
+        if (h.test1Yesil) {
+            stars += '<span class="pub-prog-t1yesil-star" title="Son 7 yarışta TEST1 hücresi yeşil">★</span>';
+        }
         if (!stars) return name;
         return stars + ' <span class="pub-prog-at-name">' + name + '</span>';
     }

@@ -77,6 +77,12 @@ function rowFark8002Yanip(G, row) {
     return !!(cls && /\bmavi-yanip-son\b/.test(cls));
 }
 
+/** Herhangi bir satırda TEST1 hücresi yeşil eşleşme (eslesme-yesil) olması */
+function rowTest1Green(G, row) {
+    const cls = G.getCellClass(G.COL.TEST1, row.classes);
+    return !!(cls && /\beslesme-yesil\b/.test(cls));
+}
+
 /**
  * Bir koşuyu tek geçişte analiz eder:
  *  - matched: T1×DR = TEST1 eşleşmesi olan atlar (sarı yıldız)
@@ -89,7 +95,8 @@ function analyzeRace(race, meta) {
     const kirmizi = new Set();
     const mor = new Set();
     const mavi = new Set();
-    if (!G) return { matched, kirmizi, mor, mavi };
+    const yesil = new Set();
+    if (!G) return { matched, kirmizi, mor, mavi, yesil };
 
     const veriCache = meta?.veriCache || null;
     const horses = (race.horses || []).map((h) => Object.assign({}, h, {
@@ -114,8 +121,11 @@ function analyzeRace(race, meta) {
         if (row.values[0] === '1' && rowTest123Kirmizi(G, row)) kirmizi.add(key);
         if (row.values[0] === '1' && rowTest9Yanip(G, row)) mor.add(key);
         if (row.values[0] === '1' && rowFark8002Yanip(G, row)) mavi.add(key);
+        // Son 7 yarışın (sira 1..7) HERHANGİ birinde TEST1 hücresi yeşilse
+        const sira = parseInt(row.values[0], 10);
+        if (!isNaN(sira) && sira >= 1 && sira <= 7 && rowTest1Green(G, row)) yesil.add(key);
     }
-    return { matched, kirmizi, mor, mavi };
+    return { matched, kirmizi, mor, mavi, yesil };
 }
 
 function collectMatchingHorseKeys(race, meta) {
@@ -132,12 +142,14 @@ function annotateRaceHorses(race, meta) {
     let kirmizi;
     let mor;
     let mavi;
+    let yesil;
     try {
         const analysis = analyzeRace(race, meta);
         matched = analysis.matched;
         kirmizi = analysis.kirmizi;
         mor = analysis.mor;
         mavi = analysis.mavi;
+        yesil = analysis.yesil;
     } catch (_) {
         return race;
     }
@@ -148,13 +160,15 @@ function annotateRaceHorses(race, meta) {
         const kirmiziFlag = key && kirmizi.has(key);
         const morFlag = key && mor.has(key);
         const maviFlag = key && mavi.has(key);
-        if (!flag && !kirmiziFlag && !morFlag && !maviFlag
-            && !h.t1drTest1 && !h.test123Kirmizi && !h.test9Yanip && !h.fark8002Yanip) return h;
+        const yesilFlag = key && yesil.has(key);
+        if (!flag && !kirmiziFlag && !morFlag && !maviFlag && !yesilFlag
+            && !h.t1drTest1 && !h.test123Kirmizi && !h.test9Yanip && !h.fark8002Yanip && !h.test1Yesil) return h;
         return Object.assign({}, h, {
             t1drTest1: !!flag,
             test123Kirmizi: !!kirmiziFlag,
             test9Yanip: !!morFlag,
-            fark8002Yanip: !!maviFlag
+            fark8002Yanip: !!maviFlag,
+            test1Yesil: !!yesilFlag
         });
     });
     return Object.assign({}, race, { horses });
@@ -163,7 +177,7 @@ function annotateRaceHorses(race, meta) {
 function raceNeedsAnnotation(race, meta) {
     const horses = race?.horses || [];
     if (!horses.length) return false;
-    if (!meta?.force && horses.every((h) => typeof h.t1drTest1 === 'boolean' && typeof h.test123Kirmizi === 'boolean' && typeof h.test9Yanip === 'boolean' && typeof h.fark8002Yanip === 'boolean')) return false;
+    if (!meta?.force && horses.every((h) => typeof h.t1drTest1 === 'boolean' && typeof h.test123Kirmizi === 'boolean' && typeof h.test9Yanip === 'boolean' && typeof h.fark8002Yanip === 'boolean' && typeof h.test1Yesil === 'boolean')) return false;
     const veriCache = meta?.veriCache || null;
     return horses.some((h) => horseHasHistory(h, veriCache));
 }
