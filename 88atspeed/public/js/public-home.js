@@ -41,7 +41,8 @@
         sonucHipId: null,
         sonucLastUpdate: null,
         sonucLoading: false,
-        yarinFetch: null
+        yarinFetch: null,
+        rehberData: null
     };
 
     const MUHT_REFRESH_SEC = 15;
@@ -60,6 +61,7 @@
     let muhtPollTimer = null;
     let progGanyanPollTimer = null;
     let sonucPollTimer = null;
+    let rehberPollTimer = null;
     let muhtSelectTimer = null;
     let tjkTvLoaded = false;
     let tjkHls = null;
@@ -500,6 +502,9 @@
             renderTahminAll();
             if ($('#panel-kosular')?.classList.contains('active')) {
                 startProgramGanyanPolling();
+            }
+            if ($('#panel-rehber')?.classList.contains('active')) {
+                loadRehberLeaderboard({ silent: true });
             }
             return;
             } catch (err) {
@@ -1450,6 +1455,159 @@
         startSonucPolling();
     }
 
+    const REHBER_COL_CLS = {
+        r2: 'pub-rehber-col--r2',
+        tahmin: 'pub-rehber-col--tahmin',
+        blt: 'pub-rehber-col--at'
+    };
+
+    function renderRehberTierList(rows) {
+        if (!rows || !rows.length) {
+            return '<div class="pub-rehber-empty-row">Henüz değerlendirilecek koşu yok</div>';
+        }
+        return '<ol class="pub-rehber-list">' + rows.map((row, idx) => {
+            const rankCls = idx === 0 ? ' pub-rehber-row--top1' : (idx === 1 ? ' pub-rehber-row--top2' : (idx === 2 ? ' pub-rehber-row--top3' : ''));
+            const colCls = REHBER_COL_CLS[row.id] || '';
+            return '<li class="pub-rehber-row' + rankCls + '">'
+                + '<span class="pub-rehber-rank">' + (idx + 1) + '</span>'
+                + '<span class="pub-rehber-col ' + colCls + '">' + escapeHtml(row.label) + '</span>'
+                + '<span class="pub-rehber-hits">' + row.hits + '/' + row.total + '</span>'
+                + '<span class="pub-rehber-pct">%' + row.pct + '</span>'
+                + '</li>';
+        }).join('') + '</ol>';
+    }
+
+    function renderRehberPanel(data, opts = {}) {
+        const root = $('#pubRehberRoot');
+        if (!root) return;
+
+        const loadingNote = opts.loading
+            ? '<div class="pub-rehber-sub" style="color:#1565c0"><span class="pub-yarin-spin"></span> Güncelleniyor…</div>'
+            : '';
+
+        if (!data || data.success === false) {
+            if (!opts.loading) {
+                root.innerHTML = '<div class="pub-empty"><div class="pub-empty-icon">📅</div>'
+                    + '<h3>Veri alınamadı</h3><p>Lütfen yenileyin.</p></div>';
+            }
+            return;
+        }
+
+        const dateLabel = data.tarih ? trToDisplay(data.tarih) : (state.tarih ? trToDisplay(state.tarih) : 'Bugün');
+        const raceCount = data.raceCount || 0;
+        const hipCount = data.hipodromCount || state.hipodromlar.length || 0;
+        const finishedHips = data.finishedHipCount || 0;
+        const updated = data.updatedAt
+            ? new Date(data.updatedAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+            : '';
+
+        root.innerHTML = '<div class="pub-rehber-wrap">'
+            + '<div class="pub-rehber-hdr">'
+            + '<div>'
+            + '<h2 class="pub-rehber-title">Günün Tahmin Liderleri</h2>'
+            + '<div class="pub-rehber-sub">' + escapeHtml(dateLabel)
+            + ' · ' + raceCount + ' sonuçlanan koşu'
+            + ' · ' + hipCount + ' hipodrom'
+            + (finishedHips ? ' (' + finishedHips + ' sonuçlu)' : '')
+            + (updated ? ' · güncelleme ' + escapeHtml(updated) : '')
+            + '</div>'
+            + loadingNote
+            + '</div>'
+            + '<button type="button" class="pub-rehber-refresh" id="pubRehberRefresh">Yenile</button>'
+            + '</div>'
+            + '<div class="pub-rehber-grid">'
+            + '<div class="pub-rehber-card">'
+            + '<div class="pub-rehber-card-hdr pub-rehber-card-hdr--gold">1. Bilen'
+            + '<div class="pub-rehber-card-desc">Kazananı en çok doğru tahmin eden sütunlar</div></div>'
+            + renderRehberTierList(data.top1)
+            + '</div>'
+            + '<div class="pub-rehber-card">'
+            + '<div class="pub-rehber-card-hdr pub-rehber-card-hdr--silver">1–2 Bilen'
+            + '<div class="pub-rehber-card-desc">İlk iki atı tam sırayla bilen sütunlar</div></div>'
+            + renderRehberTierList(data.top2)
+            + '</div>'
+            + '<div class="pub-rehber-card">'
+            + '<div class="pub-rehber-card-hdr pub-rehber-card-hdr--bronze">1–2–3 Bilen'
+            + '<div class="pub-rehber-card-desc">Podyumu tam sırayla bilen sütunlar</div></div>'
+            + renderRehberTierList(data.top3)
+            + '</div>'
+            + '</div>'
+            + (raceCount === 0
+                ? '<div class="pub-rehber-help" style="margin-top:0;background:#fff8e1;border-color:#ffe082">'
+                + 'Henüz sonuçlanan koşu yok veya sonuçlar kaydedilmedi. '
+                + 'Koşular bittikçe liste otomatik dolacak — <em>Sonuçlar</em> sekmesinden bir hipodrom açmak senkronu hızlandırır.'
+                + '</div>'
+                : '')
+            + '<div class="pub-rehber-help">'
+            + '<strong>Nasıl okunur?</strong> Her sütun (R2, MTR, T9V, ASF, G1↕, G1⇄, GÖ, HYB, TAHMİN, @) '
+            + 'koşu başına kendi sıralamasını üretir. <em>1. Bilen</em> = 1 numaralı tahmin kazandı; '
+            + '<em>1–2 Bilen</em> = ilk iki tahmin 1. ve 2. oldu; <em>1–2–3 Bilen</em> = podyum tam isabet. '
+            + 'Liste gün içinde sonuçlandıkça güncellenir.'
+            + '</div>'
+            + '</div>';
+
+        $('#pubRehberRefresh')?.addEventListener('click', () => loadRehberLeaderboard({ refresh: true }));
+    }
+
+    async function loadRehberLeaderboard(opts = {}) {
+        const root = $('#pubRehberRoot');
+        if (!root || !$('#panel-rehber')?.classList.contains('active')) return;
+
+        const iso = state.iso || localTodayIso();
+        if (!opts.silent && !state.rehberData) {
+            root.innerHTML = '<div class="pub-loading"><div class="pub-spinner"></div>Liderlik tablosu yükleniyor…</div>';
+        } else if (state.rehberData) {
+            renderRehberPanel(state.rehberData, { loading: true });
+        }
+
+        try {
+            const res = await fetch('/api/public/rehber-leaderboard?iso=' + encodeURIComponent(iso));
+            const data = await parseJsonResponse(res);
+            if (!res.ok || data.success === false) {
+                throw new Error(data.error || ('HTTP ' + res.status));
+            }
+            state.rehberData = data;
+            renderRehberPanel(data);
+        } catch (err) {
+            if (state.rehberData) {
+                renderRehberPanel(state.rehberData);
+                return;
+            }
+            root.innerHTML = '<div class="pub-empty"><div class="pub-empty-icon">⚠️</div>'
+                + '<h3>Liderlik tablosu yüklenemedi</h3>'
+                + '<p>' + escapeHtml(err.message || 'Bağlantı hatası') + '</p>'
+                + '<button type="button" class="pub-btn pub-btn-white" id="pubRehberRetry" style="margin-top:12px">Tekrar dene</button></div>';
+            $('#pubRehberRetry')?.addEventListener('click', () => loadRehberLeaderboard({ refresh: true }));
+        }
+    }
+
+    function startRehberPolling() {
+        stopRehberPolling();
+        if (!$('#panel-rehber')?.classList.contains('active')) return;
+        let countdown = SONUC_REFRESH_SEC;
+        rehberPollTimer = setInterval(() => {
+            if (document.hidden) return;
+            if (!$('#panel-rehber')?.classList.contains('active')) return;
+            countdown -= 1;
+            if (countdown <= 0) {
+                countdown = SONUC_REFRESH_SEC;
+                loadRehberLeaderboard({ silent: true });
+            }
+        }, 1000);
+    }
+
+    function stopRehberPolling() {
+        if (rehberPollTimer) {
+            clearInterval(rehberPollTimer);
+            rehberPollTimer = null;
+        }
+    }
+
+    function initRehberPanel() {
+        loadRehberLeaderboard();
+        startRehberPolling();
+    }
+
     function renderRaceList(hip) {
         const el = $('#pubRaceList');
         const kosular = hip.kosular || [];
@@ -1705,6 +1863,7 @@
             stopMuhtPolling();
             pauseTjkTv();
             stopSonucPolling();
+            stopRehberPolling();
             if (panelId === 'kosular') {
                 refreshProgramGanyanOdds();
                 refreshProgramBltData();
@@ -1715,6 +1874,9 @@
             }
             if (panelId === 'sonuclar') {
                 initSonuclarPanel();
+            }
+            if (panelId === 'rehber') {
+                initRehberPanel();
             }
         }
         if (panelId === 'kazanc') {
@@ -2498,6 +2660,7 @@
         state.sonucByHip = {};
         state.sonucHipId = null;
         state.sonucLastUpdate = null;
+        state.rehberData = null;
         loadVitrin(clamped);
         if ($('#panel-muhtemeller')?.classList.contains('active')) {
             loadMuhtemeller(clamped);
