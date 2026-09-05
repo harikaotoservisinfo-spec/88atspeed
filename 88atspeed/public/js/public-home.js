@@ -910,9 +910,16 @@
             const t = h.scores?.[col.scoreKey];
             return formatScoreCell(t);
         }
-        if (col.key === 'name') return h.name || '—';
+        if (col.key === 'name') return formatHorseNameCell(h);
         const v = String(h[col.key] || '').trim();
         return v || '—';
+    }
+
+    function formatHorseNameCell(h) {
+        const name = escapeHtml(h.name || '—');
+        if (!h.t1drTest1) return name;
+        return '<span class="pub-prog-t1dr-star" title="T1×DR=TEST1 — geçmiş koşuda eşleşme var">★</span> '
+            + '<span class="pub-prog-at-name">' + name + '</span>';
     }
 
     function normalizeHorseName(s) {
@@ -1680,6 +1687,7 @@
                         + cols.map((c) => {
                             let cls = c.cls;
                             const val = programHorseCell(h, c, ctx);
+                            const isNameCol = c.key === 'name';
                             if (c.key === 'ganyan') {
                                 if (!ganyanMap[String(h.no)]) cls += ' pub-prog-ganyan-empty';
                                 else if (leaderNo && String(h.no) === leaderNo) cls += ' pub-prog-ganyan-leader';
@@ -1716,7 +1724,7 @@
                                 else if (t.rank === 1) cls += ' pub-prog-score-leader';
                                 if (c.scoreKey === 'tahmin' && t?.rank === 1) cls += ' pub-prog-score-tahmin-top';
                             }
-                            return '<td class="' + cls + '">' + escapeHtml(val) + '</td>';
+                            return '<td class="' + cls + '">' + (isNameCol ? val : escapeHtml(val)) + '</td>';
                         }).join('')
                         + '<td class="pub-col-spacer-cell" aria-hidden="true"></td>'
                         + '</tr>';

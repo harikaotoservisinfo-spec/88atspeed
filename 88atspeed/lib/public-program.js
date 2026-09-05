@@ -5,6 +5,7 @@ const cheerio = require('cheerio');
 const tjkScrape = require('./tjk-scrape');
 const hipodromProgram = require('./hipodrom-program');
 const { mergeTahminIntoKosular } = require('./public-tahmin-build');
+const { annotateKosular } = require('./t1dr-test1-match');
 const horseHistoryEnrich = require('./horse-history-enrich');
 const raceMetaEnrich = require('./race-meta-enrich');
 
@@ -883,9 +884,12 @@ async function getPublicVitrin(db, tarih, opts = {}) {
         kosuSayisi: r.kosu_sayisi,
         ilkKosuSaat: r.ilk_kosu_saat,
         durum: r.durum,
-        kosular: mergeTahminIntoKosular(
-            safeParseJson(r.program_json, []),
-            r.tahmin_json
+        kosular: annotateKosular(
+            mergeTahminIntoKosular(
+                safeParseJson(r.program_json, []),
+                r.tahmin_json
+            ),
+            { tarih, hipodrom: r.hipodrom }
         ),
         tahminler: safeParseJson(r.tahmin_json, null),
         yayinTarihi: r.yayin_tarihi,

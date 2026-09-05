@@ -9,6 +9,7 @@ const {
     openDb,
     dbAll
 } = require('../scripts/ptest-terminal-lib');
+const { annotateKosular } = require('./t1dr-test1-match');
 
 let enginesLoaded = false;
 let calibrationPromise = null;
@@ -393,16 +394,18 @@ async function buildTahminForHipodrom(db, tarih, hipodromRow, opts = {}) {
         scored++;
     }
 
+    const annotatedRaces = annotateKosular(races, meta);
+
     return {
         hipodrom: hipodromRow.hipodrom,
         hipodromId: hipodromRow.hipodrom_id,
-        raceCount: races.length,
+        raceCount: annotatedRaces.length,
         scored,
         dataHits,
         engine: global.HybridTahminScoringEngine?.isCalibrated?.() ? 'hybrid' : 'fallback',
         byRace,
         byHorseByRace,
-        races,
+        races: annotatedRaces,
         tahminPayload: {
             generatedAt: new Date().toISOString(),
             engine: 'hybrid',

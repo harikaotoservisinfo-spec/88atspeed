@@ -1605,6 +1605,15 @@ a { color: inherit; text-decoration: none; }
     padding-left: 4px !important;
 }
 
+.pub-prog-t1dr-star {
+    color: #f9a825;
+    font-size: 13px;
+    font-weight: 900;
+    line-height: 1;
+    margin-right: 2px;
+    vertical-align: middle;
+}
+
 .pub-prog-ganyan {
     text-align: right;
     font-weight: 800;
