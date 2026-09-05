@@ -326,6 +326,16 @@
         }
     }
 
+    function isRetryableLoadError(err, res) {
+        if (err?.name === 'AbortError') return true;
+        const status = res?.status;
+        if (status === 502 || status === 503 || status === 504) return true;
+        const msg = err?.message || '';
+        if (/aborted|network|fetch failed|failed to fetch/i.test(msg)) return true;
+        if (/HTTP 502|HTTP 503|HTTP 504|Bad Gateway|Gateway Timeout/i.test(msg)) return true;
+        return false;
+    }
+
     function isTomorrowIso(iso) {
         return iso === localTomorrowIso();
     }
@@ -448,15 +458,16 @@
         raceList.innerHTML = '<div class="pub-loading"><div class="pub-spinner"></div>Program yükleniyor…</div>';
         hipTabs.innerHTML = '';
 
-        const maxAttempts = 3;
+        const maxAttempts = 5;
         let lastErr = null;
 
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             if (loadId !== vitrinLoadSeq) return;
             const signal = vitrinAbortController.signal;
+            let res = null;
             try {
                 const tid = setTimeout(() => vitrinAbortController?.abort(), 90000);
-                const res = await fetch('/api/public/vitrin?iso=' + encodeURIComponent(clampedIso), {
+                res = await fetch('/api/public/vitrin?iso=' + encodeURIComponent(clampedIso), {
                     signal,
                     cache: 'no-store'
                 });
@@ -510,12 +521,10 @@
             } catch (err) {
                 lastErr = err;
                 if (loadId !== vitrinLoadSeq) return;
-                const retryable = err.name === 'AbortError'
-                    || /aborted|network|fetch|failed/i.test(err.message || '');
-                if (attempt < maxAttempts && retryable) {
+                if (attempt < maxAttempts && isRetryableLoadError(err, res)) {
                     raceList.innerHTML = '<div class="pub-loading"><div class="pub-spinner"></div>'
-                        + 'Yeniden deneniyor (' + (attempt + 1) + '/' + maxAttempts + ')…</div>';
-                    await new Promise((r) => setTimeout(r, 1500 * attempt));
+                        + 'Sunucu hazırlanıyor, yeniden deneniyor (' + (attempt + 1) + '/' + maxAttempts + ')…</div>';
+                    await new Promise((r) => setTimeout(r, 2000 * attempt));
                     vitrinAbortController = new AbortController();
                     continue;
                 }
