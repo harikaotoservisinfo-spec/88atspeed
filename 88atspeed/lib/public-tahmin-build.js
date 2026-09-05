@@ -80,6 +80,15 @@ function atCacheKey(atId) {
     return Number.isFinite(n) ? n : String(atId);
 }
 
+// Normalized horse-name key for matching history when atId does not line up
+// (e.g. programs sourced from hipodrom.com carry their own ids, not TJK AtId).
+function nameCacheKey(name) {
+    const s = String(name || '').toLocaleUpperCase('tr-TR')
+        .normalize('NFD').replace(/\p{M}/gu, '')
+        .replace(/[^A-Z0-9]/g, '');
+    return s ? 'nm:' + s : null;
+}
+
 function parseKayitVeri(raw) {
     try {
         const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
@@ -105,10 +114,16 @@ async function buildAtIdKosularIndex(db) {
                 for (const horse of race.horses || []) {
                     const atId = horse.atId != null ? String(horse.atId) : '';
                     const kosular = horse.kosular || [];
-                    if (!atId || !kosular.length) continue;
-                    const prev = index.get(atId);
-                    if (!prev || kosular.length > prev.kosular.length) {
-                        index.set(atId, { kosular, source: table + '#' + kayit.id });
+                    if (!kosular.length) continue;
+                    const entry = { kosular, source: table + '#' + kayit.id };
+                    if (atId) {
+                        const prev = index.get(atId);
+                        if (!prev || kosular.length > prev.kosular.length) index.set(atId, entry);
+                    }
+                    const nmKey = nameCacheKey(horse.name);
+                    if (nmKey) {
+                        const prevNm = index.get(nmKey);
+                        if (!prevNm || kosular.length > prevNm.kosular.length) index.set(nmKey, entry);
                     }
                 }
             }
@@ -121,6 +136,9 @@ function resolveHorseKosular(veriCache, horse) {
     const key = atCacheKey(horse?.atId);
     const cached = key != null ? veriCache[key] : null;
     if (cached?.length) return cached;
+    const nmKey = nameCacheKey(horse?.name);
+    const byName = nmKey ? veriCache[nmKey] : null;
+    if (byName?.length) return byName;
     return horse?.kosular || [];
 }
 
@@ -367,6 +385,13 @@ async function buildTahminForHipodrom(db, tarih, hipodromRow, opts = {}) {
             const rec = h.atId ? atIndex.get(String(h.atId)) : null;
             if (key != null && rec?.kosular?.length) {
                 veriCache[key] = rec.kosular;
+                dataHits++;
+                continue;
+            }
+            const nmKey = nameCacheKey(h.name);
+            const nmRec = nmKey ? atIndex.get(nmKey) : null;
+            if (nmKey && nmRec?.kosular?.length) {
+                veriCache[nmKey] = nmRec.kosular;
                 dataHits++;
             }
         }
