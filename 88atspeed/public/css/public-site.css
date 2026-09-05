@@ -1559,24 +1559,24 @@ a { color: inherit; text-decoration: none; }
 .pub-program-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 13px;
+    font-size: 11px;
     table-layout: fixed;
 }
 
 .pub-program-table th {
     background: #f7f7f7;
-    padding: 6px 8px;
+    padding: 4px 4px;
     text-align: left;
-    font-size: 11px;
+    font-size: 9.5px;
     text-transform: uppercase;
-    letter-spacing: 0.4px;
+    letter-spacing: 0.2px;
     color: var(--pub-muted);
     border-bottom: 1px solid #ececec;
     white-space: nowrap;
 }
 
 .pub-program-table td {
-    padding: 6px 8px;
+    padding: 4px 4px;
     border-bottom: 1px solid #f3f3f3;
     vertical-align: middle;
 }
@@ -1659,7 +1659,7 @@ a { color: inherit; text-decoration: none; }
     vertical-align: middle;
 }
 
-.pub-col-yildizgrup { width: 240px; min-width: 150px; }
+.pub-col-yildizgrup { width: 360px; min-width: 220px; }
 
 .pub-program-table th.pub-col-yildizgrup {
     background: #ede7f6;
@@ -1743,16 +1743,16 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* Sabit sütun genişlikleri — sağdaki spacer boş alanı doldurur */
-.pub-col-no { width: 36px; }
-.pub-col-ganyan { width: 48px; }
-.pub-col-name { width: 180px; }
-.pub-col-yas { width: 44px; }
-.pub-col-siklet { width: 52px; }
-.pub-col-hp { width: 40px; }
-.pub-col-jokey { width: 132px; }
-.pub-col-taki { width: 56px; min-width: 56px; }
-.pub-col-blt { width: 40px; min-width: 40px; }
-.pub-col-gp2 { width: 40px; min-width: 40px; }
+.pub-col-no { width: 26px; }
+.pub-col-ganyan { width: 36px; }
+.pub-col-name { width: 148px; }
+.pub-col-yas { width: 32px; }
+.pub-col-siklet { width: 40px; }
+.pub-col-hp { width: 30px; }
+.pub-col-jokey { width: 100px; }
+.pub-col-taki { width: 44px; min-width: 44px; }
+.pub-col-blt { width: 30px; min-width: 30px; }
+.pub-col-gp2 { width: 30px; min-width: 30px; }
 .pub-col-spacer { width: auto; }
 
 .pub-col-spacer-hdr {
@@ -1835,8 +1835,8 @@ a { color: inherit; text-decoration: none; }
     font-weight: 600;
 }
 
-.pub-col-bt { width: 48px; min-width: 44px; }
-.pub-col-bt:first-of-type { width: 52px; min-width: 48px; }
+.pub-col-bt { width: 40px; min-width: 36px; }
+.pub-col-bt:first-of-type { width: 44px; min-width: 40px; }
 
 .pub-prog-bt {
     text-align: center;
@@ -1862,8 +1862,8 @@ a { color: inherit; text-decoration: none; }
     font-weight: 600;
 }
 
-.pub-col-score { width: 52px; min-width: 48px; }
-.pub-col-score-tahmin { width: 58px; min-width: 54px; }
+.pub-col-score { width: 40px; min-width: 36px; }
+.pub-col-score-tahmin { width: 46px; min-width: 42px; }
 
 .pub-program-table th.pub-col-score-tahmin {
     background: #ffe0b2;
@@ -1882,9 +1882,9 @@ a { color: inherit; text-decoration: none; }
 
 .pub-prog-score {
     text-align: center;
-    font-size: 11px;
+    font-size: 9px;
     white-space: nowrap;
-    padding-left: 3px !important;
+    padding-left: 2px !important;
     padding-right: 3px !important;
     line-height: 1.2;
 }
@@ -1961,7 +1961,7 @@ a { color: inherit; text-decoration: none; }
     font-weight: 600;
 }
 
-.pub-col-fob { width: 52px; min-width: 48px; }
+.pub-col-fob { width: 42px; min-width: 38px; }
 
 .pub-prog-fob {
     text-align: center;

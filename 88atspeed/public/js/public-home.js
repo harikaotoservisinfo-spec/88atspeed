@@ -914,7 +914,7 @@
                 if (len > maxChars) maxChars = len;
             }
         }
-        return Math.min(128, Math.max(56, maxChars * 7 + 18));
+        return Math.min(100, Math.max(44, maxChars * 6 + 12));
     }
 
     function renderProgramColgroup(cols, colWidths) {
@@ -1676,30 +1676,30 @@
         const cols = getProgramColumns(kosular);
         const colWidths = {
             taki: computeTakiColWidth(kosular),
-            blt: 40,
-            gp2: 40,
-            bt_ganyan: 52,
-            bt_ilk2: 48,
-            bt_ilk3: 48,
-            bt_ilk4: 48,
-            score_tahmin: 58,
-            score_r2: 52,
-            score_mtr: 52,
-            score_t9v: 52,
-            score_asf: 52,
-            score_g1side: 52,
-            score_g1pair: 52,
-            score_go: 52,
-            score_hyb: 52,
-            yildizGrup: 240,
-            fob_ganyan: 52,
-            fob_ilk2: 48,
-            fob_ilk3: 48
+            blt: 30,
+            gp2: 30,
+            bt_ganyan: 44,
+            bt_ilk2: 40,
+            bt_ilk3: 40,
+            bt_ilk4: 40,
+            score_tahmin: 46,
+            score_r2: 40,
+            score_mtr: 40,
+            score_t9v: 40,
+            score_asf: 40,
+            score_g1side: 40,
+            score_g1pair: 40,
+            score_go: 40,
+            score_hyb: 40,
+            yildizGrup: 360,
+            fob_ganyan: 44,
+            fob_ilk2: 40,
+            fob_ilk3: 40
         };
         cols.forEach((c) => {
-            if (c.key && c.key.startsWith('fob_') && !colWidths[c.key]) colWidths[c.key] = 52;
-            if (c.key && c.key.startsWith('bt_') && !colWidths[c.key]) colWidths[c.key] = 48;
-            if (c.key && c.key.startsWith('score_') && !colWidths[c.key]) colWidths[c.key] = 52;
+            if (c.key && c.key.startsWith('fob_') && !colWidths[c.key]) colWidths[c.key] = 42;
+            if (c.key && c.key.startsWith('bt_') && !colWidths[c.key]) colWidths[c.key] = 40;
+            if (c.key && c.key.startsWith('score_') && !colWidths[c.key]) colWidths[c.key] = 40;
         });
         const colgroup = renderProgramColgroup(cols, colWidths);
 
