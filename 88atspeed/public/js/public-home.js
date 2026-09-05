@@ -946,6 +946,9 @@
         if (h.test123Kirmizi) {
             stars += '<span class="pub-prog-t123-star" title="TEST1·TEST2·TEST3 kırmızı">★</span>';
         }
+        if (h.test9Yanip) {
+            stars += '<span class="pub-prog-t9-star" title="TEST9 yanıp sönen renk kuralı">★</span>';
+        }
         if (!stars) return name;
         return stars + ' <span class="pub-prog-at-name">' + name + '</span>';
     }
