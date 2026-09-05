@@ -306,12 +306,19 @@
     async function loadProgramSync() {
         const el = $('#pubProgramSyncBody');
         if (!el) return;
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), 15000);
         try {
-            const res = await fetch('/api/public/program-sync');
+            const res = await fetch('/api/public/program-sync', { signal: controller.signal });
+            clearTimeout(tid);
             const data = await res.json();
             renderProgramSync(data);
         } catch (err) {
-            el.innerHTML = '<div class="pub-program-sync-meta">Bağlantı hatası: ' + escapeHtml(err.message || '') + '</div>';
+            clearTimeout(tid);
+            const msg = err.name === 'AbortError'
+                ? 'Durum zaman aşımı (15 sn). Sunucu yoğun olabilir — ↻ ile tekrar deneyin.'
+                : ('Bağlantı hatası: ' + (err.message || ''));
+            el.innerHTML = '<div class="pub-program-sync-meta">' + escapeHtml(msg) + '</div>';
         }
     }
 
@@ -466,7 +473,7 @@
             const signal = vitrinAbortController.signal;
             let res = null;
             try {
-                const tid = setTimeout(() => vitrinAbortController?.abort(), 90000);
+                const tid = setTimeout(() => vitrinAbortController?.abort(), 35000);
                 res = await fetch('/api/public/vitrin?iso=' + encodeURIComponent(clampedIso), {
                     signal,
                     cache: 'no-store'

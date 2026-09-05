@@ -146,11 +146,10 @@ nohup node "$APP_DIR/scripts/warm-calibration-bundle.js" --db "$APP_DIR/atlar.db
   >> "$APP_DIR/data/calib-warm.log" 2>&1 &
 echo "  Log: $APP_DIR/data/calib-warm.log"
 
-echo "⭐ T1×DR=TEST1 bayrakları yazılıyor..."
+echo "⭐ T1×DR=TEST1 bayrakları (arka plan, siteyi kilitlemez)..."
 mkdir -p "$APP_DIR/data"
-node --max-old-space-size=2048 "$APP_DIR/scripts/backfill-t1dr-test1-flags.js" --bugun --yarin \
-  >> "$APP_DIR/data/t1dr-backfill.log" 2>&1 \
-  || echo "⚠️  T1DR backfill atlandı — log: $APP_DIR/data/t1dr-backfill.log"
+nohup node --max-old-space-size=2048 "$APP_DIR/scripts/backfill-t1dr-test1-flags.js" --bugun --yarin --force \
+  >> "$APP_DIR/data/t1dr-backfill.log" 2>&1 &
 
 echo "🔍 Bi'Talih sağlık:"
 wait_for_app || true
