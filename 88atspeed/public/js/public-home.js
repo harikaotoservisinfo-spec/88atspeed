@@ -928,20 +928,65 @@
             + '</div>';
     }
 
+    function ivmeArrow(v, yeni) {
+        if (yeni) return '<span class="pub-yk-arrow pos">↑yeni</span>';
+        if (v == null) return '<span class="pub-yk-arrow nil">—</span>';
+        const dir = v > 0 ? '↗' : (v < 0 ? '↘' : '→');
+        const cls = v > 0 ? 'pos' : (v < 0 ? 'neg' : 'nil');
+        return '<span class="pub-yk-arrow ' + cls + '">' + dir + (v >= 0 ? '+' : '') + v + '%</span>';
+    }
+
+    // "7" satırı: her yarış ayrı sütun (yıldızlar üstte, koşu-başı sayı altta),
+    // yarışlar 7→1 kronolojik; taban(3-7)→2 ve 2→1 geçişlerinde ivme okları.
+    function formatKronGrid(h) {
+        const list = Array.isArray(h.yildizlar) ? h.yildizlar : [];
+        if (!list.length) return '<span class="pub-prog-yildiz-empty">—</span>';
+        const iv = h.yildizIvme || {};
+        const byK = new Map();
+        list.forEach((y) => {
+            const k = y.k;
+            if (!byK.has(k)) byK.set(k, []);
+            byK.get(k).push(y);
+        });
+        const sep = (arrowHtml) => '<div class="pub-yk-sep"><span class="pub-yk-line"></span>' + arrowHtml + '</div>';
+        let html = '<div class="pub-yk-grid">';
+        let prevGroup = null;
+        for (let k = 7; k >= 1; k--) {
+            const arr = byK.get(k);
+            if (!arr) continue;
+            const group = k >= 3 ? 'taban' : (k === 2 ? 'orta' : 'guncel');
+            if (prevGroup === 'taban' && group === 'orta') html += sep(ivmeArrow(iv.t2, iv.t2y));
+            if ((prevGroup === 'taban' || prevGroup === 'orta') && group === 'guncel') html += sep(ivmeArrow(iv.t1, iv.t1y));
+            const stars = arr.map((y) =>
+                '<span class="pub-prog-yildiz-star" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">★</span>'
+            ).join('');
+            html += '<div class="pub-yk-col" title="' + k + '. koşu">'
+                + '<span class="pub-yk-stars">' + stars + '</span>'
+                + '<span class="pub-yk-n">' + arr.length + '</span>'
+                + '<span class="pub-yk-k">' + k + '</span>'
+                + '</div>';
+            prevGroup = group;
+        }
+        html += '</div>';
+        return html;
+    }
+
     function formatYildizGrupCell(h) {
         const rows = [
-            { lbl: '7', title: 'Son 7 yarış — kronolojik (en eski → en yeni)', list: h.yildizlar, vurgu: null },
             { lbl: '2', title: 'Son 2 yarış', list: h.yildizlarSon2, vurgu: 'vurgu-kirmizi' },
             { lbl: 'S', title: 'Son yarış', list: h.yildizlarSon1, vurgu: 'vurgu' }
         ];
-        const starHtml = rows.map((r) => {
-            const inner = r.lbl === '7' ? renderStarRunKron(r.list) : renderStarRun(r.list, r.vurgu);
-            return '<div class="pub-prog-yildiz-satir">'
-                + '<span class="pub-prog-yildiz-lbl" title="' + escapeHtml(r.title) + '">' + r.lbl + '</span>'
-                + '<span class="pub-prog-yildiz-wrap">' + inner + '</span>'
-                + '</div>';
-        }).join('');
-        return starHtml + formatIvmeCell(h);
+        const kron = '<div class="pub-prog-yildiz-satir kron">'
+            + '<span class="pub-prog-yildiz-lbl" title="' + escapeHtml('Son 7 yarış — kronolojik (en eski → en yeni), koşu-başı yıldız + ivme') + '">7</span>'
+            + '<span class="pub-prog-yildiz-wrap">' + formatKronGrid(h) + '</span>'
+            + '</div>';
+        const aggHtml = rows.map((r) =>
+            '<div class="pub-prog-yildiz-satir">'
+            + '<span class="pub-prog-yildiz-lbl" title="' + escapeHtml(r.title) + '">' + r.lbl + '</span>'
+            + '<span class="pub-prog-yildiz-wrap">' + renderStarRun(r.list, r.vurgu) + '</span>'
+            + '</div>'
+        ).join('');
+        return kron + aggHtml;
     }
 
     function computeTakiColWidth(kosular) {
@@ -1729,7 +1774,7 @@
             score_g1pair: 40,
             score_go: 40,
             score_hyb: 40,
-            yildizGrup: 360,
+            yildizGrup: 620,
             fob_ganyan: 44,
             fob_ilk2: 40,
             fob_ilk3: 40
