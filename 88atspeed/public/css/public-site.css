@@ -2248,8 +2248,6 @@ a { color: inherit; text-decoration: none; }
     text-shadow: 0 0 4px rgba(158, 158, 158, 0.55);
 }
 
-}
-
 /* Satır tam yeşil: koyu yeşil yıldız + fosforlu yeşil parıltı */
 .pub-prog-yildiz-star.vurgu-yesil-tam {
     position: relative;
@@ -2518,8 +2516,6 @@ a { color: inherit; text-decoration: none; }
     }
 }
 
-}
-
 /* TEST2 en iyi 3: açık yeşil yuvarlak + koyu yeşil fosforlu çerçeve */
 .pub-prog-yildiz-star.vurgu-test2-yesil {
     position: relative;
@@ -2657,8 +2653,6 @@ a { color: inherit; text-decoration: none; }
             inset 0 0 6px rgba(255, 205, 210, 0.6);
         filter: brightness(1.18);
     }
-}
-
 }
 
 /* TEST3 en iyi 3: gri yuvarlak + koyu yeşil fosforlu çerçeve */
@@ -2800,23 +2794,21 @@ a { color: inherit; text-decoration: none; }
     }
 }
 
-}
-
 /* Şehir eşleşmesi: Ş harfi + mavi fosforlu kare çerçeve */
 .pub-prog-yildiz-star.vurgu-sehir-mavi {
     position: relative;
     display: inline-block;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 900;
     line-height: 1;
-    padding: 1px 3px;
+    padding: 1px 4px;
     border-radius: 3px;
     border: 2px solid #1565c0;
     box-shadow:
-        0 0 0 1px rgba(21, 101, 192, 0.45),
-        0 0 6px rgba(21, 101, 192, 0.55),
-        inset 0 0 4px rgba(129, 212, 250, 0.4);
-    -webkit-text-stroke: 0.35px rgba(13, 71, 161, 0.85);
+        0 0 0 1px rgba(21, 101, 192, 0.55),
+        0 0 7px rgba(21, 101, 192, 0.65),
+        inset 0 0 5px rgba(129, 212, 250, 0.5);
+    -webkit-text-stroke: 0.45px rgba(13, 71, 161, 0.9);
     paint-order: stroke fill;
     text-shadow: none;
     animation: pub-sehir-mavi-blink 1.35s ease-in-out infinite;
@@ -2824,20 +2816,28 @@ a { color: inherit; text-decoration: none; }
 
 @keyframes pub-sehir-mavi-blink {
     0%, 100% {
+        text-shadow:
+            0 0 2px #64b5f6,
+            0 0 6px rgba(100, 181, 246, 0.95),
+            0 0 11px rgba(21, 101, 192, 0.55);
         box-shadow:
             0 0 0 1.5px #1565c0,
-            0 0 7px rgba(21, 101, 192, 0.75),
-            0 0 12px rgba(3, 169, 244, 0.45),
-            inset 0 0 4px rgba(129, 212, 250, 0.35);
-        filter: brightness(1.08);
+            0 0 8px rgba(21, 101, 192, 0.8),
+            0 0 14px rgba(3, 169, 244, 0.5),
+            inset 0 0 4px rgba(129, 212, 250, 0.4);
+        filter: brightness(1.1);
     }
     50% {
+        text-shadow:
+            0 0 4px #90caf9,
+            0 0 10px rgba(144, 202, 249, 1),
+            0 0 18px rgba(3, 169, 244, 0.85);
         box-shadow:
             0 0 0 2px #0d47a1,
-            0 0 10px rgba(41, 182, 246, 0.9),
-            0 0 16px rgba(3, 169, 244, 0.55),
-            inset 0 0 6px rgba(179, 229, 252, 0.6);
-        filter: brightness(1.18);
+            0 0 11px rgba(41, 182, 246, 0.95),
+            0 0 18px rgba(3, 169, 244, 0.6),
+            inset 0 0 6px rgba(179, 229, 252, 0.65);
+        filter: brightness(1.22);
     }
 }
 
@@ -2845,17 +2845,17 @@ a { color: inherit; text-decoration: none; }
 .pub-prog-yildiz-star.vurgu-sehir-kirmizi {
     position: relative;
     display: inline-block;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 900;
     line-height: 1;
-    padding: 1px 3px;
+    padding: 1px 4px;
     border-radius: 3px;
     border: 2px solid #c62828;
     box-shadow:
-        0 0 0 1px rgba(198, 40, 40, 0.45),
-        0 0 6px rgba(198, 40, 40, 0.55),
-        inset 0 0 4px rgba(255, 138, 128, 0.4);
-    -webkit-text-stroke: 0.35px rgba(183, 28, 28, 0.85);
+        0 0 0 1px rgba(198, 40, 40, 0.55),
+        0 0 7px rgba(198, 40, 40, 0.65),
+        inset 0 0 5px rgba(255, 138, 128, 0.5);
+    -webkit-text-stroke: 0.45px rgba(183, 28, 28, 0.9);
     paint-order: stroke fill;
     text-shadow: none;
     animation: pub-sehir-kirmizi-blink 1.35s ease-in-out infinite;
@@ -2863,20 +2863,28 @@ a { color: inherit; text-decoration: none; }
 
 @keyframes pub-sehir-kirmizi-blink {
     0%, 100% {
+        text-shadow:
+            0 0 2px #ef9a9a,
+            0 0 6px rgba(239, 154, 154, 0.95),
+            0 0 11px rgba(198, 40, 40, 0.55);
         box-shadow:
             0 0 0 1.5px #c62828,
-            0 0 7px rgba(244, 67, 54, 0.75),
-            0 0 12px rgba(198, 40, 40, 0.45),
-            inset 0 0 4px rgba(255, 171, 145, 0.35);
-        filter: brightness(1.08);
+            0 0 8px rgba(244, 67, 54, 0.8),
+            0 0 14px rgba(198, 40, 40, 0.5),
+            inset 0 0 4px rgba(255, 171, 145, 0.4);
+        filter: brightness(1.1);
     }
     50% {
+        text-shadow:
+            0 0 4px #ffcdd2,
+            0 0 10px rgba(255, 205, 210, 1),
+            0 0 18px rgba(244, 67, 54, 0.85);
         box-shadow:
             0 0 0 2px #b71c1c,
-            0 0 10px rgba(244, 67, 54, 0.9),
-            0 0 16px rgba(198, 40, 40, 0.55),
-            inset 0 0 6px rgba(255, 205, 210, 0.6);
-        filter: brightness(1.18);
+            0 0 11px rgba(244, 67, 54, 0.95),
+            0 0 18px rgba(198, 40, 40, 0.6),
+            inset 0 0 6px rgba(255, 205, 210, 0.65);
+        filter: brightness(1.22);
     }
 }
 

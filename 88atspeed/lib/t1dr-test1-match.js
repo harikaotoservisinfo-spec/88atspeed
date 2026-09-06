@@ -4,7 +4,7 @@
 const { loadGostergeEngines } = require('../scripts/ptest-terminal-lib');
 
 // Yıldız veri şeması sürümü — değiştikçe artır ki eski kayıtlar yeniden hesaplansın.
-const YILDIZ_SURUM = 26;
+const YILDIZ_SURUM = 27;
 
 const T1DR_SON_KOSU_AD = 'Kırmızı (T1×DR son koşu)';
 const MOR_TEST9_AD = 'Mor yanıp (TEST9)';

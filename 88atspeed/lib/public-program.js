@@ -4,7 +4,8 @@
 const cheerio = require('cheerio');
 const tjkScrape = require('./tjk-scrape');
 const hipodromProgram = require('./hipodrom-program');
-const { mergeTahminIntoKosular } = require('./public-tahmin-build');
+const { mergeTahminIntoKosular, buildAtIdKosularIndex, veriCacheFromAtIndex, ensureCalibration } = require('./public-tahmin-build');
+const { annotateKosular } = require('./t1dr-test1-match');
 const horseHistoryEnrich = require('./horse-history-enrich');
 const raceMetaEnrich = require('./race-meta-enrich');
 
@@ -959,6 +960,27 @@ function stopTjkListWarmer() {
     }
 }
 
+/** Vitrin yanıtında gösterge bayraklarını (Ş kare vurgu vb.) güncel tut */
+async function refreshVitrinYildizlar(db, hipodromlar, tarih) {
+    if (!hipodromlar?.length) return hipodromlar;
+    try {
+        await ensureCalibration(db);
+        const atIndex = await buildAtIdKosularIndex(db);
+        const veriCache = veriCacheFromAtIndex(atIndex);
+        return hipodromlar.map((hip) => ({
+            ...hip,
+            kosular: annotateKosular(hip.kosular || [], {
+                tarih,
+                hipodrom: hip.name,
+                veriCache
+            })
+        }));
+    } catch (err) {
+        console.warn('vitrin yıldız yenileme atlandı:', err.message);
+        return hipodromlar;
+    }
+}
+
 async function getPublicVitrin(db, tarih, opts = {}) {
     await ensureTables(db);
 
@@ -1020,6 +1042,8 @@ async function getPublicVitrin(db, tarih, opts = {}) {
             hipodromlar = [];
         }
     }
+
+    hipodromlar = await refreshVitrinYildizlar(db, hipodromlar, tarih);
 
     return {
         tarih,
