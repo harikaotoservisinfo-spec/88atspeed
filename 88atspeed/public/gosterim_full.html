@@ -2,90 +2,118 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Gösterim - 88ATSPEED</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="css/theme.css?v=20260822a" rel="stylesheet">
+    <link href="css/gosterim-cell-styles.css?v=20260901a" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; background: transparent; color: #fff; }
-        .gosterim-controls {
-            background: rgba(30, 30, 60, 0.8);
-            border-radius: 20px;
-            padding: 20px;
-            margin-bottom: 20px;
-            display: flex;
-            gap: 15px;
-            align-items: flex-end;
-            flex-wrap: wrap;
+        #gosterimContainer { padding: 20px 24px 32px; max-width: 100%; }
+        .gosterim-controls { justify-content: flex-start; }
+        .gosterim-btn { min-width: 220px; }
+        .results-table { margin-top: 4px; background: transparent; padding: 0; }
+        .race-header { display: flex; align-items: center; gap: 10px; }
+        .race-table-wrap { overflow-x: auto; padding: 16px 16px 20px; background: var(--bg-surface); }
+
+        .gosterim-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 10px;
+            font-size: 11px;
+            min-width: 2400px;
         }
-        .control-group { display: flex; flex-direction: column; gap: 8px; }
-        .control-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; color: #ff9800; }
-        .gosterim-btn {
-            padding: 12px 20px;
-            font-size: 14px;
-            font-weight: 600;
-            border-radius: 12px;
-            cursor: pointer;
-            background: linear-gradient(135deg, #ff9800, #f44336);
-            color: white;
-            min-width: 160px;
-            border: none;
-        }
-        .gosterim-btn:hover { opacity: 0.9; transform: translateY(-2px); }
-        .results-table {
-            background: rgba(30, 30, 60, 0.6);
-            border-radius: 20px;
-            overflow-x: auto;
-            padding: 15px;
-        }
-        table { width: 100%; border-collapse: collapse; font-size: 10px; }
-        th, td { padding: 6px 8px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); border-right: 1px solid rgba(255,255,255,0.05); }
-        th {
-            background: #1a1a3e;
-            color: #ff9800;
-            font-weight: 600;
-            position: sticky;
-            top: 0;
+        .gosterim-table thead tr { position: sticky; top: 0; z-index: 20; }
+        .gosterim-table th {
+            background: var(--text-primary);
+            color: #eef1f8;
+            font-weight: 700;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            padding: 12px 10px;
+            text-align: center;
             white-space: nowrap;
             cursor: pointer;
             user-select: none;
+            border: none;
         }
-        th:hover { background: rgba(255,152,0,0.3); }
-        th .sort-icon { display: inline-block; margin-left: 5px; font-size: 10px; opacity: 0.5; }
-        th.sort-asc .sort-icon { opacity: 1; transform: rotate(0deg); }
-        th.sort-desc .sort-icon { opacity: 1; transform: rotate(180deg); display: inline-block; }
-        .status { padding: 12px; border-radius: 12px; margin-bottom: 15px; text-align: center; }
-        .status-loading { background: rgba(255,152,0,0.2); color: #ff9800; }
-        .status-success { background: rgba(76,175,80,0.2); color: #4CAF50; }
-        .status-error { background: rgba(244,67,54,0.2); color: #f44336; }
-        .empty { text-align: center; padding: 60px; color: rgba(255,255,255,0.5); }
-        .race-card { background: rgba(30,30,60,0.4); border-radius: 16px; margin-bottom: 25px; overflow: hidden; }
-        .race-header { background: linear-gradient(135deg, rgba(255,152,0,0.3), rgba(76,175,80,0.15)); padding: 12px 15px; font-weight: bold; font-size: 14px; border-radius: 12px 12px 0 0; }
-        .kayit-listesi {
-            background: rgba(0,0,0,0.3);
-            border-radius: 12px;
+        .gosterim-table th:first-child { border-radius: var(--radius-md) 0 0 var(--radius-md); }
+        .gosterim-table th:last-child { border-radius: 0 var(--radius-md) var(--radius-md) 0; padding-right: 14px; }
+        .gosterim-table th:hover { background: var(--accent-light); }
+        .gosterim-table th .sort-icon { display: inline-block; margin-left: 4px; font-size: 9px; opacity: 0.45; }
+        .gosterim-table th.sort-asc .sort-icon,
+        .gosterim-table th.sort-desc .sort-icon { opacity: 1; color: #fff176; }
+        .gosterim-table th.sort-desc .sort-icon { transform: rotate(180deg); display: inline-block; }
+
+        .gosterim-table tbody tr.row-card { transition: transform 0.12s ease; }
+        .gosterim-table tbody tr.row-card:hover { transform: translateY(-1px); }
+        .gosterim-table tbody tr.row-card:hover td { box-shadow: 0 6px 20px rgba(15, 34, 71, 0.12); }
+        .gosterim-table tbody td {
+            background: var(--bg-card);
+            color: var(--text-primary);
             padding: 10px;
-            margin-bottom: 15px;
-            max-height: 250px;
-            overflow-y: auto;
+            text-align: center;
+            vertical-align: middle;
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            font-weight: 500;
+            box-shadow: var(--shadow-sm);
         }
-        .kayit-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 12px;
-            margin: 5px 0;
-            background: rgba(255,255,255,0.05);
-            border-radius: 8px;
-            cursor: pointer;
+        .gosterim-table tbody td:last-child {
+            border-right: 1px solid var(--border);
+            border-radius: 0 var(--radius-md) var(--radius-md) 0;
+            padding-right: 14px;
         }
-        .kayit-item:hover { background: rgba(255,152,0,0.2); }
-        .sari-hucre { background-color: #ffeb3b !important; color: #000 !important; font-weight: bold; }
-        tr.sari-satir td { background-color: #fff9c4 !important; color: #000 !important; }
-        .eniyi-test1 { background-color: #ffeb3b !important; color: #000 !important; font-weight: bold; }
-        .eniyi-test2 { background-color: #ffeb3b !important; color: #000 !important; font-weight: bold; }
-        .kirmizi-yazi { color: #ff0000 !important; font-weight: bold; }
-        .yesil-yazi { color: #00cc00 !important; font-weight: bold; }
-        .pembe-hucre { background-color: #ffb6c1 !important; color: #000 !important; }
-        tr.pembe-satir td { background-color: #ffc0cb !important; color: #000 !important; }
+        .gosterim-table .col-delete {
+            position: sticky;
+            left: 0;
+            z-index: 6;
+            width: 52px;
+            min-width: 52px;
+            text-align: center;
+            padding: 6px 4px !important;
+            background: var(--bg-card);
+            border-left: 1px solid var(--border);
+            border-radius: var(--radius-md) 0 0 var(--radius-md);
+            box-shadow: 2px 0 6px rgba(15, 34, 71, 0.06);
+        }
+        .gosterim-table thead .col-delete {
+            z-index: 26;
+            background: #b71c1c;
+            color: #fff;
+            cursor: default;
+        }
+        .gosterim-table thead .col-delete:hover { background: #b71c1c; }
+        .gosterim-table .col-sticky {
+            position: sticky;
+            left: 52px;
+            z-index: 5;
+            background: var(--bg-card);
+            font-weight: 700;
+            color: var(--accent);
+            box-shadow: 2px 0 6px rgba(15, 34, 71, 0.04);
+        }
+        .gosterim-table .col-sticky-2 {
+            position: sticky;
+            left: 104px;
+            z-index: 5;
+            background: var(--bg-card);
+            text-align: left;
+            min-width: 140px;
+            font-weight: 600;
+            box-shadow: 2px 0 6px rgba(15, 34, 71, 0.04);
+        }
+        .gosterim-table thead .col-sticky,
+        .gosterim-table thead .col-sticky-2 { z-index: 25; background: var(--text-primary); color: #eef1f8; }
+        .gosterim-table tbody tr.row-card:nth-child(even) td { background: #fdfcfa; }
+        .gosterim-table tbody tr.row-card:nth-child(even) .col-delete,
+        .gosterim-table tbody tr.row-card:nth-child(even) .col-sticky,
+        .gosterim-table tbody tr.row-card:nth-child(even) .col-sticky-2 { background: #fdfcfa; }
+        tr.pembe-satir .col-delete, tr.pembe-satir .col-sticky, tr.pembe-satir .col-sticky-2 { background-color: var(--highlight-pink-row) !important; }
+
     </style>
 </head>
 <body>
@@ -98,54 +126,21 @@
 <div id="gosterimResults" class="results-table"><div class="empty">🏇 HESAPLAMA KAYITLARI butonuna tıklayın</div></div>
 </div>
 
+<script src="js/utils.js?v=20260827g"></script>
+<script src="js/at-meta-fields.js?v=20260831a"></script>
+<script src="js/formula-engine.js?v=20260831a"></script>
+<script src="js/gosterim-headers.js?v=20260901a"></script>
 <script>
 let currentHesaplamaData = null;
 let currentHesaplamaId = null;
-let currentSort = { column: null, direction: 'asc' };
+let currentProgramTarih = null;
+let currentHipodrom = null;
+let currentSort = { column: null, direction: 'asc', type: null };
 
-function dereceToSalise(derece) {
-    if (!derece || derece === '-' || derece === 'Derecesiz') return null;
-    try {
-        let s = derece.toString().trim().replace(/:/g, '.');
-        let parts = s.split('.');
-        if (parts.length === 3) {
-            return (parseInt(parts[0]) * 60 * 100) + (parseInt(parts[1]) * 100) + parseInt(parts[2]);
-        } else if (parts.length === 2) {
-            return (parseInt(parts[0]) * 100) + parseInt(parts[1]);
-        } else if (parts.length === 1) {
-            return parseInt(parts[0]) * 100;
-        }
-    } catch(e) { return null; }
-    return null;
-}
+const GOSTERIM_HEADERS = GosterimHeaders.getHeaders();
 
-function saliseToDerece(salise) {
-    if (!salise) return '-';
-    try {
-        let salise_int = Math.floor(Math.abs(salise));
-        let dk = Math.floor(salise_int / 6000);
-        let kalan = salise_int % 6000;
-        let sn = Math.floor(kalan / 100);
-        let sl = kalan % 100;
-        if (dk > 0) return `${dk}.${sn.toString().padStart(2,'0')}.${sl.toString().padStart(2,'0')}`;
-        else return `${sn.toString().padStart(2,'0')}.${sl.toString().padStart(2,'0')}`;
-    } catch(e) { return '-'; }
-}
-
-function saliseToFarkFormat(salise) {
-    if (salise === null || salise === undefined) return '-';
-    let abs_salise = Math.floor(Math.abs(parseInt(salise)));
-    let sn = Math.floor(abs_salise / 100);
-    let sl = abs_salise % 100;
-    let sign = salise >= 0 ? '+' : '-';
-    return `${sign}${sn.toString().padStart(2,'0')}.${sl.toString().padStart(2,'0')}`;
-}
-
-function metreBasiSalise(salise, mesafe) {
-    if (salise && mesafe && mesafe !== '-' && mesafe !== 'Derecesiz') {
-        return salise / parseInt(mesafe);
-    }
-    return null;
+function headerStickyClass(h) {
+    return GosterimHeaders.headerStickyClass(h);
 }
 
 document.getElementById('kayitlariGetirBtn').onclick = async () => {
@@ -167,23 +162,24 @@ document.getElementById('kayitlariGetirBtn').onclick = async () => {
             return;
         }
         
-        let html = '<div style="margin-bottom:10px; font-weight:bold;">📋 HESAPLAMA KAYITLARI:</div>';
+        let html = '<div class="kayit-listesi-title">📋 HESAPLAMA KAYITLARI</div>';
         for (let i = 0; i < result.kayitlar.length; i++) {
-            const k = result.kayitlar[i];
-            html += `<div class="kayit-item" data-id="${k.id}">
-                        <span>📅 ${k.tarih} | 🏟️ ${k.hipodrom} | 🐎 ${k.total_horses} at | 🕐 ${k.kayit_tarihi}</span>
-                        <span style="color:#ff9800;">📂 Yükle →</span>
-                    </div>`;
+            html += AtSpeedUtils.hesaplamaKayitListItemHtml(result.kayitlar[i]);
         }
         kayitListesiDiv.innerHTML = html;
         kayitListesiDiv.style.display = 'block';
-        
-        document.querySelectorAll('.kayit-item').forEach(item => {
-            item.onclick = async () => {
-                const id = item.dataset.id;
-                await loadKayit(id);
-                kayitListesiDiv.style.display = 'none';
-            };
+
+        AtSpeedUtils.bindHesaplamaKayitList(kayitListesiDiv, async (id) => {
+            await loadKayit(id);
+            kayitListesiDiv.style.display = 'none';
+        }, () => {
+            const left = kayitListesiDiv.querySelectorAll('.kayit-item').length;
+            if (left) {
+                statusDiv.innerHTML = '<div class="status status-success">✅ ' + left + ' kayıt kaldı</div>';
+            } else {
+                kayitListesiDiv.innerHTML = '<div class="empty">⚠️ Hiç hesaplama kaydı bulunamadı</div>';
+                statusDiv.innerHTML = '<div class="status status-error">⚠️ Hiç kayıt yok</div>';
+            }
         });
         
         statusDiv.innerHTML = '<div class="status status-success">✅ ' + result.kayitlar.length + ' kayıt bulundu</div>';
@@ -205,46 +201,30 @@ async function loadKayit(id) {
         
         currentHesaplamaData = result.kayit.veri;
         currentHesaplamaId = id;
+        currentProgramTarih = result.kayit.tarih || null;
+        currentHipodrom = result.kayit.hipodrom || null;
         
         displayResults(currentHesaplamaData);
-        statusDiv.innerHTML = '<div class="status status-success">✅ Kayıt yüklendi! (ID: ' + id + ')</div>';
+        const tarihNotu = currentProgramTarih
+            ? ' — ' + currentProgramTarih + ' koşuları hariç tutuldu'
+            : '';
+        const hipodromNotu = currentHipodrom ? ' | 🏟️ ' + currentHipodrom + ' şehri yeşil' : '';
+        statusDiv.innerHTML = '<div class="status status-success">✅ Kayıt yüklendi! (ID: ' + id + ')' + tarihNotu + hipodromNotu + ' — 🗑️ SİL sütunu solda</div>';
+
+        window.parent.postMessage({
+            type: '88atspeed-kayit-loaded',
+            kayit: {
+                id: id,
+                tarih: currentProgramTarih || result.kayit.tarih,
+                hipodrom: currentHipodrom || result.kayit.hipodrom,
+                race_count: currentHesaplamaData.length,
+                veri: currentHesaplamaData
+            }
+        }, '*');
         
     } catch (error) {
         statusDiv.innerHTML = '<div class="status status-error">❌ Yükleme hatası: ' + error.message + '</div>';
     }
-}
-
-function parseNumberFromText(text) {
-    if (!text || text === '-') return null;
-    let cleaned = text.toString().replace(/[^0-9.-]/g, '');
-    let num = parseFloat(cleaned);
-    return isNaN(num) ? null : num;
-}
-
-function sortTableData(rowsData, columnIndex, type, direction) {
-    return rowsData.sort((a, b) => {
-        let valA = a.values[columnIndex];
-        let valB = b.values[columnIndex];
-        
-        if (type === 'number') {
-            let numA = parseNumberFromText(valA);
-            let numB = parseNumberFromText(valB);
-            if (numA === null && numB === null) return 0;
-            if (numA === null) return -1;
-            if (numB === null) return 1;
-            return direction === 'asc' ? numA - numB : numB - numA;
-        } else if (type === 'date') {
-            let dateA = new Date(valA.split('.').reverse().join('-'));
-            let dateB = new Date(valB.split('.').reverse().join('-'));
-            if (isNaN(dateA)) dateA = new Date(0);
-            if (isNaN(dateB)) dateB = new Date(0);
-            return direction === 'asc' ? dateA - dateB : dateB - dateA;
-        } else {
-            valA = valA.toLowerCase();
-            valB = valB.toLowerCase();
-            return direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
-        }
-    });
 }
 
 function displayResults(data) {
@@ -252,417 +232,136 @@ function displayResults(data) {
         document.getElementById('gosterimResults').innerHTML = '<div class="empty">⚠️ Veri bulunamadı</div>';
         return;
     }
-    
+
     let html = '';
-    
+
     for (let i = 0; i < data.length; i++) {
         const race = data[i];
         const raceMesafe = (race.mesafe && race.mesafe !== '?') ? race.mesafe : (race.raceDistance || '?');
-        const racePist = race.pist || '';
-        const mesafeGosterim = raceMesafe !== '?' ? raceMesafe + ' ' + racePist : '?';
-        const hedefMesafe = parseInt(raceMesafe);
-        
-        let test1Degerleri = [];
-        let test2Degerleri = [];
-        
-        for (let j = 0; j < race.horses.length; j++) {
-            const horse = race.horses[j];
-            const kosular = horse.kosular || [];
-            for (let idx = 0; idx < kosular.length; idx++) {
-                const atKosu = kosular[idx];
-                const gecmisMesafe = atKosu.mesafe;
-                const dereceStr = atKosu.at_derece;
-                const dereceSalise = dereceToSalise(dereceStr);
-                const dr_sl = metreBasiSalise(dereceSalise, gecmisMesafe);
-                
-                let test1Val = null;
-                if (dr_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
-                    test1Val = hedefMesafe * dr_sl;
-                }
-                if (test1Val !== null) {
-                    test1Degerleri.push({ j, idx, val: test1Val });
-                }
-                
-                let son800_1 = atKosu.son800_bir;
-                const son800_1Salise = dereceToSalise(son800_1);
-                const son800_1_sl = son800_1Salise ? son800_1Salise / 800 : null;
-                let test2Val = null;
-                if (son800_1_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
-                    test2Val = hedefMesafe * son800_1_sl;
-                }
-                if (test2Val !== null) {
-                    test2Degerleri.push({ j, idx, val: test2Val });
-                }
-            }
-        }
-        
-        test1Degerleri.sort((a, b) => a.val - b.val);
-        test2Degerleri.sort((a, b) => a.val - b.val);
-        
-        const enIyilerTest1 = new Set();
-        const enIyilerTest2 = new Set();
-        
-        for (let t = 0; t < Math.min(3, test1Degerleri.length); t++) {
-            enIyilerTest1.add(`${test1Degerleri[t].j}_${test1Degerleri[t].idx}`);
-        }
-        for (let t = 0; t < Math.min(3, test2Degerleri.length); t++) {
-            enIyilerTest2.add(`${test2Degerleri[t].j}_${test2Degerleri[t].idx}`);
-        }
-        
-        let horseTest4Farki = {};
-        let horseTest7Farki = {};
-        let horseIlkFark = {};
-        let horseSonFark = {};
-        let horseFarklarinFarki = {};
-        
-        for (let j = 0; j < race.horses.length; j++) {
-            const horse = race.horses[j];
-            const kosular = horse.kosular || [];
-            
-            const kosularSorted = [...kosular].sort((a, b) => {
-                const dateA = a.tarih ? new Date(a.tarih.split('.').reverse().join('-')) : new Date(0);
-                const dateB = b.tarih ? new Date(b.tarih.split('.').reverse().join('-')) : new Date(0);
-                return dateA - dateB;
-            });
-            
-            let test4Degerleri = [];
-            let test7Degerleri = [];
-            let farkDegerleri = [];
-            
-            for (let idx = 0; idx < kosularSorted.length; idx++) {
-                const atKosu = kosularSorted[idx];
-                const gecmisMesafe = atKosu.mesafe;
-                const dereceStr = atKosu.at_derece;
-                const birinciDerece = atKosu.birinci_derece;
-                const dereceSalise = dereceToSalise(dereceStr);
-                const birinciSalise = dereceToSalise(birinciDerece);
-                const dr_sl = metreBasiSalise(dereceSalise, gecmisMesafe);
-                const birinci_dr_sl = metreBasiSalise(birinciSalise, gecmisMesafe);
-                
-                let test1_salise = null;
-                if (dr_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
-                    test1_salise = hedefMesafe * dr_sl;
-                }
-                
-                let son800_2 = atKosu.son800_iki;
-                if (!son800_2 || son800_2 === '-') son800_2 = atKosu.son800_bir;
-                const son800_2Salise = dereceToSalise(son800_2);
-                const son800_2_sl = son800_2Salise ? son800_2Salise / 800 : null;
-                let test3_salise = null;
-                if (son800_2_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
-                    test3_salise = hedefMesafe * son800_2_sl;
-                }
-                let test4_salise = null;
-                if (test1_salise !== null && test3_salise !== null) {
-                    test4_salise = test3_salise - test1_salise;
-                }
-                if (test4_salise !== null) {
-                    test4Degerleri.push(test4_salise);
-                }
-                
-                let son800_1 = atKosu.son800_bir;
-                const son800_1Salise = dereceToSalise(son800_1);
-                const son800_1_sl = son800_1Salise ? son800_1Salise / 800 : null;
-                let test2_salise = null;
-                if (son800_1_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
-                    test2_salise = hedefMesafe * son800_1_sl;
-                }
-                let test7_salise = null;
-                if (test1_salise !== null && test2_salise !== null) {
-                    test7_salise = test1_salise - test2_salise;
-                }
-                if (test7_salise !== null) {
-                    test7Degerleri.push(test7_salise);
-                }
-                
-                let farkDegeri = null;
-                if (birinci_dr_sl !== null && dr_sl !== null) {
-                    farkDegeri = birinci_dr_sl - dr_sl;
-                }
-                if (farkDegeri !== null) {
-                    farkDegerleri.push(farkDegeri);
-                }
-            }
-            
-            if (test4Degerleri.length > 0) {
-                const ilkTest4 = test4Degerleri[0];
-                const sonTest4 = test4Degerleri[test4Degerleri.length - 1];
-                horseTest4Farki[j] = sonTest4 - ilkTest4;
-            } else {
-                horseTest4Farki[j] = null;
-            }
-            
-            if (test7Degerleri.length > 0) {
-                const ilkTest7 = test7Degerleri[0];
-                const sonTest7 = test7Degerleri[test7Degerleri.length - 1];
-                horseTest7Farki[j] = sonTest7 - ilkTest7;
-            } else {
-                horseTest7Farki[j] = null;
-            }
-            
-            if (farkDegerleri.length > 0) {
-                horseIlkFark[j] = farkDegerleri[0];
-                horseSonFark[j] = farkDegerleri[farkDegerleri.length - 1];
-                horseFarklarinFarki[j] = horseSonFark[j] - horseIlkFark[j];
-            } else {
-                horseIlkFark[j] = null;
-                horseSonFark[j] = null;
-                horseFarklarinFarki[j] = null;
-            }
-        }
-        
-        let raceRowsData = [];
-        
-        for (let j = 0; j < race.horses.length; j++) {
-            const horse = race.horses[j];
-            const kosular = horse.kosular || [];
-            const test8Deger = horseTest4Farki[j];
-            const test9Deger = horseTest7Farki[j];
-            const ilkFarkDeger = horseIlkFark[j];
-            const sonFarkDeger = horseSonFark[j];
-            const farklarinFarkiDeger = horseFarklarinFarki[j];
-            
-            const kosularSorted = [...kosular].sort((a, b) => {
-                const dateA = a.tarih ? new Date(a.tarih.split('.').reverse().join('-')) : new Date(0);
-                const dateB = b.tarih ? new Date(b.tarih.split('.').reverse().join('-')) : new Date(0);
-                return dateB - dateA;
-            });
-            
-            for (let idx = 0; idx < kosularSorted.length; idx++) {
-                const atKosu = kosularSorted[idx];
-                const originalIdx = kosular.findIndex(k => k.tarih === atKosu.tarih && k.at_derece === atKosu.at_derece);
-                
-                const gecmisMesafe = atKosu.mesafe;
-                const dereceStr = atKosu.at_derece;
-                const birinciDerece = atKosu.birinci_derece;
-                let son800_1 = atKosu.son800_bir;
-                let son800_2 = atKosu.son800_iki;
-                if (!son800_2 || son800_2 === '-') son800_2 = son800_1;
-                
-                const dereceSalise = dereceToSalise(dereceStr);
-                const birinciSalise = dereceToSalise(birinciDerece);
-                const son800_1Salise = dereceToSalise(son800_1);
-                const son800_2Salise = dereceToSalise(son800_2);
-                
-                const dr_sl = metreBasiSalise(dereceSalise, gecmisMesafe);
-                const birinci_dr_sl = metreBasiSalise(birinciSalise, gecmisMesafe);
-                const son800_1_sl = son800_1Salise ? son800_1Salise / 800 : null;
-                const son800_2_sl = son800_2Salise ? son800_2Salise / 800 : null;
-                
-                const fark = (birinci_dr_sl && dr_sl) ? (birinci_dr_sl - dr_sl) : null;
-                const fark_8002_8001 = (son800_2_sl && son800_1_sl) ? (son800_2_sl - son800_1_sl) : null;
-                
-                let test1_salise = null, test2_salise = null, test3_salise = null;
-                if (dr_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
-                    test1_salise = hedefMesafe * dr_sl;
-                }
-                if (son800_1_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
-                    test2_salise = hedefMesafe * son800_1_sl;
-                }
-                if (son800_2_sl !== null && !isNaN(hedefMesafe) && hedefMesafe > 0) {
-                    test3_salise = hedefMesafe * son800_2_sl;
-                }
-                
-                let kirmiziYazi = false;
-                if (test1_salise !== null && test2_salise !== null && test3_salise !== null) {
-                    if (test1_salise < test2_salise && test1_salise < test3_salise) {
-                        kirmiziYazi = true;
-                    }
-                }
-                
-                let test4_salise = null, test5_salise = null, test6_salise = null, test7_salise = null;
-                if (test1_salise && test3_salise) test4_salise = test3_salise - test1_salise;
-                if (test1_salise !== null && birinciSalise !== null) {
-                    test5_salise = test1_salise - birinciSalise;
-                }
-                if (test1_salise && test2_salise) test6_salise = test2_salise - test1_salise;
-                if (test1_salise !== null && test2_salise !== null) {
-                    test7_salise = test1_salise - test2_salise;
-                }
-                
-                let yesilYazi = false;
-                if (test5_salise !== null) {
-                    let test5Fark = test5_salise / 100;
-                    if (test5Fark < 1) {
-                        yesilYazi = true;
-                    }
-                }
-                
-                let ayniMi = (test4_salise !== null && test6_salise !== null && test4_salise === test6_salise);
-                let test1Class = enIyilerTest1.has(`${j}_${originalIdx}`) ? 'eniyi-test1' : '';
-                let test2Class = enIyilerTest2.has(`${j}_${originalIdx}`) ? 'eniyi-test2' : '';
-                
-                let gosterimFark = (birinci_dr_sl && dr_sl) ? (birinci_dr_sl - dr_sl) : null;
-                
-                let rowValues = [
-                    (idx+1).toString(),
-                    horse.name || '-',
-                    horse.atId || '-',
-                    atKosu.tarih || '-',
-                    atKosu.sehir || '-',
-                    gecmisMesafe || '-',
-                    atKosu.sira || '-',
-                    dereceStr || '-',
-                    birinciDerece || '-',
-                    son800_1 || '-',
-                    son800_2 || '-',
-                    dr_sl ? dr_sl.toFixed(4) : '-',
-                    birinci_dr_sl ? birinci_dr_sl.toFixed(4) : '-',
-                    gosterimFark ? (gosterimFark > 0 ? '+' : '') + gosterimFark.toFixed(4) : '-',
-                    son800_1_sl ? son800_1_sl.toFixed(4) : '-',
-                    son800_2_sl ? son800_2_sl.toFixed(4) : '-',
-                    fark_8002_8001 ? (fark_8002_8001 > 0 ? '+' : '') + fark_8002_8001.toFixed(4) : '-',
-                    test1_salise ? saliseToDerece(test1_salise) : '-',
-                    test2_salise ? saliseToDerece(test2_salise) : '-',
-                    test3_salise ? saliseToDerece(test3_salise) : '-',
-                    test4_salise ? saliseToFarkFormat(test4_salise) : '-',
-                    saliseToFarkFormat(test5_salise),
-                    test6_salise ? saliseToFarkFormat(test6_salise) : '-',
-                    test7_salise ? saliseToFarkFormat(test7_salise) : '-',
-                    test8Deger !== null ? saliseToFarkFormat(test8Deger) : '-',
-                    test9Deger !== null ? saliseToFarkFormat(test9Deger) : '-',
-                    ilkFarkDeger !== null ? (ilkFarkDeger > 0 ? '+' : '') + ilkFarkDeger.toFixed(4) : '-',
-                    sonFarkDeger !== null ? (sonFarkDeger > 0 ? '+' : '') + sonFarkDeger.toFixed(4) : '-',
-                    farklarinFarkiDeger !== null ? (farklarinFarkiDeger > 0 ? '+' : '') + farklarinFarkiDeger.toFixed(4) : '-'
-                ];
-                
-                let farkDegeriStr = rowValues[13];
-                let fark8002DegeriStr = rowValues[16];
-                let farkBosMu = (farkDegeriStr === '-' || farkDegeriStr === null);
-                let fark8002BosMu = (fark8002DegeriStr === '-' || fark8002DegeriStr === null);
-                let pembeSatir = (farkBosMu && fark8002BosMu);
-                let pembeFarkHucre = (farkBosMu && !fark8002BosMu);
-                let pembe8002Hucre = (!farkBosMu && fark8002BosMu);
-                
-                raceRowsData.push({
-                    element: null,
-                    values: rowValues,
-                    classes: {
-                        satirClass: ayniMi ? 'sari-satir' : (pembeSatir ? 'pembe-satir' : ''),
-                        test4Class: ayniMi ? 'sari-hucre' : '',
-                        test6Class: ayniMi ? 'sari-hucre' : '',
-                        test1Class: test1Class,
-                        test2Class: test2Class,
-                        kirmiziClass: kirmiziYazi ? 'kirmizi-yazi' : '',
-                        yesilClass: yesilYazi ? 'yesil-yazi' : '',
-                        farkClass: pembeFarkHucre ? 'pembe-hucre' : '',
-                        fark8002Class: pembe8002Hucre ? 'pembe-hucre' : ''
-                    }
-                });
-            }
-        }
-        
-        if (currentSort.column !== null && currentSort.direction) {
-            let columnIndex = currentSort.column;
-            let type = 'string';
-            if (columnIndex === 0 || columnIndex === 3 || columnIndex === 6 || columnIndex >= 11) {
-                type = 'number';
-            } else if (columnIndex === 2) {
-                type = 'number';
-            } else if (columnIndex === 4) {
-                type = 'date';
-            }
-            raceRowsData = sortTableData(raceRowsData, columnIndex, type, currentSort.direction);
-        }
-        
-        let raceHtml = `<div class="race-card">`;
-        raceHtml += `<div class="race-header">🏆 ${race.raceNo}. KOŞU (${race.horses.length} at) - MESAFE: ${mesafeGosterim}</div>`;
-        raceHtml += `<div style="overflow-x:auto;">`;
-        raceHtml += `<table border="0" id="raceTable_${i}" style="width:100%; border-collapse:collapse;">`;
+        const mesafeGosterim = AtMetaFields.formatRaceHeader(race);
+
+        let raceRowsData = GosterimEngine.buildRaceRows(race, {
+            programTarih: currentProgramTarih,
+            hipodromSehir: currentHipodrom,
+            raceIndex: i
+        });
+        raceRowsData = GosterimEngine.sortRows(raceRowsData, currentSort);
+
+        let raceHtml = `<div class="race-card" data-race-index="${i}">`;
+        raceHtml += `<div class="race-header">`;
+        raceHtml += `<span>🏆 ${race.raceNo}. KOŞU</span>`;
+        raceHtml += `<span class="race-header-badge">${race.horses.length} AT</span>`;
+        raceHtml += `<span class="race-header-badge">MESAFE: ${AtSpeedUtils.escapeHtml(mesafeGosterim)}</span>`;
+        raceHtml += `</div>`;
+        raceHtml += `<div class="race-table-wrap">`;
+        raceHtml += `<table class="gosterim-table" id="raceTable_${i}">`;
         raceHtml += `<thead><tr>`;
-        raceHtml += `<th data-column="0" data-type="number" style="background:#1a1a3e;">SIRA <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="1" data-type="string" style="background:#1a1a3e;">AT İSMİ <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="2" data-type="string" style="background:#1a1a3e;">AT ID <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="3" data-type="date" style="background:#1a1a3e;">TARİH <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="4" data-type="string" style="background:#1a1a3e;">ŞEHİR <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="5" data-type="number" style="background:#1a1a3e;">MESAFE <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="6" data-type="number" style="background:#1a1a3e;">SIRA <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="7" data-type="string" style="background:#1a1a3e;">AT DERECE <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="8" data-type="string" style="background:#1a1a3e;">1.DERECE <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="9" data-type="string" style="background:#1a1a3e;">SON800-1 <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="10" data-type="string" style="background:#1a1a3e;">SON800-2 <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="11" data-type="number" style="background:#1a1a3e;">DR/SL <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="12" data-type="number" style="background:#1a1a3e;">1DR/SL <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="13" data-type="number" style="background:#1a1a3e;">FARK <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="14" data-type="number" style="background:#1a1a3e;">8001/SL <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="15" data-type="number" style="background:#1a1a3e;">8002/SL <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="16" data-type="number" style="background:#1a1a3e;">8002-8001 <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="17" data-type="string" style="background:#1a1a3e;">TEST1 <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="18" data-type="string" style="background:#1a1a3e;">TEST2 <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="19" data-type="string" style="background:#1a1a3e;">TEST3 <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="20" data-type="number" style="background:#1a1a3e;">TEST4 <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="21" data-type="number" style="background:#1a1a3e;">TEST5 <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="22" data-type="number" style="background:#1a1a3e;">TEST6 <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="23" data-type="number" style="background:#1a1a3e;">TEST7 <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="24" data-type="number" style="background:#1a1a3e;">TEST8 <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="25" data-type="number" style="background:#1a1a3e;">TEST9 <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="26" data-type="number" style="background:#1a1a3e;">İLK FARK <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="27" data-type="number" style="background:#1a1a3e;">SON FARK <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `<th data-column="28" data-type="number" style="background:#1a1a3e;">FARKLARIN FARKI <span class="sort-icon">↕️</span></th>`;
-        raceHtml += `</thead><tbody>`;
-        
-        for (let r = 0; r < raceRowsData.length; r++) {
-            const row = raceRowsData[r];
-            const vals = row.values;
-            const cls = row.classes;
-            
-            raceHtml += `<tr class="${cls.satirClass}">`;
-            for (let c = 0; c < vals.length; c++) {
-                let cellClass = '';
-                if (c === 16) cellClass = cls.test1Class;
-                else if (c === 17) cellClass = cls.test2Class;
-                else if (c === 19 && cls.test4Class) cellClass = cls.test4Class;
-                else if (c === 21 && cls.test6Class) cellClass = cls.test6Class;
-                else if (c === 16 || c === 17 || c === 18) cellClass = cls.kirmiziClass;
-                else if (c === 20) cellClass = cls.yesilClass;
-                if (c === 13 && cls.farkClass) cellClass = cls.farkClass;
-                if (c === 16 && cls.fark8002Class) cellClass = cls.fark8002Class;
-                
-                raceHtml += `<td class="${cellClass}">${vals[c]}<\/td>`;
-            }
-            raceHtml += `<\/tr>`;
+        raceHtml += `<th class="col-delete">SİL</th>`;
+        for (const h of GOSTERIM_HEADERS) {
+            const sortClass = String(currentSort.column) === String(h.col)
+                ? (currentSort.direction === 'asc' ? ' sort-asc' : ' sort-desc')
+                : '';
+            raceHtml += `<th class="${headerStickyClass(h).trim()}${sortClass}" data-column="${h.col}" data-type="${h.type}"`
+                + (h.title ? ` title="${AtSpeedUtils.escapeHtml(h.title)}"` : '') + `>${h.label} <span class="sort-icon">▲</span></th>`;
         }
-        
-        raceHtml += `</tbody></table></div></div><br>`;
+        raceHtml += `</tr></thead><tbody>`;
+
+        for (const row of raceRowsData) {
+            const rowClass = ['row-card', row.classes.satirClass].filter(Boolean).join(' ');
+            const m = row.meta || {};
+            raceHtml += `<tr class="${rowClass}" data-race="${m.raceIndex}" data-horse="${m.horseIndex}"`;
+            raceHtml += ` data-tarih="${AtSpeedUtils.escapeHtml(m.tarih || '')}"`;
+            raceHtml += ` data-sehir="${AtSpeedUtils.escapeHtml(m.sehir || '')}"`;
+            raceHtml += ` data-mesafe="${AtSpeedUtils.escapeHtml(String(m.mesafe || ''))}"`;
+            raceHtml += ` data-derece="${AtSpeedUtils.escapeHtml(m.at_derece || '')}">`;
+            raceHtml += `<td class="col-delete"><button type="button" class="row-delete-btn" title="Bu geçmiş koşuyu sil">🗑️</button></td>`;
+            for (let c = 0; c < row.values.length; c++) {
+                const cellClass = GosterimEngine.getCellClass(c, row.classes);
+                const tdClasses = [];
+                if (cellClass) tdClasses.push(cellClass);
+                if (c === 0) tdClasses.push('col-sticky');
+                else if (c === 1) tdClasses.push('col-sticky-2');
+                raceHtml += `<td class="${tdClasses.join(' ')}">${AtSpeedUtils.escapeHtml(row.values[c])}</td>`;
+            }
+            raceHtml += `</tr>`;
+        }
+
+        raceHtml += `</tbody></table></div></div>`;
         html += raceHtml;
     }
-    
+
     document.getElementById('gosterimResults').innerHTML = html;
-    
+
+    document.querySelectorAll('.race-table-wrap').forEach(el => { el.scrollLeft = 0; });
+
+    document.querySelectorAll('.row-delete-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const tr = btn.closest('tr');
+            if (!tr || !currentHesaplamaData) return;
+            const raceIdx = parseInt(tr.dataset.race, 10);
+            const horseIdx = parseInt(tr.dataset.horse, 10);
+            if (isNaN(raceIdx) || isNaN(horseIdx)) return;
+            deleteKosuSatir(raceIdx, horseIdx, {
+                tarih: tr.dataset.tarih,
+                sehir: tr.dataset.sehir,
+                mesafe: tr.dataset.mesafe,
+                at_derece: tr.dataset.derece
+            });
+        });
+    });
+
     document.querySelectorAll('.race-card table').forEach(table => {
         const headers = table.querySelectorAll('th');
-        headers.forEach((th, idx) => {
-            th.style.cursor = 'pointer';
+        headers.forEach(th => {
             th.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const column = th.getAttribute('data-column');
-                const type = th.getAttribute('data-type');
-                if (!column) return;
-                
-                if (currentSort.column === column) {
+                const type = th.getAttribute('data-type') || AtSpeedUtils.getSortType(column);
+                if (column === null) return;
+
+                if (String(currentSort.column) === String(column)) {
                     currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
                 } else {
                     currentSort.column = column;
                     currentSort.direction = 'asc';
                 }
-                
-                headers.forEach(h => {
-                    h.classList.remove('sort-asc', 'sort-desc');
-                });
-                th.classList.add(currentSort.direction === 'asc' ? 'sort-asc' : 'sort-desc');
-                
+                currentSort.type = type;
+
                 displayResults(currentHesaplamaData);
             });
         });
     });
 }
 
-function escapeHtml(s) {
-    if (!s) return '-';
-    return String(s).replace(/[&<>]/g, function(m) {
-        return m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;';
-    });
+function deleteKosuSatir(raceIdx, horseIdx, kosuRef) {
+    const race = currentHesaplamaData[raceIdx];
+    const horse = race?.horses?.[horseIdx];
+    if (!horse) return;
+
+    const onceki = (horse.kosular || []).length;
+    horse.kosular = (horse.kosular || []).filter(k => !GosterimEngine.kosuEquals(k, kosuRef));
+    if (horse.kosular.length === onceki) return;
+
+    displayResults(currentHesaplamaData);
+    const statusDiv = document.getElementById('gosterimStatus');
+    const etiket = [kosuRef.tarih, kosuRef.sehir, kosuRef.mesafe + 'm'].filter(Boolean).join(' · ');
+    statusDiv.innerHTML = '<div class="status status-success">🗑️ Silindi: ' + AtSpeedUtils.escapeHtml(etiket) + ' (bellekte — kaydetmek için HESAPLAMA sekmesinden yeniden kayıt gerekir)</div>';
 }
+
+window.addEventListener('message', (e) => {
+    if (e.data?.type !== '88atspeed-request-kayit-export' || !currentHesaplamaData) return;
+    window.parent.postMessage({
+        type: '88atspeed-kayit-loaded',
+        kayit: {
+            id: currentHesaplamaId,
+            tarih: currentProgramTarih,
+            hipodrom: currentHipodrom,
+            race_count: currentHesaplamaData.length,
+            veri: currentHesaplamaData
+        }
+    }, '*');
+});
 </script>
 </body>
 </html>

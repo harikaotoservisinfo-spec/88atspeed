@@ -1,0 +1,4 @@
+branch=cursor/son-test-tahmin-b004
+commit=536de37
+message=SON TEST TAHMİN: +%25 when TEST1/2/3 all show kirmizi-yazi
+deployed=2026-09-01T15:40:00Z

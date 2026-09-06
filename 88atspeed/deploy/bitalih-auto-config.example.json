@@ -1,0 +1,15 @@
+{
+  "enabled": true,
+  "username": "TC_KIMLIK_NO",
+  "password": "SIFRENIZ",
+  "autoLoginOnLoad": true,
+  "autoPlayOnLoad": true,
+  "autoPlayDryRun": false,
+  "bet": {
+    "city": "Bursa",
+    "raceNo": 1,
+    "horseName": "LA BOMBONERA",
+    "betType": "ilk2",
+    "stake": 20
+  }
+}

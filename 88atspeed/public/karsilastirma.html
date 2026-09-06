@@ -2,50 +2,13 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Karşılaştırma - 88ATSPEED</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="css/theme.css?v=20260821c" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; background: transparent; color: #fff; }
-        .compare-controls {
-            background: rgba(30, 30, 60, 0.8);
-            border-radius: 20px;
-            padding: 20px;
-            margin-bottom: 20px;
-            display: flex;
-            gap: 15px;
-            align-items: flex-end;
-            flex-wrap: wrap;
-        }
-        .control-group { display: flex; flex-direction: column; gap: 8px; }
-        .control-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; color: #ff9800; }
-        .compare-select, .compare-btn {
-            padding: 12px 20px;
-            font-size: 14px;
-            font-weight: 600;
-            border-radius: 12px;
-            border: 1px solid rgba(255,152,0,0.3);
-            cursor: pointer;
-            background: rgba(0,0,0,0.5);
-            color: white;
-            min-width: 160px;
-        }
-        .compare-btn { background: linear-gradient(135deg, #ff9800, #f44336); border: none; }
-        .compare-btn:hover { opacity: 0.9; transform: translateY(-2px); }
-        .save-btn { background: linear-gradient(135deg, #2196F3, #1976D2); }
-        .results-table { background: rgba(30,30,60,0.6); border-radius: 20px; overflow-x: auto; padding: 15px; }
-        table { width: 100%; border-collapse: collapse; font-size: 11px; }
-        th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); border-right: 1px solid rgba(255,255,255,0.05); }
-        th { background: rgba(0,0,0,0.4); color: #ff9800; font-weight: 600; position: sticky; top: 0; }
-        .status { padding: 12px; border-radius: 12px; margin-bottom: 15px; text-align: center; }
-        .status-loading { background: rgba(255,152,0,0.2); color: #ff9800; }
-        .status-success { background: rgba(76,175,80,0.2); color: #4CAF50; }
-        .status-error { background: rgba(244,67,54,0.2); color: #f44336; }
-        .empty { text-align: center; padding: 60px; color: rgba(255,255,255,0.5); }
-        .race-card { background: rgba(30,30,60,0.4); border-radius: 16px; margin-bottom: 20px; overflow: hidden; }
-        .race-header { background: linear-gradient(135deg, rgba(255,152,0,0.2), rgba(76,175,80,0.1)); padding: 10px 15px; font-weight: bold; font-size: 14px; }
-        .kayit-listesi { background: rgba(0,0,0,0.3); border-radius: 12px; padding: 10px; margin-bottom: 15px; max-height: 200px; overflow-y: auto; }
-        .kayit-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; margin: 5px 0; background: rgba(255,255,255,0.05); border-radius: 8px; cursor: pointer; }
-        .kayit-item:hover { background: rgba(255,152,0,0.2); }
+        .compare-controls { justify-content: flex-start; }
+        .compare-select { cursor: pointer; }
     </style>
 </head>
 <body>
@@ -248,7 +211,7 @@ document.getElementById('karsKayitlariGetirBtn').onclick = async () => {
             const k = result.kayitlar[i];
             html += `<div class="kayit-item" data-id="${k.id}">
                         <span>📅 ${k.tarih} | 🏟️ ${k.hipodrom} | 🐎 ${k.total_horses} at | 🕐 ${k.kayit_tarihi}</span>
-                        <span style="color:#ff9800;">📂 Yükle →</span>
+                        <span class="kayit-item-action">Yükle →</span>
                     </div>`;
         }
         kayitListesiDiv.innerHTML = html;
