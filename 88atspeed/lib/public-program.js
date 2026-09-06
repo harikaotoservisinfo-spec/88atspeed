@@ -4,7 +4,8 @@
 const cheerio = require('cheerio');
 const tjkScrape = require('./tjk-scrape');
 const hipodromProgram = require('./hipodrom-program');
-const { mergeTahminIntoKosular } = require('./public-tahmin-build');
+const { mergeTahminIntoKosular, buildAtIdKosularIndex, veriCacheFromAtIndex, ensureCalibration } = require('./public-tahmin-build');
+const { annotateKosular } = require('./t1dr-test1-match');
 const horseHistoryEnrich = require('./horse-history-enrich');
 const raceMetaEnrich = require('./race-meta-enrich');
 
@@ -433,7 +434,79 @@ function ensureTables(db) {
     });
 }
 
-function saveProgramRow(db, row) {
+function normalizeScoreName(name) {
+    return String(name || '')
+        .toLocaleUpperCase('tr-TR')
+        .normalize('NFD')
+        .replace(/\p{M}/gu, '')
+        .replace(/[^A-Z0-9]/g, '');
+}
+
+function scoreHorseKeys(h) {
+    const keys = [];
+    if (h?.atId != null && h.atId !== '') keys.push('at:' + String(h.atId));
+    if (h?.no != null && h.no !== '') keys.push('no:' + String(h.no));
+    const nm = normalizeScoreName(h?.name);
+    if (nm) keys.push('nm:' + nm);
+    return keys;
+}
+
+/**
+ * Bir program yeniden çekildiğinde/yayınlandığında, daha önce
+ * `build:public-tahmin` tarafından hesaplanmış per-at skor sütunları
+ * (`h.scores`) `program_json` içinde yaşadığı için kaybolur. Bu yardımcı,
+ * mevcut satırdaki skorları yeni programa (koşu no + at no/atId/isim
+ * eşleşmesiyle) taşıyarak sütunların kalıcı olmasını sağlar.
+ */
+async function preservePreviousScores(db, row) {
+    const races = row.races || [];
+    if (!races.length) return races;
+    let existing;
+    try {
+        existing = await dbGet(
+            db,
+            'SELECT program_json FROM public_gunluk_program WHERE tarih = ? AND hipodrom_id = ?',
+            [row.tarih, String(row.hipodromId)]
+        );
+    } catch (_) {
+        return races;
+    }
+    const prevRaces = safeParseJson(existing?.program_json, null);
+    if (!Array.isArray(prevRaces) || !prevRaces.length) return races;
+
+    const scoreByRace = new Map();
+    for (const pr of prevRaces) {
+        const key = String(pr?.raceNo);
+        const map = new Map();
+        for (const h of pr?.horses || []) {
+            if (!h?.scores) continue;
+            const hasCell = Object.keys(h.scores).some((k) => h.scores[k] != null);
+            if (!hasCell) continue;
+            for (const hk of scoreHorseKeys(h)) {
+                if (!map.has(hk)) map.set(hk, h.scores);
+            }
+        }
+        if (map.size) scoreByRace.set(key, map);
+    }
+    if (!scoreByRace.size) return races;
+
+    return races.map((race) => {
+        const map = scoreByRace.get(String(race?.raceNo));
+        if (!map) return race;
+        const horses = (race.horses || []).map((h) => {
+            if (h?.scores) return h;
+            let scores = null;
+            for (const hk of scoreHorseKeys(h)) {
+                if (map.has(hk)) { scores = map.get(hk); break; }
+            }
+            return scores ? Object.assign({}, h, { scores }) : h;
+        });
+        return Object.assign({}, race, { horses });
+    });
+}
+
+async function saveProgramRow(db, row) {
+    const races = await preservePreviousScores(db, row);
     return new Promise((resolve, reject) => {
         const sql = `INSERT INTO public_gunluk_program
             (tarih, hipodrom_id, hipodrom, kosu_sayisi, ilk_kosu_saat, program_json, tahmin_json, durum, yayin_tarihi)
@@ -447,14 +520,14 @@ function saveProgramRow(db, row) {
                 durum=excluded.durum,
                 cekilme_tarihi=CURRENT_TIMESTAMP,
                 yayin_tarihi=excluded.yayin_tarihi`;
-        const ilkSaat = row.races?.[0]?.saat || '';
+        const ilkSaat = races?.[0]?.saat || '';
         db.run(sql, [
             row.tarih,
             row.hipodromId,
             row.hipodrom,
             row.kosuSayisi || 0,
             ilkSaat,
-            JSON.stringify(row.races || []),
+            JSON.stringify(races || []),
             row.tahminler ? JSON.stringify(row.tahminler) : null,
             row.durum || 'yayinda',
             row.durum === 'yayinda' ? new Date().toISOString() : null
@@ -816,6 +889,37 @@ async function filterVitrinByTjk(tarih, hipodromlar, opts = {}) {
     return filtered;
 }
 
+/** Kamu vitrin yanıtından at geçmişi kosular[] kaldırılır (MB'larca JSON önlenir). */
+function stripHorseKosularFromRaces(races) {
+    return (races || []).map((race) => ({
+        ...race,
+        horses: (race.horses || []).map((h) => {
+            if (!h.kosular?.length) return h;
+            const slim = { ...h };
+            delete slim.kosular;
+            return slim;
+        })
+    }));
+}
+
+async function listPublicProgramHipodromlar(db, tarih) {
+    const rows = await new Promise((resolve, reject) => {
+        db.all(
+            `SELECT hipodrom_id, hipodrom, kosu_sayisi, ilk_kosu_saat, cekilme_tarihi
+             FROM public_gunluk_program WHERE tarih = ? AND durum = 'yayinda' ORDER BY hipodrom`,
+            [tarih],
+            (err, r) => (err ? reject(err) : resolve(r || []))
+        );
+    });
+    return rows.map((r) => ({
+        id: r.hipodrom_id,
+        name: r.hipodrom,
+        kosuSayisi: r.kosu_sayisi,
+        ilkKosuSaat: r.ilk_kosu_saat,
+        cekilmeTarihi: r.cekilme_tarihi
+    }));
+}
+
 async function prunePublicProgramNotInTjk(db, tarih, allowedIds) {
     if (!db || !tarih || !allowedIds?.size) return 0;
     const ids = [...allowedIds];
@@ -856,6 +960,27 @@ function stopTjkListWarmer() {
     }
 }
 
+/** Vitrin yanıtında gösterge bayraklarını (Ş kare vurgu vb.) güncel tut */
+async function refreshVitrinYildizlar(db, hipodromlar, tarih) {
+    if (!hipodromlar?.length) return hipodromlar;
+    try {
+        await ensureCalibration(db);
+        const atIndex = await buildAtIdKosularIndex(db);
+        const veriCache = veriCacheFromAtIndex(atIndex);
+        return hipodromlar.map((hip) => ({
+            ...hip,
+            kosular: annotateKosular(hip.kosular || [], {
+                tarih,
+                hipodrom: hip.name,
+                veriCache
+            })
+        }));
+    } catch (err) {
+        console.warn('vitrin yıldız yenileme atlandı:', err.message);
+        return hipodromlar;
+    }
+}
+
 async function getPublicVitrin(db, tarih, opts = {}) {
     await ensureTables(db);
 
@@ -883,11 +1008,11 @@ async function getPublicVitrin(db, tarih, opts = {}) {
         kosuSayisi: r.kosu_sayisi,
         ilkKosuSaat: r.ilk_kosu_saat,
         durum: r.durum,
-        kosular: mergeTahminIntoKosular(
+        kosular: stripHorseKosularFromRaces(mergeTahminIntoKosular(
             safeParseJson(r.program_json, []),
             r.tahmin_json
-        ),
-        tahminler: safeParseJson(r.tahmin_json, null),
+        )),
+        tahminler: null,
         yayinTarihi: r.yayin_tarihi,
         cekilmeTarihi: r.cekilme_tarihi
     }));
@@ -918,6 +1043,8 @@ async function getPublicVitrin(db, tarih, opts = {}) {
         }
     }
 
+    hipodromlar = await refreshVitrinYildizlar(db, hipodromlar, tarih);
+
     return {
         tarih,
         hipodromlar,
@@ -933,6 +1060,12 @@ async function getTjkHipodromlarCached(tarih, fetchOpts = {}) {
     const entry = tjkListCache.get(tarih);
     if (entry && Date.now() - entry.at < TJK_CACHE_MS) {
         return { hipodromlar: entry.hipodromlar, cached: true };
+    }
+    if (fetchOpts.cacheOnly) {
+        if (entry?.hipodromlar?.length) {
+            return { hipodromlar: entry.hipodromlar, cached: true, stale: true };
+        }
+        return { hipodromlar: [], cached: false, stale: true };
     }
     const hipodromlar = await tjkScrape.fetchHipodromlarForDate(tarih, fetchOpts);
     tjkListCache.set(tarih, { at: Date.now(), hipodromlar });
@@ -1053,26 +1186,26 @@ function summarizeDayStatus(tarih, dbRows, tjkRows) {
 }
 
 async function getProgramSyncForDate(db, tarih, opts = {}) {
-    const vitrin = await getPublicVitrin(db, tarih, { tjkValidate: false });
+    const dbRows = await listPublicProgramHipodromlar(db, tarih);
     let tjkRows = [];
     let tjkError = null;
     let tjkCached = false;
 
-    if (opts.live !== false) {
-        try {
-            const tjk = await getTjkHipodromlarCached(tarih, {
-                maxAttempts: opts.maxAttempts || 3,
-                timeoutMs: opts.timeoutMs || 25000
-            });
-            tjkRows = tjk.hipodromlar;
-            tjkCached = tjk.cached;
-        } catch (err) {
-            tjkError = err.message;
-        }
+    const useLiveTjk = opts.live === true;
+    try {
+        const tjk = await getTjkHipodromlarCached(tarih, {
+            maxAttempts: useLiveTjk ? (opts.maxAttempts || 2) : 1,
+            timeoutMs: useLiveTjk ? (opts.timeoutMs || 12000) : 5000,
+            cacheOnly: !useLiveTjk
+        });
+        tjkRows = tjk.hipodromlar;
+        tjkCached = tjk.cached;
+    } catch (err) {
+        tjkError = err.message;
     }
 
     return {
-        ...summarizeDayStatus(tarih, vitrin.hipodromlar, tjkRows),
+        ...summarizeDayStatus(tarih, dbRows, tjkRows),
         tjkError,
         tjkCached
     };
@@ -1322,6 +1455,8 @@ module.exports = {
     isDomesticHipodrom,
     FALLBACK_HIPODROMS,
     ensureTables,
+    saveProgramRow,
+    preservePreviousScores,
     enrichRacesWithHorseHistory: horseHistoryEnrich.enrichRacesWithHorseHistory,
     countKosularStats: horseHistoryEnrich.countKosularStats,
     buildPublicProgram,

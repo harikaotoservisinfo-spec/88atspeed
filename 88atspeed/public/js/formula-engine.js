@@ -731,8 +731,7 @@ const GosterimEngine = {
         return { fosforKirmiziSatirlar };
     },
 
-    /** Her atın son koşusundaki T1×DR — en düşük 2 değer */
-    collectSonKosuT1drTop2(calcRace, hedefMesafe) {
+    _collectSonKosuT1drCandidates(calcRace, hedefMesafe) {
         const candidates = [];
         for (let j = 0; j < calcRace.horses.length; j++) {
             const horse = calcRace.horses[j];
@@ -750,11 +749,29 @@ const GosterimEngine = {
             if (a.val !== b.val) return a.val - b.val;
             return a.j - b.j;
         });
+        return candidates;
+    },
+
+    /** Her atın son koşusundaki T1×DR — en düşük 2 değer */
+    collectSonKosuT1drTop2(calcRace, hedefMesafe) {
+        const candidates = this._collectSonKosuT1drCandidates(calcRace, hedefMesafe);
         const enIyilerSonKosuT1drTop2 = new Set();
         for (let i = 0; i < Math.min(2, candidates.length); i++) {
             enIyilerSonKosuT1drTop2.add(candidates[i].kosuKey);
         }
         return { enIyilerSonKosuT1drTop2 };
+    },
+
+    /** Son koşu T1×DR — en iyi 4 (kırmızı yıldız) + en iyi 1 (yeşil vurgu) */
+    collectSonKosuT1drTop4(calcRace, hedefMesafe) {
+        const candidates = this._collectSonKosuT1drCandidates(calcRace, hedefMesafe);
+        const enIyilerSonKosuT1drTop4 = new Set();
+        for (let i = 0; i < Math.min(4, candidates.length); i++) {
+            enIyilerSonKosuT1drTop4.add(candidates[i].kosuKey);
+        }
+        const enIyilerSonKosuT1drTop1 = new Set();
+        if (candidates.length) enIyilerSonKosuT1drTop1.add(candidates[0].kosuKey);
+        return { enIyilerSonKosuT1drTop4, enIyilerSonKosuT1drTop1 };
     },
 
     /** TEST2−TEST3 en negatif (en düşük) değer — koşu genelinde yeşil vurgu */
@@ -794,26 +811,71 @@ const GosterimEngine = {
         return { enNegatifTest2MinusTest3 };
     },
 
-    /** Görünüm SIRA=1 (en yeni koşu): pozitif 8002-8001 en yüksek 3 → mavi yanıp sönen */
-    collectSiraBirTop3PozitifFark8002(calcRace) {
-        const candidates = [];
-        for (const { j, kosuKey, atKosu } of this._iterGosterimSiraBirKosular(calcRace)) {
-            const val = this._computeFark8002Sl(atKosu);
-            if (val === null || val <= 0) continue;
-            candidates.push({ j, kosuKey, val });
-        }
-        candidates.sort((a, b) => (b.val !== a.val ? b.val - a.val : a.j - b.j));
-        const siraBirTop3Fark8002Yanip = new Set();
-        for (let i = 0; i < Math.min(3, candidates.length); i++) {
-            siraBirTop3Fark8002Yanip.add(candidates[i].kosuKey);
-        }
-        return { siraBirTop3Fark8002Yanip };
+    /** Tabloda 0.0000 olarak görünen 8002-8001 değeri (4 ondalık) */
+    _isFark8002TamSifir(val) {
+        if (val === null || val === undefined) return false;
+        return Number(val.toFixed(4)) === 0;
     },
 
     /**
-     * Görünüm SIRA=1 (en yeni koşu): T2−T3 negatif en yüksek 5 → |TEST9| 0'a en yakın 3 at
-     * TEST9 hücresi mavi yanıp sönen
+     * Görünüm SIRA=1 (en yeni koşu): 8002-8001 değeri tam 0 olan tüm atlar
+     * → 8002-8001 hücresi gri çerçeve vurgusu (ne kadar 0 olan varsa hepsi).
      */
+    collectSiraBirFark8002SifiraYakin(calcRace) {
+        const siraBirFark8002SifiraVurgu = new Set();
+        for (const { kosuKey, atKosu } of this._iterGosterimSiraBirKosular(calcRace)) {
+            const val = this._computeFark8002Sl(atKosu);
+            if (!this._isFark8002TamSifir(val)) continue;
+            siraBirFark8002SifiraVurgu.add(kosuKey);
+        }
+        return { siraBirFark8002SifiraVurgu };
+    },
+
+    _computeTest5Salise(atKosu, hedefMesafe) {
+        const { test1_entegre_salise, test3_entegre_salise } = this._computeDrMetrics(atKosu, hedefMesafe);
+        if (test1_entegre_salise === null || test3_entegre_salise === null) return null;
+        return test1_entegre_salise - test3_entegre_salise;
+    },
+
+    /**
+     * Görünüm SIRA=1: |TEST5| 0'a en yakın 3 at (pozitif/negatif fark etmez)
+     * → TEST5 hücresi fosforlu koyu kahve çerçeve vurgusu.
+     */
+    collectSiraBirTest5SifiraYakinTop3(calcRace, hedefMesafe) {
+        const candidates = [];
+        for (const { j, kosuKey, atKosu } of this._iterGosterimSiraBirKosular(calcRace)) {
+            const val = this._computeTest5Salise(atKosu, hedefMesafe);
+            if (val === null) continue;
+            candidates.push({ j, kosuKey, val, abs: Math.abs(val) });
+        }
+        candidates.sort((a, b) => (a.abs !== b.abs ? a.abs - b.abs : a.j - b.j));
+        const siraBirTest5SifiraTop3 = new Set();
+        for (let i = 0; i < Math.min(3, candidates.length); i++) {
+            siraBirTest5SifiraTop3.add(candidates[i].kosuKey);
+        }
+        return { siraBirTest5SifiraTop3 };
+    },
+
+    /**
+     * Görünüm SIRA=1: TEST1/TEST2/TEST3 arasında koşudaki en küçük (en iyi) 3 değer
+     * → ilgili TEST hücresi fosforlu lacivert çerçeve vurgusu.
+     */
+    collectSiraBirTestEnKucukTop3(calcRace, hedefMesafe) {
+        const pool = [];
+        for (const { kosuKey, atKosu } of this._iterGosterimSiraBirKosular(calcRace)) {
+            const { test1, test2, test3 } = this._computeTestSalise(atKosu, hedefMesafe);
+            if (test1 !== null) pool.push({ kosuKey, col: 'TEST1', val: test1 });
+            if (test2 !== null) pool.push({ kosuKey, col: 'TEST2', val: test2 });
+            if (test3 !== null) pool.push({ kosuKey, col: 'TEST3', val: test3 });
+        }
+        pool.sort((a, b) => (a.val !== b.val ? a.val - b.val : a.kosuKey.localeCompare(b.kosuKey) || a.col.localeCompare(b.col)));
+        const siraBirTestEnKucukTop3 = new Set();
+        for (let i = 0; i < Math.min(3, pool.length); i++) {
+            siraBirTestEnKucukTop3.add(pool[i].kosuKey + '|' + pool[i].col);
+        }
+        return { siraBirTestEnKucukTop3 };
+    },
+
     collectSiraBirTop5T2m3Test9Yakin(calcRace, hedefMesafe, trends) {
         const negatifler = [];
         for (const { j, kosuKey, atKosu } of this._iterGosterimSiraBirKosular(calcRace)) {
@@ -880,14 +942,12 @@ const GosterimEngine = {
 
         let test4_salise = null, test5_salise = null, test6_salise = null, test7_salise = null;
         if (test1_salise !== null && test3_salise !== null) test4_salise = test3_salise - test1_salise;
-        // TEST5 = T1×DR − T1×DR-T3
         if (test1_entegre_salise !== null && test3_entegre_salise !== null) {
             test5_salise = test1_entegre_salise - test3_entegre_salise;
         }
         if (test1_salise !== null && test2_salise !== null) test6_salise = test2_salise - test1_salise;
         if (test1_salise !== null && test2_salise !== null) test7_salise = test1_salise - test2_salise;
 
-        let yesilYazi = test5_salise !== null && Math.abs(test5_salise) < 100;
         let ayniMi = test4_salise !== null && test6_salise !== null && test4_salise === test6_salise;
         const kosuKey = this._kosuKey(horseIndex, atKosu);
 
@@ -952,9 +1012,14 @@ const GosterimEngine = {
         const t1drSonKosu = isSonKosu && test1_entegre_salise !== null;
         const t1drT3SonKosu = isSonKosu && test3_entegre_salise !== null;
         const t1drEnIyi2 = enIyiler.enIyilerSonKosuT1drTop2?.has(kosuKey);
+        const t1drTop4 = enIyiler.enIyilerSonKosuT1drTop4?.has(kosuKey);
         const test2m3EnNegatif = enIyiler.enNegatifTest2MinusTest3?.has(kosuKey);
-        const fark8002Yanip = enIyiler.siraBirTop3Fark8002Yanip?.has(kosuKey);
-        const test9SiraBirYanip = enIyiler.siraBirTest9YanipSonen?.has(horseIndex);
+        const fark8002SifirVurgu = rowIndex === 0 && enIyiler.siraBirFark8002SifiraVurgu?.has(kosuKey);
+        const test5KahveVurgu = rowIndex === 0 && enIyiler.siraBirTest5SifiraTop3?.has(kosuKey);
+        const test1Pembe = rowIndex === 0 && enIyiler.siraBirTestEnKucukTop3?.has(kosuKey + '|TEST1');
+        const test2Pembe = rowIndex === 0 && enIyiler.siraBirTestEnKucukTop3?.has(kosuKey + '|TEST2');
+        const test3Pembe = rowIndex === 0 && enIyiler.siraBirTestEnKucukTop3?.has(kosuKey + '|TEST3');
+        const test9SiraBirYanip = rowIndex === 0 && enIyiler.siraBirTest9YanipSonen?.has(horseIndex);
 
         return {
             values,
@@ -971,11 +1036,13 @@ const GosterimEngine = {
                 test3Class: enIyiler.enIyilerTest3.has(kosuKey) ? 'eslesme-yesil' : '',
                 test12YakinClass: test12Yakin ? 'fosfor-sari-yazi' : '',
                 test23YanipClass: test23Yanip ? 'test23-yanip-son' : '',
-                kirmiziClass: kirmiziYazi ? 'kirmizi-yazi' : '',
-                yesilClass: yesilYazi ? 'yesil-yazi' : '',
+                test1PembeVurguClass: test1Pembe ? 'pembe-test-enkucuk-vurgu' : '',
+                test2PembeVurguClass: test2Pembe ? 'pembe-test-enkucuk-vurgu' : '',
+                test3PembeVurguClass: test3Pembe ? 'pembe-test-enkucuk-vurgu' : '',
+                test5KahveVurguClass: test5KahveVurgu ? 'kahve-test5-sifir-vurgu' : '',
                 farkClass: farkBosMu && !fark8002BosMu ? 'pembe-hucre' : '',
                 fark8002Class: !farkBosMu && fark8002BosMu ? 'pembe-hucre' : '',
-                fark8002YanipClass: fark8002Yanip ? 'mavi-yanip-son' : '',
+                fark8002SifirVurguClass: fark8002SifirVurgu ? 'gri-kenar-fark8002-vurgu' : '',
                 mesafeClass: mesafeEslesme ? eslesmeYesil : '',
                 sehirClass: sehirEslesme
                     ? (gucluUyari ? `${eslesmeYesil} guclu-sehir-eslesme` : eslesmeYesil)
@@ -989,7 +1056,7 @@ const GosterimEngine = {
                 siraNoClass: enIyiler.test12YakinAtlar?.has(horseIndex) ? 'sira-no-koyu-mavi-vurgu' : '',
                 test9Class: test9MaviKenarVurgu ? 'mavi-kenar-test9-vurgu' : '',
                 test9YanipClass: test9SiraBirYanip ? 'test9-yanip-son-guclu' : '',
-                t1drKirmiziClass: t1drSonKosu ? 'fosfor-kirmizi-yazi' : '',
+                t1drKirmiziClass: (t1drSonKosu && t1drTop4) ? 'fosfor-kirmizi-yazi' : '',
                 t1drEnIyi2Class: t1drEnIyi2 ? 't1dr-eniyi-yanip-son' : '',
                 t1drT3YesilClass: t1drT3SonKosu ? 'fosfor-yesil-koyu-yazi' : '',
                 test2m3EnNegatifClass: test2m3EnNegatif ? 'fosfor-yesil-koyu-yazi' : ''
@@ -1011,26 +1078,26 @@ const GosterimEngine = {
         if (c === COL.SON800_1 && classes.son800_1Class) parts.push(classes.son800_1Class);
         if (c === COL.SON800_2 && classes.son800_2Class) parts.push(classes.son800_2Class);
         if (c === COL.TEST1) {
+            if (classes.test1PembeVurguClass) parts.push(classes.test1PembeVurguClass);
             if (classes.test1Class) parts.push(classes.test1Class);
             if (classes.test12YakinClass) parts.push(classes.test12YakinClass);
-            else if (classes.kirmiziClass) parts.push(classes.kirmiziClass);
         } else if (c === COL.TEST2) {
             if (classes.test23YanipClass) parts.push(classes.test23YanipClass);
+            if (classes.test2PembeVurguClass) parts.push(classes.test2PembeVurguClass);
             if (classes.test2Class) parts.push(classes.test2Class);
             if (classes.test12YakinClass) parts.push(classes.test12YakinClass);
-            else if (classes.kirmiziClass) parts.push(classes.kirmiziClass);
         } else if (c === COL.TEST3) {
             if (classes.test23YanipClass) parts.push(classes.test23YanipClass);
+            if (classes.test3PembeVurguClass) parts.push(classes.test3PembeVurguClass);
             if (classes.test3Class) parts.push(classes.test3Class);
-            else if (classes.kirmiziClass) parts.push(classes.kirmiziClass);
         } else if (c === COL.TEST2_MINUS_TEST3 && classes.test2m3EnNegatifClass) {
             parts.push(classes.test2m3EnNegatifClass);
-        } else if (c === COL.TEST5 && classes.yesilClass) {
-            parts.push(classes.yesilClass);
+        } else if (c === COL.TEST5 && classes.test5KahveVurguClass) {
+            parts.push(classes.test5KahveVurguClass);
         } else if (c === COL.FARK && classes.farkClass) {
             parts.push(classes.farkClass);
         } else if (c === COL.FARK8002) {
-            if (classes.fark8002YanipClass) parts.push(classes.fark8002YanipClass);
+            if (classes.fark8002SifirVurguClass) parts.push(classes.fark8002SifirVurguClass);
             else if (classes.fark8002Class) parts.push(classes.fark8002Class);
         } else if (c === COL.TEST4 && classes.test4Class) {
             parts.push(classes.test4Class);
@@ -1048,9 +1115,10 @@ const GosterimEngine = {
         const skipMaviFosfor = c === COL.SIRA_NO || c === COL.AT_ISMI || c === COL.AT_ID
             || c === COL.TARIH || c === COL.AT_SIRA || c === COL.TEST1_ENTEGRE
             || c === COL.TEST3_ENTEGRE || c === COL.TEST2_MINUS_TEST3
-            || c === COL.FARK8002 || c === COL.TEST9;
+            || c === COL.FARK8002 || c === COL.TEST5 || c === COL.TEST9;
         if (classes.maviFosforClass && !skipMaviFosfor && !parts.includes('test23-yanip-son')
-            && !parts.includes('mavi-yanip-son') && !parts.includes('test9-yanip-son-guclu')) {
+            && !parts.includes('gri-kenar-fark8002-vurgu') && !parts.includes('kahve-test5-sifir-vurgu')
+            && !parts.includes('pembe-test-enkucuk-vurgu') && !parts.includes('test9-yanip-son-guclu')) {
             parts.push(classes.maviFosforClass);
         }
         return parts.length ? parts.join(' ') : '';
@@ -1076,9 +1144,12 @@ const GosterimEngine = {
         );
         enIyiler.fosforKirmiziSatirlar = fosforKirmiziSatirlar;
         Object.assign(enIyiler, this.collectSonKosuT1drTop2(calcRace, hedefMesafe));
+        Object.assign(enIyiler, this.collectSonKosuT1drTop4(calcRace, hedefMesafe));
         Object.assign(enIyiler, this.collectEnNegatifTest2MinusTest3(calcRace, hedefMesafe));
         const trends = this.computeHorseTrends(calcRace, hedefMesafe);
-        Object.assign(enIyiler, this.collectSiraBirTop3PozitifFark8002(calcRace));
+        Object.assign(enIyiler, this.collectSiraBirFark8002SifiraYakin(calcRace));
+        Object.assign(enIyiler, this.collectSiraBirTest5SifiraYakinTop3(calcRace, hedefMesafe));
+        Object.assign(enIyiler, this.collectSiraBirTestEnKucukTop3(calcRace, hedefMesafe));
         Object.assign(enIyiler, this.collectSiraBirTop5T2m3Test9Yakin(calcRace, hedefMesafe, trends));
         const { maviKenarTest9VurguAtlar } = this.collectMaviKenarTest9YakinAtlar(
             calcRace, hedefMesafe, trends, enIyiler
@@ -1133,9 +1204,12 @@ const GosterimEngine = {
         );
         enIyiler.fosforKirmiziSatirlar = fosforKirmiziSatirlar;
         Object.assign(enIyiler, this.collectSonKosuT1drTop2(calcRace, hedefMesafe));
+        Object.assign(enIyiler, this.collectSonKosuT1drTop4(calcRace, hedefMesafe));
         Object.assign(enIyiler, this.collectEnNegatifTest2MinusTest3(calcRace, hedefMesafe));
         const trends = this.computeHorseTrends(calcRace, hedefMesafe);
-        Object.assign(enIyiler, this.collectSiraBirTop3PozitifFark8002(calcRace));
+        Object.assign(enIyiler, this.collectSiraBirFark8002SifiraYakin(calcRace));
+        Object.assign(enIyiler, this.collectSiraBirTest5SifiraYakinTop3(calcRace, hedefMesafe));
+        Object.assign(enIyiler, this.collectSiraBirTestEnKucukTop3(calcRace, hedefMesafe));
         Object.assign(enIyiler, this.collectSiraBirTop5T2m3Test9Yakin(calcRace, hedefMesafe, trends));
         const { maviKenarTest9VurguAtlar } = this.collectMaviKenarTest9YakinAtlar(
             calcRace, hedefMesafe, trends, enIyiler

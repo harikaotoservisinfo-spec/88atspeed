@@ -373,6 +373,127 @@ tr.koyu-mavi-kenar-satir td.mavi-kenar-test9-vurgu {
     text-shadow: 0 0 8px rgba(25, 118, 210, 0.75), 0 0 14px rgba(13, 71, 161, 0.55), 0 0 4px rgba(255, 255, 255, 0.6);
 }
 
+/* Görünüm SIRA=1: 8002-8001 değeri 0'a en yakın atlar → gri çerçeve vurgusu */
+.gri-kenar-fark8002-vurgu,
+tr.guclu-uyari-satir td.gri-kenar-fark8002-vurgu,
+tr.fosfor-mavi-satir td.gri-kenar-fark8002-vurgu,
+tr.fosfor-yesil-satir td.gri-kenar-fark8002-vurgu,
+tr.fosfor-kirmizi-kenar-satir td.gri-kenar-fark8002-vurgu,
+tr.koyu-mavi-kenar-satir td.gri-kenar-fark8002-vurgu,
+tr.pembe-satir td.gri-kenar-fark8002-vurgu {
+    outline: 3px solid #616161 !important;
+    outline-offset: -3px;
+    box-shadow:
+        0 0 0 1px #9e9e9e,
+        0 0 10px rgba(117, 117, 117, 0.65),
+        inset 0 0 8px rgba(189, 189, 189, 0.5) !important;
+    font-weight: 800 !important;
+    color: #424242 !important;
+    background: rgba(245, 245, 245, 0.92) !important;
+    position: relative;
+    z-index: 3;
+}
+
+/* TEST1/2/3 — SIRA=1: koşudaki en küçük 3 TEST değeri → fosforlu lacivert çerçeve */
+@keyframes pembe-test-enkucuk-vurgu {
+    0%, 45% {
+        background: linear-gradient(135deg, #880e4f 0%, #ad1457 35%, #c2185b 100%) !important;
+        color: #ffffff !important;
+        font-weight: 900 !important;
+        outline: 3px solid #f48fb1 !important;
+        outline-offset: -3px;
+        box-shadow:
+            inset 0 0 24px #f06292,
+            inset 0 0 40px #f48fb1,
+            0 0 28px #ec407a,
+            0 0 48px #f48fb1,
+            0 0 64px rgba(236, 64, 122, 0.85) !important;
+        text-shadow:
+            0 0 14px #ffffff,
+            0 0 24px #f8bbd0,
+            0 0 36px #f48fb1,
+            0 0 48px #ffffff;
+        transform: scale(1.07);
+        filter: brightness(1.2);
+    }
+    50%, 100% {
+        background: #fce4ec !important;
+        color: #880e4f !important;
+        outline: 4px solid #d81b60 !important;
+        outline-offset: -4px;
+        box-shadow:
+            inset 0 0 10px rgba(216, 27, 96, 0.35),
+            0 0 20px #f06292,
+            0 0 40px #f48fb1,
+            0 0 60px rgba(244, 143, 177, 0.9) !important;
+        text-shadow: 0 0 6px rgba(136, 14, 79, 0.5);
+        transform: scale(1.1);
+        filter: brightness(1.35);
+    }
+}
+td.pembe-test-enkucuk-vurgu,
+tr.guclu-uyari-satir td.pembe-test-enkucuk-vurgu,
+tr.fosfor-mavi-satir td.pembe-test-enkucuk-vurgu,
+tr.fosfor-yesil-satir td.pembe-test-enkucuk-vurgu,
+tr.fosfor-kirmizi-kenar-satir td.pembe-test-enkucuk-vurgu,
+tr.koyu-mavi-kenar-satir td.pembe-test-enkucuk-vurgu,
+tr.pembe-satir td.pembe-test-enkucuk-vurgu {
+    animation: pembe-test-enkucuk-vurgu 0.55s step-end infinite !important;
+    position: relative;
+    z-index: 3;
+    letter-spacing: 0.02em;
+}
+
+/* TEST5 — SIRA=1: |TEST5| 0'a en yakın 3 at → fosforlu koyu kahve çerçeve */
+@keyframes kahve-test5-sifir-vurgu {
+    0%, 45% {
+        background: linear-gradient(135deg, #3e2723 0%, #4e342e 35%, #5d4037 100%) !important;
+        color: #ffffff !important;
+        font-weight: 900 !important;
+        outline: 3px solid #a1887f !important;
+        outline-offset: -3px;
+        box-shadow:
+            inset 0 0 24px #8d6e63,
+            inset 0 0 40px #a1887f,
+            0 0 28px #6d4c41,
+            0 0 48px #8d6e63,
+            0 0 64px rgba(109, 76, 65, 0.85) !important;
+        text-shadow:
+            0 0 14px #ffffff,
+            0 0 24px #d7ccc8,
+            0 0 36px #a1887f,
+            0 0 48px #ffffff;
+        transform: scale(1.07);
+        filter: brightness(1.2);
+    }
+    50%, 100% {
+        background: #efebe9 !important;
+        color: #3e2723 !important;
+        outline: 4px solid #5d4037 !important;
+        outline-offset: -4px;
+        box-shadow:
+            inset 0 0 10px rgba(93, 64, 55, 0.35),
+            0 0 20px #8d6e63,
+            0 0 40px #a1887f,
+            0 0 60px rgba(141, 110, 99, 0.9) !important;
+        text-shadow: 0 0 6px rgba(62, 39, 35, 0.5);
+        transform: scale(1.1);
+        filter: brightness(1.35);
+    }
+}
+td.kahve-test5-sifir-vurgu,
+tr.guclu-uyari-satir td.kahve-test5-sifir-vurgu,
+tr.fosfor-mavi-satir td.kahve-test5-sifir-vurgu,
+tr.fosfor-yesil-satir td.kahve-test5-sifir-vurgu,
+tr.fosfor-kirmizi-kenar-satir td.kahve-test5-sifir-vurgu,
+tr.koyu-mavi-kenar-satir td.kahve-test5-sifir-vurgu,
+tr.pembe-satir td.kahve-test5-sifir-vurgu {
+    animation: kahve-test5-sifir-vurgu 0.55s step-end infinite !important;
+    position: relative;
+    z-index: 3;
+    letter-spacing: 0.02em;
+}
+
 /* Görünüm SIRA=1 (en yeni koşu): 8002-8001 top-3 pozitif veya TEST9 yakın → mavi yanıp sönen */
 @keyframes mavi-yanip-son {
     0%, 100% {
@@ -418,39 +539,39 @@ tr.pembe-satir td.mavi-yanip-son {
     letter-spacing: 0.02em;
 }
 
-/* TEST9 — SIRA=1 kuralından |TEST9| 0'a en yakın 3 at: ekstra belirgin yanıp sönme */
+/* TEST9 — SIRA=1 kuralından |TEST9| 0'a en yakın 3 at: fosforlu mor yanıp sönme */
 @keyframes test9-yanip-son-guclu {
     0%, 45% {
-        background: linear-gradient(135deg, #000051 0%, #001a7a 35%, #0d47a1 100%) !important;
+        background: linear-gradient(135deg, #311b92 0%, #4a148c 35%, #6a1b9a 100%) !important;
         color: #ffffff !important;
         font-weight: 900 !important;
-        outline: 3px solid #00e5ff !important;
+        outline: 3px solid #ea80fc !important;
         outline-offset: -3px;
         box-shadow:
-            inset 0 0 24px #00e5ff,
-            inset 0 0 40px #18ffff,
-            0 0 28px #00b0ff,
-            0 0 48px #18ffff,
-            0 0 64px rgba(0, 229, 255, 0.85) !important;
+            inset 0 0 24px #ce93d8,
+            inset 0 0 40px #e1bee7,
+            0 0 28px #ab47bc,
+            0 0 48px #ea80fc,
+            0 0 64px rgba(171, 71, 188, 0.85) !important;
         text-shadow:
             0 0 14px #ffffff,
-            0 0 24px #18ffff,
-            0 0 36px #00e5ff,
+            0 0 24px #e1bee7,
+            0 0 36px #ce93d8,
             0 0 48px #ffffff;
         transform: scale(1.07);
         filter: brightness(1.2);
     }
     50%, 100% {
-        background: #ffffff !important;
-        color: #000051 !important;
-        outline: 4px solid #0277bd !important;
+        background: #fce4ec !important;
+        color: #4a148c !important;
+        outline: 4px solid #8e24aa !important;
         outline-offset: -4px;
         box-shadow:
-            inset 0 0 10px rgba(2, 119, 189, 0.35),
-            0 0 20px #00e5ff,
-            0 0 40px #18ffff,
-            0 0 60px rgba(24, 255, 255, 0.9) !important;
-        text-shadow: 0 0 6px rgba(0, 0, 81, 0.5);
+            inset 0 0 10px rgba(142, 36, 170, 0.35),
+            0 0 20px #ce93d8,
+            0 0 40px #ea80fc,
+            0 0 60px rgba(186, 104, 200, 0.9) !important;
+        text-shadow: 0 0 6px rgba(74, 20, 140, 0.5);
         transform: scale(1.1);
         filter: brightness(1.35);
     }
@@ -644,6 +765,67 @@ td.test9-yanip-son-guclu.mavi-kenar-test9-vurgu {
     color: #0a3d91 !important;
     font-weight: 800 !important;
     text-shadow: 0 0 8px rgba(25, 118, 210, 0.75), 0 0 14px rgba(13, 71, 161, 0.55), 0 0 4px rgba(255, 255, 255, 0.6);
+}
+
+.son-test-table td.col-gos.gos-row-guclu-uyari-satir.gri-kenar-fark8002-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-mavi-satir.gri-kenar-fark8002-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-yesil-satir.gri-kenar-fark8002-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-kirmizi-kenar-satir.gri-kenar-fark8002-vurgu,
+.son-test-table td.col-gos.gos-row-koyu-mavi-kenar-satir.gri-kenar-fark8002-vurgu,
+.son-test-table td.col-gos.gos-row-pembe-satir.gri-kenar-fark8002-vurgu,
+.son-test-table td.col-no.gos-row-guclu-uyari-satir.gri-kenar-fark8002-vurgu,
+.son-test-table td.col-no.gos-row-fosfor-mavi-satir.gri-kenar-fark8002-vurgu,
+.son-test-table td.col-no.gos-row-fosfor-yesil-satir.gri-kenar-fark8002-vurgu,
+.son-test-table td.col-no.gos-row-fosfor-kirmizi-kenar-satir.gri-kenar-fark8002-vurgu,
+.son-test-table td.col-no.gos-row-koyu-mavi-kenar-satir.gri-kenar-fark8002-vurgu,
+.son-test-table td.col-no.gos-row-pembe-satir.gri-kenar-fark8002-vurgu {
+    outline: 3px solid #616161 !important;
+    outline-offset: -3px;
+    box-shadow:
+        0 0 0 1px #9e9e9e,
+        0 0 10px rgba(117, 117, 117, 0.65),
+        inset 0 0 8px rgba(189, 189, 189, 0.5) !important;
+    font-weight: 800 !important;
+    color: #424242 !important;
+    background: rgba(245, 245, 245, 0.92) !important;
+    position: relative;
+    z-index: 3;
+}
+
+.son-test-table td.col-gos.gos-row-guclu-uyari-satir.pembe-test-enkucuk-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-mavi-satir.pembe-test-enkucuk-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-yesil-satir.pembe-test-enkucuk-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-kirmizi-kenar-satir.pembe-test-enkucuk-vurgu,
+.son-test-table td.col-gos.gos-row-koyu-mavi-kenar-satir.pembe-test-enkucuk-vurgu,
+.son-test-table td.col-gos.gos-row-pembe-satir.pembe-test-enkucuk-vurgu,
+.son-test-table td.col-no.gos-row-guclu-uyari-satir.pembe-test-enkucuk-vurgu,
+.son-test-table td.col-no.gos-row-fosfor-mavi-satir.pembe-test-enkucuk-vurgu,
+.son-test-table td.col-no.gos-row-fosfor-yesil-satir.pembe-test-enkucuk-vurgu,
+.son-test-table td.col-no.gos-row-fosfor-kirmizi-kenar-satir.pembe-test-enkucuk-vurgu,
+.son-test-table td.col-no.gos-row-koyu-mavi-kenar-satir.pembe-test-enkucuk-vurgu,
+.son-test-table td.col-no.gos-row-pembe-satir.pembe-test-enkucuk-vurgu {
+    animation: pembe-test-enkucuk-vurgu 0.55s step-end infinite !important;
+    position: relative;
+    z-index: 4 !important;
+    letter-spacing: 0.02em;
+}
+
+.son-test-table td.col-gos.gos-row-guclu-uyari-satir.kahve-test5-sifir-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-mavi-satir.kahve-test5-sifir-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-yesil-satir.kahve-test5-sifir-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-kirmizi-kenar-satir.kahve-test5-sifir-vurgu,
+.son-test-table td.col-gos.gos-row-koyu-mavi-kenar-satir.kahve-test5-sifir-vurgu,
+.son-test-table td.col-gos.gos-row-pembe-satir.kahve-test5-sifir-vurgu,
+.son-test-table td.col-no.gos-row-guclu-uyari-satir.kahve-test5-sifir-vurgu,
+.son-test-table td.col-no.gos-row-fosfor-mavi-satir.kahve-test5-sifir-vurgu,
+.son-test-table td.col-no.gos-row-fosfor-yesil-satir.kahve-test5-sifir-vurgu,
+.son-test-table td.col-no.gos-row-fosfor-kirmizi-kenar-satir.kahve-test5-sifir-vurgu,
+.son-test-table td.col-no.gos-row-koyu-mavi-kenar-satir.kahve-test5-sifir-vurgu,
+.son-test-table td.col-no.gos-row-pembe-satir.kahve-test5-sifir-vurgu {
+    animation: kahve-test5-sifir-vurgu 0.55s step-end infinite !important;
+    position: relative;
+    z-index: 4 !important;
+    letter-spacing: 0.02em;
 }
 
 .son-test-table td.col-gos.gos-row-guclu-uyari-satir.mavi-yanip-son,

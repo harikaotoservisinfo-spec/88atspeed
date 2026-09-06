@@ -15,6 +15,7 @@ const hipodromFob = require('./lib/hipodrom-fob');
 const bitalihFob = require('./lib/bitalih-fob');
 const publicSonuclar = require('./lib/public-sonuclar');
 const publicSonucStore = require('./lib/public-sonuc-store');
+const publicRehberLeaderboard = require('./lib/public-rehber-leaderboard');
 const sonucPoller = require('./lib/public-sonuc-poller');
 const programScheduler = require('./lib/public-program-scheduler');
 const tjkTvProxy = require('./lib/tjk-tv-proxy');
@@ -25,6 +26,7 @@ const bitalihBet = require('./lib/bitalih-bet');
 const bitalihAutoConfig = require('./lib/bitalih-auto-config');
 const { resolveChromePath } = require('./lib/chrome-path');
 const publicTahminBuild = require('./lib/public-tahmin-build');
+const publicKayitDegerlendirme = require('./lib/public-kayit-degerlendirme');
 const app = express();
 const PORT = Number(process.env.PORT) || 3023;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -48,7 +50,7 @@ let browser = null;
 // SQLite Veritabanı Bağlantısı
 const db = new sqlite3.Database('atlar.db');
 db.run('PRAGMA journal_mode = WAL');
-db.run('PRAGMA busy_timeout = 5000');
+db.run('PRAGMA busy_timeout = 15000');
 publicProgram.ensureTables(db)
     .then(() => publicProgram.archivePastPublicPrograms(db))
     .then(() => publicProgram.startTjkListWarmer())
@@ -189,6 +191,7 @@ app.get('/api/public/vitrin', async (req, res) => {
         const cacheKey = tarih;
         const cached = vitrinResponseCache.get(cacheKey);
         if (cached && Date.now() - cached.at < VITRIN_CACHE_MS) {
+            res.set('Cache-Control', 'no-store');
             return res.json(cached.body);
         }
 
@@ -202,6 +205,7 @@ app.get('/api/public/vitrin', async (req, res) => {
             iso: publicProgram.trToIso(tarih)
         };
         vitrinResponseCache.set(cacheKey, { at: Date.now(), body });
+        res.set('Cache-Control', 'no-store');
         res.json(body);
     } catch (err) {
         console.error('public/vitrin:', err.message);
@@ -224,7 +228,7 @@ app.get('/api/public/yarin-fetch-status', async (req, res) => {
 app.get('/api/public/program-sync', async (req, res) => {
     try {
         const overview = await publicProgram.getProgramSyncOverview(db, {
-            live: req.query.live !== '0'
+            live: req.query.live === '1'
         });
         res.json({ success: true, ...overview });
     } catch (err) {
@@ -381,6 +385,50 @@ app.get('/api/public/sonuclar/poller-status', (req, res) => {
         intervalSec: 90,
         activeHours: '10:00-23:00 Europe/Istanbul'
     });
+});
+
+app.get('/api/public/kayit-degerlendirme/kayitlar', async (req, res) => {
+    try {
+        const kayitlar = await publicKayitDegerlendirme.listKayitlar(db);
+        res.json({ success: true, kayitlar });
+    } catch (err) {
+        console.error('public/kayit-degerlendirme/kayitlar:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.get('/api/public/kayit-degerlendirme/:id', async (req, res) => {
+    try {
+        const kayitId = parseInt(req.params.id, 10);
+        if (!kayitId) {
+            return res.status(400).json({ success: false, error: 'Geçersiz kayıt id' });
+        }
+        const data = await publicKayitDegerlendirme.getKayitDegerlendirme(db, kayitId);
+        if (!data) {
+            return res.status(404).json({ success: false, error: 'Kayıt bulunamadı' });
+        }
+        res.json({ success: true, ...data });
+    } catch (err) {
+        console.error('public/kayit-degerlendirme/:id:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.get('/api/public/rehber-leaderboard', async (req, res) => {
+    try {
+        let iso = req.query.iso;
+        const tarih = req.query.tarih;
+        if (!iso && tarih) iso = publicProgram.trToIso(tarih);
+        const data = await publicRehberLeaderboard.buildRehberLeaderboard(db, {
+            iso,
+            tarih,
+            includeBlt: req.query.blt !== '0'
+        });
+        res.json(data);
+    } catch (err) {
+        console.error('public/rehber-leaderboard:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 app.get('/api/public/muhtemeller', async (req, res) => {
