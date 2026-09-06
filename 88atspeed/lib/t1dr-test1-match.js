@@ -4,9 +4,10 @@
 const { loadGostergeEngines } = require('../scripts/ptest-terminal-lib');
 
 // Yıldız veri şeması sürümü — değiştikçe artır ki eski kayıtlar yeniden hesaplansın.
-const YILDIZ_SURUM = 27;
+const YILDIZ_SURUM = 28;
 
 const T1DR_SON_KOSU_AD = 'Kırmızı (T1×DR son koşu)';
+const T1DR_ENIYI_AD = 'Mavi yanıp (T1×DR en iyi 2)';
 const MOR_TEST9_AD = 'Mor yanıp (TEST9)';
 const FARK8002_SIFIR_AD = 'Gri çerçeve (8002-8001 sıfır)';
 const TEST5_KAHVE_AD = 'Kahve (TEST5 sıfır)';
@@ -108,6 +109,18 @@ function isSehirGostergeStar(s) {
     const sutun = String(s.t || '').split(' · ')[1] || '';
     if (sutun !== 'ŞEHİR') return false;
     return s.ad === YESIL_ESLESME_AD || s.ad === GUCUL_SEHIR_AD;
+}
+
+/** T1×DR hücresinde son koşularda en iyi 2 (t1dr-eniyi-yanip-son) olması */
+function rowT1drEnIyi(G, row) {
+    const cls = G.getCellClass(G.COL.TEST1_ENTEGRE, row.classes);
+    return !!(cls && /\bt1dr-eniyi-yanip-son\b/.test(cls));
+}
+
+function isT1drEnIyiGostergeStar(s) {
+    const sutun = String(s.t || '').split(' · ')[1] || '';
+    if (sutun !== 'T1×DR') return false;
+    return s.ad === T1DR_ENIYI_AD;
 }
 
 /** Herhangi bir satırda TEST1 hücresi yeşil eşleşme (eslesme-yesil) olması */
@@ -369,6 +382,7 @@ function analyzeRace(race, meta) {
     markTest2EnIyiYesilGosterge(yildizlar, rowsByKey, G);
     markTest3EnIyiGriGosterge(yildizlar, rowsByKey, G);
     markSehirEslesmeGosterge(yildizlar, rowsByKey, G);
+    markT1drEnIyiGosterge(yildizlar, rowsByKey, G);
     markTest9MorYildizlari(yildizlar, rowsByKey, G);
     markFark8002GriYildizlari(yildizlar, rowsByKey, G);
     markTest5KahveYildizlari(yildizlar, rowsByKey, G);
@@ -589,6 +603,57 @@ function markSehirEslesmeGosterge(yildizlar, rowsByKey, G) {
                 delete s.v;
                 if (info.border === 'kirmizi') s.shk = true;
                 else s.shm = true;
+            }
+        }
+        w.n7 = (w.son7 || []).length;
+    }
+}
+
+/**
+ * T1×DR en iyi 2: mavi T harfi + kare çerçeve — satır rengine ve kenar çizgisine göre vurgu.
+ */
+function markT1drEnIyiGosterge(yildizlar, rowsByKey, G) {
+    const ok = new Map();
+    const LETTER = { mavi: '#0288d1', yesil: '#1b5e20', sari: '#f9a825' };
+    for (const [key, horseRows] of rowsByKey) {
+        for (const row of horseRows) {
+            if (!rowT1drEnIyi(G, row)) continue;
+            const sira = parseInt(row.values[0], 10);
+            if (isNaN(sira) || sira < 1) continue;
+            let letter = 'mavi';
+            if (rowSatirTamYesilKoyu(row)) letter = 'yesil';
+            else if (rowSatirTamYesil(row)) letter = 'sari';
+            let frame = 'mavi';
+            if (rowSatirTamYesilKoyu(row)) frame = 'yesil';
+            else if (rowSatirTamYesil(row)) frame = 'sari';
+            else if (rowKirmiziKenarSatir(row)) frame = 'kirmizi';
+            else if (rowMaviKenarSatir(row)) frame = 'mavi';
+            ok.set(key + '|' + sira, { letter, frame });
+        }
+    }
+    for (const [key, w] of yildizlar) {
+        for (const win of ['son7', 'son2', 'son1']) {
+            if (!Array.isArray(w[win])) continue;
+            const kept = new Set();
+            w[win] = w[win].filter((s) => {
+                if (!isT1drEnIyiGostergeStar(s)) return true;
+                if (!ok.has(key + '|' + s.k)) return false;
+                const dk = key + '|' + s.k;
+                if (kept.has(dk)) return false;
+                kept.add(dk);
+                return true;
+            });
+            for (const s of w[win]) {
+                if (!isT1drEnIyiGostergeStar(s)) continue;
+                const info = ok.get(key + '|' + s.k);
+                if (!info) continue;
+                s.tei = true;
+                s.c = LETTER[info.letter] || LETTER.mavi;
+                delete s.v;
+                if (info.frame === 'kirmizi') s.teik = true;
+                else if (info.frame === 'yesil') s.teiy = true;
+                else if (info.frame === 'sari') s.teis = true;
+                else s.teim = true;
             }
         }
         w.n7 = (w.son7 || []).length;
