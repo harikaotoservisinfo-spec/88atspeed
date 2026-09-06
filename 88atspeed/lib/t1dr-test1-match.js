@@ -4,13 +4,13 @@
 const { loadGostergeEngines } = require('../scripts/ptest-terminal-lib');
 
 // Yıldız veri şeması sürümü — değiştikçe artır ki eski kayıtlar yeniden hesaplansın.
-const YILDIZ_SURUM = 15;
+const YILDIZ_SURUM = 16;
 
 const T1DR_SON_KOSU_AD = 'Kırmızı (T1×DR son koşu)';
 const MOR_TEST9_AD = 'Mor yanıp (TEST9)';
 const FARK8002_SIFIR_AD = 'Gri çerçeve (8002-8001 sıfır)';
 const TEST5_KAHVE_AD = 'Kahve (TEST5 sıfır)';
-const TEST_EN_KUCUK_AD = 'Lacivert (TEST en küçük)';
+const TEST_EN_KUCUK_AD = 'Pembe (TEST en küçük)';
 
 let enginesReady = false;
 
@@ -60,16 +60,16 @@ function t1drEqualsTest1(t1dr, test1) {
     return false;
 }
 
-function isTestEnKucukLacivert(cls) {
-    return !!(cls && /\blacivert-test-enkucuk-vurgu\b/.test(cls));
+function isTestEnKucukPembe(cls) {
+    return !!(cls && /\bpembe-test-enkucuk-vurgu\b/.test(cls));
 }
 
-/** SIRA=1 satırında TEST1 + TEST2 + TEST3 hücrelerinin üçünün de lacivert-test-enkucuk-vurgu olması */
-function rowTest123Lacivert(G, row) {
+/** SIRA=1 satırında TEST1 + TEST2 + TEST3 hücrelerinin üçünün de pembe-test-enkucuk-vurgu olması */
+function rowTest123Pembe(G, row) {
     const COL = G.COL;
     const cols = [COL.TEST1, COL.TEST2, COL.TEST3];
     for (let i = 0; i < cols.length; i++) {
-        if (!isTestEnKucukLacivert(G.getCellClass(cols[i], row.classes))) return false;
+        if (!isTestEnKucukPembe(G.getCellClass(cols[i], row.classes))) return false;
     }
     return true;
 }
@@ -111,7 +111,7 @@ function rowSatirTamYesil(row) {
  * bunlar her atta bulunur, ayırt edici değildir.
  */
 const YILDIZ_KURALLARI = [
-    { token: 'lacivert-test-enkucuk-vurgu', renk: '#283593', ad: 'Lacivert (TEST en küçük)' },
+    { token: 'pembe-test-enkucuk-vurgu', renk: '#d81b60', ad: 'Pembe (TEST en küçük)' },
     { token: 'fosfor-kirmizi-yazi',        renk: '#b71c1c', ad: 'Kırmızı (T1×DR son koşu)' },
     { token: 'fosfor-kirmizi-kenar-satir', renk: '#c62828', ad: 'Kırmızı kenar satır', satir: true },
     { token: 'guclu-uyari-satir',          renk: '#d84315', ad: 'Güçlü uyarı satır', satir: true },
@@ -291,7 +291,7 @@ function analyzeRace(race, meta) {
         const t1dr = row.values[COL.TEST1_ENTEGRE];
         const test1 = row.values[COL.TEST1];
         if (t1drEqualsTest1(t1dr, test1)) matched.add(key);
-        if (row.values[0] === '1' && rowTest123Lacivert(G, row)) kirmizi.add(key);
+        if (row.values[0] === '1' && rowTest123Pembe(G, row)) kirmizi.add(key);
         if (row.values[0] === '1' && rowTest9Yanip(G, row)) mor.add(key);
         if (row.values[0] === '1' && rowFark8002SifirVurgu(G, row)) mavi.add(key);
         // Son 7 yarışın (sira 1..7) HERHANGİ birinde TEST1 hücresi yeşilse
@@ -319,7 +319,7 @@ function analyzeRace(race, meta) {
     markTest9MorYildizlari(yildizlar, rowsByKey, G);
     markFark8002GriYildizlari(yildizlar, rowsByKey, G);
     markTest5KahveYildizlari(yildizlar, rowsByKey, G);
-    markTestEnKucukLacivertYildizlari(yildizlar, rowsByKey, G);
+    markTestEnKucukPembeYildizlari(yildizlar, rowsByKey, G);
     markT1drSonKosuVurgu(yildizlar, rowsByKey, calcRace, G, meta);
     const ivmeMap = computeIvme(yildizlar, raceCounts);
     return { matched, kirmizi, mor, mavi, yesil, yesilSatir, yildizlar, ivme: ivmeMap };
@@ -447,9 +447,9 @@ function markTest5KahveYildizlari(yildizlar, rowsByKey, G) {
 }
 
 /**
- * Lacivert (TEST en küçük) yıldızı: yalnızca TEST1/2/3 hücresinde lacivert-test-enkucuk-vurgu olan koşular.
+ * Pembe (TEST en küçük) yıldızı: yalnızca TEST1/2/3 hücresinde pembe-test-enkucuk-vurgu olan koşular.
  */
-function markTestEnKucukLacivertYildizlari(yildizlar, rowsByKey, G) {
+function markTestEnKucukPembeYildizlari(yildizlar, rowsByKey, G) {
     const ok = new Set();
     const COL = G.COL;
     const cols = [COL.TEST1, COL.TEST2, COL.TEST3];
@@ -460,7 +460,7 @@ function markTestEnKucukLacivertYildizlari(yildizlar, rowsByKey, G) {
             if (isNaN(sira) || sira < 1) continue;
             for (const c of cols) {
                 const cls = G.getCellClass(c, row.classes);
-                if (!isTestEnKucukLacivert(cls)) continue;
+                if (!isTestEnKucukPembe(cls)) continue;
                 ok.add(key + '|' + sira + '|' + colAd[c]);
             }
         }

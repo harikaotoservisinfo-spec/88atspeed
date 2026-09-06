@@ -395,50 +395,50 @@ tr.pembe-satir td.gri-kenar-fark8002-vurgu {
 }
 
 /* TEST1/2/3 — SIRA=1: koşudaki en küçük 3 TEST değeri → fosforlu lacivert çerçeve */
-@keyframes lacivert-test-enkucuk-vurgu {
+@keyframes pembe-test-enkucuk-vurgu {
     0%, 45% {
-        background: linear-gradient(135deg, #0d1642 0%, #1a237e 35%, #283593 100%) !important;
+        background: linear-gradient(135deg, #880e4f 0%, #ad1457 35%, #c2185b 100%) !important;
         color: #ffffff !important;
         font-weight: 900 !important;
-        outline: 3px solid #7986cb !important;
+        outline: 3px solid #f48fb1 !important;
         outline-offset: -3px;
         box-shadow:
-            inset 0 0 24px #5c6bc0,
-            inset 0 0 40px #7986cb,
-            0 0 28px #3949ab,
-            0 0 48px #5c6bc0,
-            0 0 64px rgba(57, 73, 171, 0.85) !important;
+            inset 0 0 24px #f06292,
+            inset 0 0 40px #f48fb1,
+            0 0 28px #ec407a,
+            0 0 48px #f48fb1,
+            0 0 64px rgba(236, 64, 122, 0.85) !important;
         text-shadow:
             0 0 14px #ffffff,
-            0 0 24px #9fa8da,
-            0 0 36px #7986cb,
+            0 0 24px #f8bbd0,
+            0 0 36px #f48fb1,
             0 0 48px #ffffff;
         transform: scale(1.07);
         filter: brightness(1.2);
     }
     50%, 100% {
-        background: #e8eaf6 !important;
-        color: #1a237e !important;
-        outline: 4px solid #283593 !important;
+        background: #fce4ec !important;
+        color: #880e4f !important;
+        outline: 4px solid #d81b60 !important;
         outline-offset: -4px;
         box-shadow:
-            inset 0 0 10px rgba(40, 53, 147, 0.35),
-            0 0 20px #5c6bc0,
-            0 0 40px #7986cb,
-            0 0 60px rgba(92, 107, 192, 0.9) !important;
-        text-shadow: 0 0 6px rgba(26, 35, 126, 0.5);
+            inset 0 0 10px rgba(216, 27, 96, 0.35),
+            0 0 20px #f06292,
+            0 0 40px #f48fb1,
+            0 0 60px rgba(244, 143, 177, 0.9) !important;
+        text-shadow: 0 0 6px rgba(136, 14, 79, 0.5);
         transform: scale(1.1);
         filter: brightness(1.35);
     }
 }
-td.lacivert-test-enkucuk-vurgu,
-tr.guclu-uyari-satir td.lacivert-test-enkucuk-vurgu,
-tr.fosfor-mavi-satir td.lacivert-test-enkucuk-vurgu,
-tr.fosfor-yesil-satir td.lacivert-test-enkucuk-vurgu,
-tr.fosfor-kirmizi-kenar-satir td.lacivert-test-enkucuk-vurgu,
-tr.koyu-mavi-kenar-satir td.lacivert-test-enkucuk-vurgu,
-tr.pembe-satir td.lacivert-test-enkucuk-vurgu {
-    animation: lacivert-test-enkucuk-vurgu 0.55s step-end infinite !important;
+td.pembe-test-enkucuk-vurgu,
+tr.guclu-uyari-satir td.pembe-test-enkucuk-vurgu,
+tr.fosfor-mavi-satir td.pembe-test-enkucuk-vurgu,
+tr.fosfor-yesil-satir td.pembe-test-enkucuk-vurgu,
+tr.fosfor-kirmizi-kenar-satir td.pembe-test-enkucuk-vurgu,
+tr.koyu-mavi-kenar-satir td.pembe-test-enkucuk-vurgu,
+tr.pembe-satir td.pembe-test-enkucuk-vurgu {
+    animation: pembe-test-enkucuk-vurgu 0.55s step-end infinite !important;
     position: relative;
     z-index: 3;
     letter-spacing: 0.02em;
@@ -792,19 +792,19 @@ td.test9-yanip-son-guclu.mavi-kenar-test9-vurgu {
     z-index: 3;
 }
 
-.son-test-table td.col-gos.gos-row-guclu-uyari-satir.lacivert-test-enkucuk-vurgu,
-.son-test-table td.col-gos.gos-row-fosfor-mavi-satir.lacivert-test-enkucuk-vurgu,
-.son-test-table td.col-gos.gos-row-fosfor-yesil-satir.lacivert-test-enkucuk-vurgu,
-.son-test-table td.col-gos.gos-row-fosfor-kirmizi-kenar-satir.lacivert-test-enkucuk-vurgu,
-.son-test-table td.col-gos.gos-row-koyu-mavi-kenar-satir.lacivert-test-enkucuk-vurgu,
-.son-test-table td.col-gos.gos-row-pembe-satir.lacivert-test-enkucuk-vurgu,
-.son-test-table td.col-no.gos-row-guclu-uyari-satir.lacivert-test-enkucuk-vurgu,
-.son-test-table td.col-no.gos-row-fosfor-mavi-satir.lacivert-test-enkucuk-vurgu,
-.son-test-table td.col-no.gos-row-fosfor-yesil-satir.lacivert-test-enkucuk-vurgu,
-.son-test-table td.col-no.gos-row-fosfor-kirmizi-kenar-satir.lacivert-test-enkucuk-vurgu,
-.son-test-table td.col-no.gos-row-koyu-mavi-kenar-satir.lacivert-test-enkucuk-vurgu,
-.son-test-table td.col-no.gos-row-pembe-satir.lacivert-test-enkucuk-vurgu {
-    animation: lacivert-test-enkucuk-vurgu 0.55s step-end infinite !important;
+.son-test-table td.col-gos.gos-row-guclu-uyari-satir.pembe-test-enkucuk-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-mavi-satir.pembe-test-enkucuk-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-yesil-satir.pembe-test-enkucuk-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-kirmizi-kenar-satir.pembe-test-enkucuk-vurgu,
+.son-test-table td.col-gos.gos-row-koyu-mavi-kenar-satir.pembe-test-enkucuk-vurgu,
+.son-test-table td.col-gos.gos-row-pembe-satir.pembe-test-enkucuk-vurgu,
+.son-test-table td.col-no.gos-row-guclu-uyari-satir.pembe-test-enkucuk-vurgu,
+.son-test-table td.col-no.gos-row-fosfor-mavi-satir.pembe-test-enkucuk-vurgu,
+.son-test-table td.col-no.gos-row-fosfor-yesil-satir.pembe-test-enkucuk-vurgu,
+.son-test-table td.col-no.gos-row-fosfor-kirmizi-kenar-satir.pembe-test-enkucuk-vurgu,
+.son-test-table td.col-no.gos-row-koyu-mavi-kenar-satir.pembe-test-enkucuk-vurgu,
+.son-test-table td.col-no.gos-row-pembe-satir.pembe-test-enkucuk-vurgu {
+    animation: pembe-test-enkucuk-vurgu 0.55s step-end infinite !important;
     position: relative;
     z-index: 4 !important;
     letter-spacing: 0.02em;

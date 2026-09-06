@@ -964,7 +964,7 @@
             const stars = arr.map((y) => {
                 let vCls = '';
                 if (y.t4) vCls = ' vurgu-t1dr-top4';
-                else if (y.tkl) vCls = ' vurgu-test-lacivert';
+                else if (y.tkl) vCls = ' vurgu-test-pembe';
                 else if (y.t9m) vCls = ' vurgu-test9-mor';
                 else if (y.t5k) vCls = ' vurgu-test5-kahve';
                 else if (y.f8g) vCls = ' vurgu-fark8002-sifir';

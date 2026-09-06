@@ -1016,9 +1016,9 @@ const GosterimEngine = {
         const test2m3EnNegatif = enIyiler.enNegatifTest2MinusTest3?.has(kosuKey);
         const fark8002SifirVurgu = rowIndex === 0 && enIyiler.siraBirFark8002SifiraVurgu?.has(kosuKey);
         const test5KahveVurgu = rowIndex === 0 && enIyiler.siraBirTest5SifiraTop3?.has(kosuKey);
-        const test1Lacivert = rowIndex === 0 && enIyiler.siraBirTestEnKucukTop3?.has(kosuKey + '|TEST1');
-        const test2Lacivert = rowIndex === 0 && enIyiler.siraBirTestEnKucukTop3?.has(kosuKey + '|TEST2');
-        const test3Lacivert = rowIndex === 0 && enIyiler.siraBirTestEnKucukTop3?.has(kosuKey + '|TEST3');
+        const test1Pembe = rowIndex === 0 && enIyiler.siraBirTestEnKucukTop3?.has(kosuKey + '|TEST1');
+        const test2Pembe = rowIndex === 0 && enIyiler.siraBirTestEnKucukTop3?.has(kosuKey + '|TEST2');
+        const test3Pembe = rowIndex === 0 && enIyiler.siraBirTestEnKucukTop3?.has(kosuKey + '|TEST3');
         const test9SiraBirYanip = rowIndex === 0 && enIyiler.siraBirTest9YanipSonen?.has(horseIndex);
 
         return {
@@ -1036,9 +1036,9 @@ const GosterimEngine = {
                 test3Class: enIyiler.enIyilerTest3.has(kosuKey) ? 'eslesme-yesil' : '',
                 test12YakinClass: test12Yakin ? 'fosfor-sari-yazi' : '',
                 test23YanipClass: test23Yanip ? 'test23-yanip-son' : '',
-                test1LacivertClass: test1Lacivert ? 'lacivert-test-enkucuk-vurgu' : '',
-                test2LacivertClass: test2Lacivert ? 'lacivert-test-enkucuk-vurgu' : '',
-                test3LacivertClass: test3Lacivert ? 'lacivert-test-enkucuk-vurgu' : '',
+                test1PembeVurguClass: test1Pembe ? 'pembe-test-enkucuk-vurgu' : '',
+                test2PembeVurguClass: test2Pembe ? 'pembe-test-enkucuk-vurgu' : '',
+                test3PembeVurguClass: test3Pembe ? 'pembe-test-enkucuk-vurgu' : '',
                 test5KahveVurguClass: test5KahveVurgu ? 'kahve-test5-sifir-vurgu' : '',
                 farkClass: farkBosMu && !fark8002BosMu ? 'pembe-hucre' : '',
                 fark8002Class: !farkBosMu && fark8002BosMu ? 'pembe-hucre' : '',
@@ -1078,17 +1078,17 @@ const GosterimEngine = {
         if (c === COL.SON800_1 && classes.son800_1Class) parts.push(classes.son800_1Class);
         if (c === COL.SON800_2 && classes.son800_2Class) parts.push(classes.son800_2Class);
         if (c === COL.TEST1) {
-            if (classes.test1LacivertClass) parts.push(classes.test1LacivertClass);
+            if (classes.test1PembeVurguClass) parts.push(classes.test1PembeVurguClass);
             if (classes.test1Class) parts.push(classes.test1Class);
             if (classes.test12YakinClass) parts.push(classes.test12YakinClass);
         } else if (c === COL.TEST2) {
             if (classes.test23YanipClass) parts.push(classes.test23YanipClass);
-            if (classes.test2LacivertClass) parts.push(classes.test2LacivertClass);
+            if (classes.test2PembeVurguClass) parts.push(classes.test2PembeVurguClass);
             if (classes.test2Class) parts.push(classes.test2Class);
             if (classes.test12YakinClass) parts.push(classes.test12YakinClass);
         } else if (c === COL.TEST3) {
             if (classes.test23YanipClass) parts.push(classes.test23YanipClass);
-            if (classes.test3LacivertClass) parts.push(classes.test3LacivertClass);
+            if (classes.test3PembeVurguClass) parts.push(classes.test3PembeVurguClass);
             if (classes.test3Class) parts.push(classes.test3Class);
         } else if (c === COL.TEST2_MINUS_TEST3 && classes.test2m3EnNegatifClass) {
             parts.push(classes.test2m3EnNegatifClass);
@@ -1118,7 +1118,7 @@ const GosterimEngine = {
             || c === COL.FARK8002 || c === COL.TEST5 || c === COL.TEST9;
         if (classes.maviFosforClass && !skipMaviFosfor && !parts.includes('test23-yanip-son')
             && !parts.includes('gri-kenar-fark8002-vurgu') && !parts.includes('kahve-test5-sifir-vurgu')
-            && !parts.includes('lacivert-test-enkucuk-vurgu') && !parts.includes('test9-yanip-son-guclu')) {
+            && !parts.includes('pembe-test-enkucuk-vurgu') && !parts.includes('test9-yanip-son-guclu')) {
             parts.push(classes.maviFosforClass);
         }
         return parts.length ? parts.join(' ') : '';
