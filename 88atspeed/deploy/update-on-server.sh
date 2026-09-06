@@ -45,6 +45,11 @@ rm -rf "$TMP"
 
 cd "$APP_DIR"
 
+# rsync sonrası diskteki güncel post-deploy betiğini çalıştır (tahmin rebuild vb.)
+if [ -f "$APP_DIR/deploy/post-deploy.sh" ]; then
+  bash "$APP_DIR/deploy/post-deploy.sh"
+fi
+
 LOCK_HASH="$(sha256sum package-lock.json 2>/dev/null | awk '{print $1}')"
 LOCK_STAMP="$APP_DIR/.deploy-package-lock.sha256"
 NEED_NPM=0
@@ -148,22 +153,6 @@ if [ "$HOUR_TR" -gt 18 ] || { [ "$HOUR_TR" -eq 18 ] && [ "$MIN_TR" -ge 30 ]; }; 
     echo "  Log: tail -f /var/log/88atspeed-program.log"
   fi
 fi
-
-echo "🔥 Kalibrasyon bundle ısıtılıyor (arka plan, ~40sn)..."
-nohup node "$APP_DIR/scripts/warm-calibration-bundle.js" --db "$APP_DIR/atlar.db" \
-  >> "$APP_DIR/data/calib-warm.log" 2>&1 &
-echo "  Log: $APP_DIR/data/calib-warm.log"
-
-echo "📊 Kamu tahmin sütunları (TAHMİN, R2, MTR, GÖ, HYB…) yeniden hesaplanıyor (arka plan)..."
-mkdir -p "$APP_DIR/data"
-nohup node --max-old-space-size=3072 "$APP_DIR/scripts/rebuild-public-tahmin-safe.js" --bugun \
-  >> "$APP_DIR/data/public-tahmin-rebuild.log" 2>&1 &
-echo "  Log: $APP_DIR/data/public-tahmin-rebuild.log"
-
-echo "⭐ T1×DR=TEST1 bayrakları (arka plan, siteyi kilitlemez)..."
-mkdir -p "$APP_DIR/data"
-nohup node --max-old-space-size=2048 "$APP_DIR/scripts/backfill-t1dr-test1-flags.js" --bugun --yarin --force \
-  >> "$APP_DIR/data/t1dr-backfill.log" 2>&1 &
 
 echo "🔍 Bi'Talih sağlık:"
 wait_for_app || true
