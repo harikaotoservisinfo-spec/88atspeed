@@ -66,7 +66,8 @@ function scoredCount(races) {
 }
 
 (async () => {
-    console.log('🎯 Güvenli kamu tahmin üretimi:', tarih);
+    const started = new Date().toISOString();
+    console.log('🎯 Güvenli kamu tahmin üretimi:', tarih, '(' + started + ')');
     // 1) Motorları yükle + kalibrasyonu bir kez kur (disk cache varsa hızlı)
     await ptb.ensureCalibration(db, DB_PATH);
     // 2) Yeniden içe aktarmak için bundle nesnesini al (disk cache -> hızlı)
