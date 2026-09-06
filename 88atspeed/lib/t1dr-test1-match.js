@@ -571,9 +571,14 @@ function markSehirEslesmeGosterge(yildizlar, rowsByKey, G) {
     for (const [key, w] of yildizlar) {
         for (const win of ['son7', 'son2', 'son1']) {
             if (!Array.isArray(w[win])) continue;
+            const sehirKept = new Set();
             w[win] = w[win].filter((s) => {
                 if (!isSehirGostergeStar(s)) return true;
-                return ok.has(key + '|' + s.k);
+                if (!ok.has(key + '|' + s.k)) return false;
+                const dk = key + '|' + s.k;
+                if (sehirKept.has(dk)) return false;
+                sehirKept.add(dk);
+                return true;
             });
             for (const s of w[win]) {
                 if (!isSehirGostergeStar(s)) continue;

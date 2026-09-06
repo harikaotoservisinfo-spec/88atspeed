@@ -2802,7 +2802,7 @@ a { color: inherit; text-decoration: none; }
 
 }
 
-/* Şehir eşleşmesi: Ş harfi + mavi fosforlu daire */
+/* Şehir eşleşmesi: Ş harfi + mavi fosforlu kare çerçeve */
 .pub-prog-yildiz-star.vurgu-sehir-mavi {
     position: relative;
     display: inline-block;
@@ -2810,7 +2810,7 @@ a { color: inherit; text-decoration: none; }
     font-weight: 900;
     line-height: 1;
     padding: 1px 3px;
-    border-radius: 50%;
+    border-radius: 3px;
     border: 2px solid #1565c0;
     box-shadow:
         0 0 0 1px rgba(21, 101, 192, 0.45),
@@ -2841,7 +2841,7 @@ a { color: inherit; text-decoration: none; }
     }
 }
 
-/* Şehir eşleşmesi + kırmızı kenar: Ş harfi + kırmızı fosforlu daire */
+/* Şehir eşleşmesi + kırmızı kenar: Ş harfi + kırmızı fosforlu kare çerçeve */
 .pub-prog-yildiz-star.vurgu-sehir-kirmizi {
     position: relative;
     display: inline-block;
@@ -2849,7 +2849,7 @@ a { color: inherit; text-decoration: none; }
     font-weight: 900;
     line-height: 1;
     padding: 1px 3px;
-    border-radius: 50%;
+    border-radius: 3px;
     border: 2px solid #c62828;
     box-shadow:
         0 0 0 1px rgba(198, 40, 40, 0.45),
