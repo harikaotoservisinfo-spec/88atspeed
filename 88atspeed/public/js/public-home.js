@@ -940,6 +940,27 @@
         return '<span class="pub-yk-arrow ' + cls + '">' + dir + (v >= 0 ? '+' : '') + v + '%</span>';
     }
 
+    function formatGostergeMarker(y) {
+        let vCls = '';
+        if (y.t4) vCls = ' vurgu-t1dr-top4';
+        else if (y.tkl) vCls = ' vurgu-test-pembe';
+        else if (y.t9m) vCls = ' vurgu-test9-mor';
+        else if (y.t5k) vCls = ' vurgu-test5-kahve';
+        else if (y.f8g) vCls = ' vurgu-fark8002-sifir';
+        else if (y.tkr) vCls = ' vurgu-kirmizi-kenar';
+        else if (y.tmk) vCls = ' vurgu-mavi-kenar';
+        else if (y.ttsk) vCls = ' vurgu-sari-tam-kirmizi';
+        else if (y.ttsm) vCls = ' vurgu-sari-tam-mavi';
+        else if (y.tts) vCls = ' vurgu-sari-tam';
+        else if (y.ttyk) vCls = ' vurgu-yesil-tam-kirmizi';
+        else if (y.ttym) vCls = ' vurgu-yesil-tam-mavi';
+        else if (y.tty) vCls = ' vurgu-yesil-tam';
+        else if (y.t1y) vCls = ' vurgu-test1-yesil';
+        else if (y.v) vCls = ' vurgu';
+        const glyph = y.t1y ? '●' : '★';
+        return '<span class="pub-prog-yildiz-star' + vCls + '" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">' + glyph + '</span>';
+    }
+
     // "7" satırı: her yarış ayrı sütun (yıldızlar üstte, koşu-başı sayı altta),
     // yarışlar 7→1 kronolojik; taban(3-7)→2 ve 2→1 geçişlerinde ivme okları.
     function formatKronGrid(h) {
@@ -961,24 +982,7 @@
             const group = k >= 3 ? 'taban' : (k === 2 ? 'orta' : 'guncel');
             if (prevGroup === 'taban' && group === 'orta') html += sep(ivmeArrow(iv.t2, iv.t2y));
             if ((prevGroup === 'taban' || prevGroup === 'orta') && group === 'guncel') html += sep(ivmeArrow(iv.t1, iv.t1y));
-            const stars = arr.map((y) => {
-                let vCls = '';
-                if (y.t4) vCls = ' vurgu-t1dr-top4';
-                else if (y.tkl) vCls = ' vurgu-test-pembe';
-                else if (y.t9m) vCls = ' vurgu-test9-mor';
-                else if (y.t5k) vCls = ' vurgu-test5-kahve';
-                else if (y.f8g) vCls = ' vurgu-fark8002-sifir';
-                else if (y.tkr) vCls = ' vurgu-kirmizi-kenar';
-                else if (y.tmk) vCls = ' vurgu-mavi-kenar';
-                else if (y.ttsk) vCls = ' vurgu-sari-tam-kirmizi';
-                else if (y.ttsm) vCls = ' vurgu-sari-tam-mavi';
-                else if (y.tts) vCls = ' vurgu-sari-tam';
-                else if (y.ttyk) vCls = ' vurgu-yesil-tam-kirmizi';
-                else if (y.ttym) vCls = ' vurgu-yesil-tam-mavi';
-                else if (y.tty) vCls = ' vurgu-yesil-tam';
-                else if (y.v) vCls = ' vurgu';
-                return '<span class="pub-prog-yildiz-star' + vCls + '" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">★</span>';
-            }).join('');
+            const stars = arr.map((y) => formatGostergeMarker(y)).join('');
             html += '<div class="pub-yk-col" title="' + k + '. koşu">'
                 + '<span class="pub-yk-stars">' + stars + '</span>'
                 + '<span class="pub-yk-n">' + arr.length + '</span>'

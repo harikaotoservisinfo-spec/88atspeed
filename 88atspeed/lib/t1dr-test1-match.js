@@ -4,7 +4,7 @@
 const { loadGostergeEngines } = require('../scripts/ptest-terminal-lib');
 
 // Yıldız veri şeması sürümü — değiştikçe artır ki eski kayıtlar yeniden hesaplansın.
-const YILDIZ_SURUM = 20;
+const YILDIZ_SURUM = 21;
 
 const T1DR_SON_KOSU_AD = 'Kırmızı (T1×DR son koşu)';
 const MOR_TEST9_AD = 'Mor yanıp (TEST9)';
@@ -15,6 +15,7 @@ const KIRMIZI_KENAR_AD = 'Kırmızı kenar satır';
 const MAVI_KENAR_AD = 'Mavi kenar satır';
 const SATIR_TAM_SARI_AD = 'Satır tam sarı';
 const SATIR_TAM_YESIL_AD = 'Satır tam yeşil';
+const YESIL_ESLESME_AD = 'Yeşil eşleşme';
 
 let enginesReady = false;
 
@@ -339,6 +340,7 @@ function analyzeRace(race, meta) {
     }
     markAyirtedici(yildizlar, 'son1');
     markAyirtedici(yildizlar, 'son2');
+    markTest1EnIyiYesilGosterge(yildizlar, rowsByKey, G);
     markTest9MorYildizlari(yildizlar, rowsByKey, G);
     markFark8002GriYildizlari(yildizlar, rowsByKey, G);
     markTest5KahveYildizlari(yildizlar, rowsByKey, G);
@@ -390,6 +392,41 @@ function computeIvme(yildizlar, raceCounts) {
         });
     }
     return out;
+}
+
+/**
+ * TEST1 en iyi 3: yeşil yuvarlak (t1y) + koyu yeşil çerçeve — eski ★ yıldız yerine.
+ */
+function markTest1EnIyiYesilGosterge(yildizlar, rowsByKey, G) {
+    const ok = new Set();
+    for (const [key, horseRows] of rowsByKey) {
+        for (const row of horseRows) {
+            if (!rowTest1Green(G, row)) continue;
+            const sira = parseInt(row.values[0], 10);
+            if (!isNaN(sira) && sira >= 1) ok.add(key + '|' + sira);
+        }
+    }
+    for (const [key, w] of yildizlar) {
+        for (const win of ['son7', 'son2', 'son1']) {
+            if (!Array.isArray(w[win])) continue;
+            w[win] = w[win].filter((s) => {
+                if (s.ad !== YESIL_ESLESME_AD) return true;
+                const sutun = String(s.t || '').split(' · ')[1] || '';
+                if (sutun !== 'TEST1') return true;
+                return ok.has(key + '|' + s.k);
+            });
+            for (const s of w[win]) {
+                if (s.ad !== YESIL_ESLESME_AD) continue;
+                const sutun = String(s.t || '').split(' · ')[1] || '';
+                if (sutun === 'TEST1' && ok.has(key + '|' + s.k)) {
+                    s.t1y = true;
+                    s.c = '#4caf50';
+                    delete s.v;
+                }
+            }
+        }
+        w.n7 = (w.son7 || []).length;
+    }
 }
 
 /**
