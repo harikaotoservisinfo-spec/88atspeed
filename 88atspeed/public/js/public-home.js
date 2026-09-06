@@ -947,6 +947,8 @@
         else if (y.t9m) vCls = ' vurgu-test9-mor';
         else if (y.t5k) vCls = ' vurgu-test5-kahve';
         else if (y.f8g) vCls = ' vurgu-fark8002-sifir';
+        else if (y.t12k) vCls = ' vurgu-test12-kirmizi';
+        else if (y.t12o) vCls = ' vurgu-test12-turuncu';
         else if (y.tkr) vCls = ' vurgu-kirmizi-kenar';
         else if (y.tmk) vCls = ' vurgu-mavi-kenar';
         else if (y.ttsk) vCls = ' vurgu-sari-tam-kirmizi';
@@ -971,6 +973,7 @@
         if (y.tei) glyph = 'T';
         else if (y.shs) glyph = 'Ş';
         else if (y.t46) glyph = '4';
+        else if (y.t12) glyph = '2';
         else if (y.t1y || y.t1ym || y.t1yk || y.t2y || y.t2ym || y.t2yk || y.t3y || y.t3ym || y.t3yk) glyph = '●';
         if (y.tei) {
             if (y.teiy) vCls = ' vurgu-yesil-tam';
@@ -981,6 +984,8 @@
             vCls = y.shk ? ' vurgu-sehir-kirmizi' : ' vurgu-sehir-mavi';
         } else if (y.t46) {
             vCls = ' vurgu-test46-acik-mavi';
+        } else if (y.t12) {
+            vCls = y.t12k ? ' vurgu-test12-kirmizi' : ' vurgu-test12-turuncu';
         }
         return '<span class="pub-prog-yildiz-star' + vCls + '" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">' + glyph + '</span>';
     }

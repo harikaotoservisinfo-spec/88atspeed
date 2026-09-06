@@ -4,11 +4,13 @@
 const { loadGostergeEngines } = require('../scripts/ptest-terminal-lib');
 
 // Yıldız veri şeması sürümü — değiştikçe artır ki eski kayıtlar yeniden hesaplansın.
-const YILDIZ_SURUM = 32;
+const YILDIZ_SURUM = 33;
 
 const T1DR_SON_KOSU_AD = 'Kırmızı (T1×DR son koşu)';
 const T1DR_ENIYI_AD = 'Mavi yanıp (T1×DR en iyi 2)';
 const TEST46_AD = 'Yeşil (TEST4=TEST6)';
+const TEST12_YAKIN_AD = 'Turuncu (TEST1-2 yakın)';
+const TEST12_SARI_ESKI_AD = 'Sarı (TEST1-2 yakın)';
 const MOR_TEST9_AD = 'Mor yanıp (TEST9)';
 const FARK8002_SIFIR_AD = 'Gri çerçeve (8002-8001 sıfır)';
 const TEST5_KAHVE_AD = 'Kahve (TEST5 sıfır)';
@@ -140,6 +142,16 @@ function isTest46GostergeStar(s) {
     return sutun === 'TEST4' || sutun === 'TEST6';
 }
 
+function isTest12SariHucreStar(s) {
+    if (s.ad !== TEST12_SARI_ESKI_AD) return false;
+    const sutun = String(s.t || '').split(' · ')[1] || '';
+    return sutun === 'TEST1' || sutun === 'TEST2';
+}
+
+function isTest12YakinGostergeStar(s) {
+    return s.ad === TEST12_YAKIN_AD || !!s.t12;
+}
+
 /** Herhangi bir satırda TEST1 hücresi yeşil eşleşme (eslesme-yesil) olması */
 function rowTest1Green(G, row) {
     const cls = G.getCellClass(G.COL.TEST1, row.classes);
@@ -198,7 +210,6 @@ const YILDIZ_KURALLARI = [
     { token: 'fosfor-yesil-hucre',         renk: '#43a047', ad: 'Yeşil (TEST4=TEST6)' },
     { token: 'fosfor-yesil-satir',         renk: '#f9a825', ad: SATIR_TAM_SARI_AD, satir: true },
     { token: 'kahve-test5-sifir-vurgu',    renk: '#5d4037', ad: 'Kahve (TEST5 sıfır)' },
-    { token: 'fosfor-sari-yazi',           renk: '#f9a825', ad: 'Sarı (TEST1-2 yakın)' },
     { token: 'gri-kenar-fark8002-vurgu',   renk: '#757575', ad: 'Gri çerçeve (8002-8001 sıfır)' },
     { token: 'test23-yanip-son',           renk: '#ef6c00', ad: 'Turuncu yanıp (TEST2-3)' },
     { token: 'test9-yanip-son-guclu',      renk: '#8e24aa', ad: 'Mor yanıp (TEST9)' },
@@ -319,7 +330,7 @@ function computeHorseYildizlarKronolojik(G, rows, colEtiket, maxSira) {
 
 /**
  * Bir koşuyu tek geçişte analiz eder:
- *  - matched: T1×DR = TEST1 eşleşmesi olan atlar (sarı yıldız)
+ *  - matched: T1×DR = TEST1 eşleşmesi olan atlar (t1drTest1 bayrağı)
  *  - kirmizi: en yeni koşu satırında TEST1/TEST2/TEST3 üçü de kırmızı olan atlar (kırmızı yıldız)
  */
 function analyzeRace(race, meta) {
@@ -387,6 +398,7 @@ function analyzeRace(race, meta) {
     markSehirEslesmeGosterge(yildizlar, rowsByKey, G);
     markT1drEnIyiGosterge(yildizlar, rowsByKey, G);
     markTest46Gosterge(yildizlar, rowsByKey, G);
+    markTest12YakinGosterge(yildizlar, rowsByKey, calcRace, G, meta);
     markTest9MorYildizlari(yildizlar, rowsByKey, G);
     markFark8002GriYildizlari(yildizlar, rowsByKey, G);
     markTest5KahveYildizlari(yildizlar, rowsByKey, G);
@@ -696,6 +708,114 @@ function markTest46Gosterge(yildizlar, rowsByKey, G) {
                 s.t46 = true;
                 s.c = LETTER;
                 delete s.v;
+            }
+        }
+        w.n7 = (w.son7 || []).length;
+    }
+}
+
+/**
+ * TEST1-TEST2 yakın: turuncu/kırmızı 2 rakamı + kare çerçeve — sahada en yakın 4 (en yakın kırmızı).
+ */
+function buildTest12ClosestTop4(calcRace, G, meta) {
+    const hedefMesafe = G._hedefMesafe(calcRace);
+    const calc = G._raceForCalc(calcRace, meta?.tarih || null);
+    const pairs = [];
+    for (let j = 0; j < calc.horses.length; j++) {
+        const horse = calc.horses[j];
+        const key = horseKey(horse);
+        if (!key) continue;
+        const kosularSorted = G._sortKosularNewest(horse.kosular || []);
+        for (let idx = 0; idx < kosularSorted.length; idx++) {
+            const atKosu = kosularSorted[idx];
+            const sira = idx + 1;
+            const { test1, test2 } = G._computeTestSalise(atKosu, hedefMesafe);
+            if (test1 === null || test2 === null) continue;
+            pairs.push({
+                key,
+                sira,
+                fark: Math.abs(test1 - test2),
+                test1,
+                test2
+            });
+        }
+    }
+    pairs.sort((a, b) => {
+        if (a.fark !== b.fark) return a.fark - b.fark;
+        if (a.test1 !== b.test1) return a.test1 - b.test1;
+        return a.test2 - b.test2;
+    });
+    const out = new Map();
+    for (let t = 0; t < Math.min(4, pairs.length); t++) {
+        const p = pairs[t];
+        out.set(p.key + '|' + p.sira, t === 0 ? 'kirmizi' : 'turuncu');
+    }
+    return out;
+}
+
+function makeTest12YakinStar(sira, variant) {
+    const COLORS = { kirmizi: '#d32f2f', turuncu: '#ff9800' };
+    const star = {
+        c: COLORS[variant] || COLORS.turuncu,
+        t: TEST12_YAKIN_AD + ' · TEST1-2 · ' + sira + '. koşu',
+        ad: TEST12_YAKIN_AD,
+        k: sira,
+        t12: true
+    };
+    if (variant === 'kirmizi') star.t12k = true;
+    else star.t12o = true;
+    return star;
+}
+
+function markTest12YakinGosterge(yildizlar, rowsByKey, calcRace, G, meta) {
+    const top4 = buildTest12ClosestTop4(calcRace, G, meta);
+    const maxSiraForWin = { son7: 7, son2: 2, son1: 1 };
+    for (const [key, w] of yildizlar) {
+        for (const win of ['son7', 'son2', 'son1']) {
+            if (!Array.isArray(w[win])) continue;
+            const limit = maxSiraForWin[win];
+            w[win] = w[win].filter((s) => {
+                if (isTest12SariHucreStar(s)) return false;
+                if (!isTest12YakinGostergeStar(s)) return true;
+                if (win === 'son7') {
+                    if (!top4.has(key + '|' + s.k)) return false;
+                    return true;
+                }
+                return false;
+            });
+            if (win !== 'son7') continue;
+            const kept = new Set();
+            w[win] = w[win].filter((s) => {
+                if (!isTest12YakinGostergeStar(s)) return true;
+                const dk = key + '|' + s.k;
+                if (kept.has(dk)) return false;
+                kept.add(dk);
+                return true;
+            });
+            for (const s of w[win]) {
+                if (!isTest12YakinGostergeStar(s)) continue;
+                const variant = top4.get(key + '|' + s.k);
+                if (!variant) continue;
+                s.t12 = true;
+                s.c = variant === 'kirmizi' ? '#d32f2f' : '#ff9800';
+                delete s.v;
+                if (variant === 'kirmizi') {
+                    s.t12k = true;
+                    delete s.t12o;
+                } else {
+                    s.t12o = true;
+                    delete s.t12k;
+                }
+            }
+            for (const [mapKey, variant] of top4) {
+                const sep = mapKey.lastIndexOf('|');
+                if (sep < 0) continue;
+                const kKey = mapKey.slice(0, sep);
+                const sira = parseInt(mapKey.slice(sep + 1), 10);
+                if (kKey !== key) continue;
+                if (isNaN(sira) || sira < 1 || sira > limit) continue;
+                if (w[win].some((s) => isTest12YakinGostergeStar(s) && s.k === sira)) continue;
+                w[win].push(makeTest12YakinStar(sira, variant));
             }
         }
         w.n7 = (w.son7 || []).length;
