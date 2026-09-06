@@ -32,7 +32,7 @@ const KURALLAR = [
     { token: 'fosfor-yesil-hucre',         ad: 'Yeşil (TEST4=TEST6)' },
     { token: 'fosfor-yesil-satir',         ad: 'Satır tam sarı', satir: true },
     { token: 'fosfor-yesil-koyu-yazi',     ad: 'Koyu yeşil (en negatif)' },
-    { token: 'yesil-yazi',                 ad: 'Yeşil yazı (TEST5)' },
+    { token: 'kahve-test5-sifir-vurgu',    ad: 'Kahve (TEST5 sıfır)' },
     { token: 'fosfor-sari-yazi',           ad: 'Sarı (TEST1-2 yakın)' },
     { token: 'gri-kenar-fark8002-vurgu',   ad: 'Gri çerçeve (8002-8001 sıfır)' },
     { token: 'test23-yanip-son',           ad: 'Turuncu yanıp (TEST2-3)' },

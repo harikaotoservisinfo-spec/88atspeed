@@ -452,7 +452,7 @@ const AtestSonGosterimCols = (function () {
     }
 
     /**
-     * TEST9 yanıp → +%45 · 8002-8001 yanıp → +%5 · TEST1/2/3 kırmızı → +%25
+     * TEST9 yanıp → +%45 · 8002-8001 sıfır (gri) → +%5 · TEST1/2/3 kırmızı → +%25
      * TEST1 yeşil: koşuda 1 at +%15 · 2+ at TEST1 süresine göre 15/12/9…
      * TEST1 en iyi 3 süre: +7 / +5 / +3 · TEST1 kırmızı yazı +3 ekstra
      * AT İSMİ mavi fosfor (son 7): +5 · mavi değil: −5

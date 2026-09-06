@@ -394,6 +394,56 @@ tr.pembe-satir td.gri-kenar-fark8002-vurgu {
     z-index: 3;
 }
 
+/* TEST5 — SIRA=1: |TEST5| 0'a en yakın 3 at → fosforlu koyu kahve çerçeve */
+@keyframes kahve-test5-sifir-vurgu {
+    0%, 45% {
+        background: linear-gradient(135deg, #3e2723 0%, #4e342e 35%, #5d4037 100%) !important;
+        color: #ffffff !important;
+        font-weight: 900 !important;
+        outline: 3px solid #a1887f !important;
+        outline-offset: -3px;
+        box-shadow:
+            inset 0 0 24px #8d6e63,
+            inset 0 0 40px #a1887f,
+            0 0 28px #6d4c41,
+            0 0 48px #8d6e63,
+            0 0 64px rgba(109, 76, 65, 0.85) !important;
+        text-shadow:
+            0 0 14px #ffffff,
+            0 0 24px #d7ccc8,
+            0 0 36px #a1887f,
+            0 0 48px #ffffff;
+        transform: scale(1.07);
+        filter: brightness(1.2);
+    }
+    50%, 100% {
+        background: #efebe9 !important;
+        color: #3e2723 !important;
+        outline: 4px solid #5d4037 !important;
+        outline-offset: -4px;
+        box-shadow:
+            inset 0 0 10px rgba(93, 64, 55, 0.35),
+            0 0 20px #8d6e63,
+            0 0 40px #a1887f,
+            0 0 60px rgba(141, 110, 99, 0.9) !important;
+        text-shadow: 0 0 6px rgba(62, 39, 35, 0.5);
+        transform: scale(1.1);
+        filter: brightness(1.35);
+    }
+}
+td.kahve-test5-sifir-vurgu,
+tr.guclu-uyari-satir td.kahve-test5-sifir-vurgu,
+tr.fosfor-mavi-satir td.kahve-test5-sifir-vurgu,
+tr.fosfor-yesil-satir td.kahve-test5-sifir-vurgu,
+tr.fosfor-kirmizi-kenar-satir td.kahve-test5-sifir-vurgu,
+tr.koyu-mavi-kenar-satir td.kahve-test5-sifir-vurgu,
+tr.pembe-satir td.kahve-test5-sifir-vurgu {
+    animation: kahve-test5-sifir-vurgu 0.55s step-end infinite !important;
+    position: relative;
+    z-index: 3;
+    letter-spacing: 0.02em;
+}
+
 /* Görünüm SIRA=1 (en yeni koşu): 8002-8001 top-3 pozitif veya TEST9 yakın → mavi yanıp sönen */
 @keyframes mavi-yanip-son {
     0%, 100% {
@@ -690,6 +740,24 @@ td.test9-yanip-son-guclu.mavi-kenar-test9-vurgu {
     background: rgba(245, 245, 245, 0.92) !important;
     position: relative;
     z-index: 3;
+}
+
+.son-test-table td.col-gos.gos-row-guclu-uyari-satir.kahve-test5-sifir-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-mavi-satir.kahve-test5-sifir-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-yesil-satir.kahve-test5-sifir-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-kirmizi-kenar-satir.kahve-test5-sifir-vurgu,
+.son-test-table td.col-gos.gos-row-koyu-mavi-kenar-satir.kahve-test5-sifir-vurgu,
+.son-test-table td.col-gos.gos-row-pembe-satir.kahve-test5-sifir-vurgu,
+.son-test-table td.col-no.gos-row-guclu-uyari-satir.kahve-test5-sifir-vurgu,
+.son-test-table td.col-no.gos-row-fosfor-mavi-satir.kahve-test5-sifir-vurgu,
+.son-test-table td.col-no.gos-row-fosfor-yesil-satir.kahve-test5-sifir-vurgu,
+.son-test-table td.col-no.gos-row-fosfor-kirmizi-kenar-satir.kahve-test5-sifir-vurgu,
+.son-test-table td.col-no.gos-row-koyu-mavi-kenar-satir.kahve-test5-sifir-vurgu,
+.son-test-table td.col-no.gos-row-pembe-satir.kahve-test5-sifir-vurgu {
+    animation: kahve-test5-sifir-vurgu 0.55s step-end infinite !important;
+    position: relative;
+    z-index: 4 !important;
+    letter-spacing: 0.02em;
 }
 
 .son-test-table td.col-gos.gos-row-guclu-uyari-satir.mavi-yanip-son,

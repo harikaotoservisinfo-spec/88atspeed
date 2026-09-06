@@ -4,11 +4,12 @@
 const { loadGostergeEngines } = require('../scripts/ptest-terminal-lib');
 
 // Yıldız veri şeması sürümü — değiştikçe artır ki eski kayıtlar yeniden hesaplansın.
-const YILDIZ_SURUM = 13;
+const YILDIZ_SURUM = 14;
 
 const T1DR_SON_KOSU_AD = 'Kırmızı (T1×DR son koşu)';
 const MOR_TEST9_AD = 'Mor yanıp (TEST9)';
 const FARK8002_SIFIR_AD = 'Gri çerçeve (8002-8001 sıfır)';
+const TEST5_KAHVE_AD = 'Kahve (TEST5 sıfır)';
 
 let enginesReady = false;
 
@@ -78,6 +79,12 @@ function rowTest9Yanip(G, row) {
     return !!(cls && /\btest9-yanip-son-guclu\b/.test(cls));
 }
 
+/** SIRA=1 satırında TEST5 hücresinde kahve çerçeve kuralı (kahve-test5-sifir-vurgu) olması */
+function rowTest5KahveVurgu(G, row) {
+    const cls = G.getCellClass(G.COL.TEST5, row.classes);
+    return !!(cls && /\bkahve-test5-sifir-vurgu\b/.test(cls));
+}
+
 /** SIRA=1 satırında 8002-8001 (FARK8002) hücresinde gri çerçeve kuralı (gri-kenar-fark8002-vurgu) olması */
 function rowFark8002SifirVurgu(G, row) {
     const cls = G.getCellClass(G.COL.FARK8002, row.classes);
@@ -112,7 +119,7 @@ const YILDIZ_KURALLARI = [
     { token: 'fosfor-yesil-hucre',         renk: '#43a047', ad: 'Yeşil (TEST4=TEST6)' },
     { token: 'fosfor-yesil-satir',         renk: '#111111', ad: 'Satır tam sarı', satir: true },
     { token: 'fosfor-yesil-koyu-yazi',     renk: '#1b5e20', ad: 'Koyu yeşil (en negatif)' },
-    { token: 'yesil-yazi',                 renk: '#66bb6a', ad: 'Yeşil yazı (TEST5)' },
+    { token: 'kahve-test5-sifir-vurgu',    renk: '#5d4037', ad: 'Kahve (TEST5 sıfır)' },
     { token: 'fosfor-sari-yazi',           renk: '#f9a825', ad: 'Sarı (TEST1-2 yakın)' },
     { token: 'gri-kenar-fark8002-vurgu',   renk: '#757575', ad: 'Gri çerçeve (8002-8001 sıfır)' },
     { token: 'test23-yanip-son',           renk: '#ef6c00', ad: 'Turuncu yanıp (TEST2-3)' },
@@ -310,6 +317,7 @@ function analyzeRace(race, meta) {
     markAyirtedici(yildizlar, 'son2');
     markTest9MorYildizlari(yildizlar, rowsByKey, G);
     markFark8002GriYildizlari(yildizlar, rowsByKey, G);
+    markTest5KahveYildizlari(yildizlar, rowsByKey, G);
     markT1drSonKosuVurgu(yildizlar, rowsByKey, calcRace, G, meta);
     const ivmeMap = computeIvme(yildizlar, raceCounts);
     return { matched, kirmizi, mor, mavi, yesil, yesilSatir, yildizlar, ivme: ivmeMap };
@@ -403,6 +411,33 @@ function markFark8002GriYildizlari(yildizlar, rowsByKey, G) {
             });
             for (const s of w[win]) {
                 if (s.ad === FARK8002_SIFIR_AD && ok.has(key + '|' + s.k)) s.f8g = true;
+            }
+        }
+        w.n7 = (w.son7 || []).length;
+    }
+}
+
+/**
+ * Kahve (TEST5 sıfır) yıldızı: yalnızca TEST5 hücresinde kahve-test5-sifir-vurgu olan koşular.
+ */
+function markTest5KahveYildizlari(yildizlar, rowsByKey, G) {
+    const ok = new Set();
+    for (const [key, horseRows] of rowsByKey) {
+        for (const row of horseRows) {
+            if (!rowTest5KahveVurgu(G, row)) continue;
+            const sira = parseInt(row.values[0], 10);
+            if (!isNaN(sira) && sira >= 1) ok.add(key + '|' + sira);
+        }
+    }
+    for (const [key, w] of yildizlar) {
+        for (const win of ['son7', 'son2', 'son1']) {
+            if (!Array.isArray(w[win])) continue;
+            w[win] = w[win].filter((s) => {
+                if (s.ad !== TEST5_KAHVE_AD) return true;
+                return ok.has(key + '|' + s.k);
+            });
+            for (const s of w[win]) {
+                if (s.ad === TEST5_KAHVE_AD && ok.has(key + '|' + s.k)) s.t5k = true;
             }
         }
         w.n7 = (w.son7 || []).length;
