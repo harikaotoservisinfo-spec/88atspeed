@@ -972,7 +972,7 @@ const GosterimEngine = {
         const t1drTop4 = enIyiler.enIyilerSonKosuT1drTop4?.has(kosuKey);
         const test2m3EnNegatif = enIyiler.enNegatifTest2MinusTest3?.has(kosuKey);
         const fark8002Yanip = enIyiler.siraBirTop3Fark8002Yanip?.has(kosuKey);
-        const test9SiraBirYanip = enIyiler.siraBirTest9YanipSonen?.has(horseIndex);
+        const test9SiraBirYanip = rowIndex === 0 && enIyiler.siraBirTest9YanipSonen?.has(horseIndex);
 
         return {
             values,

@@ -4,9 +4,10 @@
 const { loadGostergeEngines } = require('../scripts/ptest-terminal-lib');
 
 // Yıldız veri şeması sürümü — değiştikçe artır ki eski kayıtlar yeniden hesaplansın.
-const YILDIZ_SURUM = 9;
+const YILDIZ_SURUM = 10;
 
 const T1DR_SON_KOSU_AD = 'Kırmızı (T1×DR son koşu)';
+const MOR_TEST9_AD = 'Mor yanıp (TEST9)';
 
 let enginesReady = false;
 
@@ -306,6 +307,7 @@ function analyzeRace(race, meta) {
     }
     markAyirtedici(yildizlar, 'son1');
     markAyirtedici(yildizlar, 'son2');
+    markTest9MorYildizlari(yildizlar, rowsByKey, G);
     markT1drSonKosuVurgu(yildizlar, rowsByKey, calcRace, G, meta);
     const ivmeMap = computeIvme(yildizlar, raceCounts);
     return { matched, kirmizi, mor, mavi, yesil, yesilSatir, yildizlar, ivme: ivmeMap };
@@ -352,14 +354,37 @@ function computeIvme(yildizlar, raceCounts) {
 }
 
 /**
+ * Mor (TEST9) yıldızı: yalnızca TEST9 hücresinde test9-yanip-son-guclu olan koşular.
+ */
+function markTest9MorYildizlari(yildizlar, rowsByKey, G) {
+    const ok = new Set();
+    for (const [key, horseRows] of rowsByKey) {
+        for (const row of horseRows) {
+            if (!rowTest9Yanip(G, row)) continue;
+            const sira = parseInt(row.values[0], 10);
+            if (!isNaN(sira) && sira >= 1) ok.add(key + '|' + sira);
+        }
+    }
+    for (const [key, w] of yildizlar) {
+        for (const win of ['son7', 'son2', 'son1']) {
+            if (!Array.isArray(w[win])) continue;
+            w[win] = w[win].filter((s) => {
+                if (s.ad !== MOR_TEST9_AD) return true;
+                return ok.has(key + '|' + s.k);
+            });
+        }
+        w.n7 = (w.son7 || []).length;
+    }
+}
+
+/**
  * Son koşu T1×DR kırmızı yıldızı: yalnızca sahada en iyi 4 at (t4=true → mavi çerçeve + yanıp sönen vurgu).
  */
 function markT1drSonKosuVurgu(yildizlar, rowsByKey, calcRace, G, meta) {
     const hedefMesafe = G._hedefMesafe(calcRace);
     const calc = G._raceForCalc(calcRace, meta?.tarih || null);
-    const { enIyilerSonKosuT1drTop4, enIyilerSonKosuT1drTop1 } = G.collectSonKosuT1drTop4(calc, hedefMesafe);
+    const { enIyilerSonKosuT1drTop4 } = G.collectSonKosuT1drTop4(calc, hedefMesafe);
     const top4Keys = new Set();
-    const top1Keys = new Set();
 
     for (let j = 0; j < calc.horses.length; j++) {
         const horse = calc.horses[j];
@@ -369,12 +394,10 @@ function markT1drSonKosuVurgu(yildizlar, rowsByKey, calcRace, G, meta) {
         if (!sonKosu) continue;
         const kosuKey = G._kosuKey(j, sonKosu);
         if (enIyilerSonKosuT1drTop4?.has(kosuKey)) top4Keys.add(key);
-        if (enIyilerSonKosuT1drTop1?.has(kosuKey)) top1Keys.add(key);
     }
 
     for (const [key, w] of yildizlar) {
         const inTop4 = top4Keys.has(key);
-        const isTop1 = top1Keys.has(key);
         for (const win of ['son7', 'son2', 'son1']) {
             if (!Array.isArray(w[win])) continue;
             w[win] = w[win].filter((s) => {
