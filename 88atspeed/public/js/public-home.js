@@ -973,6 +973,9 @@
                 else if (y.ttsk) vCls = ' vurgu-sari-tam-kirmizi';
                 else if (y.ttsm) vCls = ' vurgu-sari-tam-mavi';
                 else if (y.tts) vCls = ' vurgu-sari-tam';
+                else if (y.ttyk) vCls = ' vurgu-yesil-tam-kirmizi';
+                else if (y.ttym) vCls = ' vurgu-yesil-tam-mavi';
+                else if (y.tty) vCls = ' vurgu-yesil-tam';
                 else if (y.v) vCls = ' vurgu';
                 return '<span class="pub-prog-yildiz-star' + vCls + '" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">★</span>';
             }).join('');
