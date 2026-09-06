@@ -4,7 +4,7 @@
 const { loadGostergeEngines } = require('../scripts/ptest-terminal-lib');
 
 // Yıldız veri şeması sürümü — değiştikçe artır ki eski kayıtlar yeniden hesaplansın.
-const YILDIZ_SURUM = 24;
+const YILDIZ_SURUM = 25;
 
 const T1DR_SON_KOSU_AD = 'Kırmızı (T1×DR son koşu)';
 const MOR_TEST9_AD = 'Mor yanıp (TEST9)';
@@ -106,6 +106,12 @@ function rowTest1Green(G, row) {
 /** Herhangi bir satırda TEST2 hücresi yeşil eşleşme (eslesme-yesil) olması */
 function rowTest2Green(G, row) {
     const cls = G.getCellClass(G.COL.TEST2, row.classes);
+    return !!(cls && /\beslesme-yesil\b/.test(cls));
+}
+
+/** Herhangi bir satırda TEST3 hücresi yeşil eşleşme (eslesme-yesil) olması */
+function rowTest3Green(G, row) {
+    const cls = G.getCellClass(G.COL.TEST3, row.classes);
     return !!(cls && /\beslesme-yesil\b/.test(cls));
 }
 
@@ -348,6 +354,7 @@ function analyzeRace(race, meta) {
     markAyirtedici(yildizlar, 'son2');
     markTest1EnIyiYesilGosterge(yildizlar, rowsByKey, G);
     markTest2EnIyiYesilGosterge(yildizlar, rowsByKey, G);
+    markTest3EnIyiGriGosterge(yildizlar, rowsByKey, G);
     markTest9MorYildizlari(yildizlar, rowsByKey, G);
     markFark8002GriYildizlari(yildizlar, rowsByKey, G);
     markTest5KahveYildizlari(yildizlar, rowsByKey, G);
@@ -479,6 +486,48 @@ function markTest2EnIyiYesilGosterge(yildizlar, rowsByKey, G) {
                 if (variant === 'kirmizi') s.t2yk = true;
                 else if (variant === 'mavi') s.t2ym = true;
                 else s.t2y = true;
+            }
+        }
+        w.n7 = (w.son7 || []).length;
+    }
+}
+
+/**
+ * TEST3 en iyi 3: gri yuvarlak — çizgi yoksa yeşil, mavi/kırmızı kenarda ilgili vurgu.
+ */
+function markTest3EnIyiGriGosterge(yildizlar, rowsByKey, G) {
+    const ok = new Map();
+    for (const [key, horseRows] of rowsByKey) {
+        for (const row of horseRows) {
+            if (!rowTest3Green(G, row)) continue;
+            const sira = parseInt(row.values[0], 10);
+            if (isNaN(sira) || sira < 1) continue;
+            let variant = 'yesil';
+            if (rowKirmiziKenarSatir(row)) variant = 'kirmizi';
+            else if (rowMaviKenarSatir(row)) variant = 'mavi';
+            ok.set(key + '|' + sira, variant);
+        }
+    }
+    for (const [key, w] of yildizlar) {
+        for (const win of ['son7', 'son2', 'son1']) {
+            if (!Array.isArray(w[win])) continue;
+            w[win] = w[win].filter((s) => {
+                if (s.ad !== YESIL_ESLESME_AD) return true;
+                const sutun = String(s.t || '').split(' · ')[1] || '';
+                if (sutun !== 'TEST3') return true;
+                return ok.has(key + '|' + s.k);
+            });
+            for (const s of w[win]) {
+                if (s.ad !== YESIL_ESLESME_AD) continue;
+                const sutun = String(s.t || '').split(' · ')[1] || '';
+                if (sutun !== 'TEST3') continue;
+                const variant = ok.get(key + '|' + s.k);
+                if (!variant) continue;
+                s.c = '#9e9e9e';
+                delete s.v;
+                if (variant === 'kirmizi') s.t3yk = true;
+                else if (variant === 'mavi') s.t3ym = true;
+                else s.t3y = true;
             }
         }
         w.n7 = (w.son7 || []).length;
