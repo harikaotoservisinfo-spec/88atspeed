@@ -4,7 +4,7 @@
 const { loadGostergeEngines } = require('../scripts/ptest-terminal-lib');
 
 // Yıldız veri şeması sürümü — değiştikçe artır ki eski kayıtlar yeniden hesaplansın.
-const YILDIZ_SURUM = 30;
+const YILDIZ_SURUM = 31;
 
 const T1DR_SON_KOSU_AD = 'Kırmızı (T1×DR son koşu)';
 const T1DR_ENIYI_AD = 'Mavi yanıp (T1×DR en iyi 2)';
@@ -109,7 +109,7 @@ function rowSehirEslesme(G, row) {
 function isSehirGostergeStar(s) {
     const sutun = String(s.t || '').split(' · ')[1] || '';
     if (sutun !== 'ŞEHİR') return false;
-    return s.ad === YESIL_ESLESME_AD || s.ad === GUCUL_SEHIR_AD;
+    return s.ad === GUCUL_SEHIR_AD;
 }
 
 /** T1×DR hücresinde son koşularda en iyi 2 (t1dr-eniyi-yanip-son) olması */
@@ -194,7 +194,6 @@ const YILDIZ_KURALLARI = [
     { token: 'fosfor-kirmizi-kenar-satir', renk: '#5d4037', ad: KIRMIZI_KENAR_AD, satir: true },
     { token: 'koyu-mavi-kenar-satir',      renk: '#5d4037', ad: MAVI_KENAR_AD, satir: true },
     { token: 'guclu-uyari-satir',          renk: '#1b5e20', ad: SATIR_TAM_YESIL_AD, satir: true },
-    { token: 'eslesme-yesil',              renk: '#2e7d32', ad: 'Yeşil eşleşme' },
     { token: 'guclu-sehir-eslesme',        renk: '#1b5e20', ad: 'Güçlü şehir eşleşme' },
     { token: 'fosfor-yesil-hucre',         renk: '#43a047', ad: 'Yeşil (TEST4=TEST6)' },
     { token: 'fosfor-yesil-satir',         renk: '#f9a825', ad: SATIR_TAM_SARI_AD, satir: true },
@@ -394,9 +393,6 @@ function analyzeRace(race, meta) {
     }
     markAyirtedici(yildizlar, 'son1');
     markAyirtedici(yildizlar, 'son2');
-    markTest1EnIyiYesilGosterge(yildizlar, rowsByKey, G);
-    markTest2EnIyiYesilGosterge(yildizlar, rowsByKey, G);
-    markTest3EnIyiGriGosterge(yildizlar, rowsByKey, G);
     markSehirEslesmeGosterge(yildizlar, rowsByKey, G);
     markT1drEnIyiGosterge(yildizlar, rowsByKey, G);
     markTest46Gosterge(yildizlar, rowsByKey, G);
