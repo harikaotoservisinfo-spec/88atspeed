@@ -373,6 +373,27 @@ tr.koyu-mavi-kenar-satir td.mavi-kenar-test9-vurgu {
     text-shadow: 0 0 8px rgba(25, 118, 210, 0.75), 0 0 14px rgba(13, 71, 161, 0.55), 0 0 4px rgba(255, 255, 255, 0.6);
 }
 
+/* Görünüm SIRA=1: 8002-8001 değeri 0'a en yakın atlar → gri çerçeve vurgusu */
+.gri-kenar-fark8002-vurgu,
+tr.guclu-uyari-satir td.gri-kenar-fark8002-vurgu,
+tr.fosfor-mavi-satir td.gri-kenar-fark8002-vurgu,
+tr.fosfor-yesil-satir td.gri-kenar-fark8002-vurgu,
+tr.fosfor-kirmizi-kenar-satir td.gri-kenar-fark8002-vurgu,
+tr.koyu-mavi-kenar-satir td.gri-kenar-fark8002-vurgu,
+tr.pembe-satir td.gri-kenar-fark8002-vurgu {
+    outline: 3px solid #616161 !important;
+    outline-offset: -3px;
+    box-shadow:
+        0 0 0 1px #9e9e9e,
+        0 0 10px rgba(117, 117, 117, 0.65),
+        inset 0 0 8px rgba(189, 189, 189, 0.5) !important;
+    font-weight: 800 !important;
+    color: #424242 !important;
+    background: rgba(245, 245, 245, 0.92) !important;
+    position: relative;
+    z-index: 3;
+}
+
 /* Görünüm SIRA=1 (en yeni koşu): 8002-8001 top-3 pozitif veya TEST9 yakın → mavi yanıp sönen */
 @keyframes mavi-yanip-son {
     0%, 100% {
@@ -644,6 +665,31 @@ td.test9-yanip-son-guclu.mavi-kenar-test9-vurgu {
     color: #0a3d91 !important;
     font-weight: 800 !important;
     text-shadow: 0 0 8px rgba(25, 118, 210, 0.75), 0 0 14px rgba(13, 71, 161, 0.55), 0 0 4px rgba(255, 255, 255, 0.6);
+}
+
+.son-test-table td.col-gos.gos-row-guclu-uyari-satir.gri-kenar-fark8002-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-mavi-satir.gri-kenar-fark8002-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-yesil-satir.gri-kenar-fark8002-vurgu,
+.son-test-table td.col-gos.gos-row-fosfor-kirmizi-kenar-satir.gri-kenar-fark8002-vurgu,
+.son-test-table td.col-gos.gos-row-koyu-mavi-kenar-satir.gri-kenar-fark8002-vurgu,
+.son-test-table td.col-gos.gos-row-pembe-satir.gri-kenar-fark8002-vurgu,
+.son-test-table td.col-no.gos-row-guclu-uyari-satir.gri-kenar-fark8002-vurgu,
+.son-test-table td.col-no.gos-row-fosfor-mavi-satir.gri-kenar-fark8002-vurgu,
+.son-test-table td.col-no.gos-row-fosfor-yesil-satir.gri-kenar-fark8002-vurgu,
+.son-test-table td.col-no.gos-row-fosfor-kirmizi-kenar-satir.gri-kenar-fark8002-vurgu,
+.son-test-table td.col-no.gos-row-koyu-mavi-kenar-satir.gri-kenar-fark8002-vurgu,
+.son-test-table td.col-no.gos-row-pembe-satir.gri-kenar-fark8002-vurgu {
+    outline: 3px solid #616161 !important;
+    outline-offset: -3px;
+    box-shadow:
+        0 0 0 1px #9e9e9e,
+        0 0 10px rgba(117, 117, 117, 0.65),
+        inset 0 0 8px rgba(189, 189, 189, 0.5) !important;
+    font-weight: 800 !important;
+    color: #424242 !important;
+    background: rgba(245, 245, 245, 0.92) !important;
+    position: relative;
+    z-index: 3;
 }
 
 .son-test-table td.col-gos.gos-row-guclu-uyari-satir.mavi-yanip-son,

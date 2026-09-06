@@ -965,6 +965,7 @@
                 let vCls = '';
                 if (y.t4) vCls = ' vurgu-t1dr-top4';
                 else if (y.t9m) vCls = ' vurgu-test9-mor';
+                else if (y.f8g) vCls = ' vurgu-fark8002-sifir';
                 else if (y.v) vCls = ' vurgu';
                 return '<span class="pub-prog-yildiz-star' + vCls + '" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">★</span>';
             }).join('');

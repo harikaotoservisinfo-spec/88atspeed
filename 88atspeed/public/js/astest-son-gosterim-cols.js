@@ -446,7 +446,7 @@ const AtestSonGosterimCols = (function () {
         const c = gosRow.classes;
         return {
             test9Yanip: !!(c.test9YanipClass && String(c.test9YanipClass).trim()),
-            fark8002Yanip: !!(c.fark8002YanipClass && String(c.fark8002YanipClass).trim()),
+            fark8002Yanip: !!(c.fark8002SifirVurguClass && String(c.fark8002SifirVurguClass).trim()),
             test123Kirmizi: allTest123Kirmizi(gosRow)
         };
     }
@@ -599,7 +599,7 @@ const AtestSonGosterimCols = (function () {
                 if (flags.fark8002Yanip) {
                     bonus += FARK8002_YANIP_TAHMIN_BONUS;
                     bonusTerms.push({
-                        label: '8002-8001 yanıp',
+                        label: '8002-8001 sıfır (gri)',
                         points: FARK8002_YANIP_TAHMIN_BONUS,
                         source: 'gosterim'
                     });

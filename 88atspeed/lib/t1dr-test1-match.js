@@ -4,10 +4,11 @@
 const { loadGostergeEngines } = require('../scripts/ptest-terminal-lib');
 
 // Yıldız veri şeması sürümü — değiştikçe artır ki eski kayıtlar yeniden hesaplansın.
-const YILDIZ_SURUM = 11;
+const YILDIZ_SURUM = 12;
 
 const T1DR_SON_KOSU_AD = 'Kırmızı (T1×DR son koşu)';
 const MOR_TEST9_AD = 'Mor yanıp (TEST9)';
+const FARK8002_SIFIR_AD = 'Gri çerçeve (8002-8001 sıfır)';
 
 let enginesReady = false;
 
@@ -77,10 +78,10 @@ function rowTest9Yanip(G, row) {
     return !!(cls && /\btest9-yanip-son-guclu\b/.test(cls));
 }
 
-/** SIRA=1 satırında 8002-8001 (FARK8002) hücresinde yanıp sönen kural (mavi-yanip-son) olması */
-function rowFark8002Yanip(G, row) {
+/** SIRA=1 satırında 8002-8001 (FARK8002) hücresinde gri çerçeve kuralı (gri-kenar-fark8002-vurgu) olması */
+function rowFark8002SifirVurgu(G, row) {
     const cls = G.getCellClass(G.COL.FARK8002, row.classes);
-    return !!(cls && /\bmavi-yanip-son\b/.test(cls));
+    return !!(cls && /\bgri-kenar-fark8002-vurgu\b/.test(cls));
 }
 
 /** Herhangi bir satırda TEST1 hücresi yeşil eşleşme (eslesme-yesil) olması */
@@ -113,7 +114,7 @@ const YILDIZ_KURALLARI = [
     { token: 'fosfor-yesil-koyu-yazi',     renk: '#1b5e20', ad: 'Koyu yeşil (en negatif)' },
     { token: 'yesil-yazi',                 renk: '#66bb6a', ad: 'Yeşil yazı (TEST5)' },
     { token: 'fosfor-sari-yazi',           renk: '#f9a825', ad: 'Sarı (TEST1-2 yakın)' },
-    { token: 'mavi-yanip-son',             renk: '#1565c0', ad: 'Mavi yanıp (8002-8001)' },
+    { token: 'gri-kenar-fark8002-vurgu',   renk: '#757575', ad: 'Gri çerçeve (8002-8001 sıfır)' },
     { token: 'test23-yanip-son',           renk: '#ef6c00', ad: 'Turuncu yanıp (TEST2-3)' },
     { token: 'test9-yanip-son-guclu',      renk: '#8e24aa', ad: 'Mor yanıp (TEST9)' },
     { token: 't1dr-eniyi-yanip-son',       renk: '#0288d1', ad: 'Mavi yanıp (T1×DR en iyi 2)' },
@@ -284,7 +285,7 @@ function analyzeRace(race, meta) {
         if (t1drEqualsTest1(t1dr, test1)) matched.add(key);
         if (row.values[0] === '1' && rowTest123Kirmizi(G, row)) kirmizi.add(key);
         if (row.values[0] === '1' && rowTest9Yanip(G, row)) mor.add(key);
-        if (row.values[0] === '1' && rowFark8002Yanip(G, row)) mavi.add(key);
+        if (row.values[0] === '1' && rowFark8002SifirVurgu(G, row)) mavi.add(key);
         // Son 7 yarışın (sira 1..7) HERHANGİ birinde TEST1 hücresi yeşilse
         const sira = parseInt(row.values[0], 10);
         if (!isNaN(sira) && sira >= 1 && sira <= 7) {
@@ -308,6 +309,7 @@ function analyzeRace(race, meta) {
     markAyirtedici(yildizlar, 'son1');
     markAyirtedici(yildizlar, 'son2');
     markTest9MorYildizlari(yildizlar, rowsByKey, G);
+    markFark8002GriYildizlari(yildizlar, rowsByKey, G);
     markT1drSonKosuVurgu(yildizlar, rowsByKey, calcRace, G, meta);
     const ivmeMap = computeIvme(yildizlar, raceCounts);
     return { matched, kirmizi, mor, mavi, yesil, yesilSatir, yildizlar, ivme: ivmeMap };
@@ -374,6 +376,33 @@ function markTest9MorYildizlari(yildizlar, rowsByKey, G) {
             });
             for (const s of w[win]) {
                 if (s.ad === MOR_TEST9_AD && ok.has(key + '|' + s.k)) s.t9m = true;
+            }
+        }
+        w.n7 = (w.son7 || []).length;
+    }
+}
+
+/**
+ * Gri (8002-8001 sıfır) yıldızı: yalnızca FARK8002 hücresinde gri-kenar-fark8002-vurgu olan koşular.
+ */
+function markFark8002GriYildizlari(yildizlar, rowsByKey, G) {
+    const ok = new Set();
+    for (const [key, horseRows] of rowsByKey) {
+        for (const row of horseRows) {
+            if (!rowFark8002SifirVurgu(G, row)) continue;
+            const sira = parseInt(row.values[0], 10);
+            if (!isNaN(sira) && sira >= 1) ok.add(key + '|' + sira);
+        }
+    }
+    for (const [key, w] of yildizlar) {
+        for (const win of ['son7', 'son2', 'son1']) {
+            if (!Array.isArray(w[win])) continue;
+            w[win] = w[win].filter((s) => {
+                if (s.ad !== FARK8002_SIFIR_AD) return true;
+                return ok.has(key + '|' + s.k);
+            });
+            for (const s of w[win]) {
+                if (s.ad === FARK8002_SIFIR_AD && ok.has(key + '|' + s.k)) s.f8g = true;
             }
         }
         w.n7 = (w.son7 || []).length;
