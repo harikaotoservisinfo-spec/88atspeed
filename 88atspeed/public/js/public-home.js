@@ -958,8 +958,11 @@
         else if (y.t1yk) vCls = ' vurgu-test1-yesil-kirmizi';
         else if (y.t1ym) vCls = ' vurgu-test1-yesil-mavi';
         else if (y.t1y) vCls = ' vurgu-test1-yesil';
+        else if (y.t2yk) vCls = ' vurgu-test2-yesil-kirmizi';
+        else if (y.t2ym) vCls = ' vurgu-test2-yesil-mavi';
+        else if (y.t2y) vCls = ' vurgu-test2-yesil';
         else if (y.v) vCls = ' vurgu';
-        const glyph = (y.t1y || y.t1ym || y.t1yk) ? '●' : '★';
+        const glyph = (y.t1y || y.t1ym || y.t1yk || y.t2y || y.t2ym || y.t2yk) ? '●' : '★';
         return '<span class="pub-prog-yildiz-star' + vCls + '" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">' + glyph + '</span>';
     }
 
