@@ -4,7 +4,7 @@
 const { loadGostergeEngines } = require('../scripts/ptest-terminal-lib');
 
 // Yıldız veri şeması sürümü — değiştikçe artır ki eski kayıtlar yeniden hesaplansın.
-const YILDIZ_SURUM = 22;
+const YILDIZ_SURUM = 23;
 
 const T1DR_SON_KOSU_AD = 'Kırmızı (T1×DR son koşu)';
 const MOR_TEST9_AD = 'Mor yanıp (TEST9)';
@@ -395,15 +395,19 @@ function computeIvme(yildizlar, raceCounts) {
 }
 
 /**
- * TEST1 en iyi 3: yeşil yuvarlak (t1y) + koyu yeşil çerçeve — eski ★ yıldız yerine.
+ * TEST1 en iyi 3: yeşil yuvarlak — çizgi yoksa koyu yeşil, mavi/kırmızı kenarda ilgili vurgu.
  */
 function markTest1EnIyiYesilGosterge(yildizlar, rowsByKey, G) {
-    const ok = new Set();
+    const ok = new Map();
     for (const [key, horseRows] of rowsByKey) {
         for (const row of horseRows) {
             if (!rowTest1Green(G, row)) continue;
             const sira = parseInt(row.values[0], 10);
-            if (!isNaN(sira) && sira >= 1) ok.add(key + '|' + sira);
+            if (isNaN(sira) || sira < 1) continue;
+            let variant = 'yesil';
+            if (rowKirmiziKenarSatir(row)) variant = 'kirmizi';
+            else if (rowMaviKenarSatir(row)) variant = 'mavi';
+            ok.set(key + '|' + sira, variant);
         }
     }
     for (const [key, w] of yildizlar) {
@@ -418,11 +422,14 @@ function markTest1EnIyiYesilGosterge(yildizlar, rowsByKey, G) {
             for (const s of w[win]) {
                 if (s.ad !== YESIL_ESLESME_AD) continue;
                 const sutun = String(s.t || '').split(' · ')[1] || '';
-                if (sutun === 'TEST1' && ok.has(key + '|' + s.k)) {
-                    s.t1y = true;
-                    s.c = '#2e7d32';
-                    delete s.v;
-                }
+                if (sutun !== 'TEST1') continue;
+                const variant = ok.get(key + '|' + s.k);
+                if (!variant) continue;
+                s.c = '#2e7d32';
+                delete s.v;
+                if (variant === 'kirmizi') s.t1yk = true;
+                else if (variant === 'mavi') s.t1ym = true;
+                else s.t1y = true;
             }
         }
         w.n7 = (w.son7 || []).length;
