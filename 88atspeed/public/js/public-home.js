@@ -957,9 +957,10 @@
             const group = k >= 3 ? 'taban' : (k === 2 ? 'orta' : 'guncel');
             if (prevGroup === 'taban' && group === 'orta') html += sep(ivmeArrow(iv.t2, iv.t2y));
             if ((prevGroup === 'taban' || prevGroup === 'orta') && group === 'guncel') html += sep(ivmeArrow(iv.t1, iv.t1y));
-            const stars = arr.map((y) =>
-                '<span class="pub-prog-yildiz-star" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">★</span>'
-            ).join('');
+            const stars = arr.map((y) => {
+                const vCls = y.v ? ' vurgu' : '';
+                return '<span class="pub-prog-yildiz-star' + vCls + '" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">★</span>';
+            }).join('');
             html += '<div class="pub-yk-col" title="' + k + '. koşu">'
                 + '<span class="pub-yk-stars">' + stars + '</span>'
                 + '<span class="pub-yk-n">' + arr.length + '</span>'

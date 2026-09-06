@@ -731,8 +731,7 @@ const GosterimEngine = {
         return { fosforKirmiziSatirlar };
     },
 
-    /** Her atın son koşusundaki T1×DR — en düşük 2 değer */
-    collectSonKosuT1drTop2(calcRace, hedefMesafe) {
+    _collectSonKosuT1drCandidates(calcRace, hedefMesafe) {
         const candidates = [];
         for (let j = 0; j < calcRace.horses.length; j++) {
             const horse = calcRace.horses[j];
@@ -750,11 +749,29 @@ const GosterimEngine = {
             if (a.val !== b.val) return a.val - b.val;
             return a.j - b.j;
         });
+        return candidates;
+    },
+
+    /** Her atın son koşusundaki T1×DR — en düşük 2 değer */
+    collectSonKosuT1drTop2(calcRace, hedefMesafe) {
+        const candidates = this._collectSonKosuT1drCandidates(calcRace, hedefMesafe);
         const enIyilerSonKosuT1drTop2 = new Set();
         for (let i = 0; i < Math.min(2, candidates.length); i++) {
             enIyilerSonKosuT1drTop2.add(candidates[i].kosuKey);
         }
         return { enIyilerSonKosuT1drTop2 };
+    },
+
+    /** Son koşu T1×DR — en iyi 4 (kırmızı yıldız) + en iyi 1 (yeşil vurgu) */
+    collectSonKosuT1drTop4(calcRace, hedefMesafe) {
+        const candidates = this._collectSonKosuT1drCandidates(calcRace, hedefMesafe);
+        const enIyilerSonKosuT1drTop4 = new Set();
+        for (let i = 0; i < Math.min(4, candidates.length); i++) {
+            enIyilerSonKosuT1drTop4.add(candidates[i].kosuKey);
+        }
+        const enIyilerSonKosuT1drTop1 = new Set();
+        if (candidates.length) enIyilerSonKosuT1drTop1.add(candidates[0].kosuKey);
+        return { enIyilerSonKosuT1drTop4, enIyilerSonKosuT1drTop1 };
     },
 
     /** TEST2−TEST3 en negatif (en düşük) değer — koşu genelinde yeşil vurgu */
@@ -952,6 +969,7 @@ const GosterimEngine = {
         const t1drSonKosu = isSonKosu && test1_entegre_salise !== null;
         const t1drT3SonKosu = isSonKosu && test3_entegre_salise !== null;
         const t1drEnIyi2 = enIyiler.enIyilerSonKosuT1drTop2?.has(kosuKey);
+        const t1drTop4 = enIyiler.enIyilerSonKosuT1drTop4?.has(kosuKey);
         const test2m3EnNegatif = enIyiler.enNegatifTest2MinusTest3?.has(kosuKey);
         const fark8002Yanip = enIyiler.siraBirTop3Fark8002Yanip?.has(kosuKey);
         const test9SiraBirYanip = enIyiler.siraBirTest9YanipSonen?.has(horseIndex);
@@ -989,7 +1007,7 @@ const GosterimEngine = {
                 siraNoClass: enIyiler.test12YakinAtlar?.has(horseIndex) ? 'sira-no-koyu-mavi-vurgu' : '',
                 test9Class: test9MaviKenarVurgu ? 'mavi-kenar-test9-vurgu' : '',
                 test9YanipClass: test9SiraBirYanip ? 'test9-yanip-son-guclu' : '',
-                t1drKirmiziClass: t1drSonKosu ? 'fosfor-kirmizi-yazi' : '',
+                t1drKirmiziClass: (t1drSonKosu && t1drTop4) ? 'fosfor-kirmizi-yazi' : '',
                 t1drEnIyi2Class: t1drEnIyi2 ? 't1dr-eniyi-yanip-son' : '',
                 t1drT3YesilClass: t1drT3SonKosu ? 'fosfor-yesil-koyu-yazi' : '',
                 test2m3EnNegatifClass: test2m3EnNegatif ? 'fosfor-yesil-koyu-yazi' : ''
@@ -1076,6 +1094,7 @@ const GosterimEngine = {
         );
         enIyiler.fosforKirmiziSatirlar = fosforKirmiziSatirlar;
         Object.assign(enIyiler, this.collectSonKosuT1drTop2(calcRace, hedefMesafe));
+        Object.assign(enIyiler, this.collectSonKosuT1drTop4(calcRace, hedefMesafe));
         Object.assign(enIyiler, this.collectEnNegatifTest2MinusTest3(calcRace, hedefMesafe));
         const trends = this.computeHorseTrends(calcRace, hedefMesafe);
         Object.assign(enIyiler, this.collectSiraBirTop3PozitifFark8002(calcRace));
@@ -1133,6 +1152,7 @@ const GosterimEngine = {
         );
         enIyiler.fosforKirmiziSatirlar = fosforKirmiziSatirlar;
         Object.assign(enIyiler, this.collectSonKosuT1drTop2(calcRace, hedefMesafe));
+        Object.assign(enIyiler, this.collectSonKosuT1drTop4(calcRace, hedefMesafe));
         Object.assign(enIyiler, this.collectEnNegatifTest2MinusTest3(calcRace, hedefMesafe));
         const trends = this.computeHorseTrends(calcRace, hedefMesafe);
         Object.assign(enIyiler, this.collectSiraBirTop3PozitifFark8002(calcRace));

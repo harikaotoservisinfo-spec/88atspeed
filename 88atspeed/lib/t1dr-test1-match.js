@@ -4,7 +4,9 @@
 const { loadGostergeEngines } = require('../scripts/ptest-terminal-lib');
 
 // Yıldız veri şeması sürümü — değiştikçe artır ki eski kayıtlar yeniden hesaplansın.
-const YILDIZ_SURUM = 7;
+const YILDIZ_SURUM = 8;
+
+const T1DR_SON_KOSU_AD = 'Kırmızı (T1×DR son koşu)';
 
 let enginesReady = false;
 
@@ -304,6 +306,7 @@ function analyzeRace(race, meta) {
     }
     markAyirtedici(yildizlar, 'son1');
     markAyirtedici(yildizlar, 'son2');
+    markT1drSonKosuVurgu(yildizlar, rowsByKey, calcRace, G, meta);
     const ivmeMap = computeIvme(yildizlar, raceCounts);
     return { matched, kirmizi, mor, mavi, yesil, yesilSatir, yildizlar, ivme: ivmeMap };
 }
@@ -346,6 +349,47 @@ function computeIvme(yildizlar, raceCounts) {
         });
     }
     return out;
+}
+
+/**
+ * Son koşu T1×DR kırmızı yıldızı: yalnızca sahada en iyi 4 at.
+ * En iyi (1.) atın yıldızına soft fosforlu yeşil vurgu (v=true).
+ */
+function markT1drSonKosuVurgu(yildizlar, rowsByKey, calcRace, G, meta) {
+    const hedefMesafe = G._hedefMesafe(calcRace);
+    const calc = G._raceForCalc(calcRace, meta?.tarih || null);
+    const { enIyilerSonKosuT1drTop4, enIyilerSonKosuT1drTop1 } = G.collectSonKosuT1drTop4(calc, hedefMesafe);
+    const top4Keys = new Set();
+    const top1Keys = new Set();
+
+    for (let j = 0; j < calc.horses.length; j++) {
+        const horse = calc.horses[j];
+        const key = horseKey(horse);
+        if (!key) continue;
+        const sonKosu = G._sortKosularNewest(horse.kosular || [])[0];
+        if (!sonKosu) continue;
+        const kosuKey = G._kosuKey(j, sonKosu);
+        if (enIyilerSonKosuT1drTop4?.has(kosuKey)) top4Keys.add(key);
+        if (enIyilerSonKosuT1drTop1?.has(kosuKey)) top1Keys.add(key);
+    }
+
+    for (const [key, w] of yildizlar) {
+        const inTop4 = top4Keys.has(key);
+        const isTop1 = top1Keys.has(key);
+        for (const win of ['son7', 'son2', 'son1']) {
+            if (!Array.isArray(w[win])) continue;
+            w[win] = w[win].filter((s) => {
+                if (s.ad !== T1DR_SON_KOSU_AD || s.k !== 1) return true;
+                return inTop4;
+            });
+            if (isTop1) {
+                for (const s of w[win]) {
+                    if (s.ad === T1DR_SON_KOSU_AD && s.k === 1) s.v = true;
+                }
+            }
+        }
+        w.n7 = (w.son7 || []).length;
+    }
 }
 
 /**
