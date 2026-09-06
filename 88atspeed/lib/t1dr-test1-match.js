@@ -4,7 +4,7 @@
 const { loadGostergeEngines } = require('../scripts/ptest-terminal-lib');
 
 // Yıldız veri şeması sürümü — değiştikçe artır ki eski kayıtlar yeniden hesaplansın.
-const YILDIZ_SURUM = 31;
+const YILDIZ_SURUM = 32;
 
 const T1DR_SON_KOSU_AD = 'Kırmızı (T1×DR son koşu)';
 const T1DR_ENIYI_AD = 'Mavi yanıp (T1×DR en iyi 2)';
@@ -233,16 +233,13 @@ function buildColEtiket(G) {
 /**
  * Bir atın SIRA 1..maxSira satırlarından, kural×sütun bazında yıldız listesi üretir.
  * Aynı kural farklı sütunlarda ateşlenirse ayrı yıldız olur (kullanıcı isteği).
- * T1×DR=TEST1 eşleşmesi bu pencerede varsa başa altın yıldız eklenir.
  * Dönüş: [{ c: renk, t: başlık }] — katalog sırasına göre.
  */
 function computeHorseYildizlar(G, rows, colEtiket, maxSira) {
     const limit = maxSira || 7;
     const pencereEtiket = 'son ' + limit + '\'de';
     const maxCol = Math.max(...Object.values(G.COL));
-    const COL = G.COL;
     const seen = new Map(); // token|sutun -> {renk, ad, sutun, sayi, sira}
-    let matched = false;
     const bump = (rule, sutun) => {
         const key = rule.token + '|' + sutun;
         let e = seen.get(key);
@@ -255,7 +252,6 @@ function computeHorseYildizlar(G, rows, colEtiket, maxSira) {
     for (const row of rows) {
         const sira = parseInt(row.values[0], 10);
         if (isNaN(sira) || sira < 1 || sira > limit) continue;
-        if (t1drEqualsTest1(row.values[COL.TEST1_ENTEGRE], row.values[COL.TEST1])) matched = true;
         const sc = row.classes?.satirClass || '';
         if (sc) {
             for (const rule of YILDIZ_SATIR_KURALLARI) {
@@ -274,7 +270,6 @@ function computeHorseYildizlar(G, rows, colEtiket, maxSira) {
     const list = [...seen.values()]
         .sort((a, b) => (a.sira - b.sira) || String(a.sutun).localeCompare(String(b.sutun)))
         .map((e) => ({ c: e.renk, t: e.ad + ' · ' + e.sutun + ' · ' + pencereEtiket + ' ' + e.sayi + ' kez', ad: e.ad }));
-    if (matched) list.unshift({ c: '#f5a623', t: 'T1×DR = TEST1 eşleşme', ad: 'T1×DR eşleşme' });
     return list;
 }
 
@@ -287,7 +282,6 @@ function computeHorseYildizlar(G, rows, colEtiket, maxSira) {
 function computeHorseYildizlarKronolojik(G, rows, colEtiket, maxSira) {
     const limit = maxSira || 7;
     const maxCol = Math.max(...Object.values(G.COL));
-    const COL = G.COL;
     const perSira = new Map(); // sira -> [{renk, ad, sutun, sira(ruleidx)}]
     const pushStar = (sira, renk, ad, sutun, ruleIdx) => {
         if (!perSira.has(sira)) perSira.set(sira, []);
@@ -296,9 +290,6 @@ function computeHorseYildizlarKronolojik(G, rows, colEtiket, maxSira) {
     for (const row of rows) {
         const sira = parseInt(row.values[0], 10);
         if (isNaN(sira) || sira < 1 || sira > limit) continue;
-        if (t1drEqualsTest1(row.values[COL.TEST1_ENTEGRE], row.values[COL.TEST1])) {
-            pushStar(sira, '#f5a623', 'T1×DR eşleşme', 'T1×DR', -1);
-        }
         const sc = row.classes?.satirClass || '';
         if (sc) {
             for (const rule of YILDIZ_SATIR_KURALLARI) {
