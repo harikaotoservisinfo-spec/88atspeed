@@ -197,8 +197,8 @@
         return t.rank + '. %' + t.pct;
     }
 
-    function getTahminScoreColumnDefs(kosular) {
-        const all = [
+    function getTahminScoreColumnDefs() {
+        return [
             { key: 'score_tahmin', scoreKey: 'tahmin', label: 'TAHMİN', cls: 'pub-prog-score pub-prog-score-tahmin', colCls: 'pub-col-score pub-col-score-tahmin', title: '7 BAŞ+ boyut karışımı · dimension-tahmin motoru' },
             { key: 'score_r2', scoreKey: 'r2', label: 'R2', cls: 'pub-prog-score pub-prog-score-r2', colCls: 'pub-col-score pub-col-score-r2', title: 'Renk Puanlama Test · R2' },
             { key: 'score_mtr', scoreKey: 'mtr', label: 'MTR', cls: 'pub-prog-score pub-prog-score-ptest', colCls: 'pub-col-score pub-col-score-ptest', title: 'Metrik Tarama · SON800-1 %10 · T9V %40' },
@@ -209,12 +209,6 @@
             { key: 'score_go', scoreKey: 'go', label: 'GÖ', cls: 'pub-prog-score pub-prog-score-ptest', colCls: 'pub-col-score pub-col-score-ptest', title: 'Gösterge · tam puanlama motoru' },
             { key: 'score_hyb', scoreKey: 'hyb', label: 'HYB', cls: 'pub-prog-score pub-prog-score-ptest', colCls: 'pub-col-score pub-col-score-ptest', title: 'Hibrit TAHMİN' }
         ];
-        const races = Array.isArray(kosular) ? kosular : (kosular?.kosular || []);
-        const horses = races.flatMap((r) => r.horses || []);
-        return all.filter((col) => horses.some((h) => {
-            const t = h.scores?.[col.scoreKey];
-            return t && t.rank != null && (t.pct != null || t.score != null);
-        }));
     }
 
     function formatTahminPicks(tahminler) {
@@ -868,7 +862,7 @@
         if (takiIdx >= 0) filtered.splice(takiIdx + 1, 0, bltCol, gp2Col);
         else filtered.push(bltCol, gp2Col);
         filtered.push(...getBitalihColumnDefs());
-        filtered.push(...getTahminScoreColumnDefs(kosular));
+        filtered.push(...getTahminScoreColumnDefs());
         filtered.push(...getYildizColumnDef(kosular));
         const fobCols = getFobColumnDefs();
         if (fobCols.length) filtered.push(...fobCols);

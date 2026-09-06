@@ -154,6 +154,12 @@ nohup node "$APP_DIR/scripts/warm-calibration-bundle.js" --db "$APP_DIR/atlar.db
   >> "$APP_DIR/data/calib-warm.log" 2>&1 &
 echo "  Log: $APP_DIR/data/calib-warm.log"
 
+echo "📊 Kamu tahmin sütunları (TAHMİN, R2, MTR, GÖ, HYB…) yeniden hesaplanıyor (arka plan)..."
+mkdir -p "$APP_DIR/data"
+nohup node --max-old-space-size=3072 "$APP_DIR/scripts/rebuild-public-tahmin-safe.js" --bugun \
+  >> "$APP_DIR/data/public-tahmin-rebuild.log" 2>&1 &
+echo "  Log: $APP_DIR/data/public-tahmin-rebuild.log"
+
 echo "⭐ T1×DR=TEST1 bayrakları (arka plan, siteyi kilitlemez)..."
 mkdir -p "$APP_DIR/data"
 nohup node --max-old-space-size=2048 "$APP_DIR/scripts/backfill-t1dr-test1-flags.js" --bugun --yarin --force \
