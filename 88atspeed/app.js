@@ -26,6 +26,7 @@ const bitalihBet = require('./lib/bitalih-bet');
 const bitalihAutoConfig = require('./lib/bitalih-auto-config');
 const { resolveChromePath } = require('./lib/chrome-path');
 const publicTahminBuild = require('./lib/public-tahmin-build');
+const publicKayitDegerlendirme = require('./lib/public-kayit-degerlendirme');
 const app = express();
 const PORT = Number(process.env.PORT) || 3023;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -382,6 +383,33 @@ app.get('/api/public/sonuclar/poller-status', (req, res) => {
         intervalSec: 90,
         activeHours: '10:00-23:00 Europe/Istanbul'
     });
+});
+
+app.get('/api/public/kayit-degerlendirme/kayitlar', async (req, res) => {
+    try {
+        const kayitlar = await publicKayitDegerlendirme.listKayitlar(db);
+        res.json({ success: true, kayitlar });
+    } catch (err) {
+        console.error('public/kayit-degerlendirme/kayitlar:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.get('/api/public/kayit-degerlendirme/:id', async (req, res) => {
+    try {
+        const kayitId = parseInt(req.params.id, 10);
+        if (!kayitId) {
+            return res.status(400).json({ success: false, error: 'Geçersiz kayıt id' });
+        }
+        const data = await publicKayitDegerlendirme.getKayitDegerlendirme(db, kayitId);
+        if (!data) {
+            return res.status(404).json({ success: false, error: 'Kayıt bulunamadı' });
+        }
+        res.json({ success: true, ...data });
+    } catch (err) {
+        console.error('public/kayit-degerlendirme/:id:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 app.get('/api/public/rehber-leaderboard', async (req, res) => {

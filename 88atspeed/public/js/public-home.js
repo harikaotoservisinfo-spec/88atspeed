@@ -42,7 +42,11 @@
         sonucLastUpdate: null,
         sonucLoading: false,
         yarinFetch: null,
-        rehberData: null
+        rehberData: null,
+        kayitEvalKayitlar: [],
+        kayitEvalId: null,
+        kayitEvalData: null,
+        kayitEvalLoading: false
     };
 
     const MUHT_REFRESH_SEC = 15;
@@ -973,21 +977,10 @@
     }
 
     function formatYildizGrupCell(h) {
-        const rows = [
-            { lbl: '2', title: 'Son 2 yarış', list: h.yildizlarSon2, vurgu: 'vurgu-kirmizi' },
-            { lbl: 'S', title: 'Son yarış', list: h.yildizlarSon1, vurgu: 'vurgu' }
-        ];
-        const kron = '<div class="pub-prog-yildiz-satir kron">'
-            + '<span class="pub-prog-yildiz-lbl" title="' + escapeHtml('Son 7 yarış — kronolojik (en eski → en yeni), koşu-başı yıldız + ivme') + '">7</span>'
+        return '<div class="pub-prog-yildiz-satir kron">'
+            + '<span class="pub-prog-yildiz-lbl" title="' + escapeHtml('Son 7 yarış — en yeni → eski, koşu-başı yıldız + ivme') + '">7</span>'
             + '<span class="pub-prog-yildiz-wrap">' + formatKronGrid(h) + '</span>'
             + '</div>';
-        const aggHtml = rows.map((r) =>
-            '<div class="pub-prog-yildiz-satir">'
-            + '<span class="pub-prog-yildiz-lbl" title="' + escapeHtml(r.title) + '">' + r.lbl + '</span>'
-            + '<span class="pub-prog-yildiz-wrap">' + renderStarRun(r.list, r.vurgu) + '</span>'
-            + '</div>'
-        ).join('');
-        return kron + aggHtml;
     }
 
     function computeYildizGrupWidth(kosular) {
@@ -1063,6 +1056,12 @@
         if (col.scoreKey) {
             const t = h.scores?.[col.scoreKey];
             return formatScoreCell(t);
+        }
+        if (col.key === 'bitisSira') {
+            const s = h.bitisSira;
+            if (s == null || s === '') return '<span class="pub-prog-bitis-empty">—</span>';
+            const cls = s === 1 ? ' pub-prog-bitis-win' : (s <= 3 ? ' pub-prog-bitis-top3' : '');
+            return '<span class="pub-prog-bitis' + cls + '">' + escapeHtml(String(s)) + '</span>';
         }
         if (col.key === 'yildizGrup') return formatYildizGrupCell(h);
         if (col.key === 'name') return formatHorseNameCell(h);
@@ -1761,6 +1760,129 @@
         startRehberPolling();
     }
 
+    function getKayitEvalColumns(kosular) {
+        const base = getProgramColumns(kosular).filter((c) => {
+            if (c.key === 'ganyan') return false;
+            if (c.key && c.key.startsWith('fob_')) return false;
+            if (c.key && c.key.startsWith('bt_')) return false;
+            if (c.key === 'blt' || c.key === 'gp2') return false;
+            if (c.scoreKey) return false;
+            return true;
+        });
+        const races = Array.isArray(kosular) ? kosular : [];
+        const hasBitis = races.some((r) => (r.horses || []).some((h) => h.bitisSira != null));
+        if (hasBitis) {
+            base.splice(1, 0, {
+                key: 'bitisSira',
+                label: 'Sıra',
+                cls: 'pub-prog-bitis-col',
+                colCls: 'pub-col-bitis',
+                always: true,
+                title: 'Bitiş sırası (puanlama_bitis_sonuclari)'
+            });
+        }
+        return base;
+    }
+
+    function renderKayitEvalStats(stats, bitisCount) {
+        const el = $('#pubKayitEvalStats');
+        if (!el || !stats) {
+            if (el) el.hidden = true;
+            return;
+        }
+        const pct = (v) => (v == null ? '—' : v + '%');
+        el.hidden = false;
+        el.innerHTML = '<div class="pub-kayit-eval-stat"><b>Yıldızlı at</b> ' + stats.withStars + '</div>'
+            + '<div class="pub-kayit-eval-stat"><b>Bitiş bilinen</b> ' + stats.withBitis + ' / ' + bitisCount + ' kayıt</div>'
+            + '<div class="pub-kayit-eval-stat"><b>İlk 3</b> ' + stats.top3 + ' (' + pct(stats.top3Pct) + ')</div>'
+            + '<div class="pub-kayit-eval-stat"><b>Birincilik</b> ' + stats.wins + ' (' + pct(stats.winPct) + ')</div>';
+    }
+
+    function renderKayitEvalList(data) {
+        const el = $('#pubKayitEvalList');
+        if (!el) return;
+        const kosular = data?.kosular || [];
+        if (!kosular.length) {
+            el.innerHTML = '<div class="pub-empty"><h3>Koşu yok</h3></div>';
+            return;
+        }
+        const cols = getKayitEvalColumns(kosular);
+        const colWidths = { yildizGrup: computeYildizGrupWidth(kosular), bitisSira: 36 };
+        const colgroup = renderProgramColgroup(cols, colWidths);
+        el.innerHTML = '<div class="pub-program-list pub-kayit-eval-list">' + kosular.map((race) => {
+            const hdr = formatProgramRaceHeader(race);
+            const surfaceClass = getRaceSurfaceClass(race);
+            const head = cols.map((c) => {
+                const titleAttr = c.title ? ' title="' + escapeHtml(c.title) + '"' : '';
+                const clsAttr = c.colCls ? ' class="' + escapeHtml(c.colCls) + '"' : '';
+                return '<th' + clsAttr + titleAttr + '>' + c.label + '</th>';
+            }).join('') + '<th class="pub-col-spacer-hdr" aria-hidden="true"></th>';
+            const horses = race.horses || [];
+            const body = horses.length
+                ? horses.map((h) => '<tr>'
+                    + cols.map((c) => {
+                        const val = programHorseCell(h, c, {});
+                        const isRawCol = c.key === 'name' || c.key === 'yildizGrup';
+                        return '<td class="' + escapeHtml(c.cls) + (c.colCls ? ' ' + escapeHtml(c.colCls) : '') + '">'
+                            + (isRawCol ? val : escapeHtml(val)) + '</td>';
+                    }).join('')
+                    + '<td class="pub-col-spacer" aria-hidden="true"></td></tr>').join('')
+                : '<tr><td colspan="' + (cols.length + 1) + '" class="pub-prog-empty">At listesi yok</td></tr>';
+            return '<div class="pub-program-race ' + surfaceClass + '">'
+                + '<div class="pub-program-race-hdr">' + hdr.title
+                + (hdr.meta ? '<span class="pub-program-race-meta">' + escapeHtml(hdr.meta) + '</span>' : '')
+                + '</div>'
+                + '<div class="pub-program-table-wrap"><table class="pub-program-table">'
+                + colgroup + '<thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div></div>';
+        }).join('') + '</div>';
+    }
+
+    async function loadKayitEvalKayitlar() {
+        const sel = $('#pubKayitEvalSelect');
+        if (!sel) return;
+        try {
+            const res = await fetch('/api/public/kayit-degerlendirme/kayitlar');
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Liste alınamadı');
+            state.kayitEvalKayitlar = data.kayitlar || [];
+            const opts = state.kayitEvalKayitlar.map((k) =>
+                '<option value="' + k.id + '">#' + k.id + ' · ' + escapeHtml(k.hipodrom || '') + ' · ' + escapeHtml(k.tarih || '') + '</option>'
+            ).join('');
+            sel.innerHTML = '<option value="">Kayıt seçin…</option>' + opts;
+            if (state.kayitEvalId) sel.value = String(state.kayitEvalId);
+        } catch (err) {
+            sel.innerHTML = '<option value="">Hata: ' + escapeHtml(err.message) + '</option>';
+        }
+    }
+
+    async function loadKayitEval(kayitId) {
+        const el = $('#pubKayitEvalList');
+        if (!kayitId) return;
+        state.kayitEvalLoading = true;
+        if (el) el.innerHTML = '<div class="pub-loading"><div class="pub-spinner"></div>Kayıt yükleniyor…</div>';
+        try {
+            const res = await fetch('/api/public/kayit-degerlendirme/' + encodeURIComponent(kayitId));
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Kayıt yüklenemedi');
+            state.kayitEvalId = kayitId;
+            state.kayitEvalData = data;
+            const lbl = $('#pubKayitEvalLabel');
+            if (lbl) lbl.textContent = '#' + data.kayitId + ' · ' + (data.hipodrom || '') + ' · ' + (data.tarih || '');
+            renderKayitEvalStats(data.stats, data.bitisCount);
+            renderKayitEvalList(data);
+        } catch (err) {
+            if (el) el.innerHTML = '<div class="pub-empty"><h3>Hata</h3><p>' + escapeHtml(err.message) + '</p></div>';
+        } finally {
+            state.kayitEvalLoading = false;
+        }
+    }
+
+    function initKayitEvalPanel() {
+        loadKayitEvalKayitlar().then(() => {
+            if (state.kayitEvalId) loadKayitEval(state.kayitEvalId);
+        });
+    }
+
     function renderRaceList(hip) {
         const el = $('#pubRaceList');
         const kosular = hip.kosular || [];
@@ -2033,6 +2155,9 @@
             }
             if (panelId === 'rehber') {
                 initRehberPanel();
+            }
+            if (panelId === 'kayit-eval') {
+                initKayitEvalPanel();
             }
         }
         if (panelId === 'kazanc') {
@@ -2844,6 +2969,14 @@
             const body = $('#pubProgramSyncBody');
             if (body) body.innerHTML = '<div class="pub-loading pub-program-sync-loading"><div class="pub-spinner"></div> Durum kontrol ediliyor…</div>';
             loadProgramSync();
+        });
+        $('#pubKayitEvalSelect')?.addEventListener('change', (e) => {
+            const id = parseInt(e.target.value, 10);
+            if (id) loadKayitEval(id);
+        });
+        $('#pubKayitEvalRefresh')?.addEventListener('click', () => {
+            if (state.kayitEvalId) loadKayitEval(state.kayitEvalId);
+            else loadKayitEvalKayitlar();
         });
     }
 
