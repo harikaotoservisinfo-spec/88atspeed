@@ -4,7 +4,7 @@
 const { loadGostergeEngines } = require('../scripts/ptest-terminal-lib');
 
 // Yıldız veri şeması sürümü — değiştikçe artır ki eski kayıtlar yeniden hesaplansın.
-const YILDIZ_SURUM = 17;
+const YILDIZ_SURUM = 18;
 
 const T1DR_SON_KOSU_AD = 'Kırmızı (T1×DR son koşu)';
 const MOR_TEST9_AD = 'Mor yanıp (TEST9)';
@@ -12,6 +12,7 @@ const FARK8002_SIFIR_AD = 'Gri çerçeve (8002-8001 sıfır)';
 const TEST5_KAHVE_AD = 'Kahve (TEST5 sıfır)';
 const TEST_EN_KUCUK_AD = 'Pembe (TEST en küçük)';
 const KIRMIZI_KENAR_AD = 'Kırmızı kenar satır';
+const MAVI_KENAR_AD = 'Mavi kenar satır';
 
 let enginesReady = false;
 
@@ -111,16 +112,23 @@ function rowKirmiziKenarSatir(row) {
     return !!(sc && /\bfosfor-kirmizi-kenar-satir\b/.test(sc));
 }
 
+/** Satırda koyu mavi kenar kuralı (koyu-mavi-kenar-satir) olması */
+function rowMaviKenarSatir(row) {
+    const sc = row?.classes?.satirClass;
+    return !!(sc && /\bkoyu-mavi-kenar-satir\b/.test(sc));
+}
+
 /**
  * Anlamlı renk kuralları kataloğu (GÖSTERGE sütunundaki yıldızlar).
  * Sadece "kendi satırını" işaretleyen yapısal vurgular (AT İSMİ/AT ID/TARİH/
- * SIRA/AT SIRA vurgusu, koyu-mavi kenar, TEST9 koyu-mavi kenar) hariç tutulur;
+ * SIRA/AT SIRA vurgusu, TEST9 koyu-mavi kenar) hariç tutulur;
  * bunlar her atta bulunur, ayırt edici değildir.
  */
 const YILDIZ_KURALLARI = [
     { token: 'pembe-test-enkucuk-vurgu', renk: '#d81b60', ad: 'Pembe (TEST en küçük)' },
     { token: 'fosfor-kirmizi-yazi',        renk: '#b71c1c', ad: 'Kırmızı (T1×DR son koşu)' },
     { token: 'fosfor-kirmizi-kenar-satir', renk: '#5d4037', ad: KIRMIZI_KENAR_AD, satir: true },
+    { token: 'koyu-mavi-kenar-satir',      renk: '#5d4037', ad: MAVI_KENAR_AD, satir: true },
     { token: 'guclu-uyari-satir',          renk: '#d84315', ad: 'Güçlü uyarı satır', satir: true },
     { token: 'eslesme-yesil',              renk: '#2e7d32', ad: 'Yeşil eşleşme' },
     { token: 'guclu-sehir-eslesme',        renk: '#1b5e20', ad: 'Güçlü şehir eşleşme' },
@@ -328,6 +336,7 @@ function analyzeRace(race, meta) {
     markTest5KahveYildizlari(yildizlar, rowsByKey, G);
     markTestEnKucukPembeYildizlari(yildizlar, rowsByKey, G);
     markKirmiziKenarYildizlari(yildizlar, rowsByKey);
+    markMaviKenarYildizlari(yildizlar, rowsByKey);
     markT1drSonKosuVurgu(yildizlar, rowsByKey, calcRace, G, meta);
     const ivmeMap = computeIvme(yildizlar, raceCounts);
     return { matched, kirmizi, mor, mavi, yesil, yesilSatir, yildizlar, ivme: ivmeMap };
@@ -512,6 +521,33 @@ function markKirmiziKenarYildizlari(yildizlar, rowsByKey) {
             });
             for (const s of w[win]) {
                 if (s.ad === KIRMIZI_KENAR_AD && ok.has(key + '|' + s.k)) s.tkr = true;
+            }
+        }
+        w.n7 = (w.son7 || []).length;
+    }
+}
+
+/**
+ * Mavi kenar satır yıldızı: koşuda ne kadar varsa hepsi (tmk=true → koyu kahve yıldız + fosforlu mavi çerçeve).
+ */
+function markMaviKenarYildizlari(yildizlar, rowsByKey) {
+    const ok = new Set();
+    for (const [key, horseRows] of rowsByKey) {
+        for (const row of horseRows) {
+            if (!rowMaviKenarSatir(row)) continue;
+            const sira = parseInt(row.values[0], 10);
+            if (!isNaN(sira) && sira >= 1) ok.add(key + '|' + sira);
+        }
+    }
+    for (const [key, w] of yildizlar) {
+        for (const win of ['son7', 'son2', 'son1']) {
+            if (!Array.isArray(w[win])) continue;
+            w[win] = w[win].filter((s) => {
+                if (s.ad !== MAVI_KENAR_AD) return true;
+                return ok.has(key + '|' + s.k);
+            });
+            for (const s of w[win]) {
+                if (s.ad === MAVI_KENAR_AD && ok.has(key + '|' + s.k)) s.tmk = true;
             }
         }
         w.n7 = (w.son7 || []).length;

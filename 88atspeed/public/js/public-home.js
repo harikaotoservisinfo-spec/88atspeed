@@ -969,6 +969,7 @@
                 else if (y.t5k) vCls = ' vurgu-test5-kahve';
                 else if (y.f8g) vCls = ' vurgu-fark8002-sifir';
                 else if (y.tkr) vCls = ' vurgu-kirmizi-kenar';
+                else if (y.tmk) vCls = ' vurgu-mavi-kenar';
                 else if (y.v) vCls = ' vurgu';
                 return '<span class="pub-prog-yildiz-star' + vCls + '" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">★</span>';
             }).join('');
