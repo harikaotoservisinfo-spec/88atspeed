@@ -2102,6 +2102,135 @@ a { color: inherit; text-decoration: none; }
     }
 }
 
+/* Satır tam sarı: sarı yıldız + fosforlu sarı parıltı */
+.pub-prog-yildiz-star.vurgu-sari-tam {
+    position: relative;
+    display: inline-block;
+    font-size: 13px;
+    line-height: 1;
+    padding: 1px 2px;
+    border-radius: 3px;
+    border: 1.5px solid #f9a825;
+    box-shadow:
+        0 0 0 1px rgba(249, 168, 37, 0.4),
+        inset 0 0 4px rgba(255, 236, 179, 0.55);
+    -webkit-text-stroke: 0.45px #f57f17;
+    paint-order: stroke fill;
+    animation: pub-sari-tam-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-sari-tam-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #fff176,
+            0 0 6px rgba(255, 241, 118, 0.95),
+            0 0 11px rgba(251, 192, 45, 0.55);
+        box-shadow:
+            0 0 0 1px rgba(249, 168, 37, 0.45),
+            0 0 5px rgba(255, 213, 79, 0.5),
+            inset 0 0 3px rgba(255, 249, 196, 0.4);
+        filter: brightness(1.06);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #fff9c4,
+            0 0 10px rgba(255, 249, 196, 1),
+            0 0 18px rgba(251, 192, 45, 0.9);
+        box-shadow:
+            0 0 0 1.5px #fbc02d,
+            0 0 9px rgba(255, 213, 79, 0.85),
+            0 0 14px rgba(249, 168, 37, 0.45),
+            inset 0 0 6px rgba(255, 253, 231, 0.65);
+        filter: brightness(1.18);
+    }
+}
+
+/* Satır tam sarı + mavi kenar: sarı yıldız + fosforlu mavi çerçeve */
+.pub-prog-yildiz-star.vurgu-sari-tam-mavi {
+    position: relative;
+    display: inline-block;
+    font-size: 13px;
+    line-height: 1;
+    padding: 1px 2px;
+    border-radius: 3px;
+    border: 1.5px solid #1565c0;
+    box-shadow:
+        0 0 0 1px rgba(21, 101, 192, 0.35),
+        inset 0 0 4px rgba(129, 212, 250, 0.45);
+    -webkit-text-stroke: 0.45px #f57f17;
+    paint-order: stroke fill;
+    animation: pub-sari-tam-mavi-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-sari-tam-mavi-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #fff176,
+            0 0 6px rgba(255, 241, 118, 0.95),
+            0 0 11px rgba(251, 192, 45, 0.55);
+        box-shadow:
+            0 0 0 1px rgba(21, 101, 192, 0.45),
+            0 0 5px rgba(79, 195, 247, 0.5),
+            inset 0 0 3px rgba(129, 212, 250, 0.35);
+        filter: brightness(1.06);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #fff9c4,
+            0 0 10px rgba(255, 249, 196, 1),
+            0 0 18px rgba(251, 192, 45, 0.9);
+        box-shadow:
+            0 0 0 1.5px #1976d2,
+            0 0 9px rgba(41, 182, 246, 0.85),
+            0 0 14px rgba(3, 169, 244, 0.45),
+            inset 0 0 6px rgba(179, 229, 252, 0.65);
+        filter: brightness(1.18);
+    }
+}
+
+/* Satır tam sarı + kırmızı kenar: sarı yıldız + fosforlu kırmızı çerçeve */
+.pub-prog-yildiz-star.vurgu-sari-tam-kirmizi {
+    position: relative;
+    display: inline-block;
+    font-size: 13px;
+    line-height: 1;
+    padding: 1px 2px;
+    border-radius: 3px;
+    border: 1.5px solid #c62828;
+    box-shadow:
+        0 0 0 1px rgba(198, 40, 40, 0.4),
+        inset 0 0 4px rgba(255, 138, 128, 0.45);
+    -webkit-text-stroke: 0.45px #f57f17;
+    paint-order: stroke fill;
+    animation: pub-sari-tam-kirmizi-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-sari-tam-kirmizi-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #fff176,
+            0 0 6px rgba(255, 241, 118, 0.95),
+            0 0 11px rgba(251, 192, 45, 0.55);
+        box-shadow:
+            0 0 0 1px rgba(198, 40, 40, 0.45),
+            0 0 5px rgba(244, 67, 54, 0.5),
+            inset 0 0 3px rgba(255, 171, 145, 0.35);
+        filter: brightness(1.06);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #fff9c4,
+            0 0 10px rgba(255, 249, 196, 1),
+            0 0 18px rgba(251, 192, 45, 0.9);
+        box-shadow:
+            0 0 0 1.5px #e53935,
+            0 0 9px rgba(244, 67, 54, 0.85),
+            0 0 14px rgba(198, 40, 40, 0.45),
+            inset 0 0 6px rgba(255, 205, 210, 0.65);
+        filter: brightness(1.18);
+    }
+}
+
 /* 8002-8001 sıfıra en yakın: gri dış çerçeve vurgusu */
 .pub-prog-yildiz-star.vurgu-fark8002-sifir {
     position: relative;

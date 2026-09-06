@@ -4,7 +4,7 @@
 const { loadGostergeEngines } = require('../scripts/ptest-terminal-lib');
 
 // Yıldız veri şeması sürümü — değiştikçe artır ki eski kayıtlar yeniden hesaplansın.
-const YILDIZ_SURUM = 18;
+const YILDIZ_SURUM = 19;
 
 const T1DR_SON_KOSU_AD = 'Kırmızı (T1×DR son koşu)';
 const MOR_TEST9_AD = 'Mor yanıp (TEST9)';
@@ -13,6 +13,7 @@ const TEST5_KAHVE_AD = 'Kahve (TEST5 sıfır)';
 const TEST_EN_KUCUK_AD = 'Pembe (TEST en küçük)';
 const KIRMIZI_KENAR_AD = 'Kırmızı kenar satır';
 const MAVI_KENAR_AD = 'Mavi kenar satır';
+const SATIR_TAM_SARI_AD = 'Satır tam sarı';
 
 let enginesReady = false;
 
@@ -133,7 +134,7 @@ const YILDIZ_KURALLARI = [
     { token: 'eslesme-yesil',              renk: '#2e7d32', ad: 'Yeşil eşleşme' },
     { token: 'guclu-sehir-eslesme',        renk: '#1b5e20', ad: 'Güçlü şehir eşleşme' },
     { token: 'fosfor-yesil-hucre',         renk: '#43a047', ad: 'Yeşil (TEST4=TEST6)' },
-    { token: 'fosfor-yesil-satir',         renk: '#111111', ad: 'Satır tam sarı', satir: true },
+    { token: 'fosfor-yesil-satir',         renk: '#f9a825', ad: SATIR_TAM_SARI_AD, satir: true },
     { token: 'fosfor-yesil-koyu-yazi',     renk: '#1b5e20', ad: 'Koyu yeşil (en negatif)' },
     { token: 'kahve-test5-sifir-vurgu',    renk: '#5d4037', ad: 'Kahve (TEST5 sıfır)' },
     { token: 'fosfor-sari-yazi',           renk: '#f9a825', ad: 'Sarı (TEST1-2 yakın)' },
@@ -337,6 +338,7 @@ function analyzeRace(race, meta) {
     markTestEnKucukPembeYildizlari(yildizlar, rowsByKey, G);
     markKirmiziKenarYildizlari(yildizlar, rowsByKey);
     markMaviKenarYildizlari(yildizlar, rowsByKey);
+    markSatirTamSariYildizlari(yildizlar, rowsByKey);
     markT1drSonKosuVurgu(yildizlar, rowsByKey, calcRace, G, meta);
     const ivmeMap = computeIvme(yildizlar, raceCounts);
     return { matched, kirmizi, mor, mavi, yesil, yesilSatir, yildizlar, ivme: ivmeMap };
@@ -548,6 +550,42 @@ function markMaviKenarYildizlari(yildizlar, rowsByKey) {
             });
             for (const s of w[win]) {
                 if (s.ad === MAVI_KENAR_AD && ok.has(key + '|' + s.k)) s.tmk = true;
+            }
+        }
+        w.n7 = (w.son7 || []).length;
+    }
+}
+
+/**
+ * Satır tam sarı yıldızı: koşuda ne kadar varsa hepsi.
+ * Yalnız sarı → tts · sarı+mavi kenar → ttsm · sarı+kırmızı kenar → ttsk
+ */
+function markSatirTamSariYildizlari(yildizlar, rowsByKey) {
+    const ok = new Map();
+    for (const [key, horseRows] of rowsByKey) {
+        for (const row of horseRows) {
+            if (!rowSatirTamYesil(row)) continue;
+            const sira = parseInt(row.values[0], 10);
+            if (isNaN(sira) || sira < 1) continue;
+            let variant = 'sari';
+            if (rowKirmiziKenarSatir(row)) variant = 'kirmizi';
+            else if (rowMaviKenarSatir(row)) variant = 'mavi';
+            ok.set(key + '|' + sira, variant);
+        }
+    }
+    for (const [key, w] of yildizlar) {
+        for (const win of ['son7', 'son2', 'son1']) {
+            if (!Array.isArray(w[win])) continue;
+            w[win] = w[win].filter((s) => {
+                if (s.ad !== SATIR_TAM_SARI_AD) return true;
+                return ok.has(key + '|' + s.k);
+            });
+            for (const s of w[win]) {
+                if (s.ad !== SATIR_TAM_SARI_AD) continue;
+                const variant = ok.get(key + '|' + s.k);
+                if (variant === 'kirmizi') s.ttsk = true;
+                else if (variant === 'mavi') s.ttsm = true;
+                else if (variant === 'sari') s.tts = true;
             }
         }
         w.n7 = (w.son7 || []).length;
