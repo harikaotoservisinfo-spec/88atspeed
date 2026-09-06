@@ -855,6 +855,27 @@ const GosterimEngine = {
         }
         return { siraBirTest5SifiraTop3 };
     },
+
+    /**
+     * Görünüm SIRA=1: TEST1/TEST2/TEST3 arasında koşudaki en küçük (en iyi) 3 değer
+     * → ilgili TEST hücresi fosforlu lacivert çerçeve vurgusu.
+     */
+    collectSiraBirTestEnKucukTop3(calcRace, hedefMesafe) {
+        const pool = [];
+        for (const { kosuKey, atKosu } of this._iterGosterimSiraBirKosular(calcRace)) {
+            const { test1, test2, test3 } = this._computeTestSalise(atKosu, hedefMesafe);
+            if (test1 !== null) pool.push({ kosuKey, col: 'TEST1', val: test1 });
+            if (test2 !== null) pool.push({ kosuKey, col: 'TEST2', val: test2 });
+            if (test3 !== null) pool.push({ kosuKey, col: 'TEST3', val: test3 });
+        }
+        pool.sort((a, b) => (a.val !== b.val ? a.val - b.val : a.kosuKey.localeCompare(b.kosuKey) || a.col.localeCompare(b.col)));
+        const siraBirTestEnKucukTop3 = new Set();
+        for (let i = 0; i < Math.min(3, pool.length); i++) {
+            siraBirTestEnKucukTop3.add(pool[i].kosuKey + '|' + pool[i].col);
+        }
+        return { siraBirTestEnKucukTop3 };
+    },
+
     collectSiraBirTop5T2m3Test9Yakin(calcRace, hedefMesafe, trends) {
         const negatifler = [];
         for (const { j, kosuKey, atKosu } of this._iterGosterimSiraBirKosular(calcRace)) {
@@ -995,6 +1016,9 @@ const GosterimEngine = {
         const test2m3EnNegatif = enIyiler.enNegatifTest2MinusTest3?.has(kosuKey);
         const fark8002SifirVurgu = rowIndex === 0 && enIyiler.siraBirFark8002SifiraVurgu?.has(kosuKey);
         const test5KahveVurgu = rowIndex === 0 && enIyiler.siraBirTest5SifiraTop3?.has(kosuKey);
+        const test1Lacivert = rowIndex === 0 && enIyiler.siraBirTestEnKucukTop3?.has(kosuKey + '|TEST1');
+        const test2Lacivert = rowIndex === 0 && enIyiler.siraBirTestEnKucukTop3?.has(kosuKey + '|TEST2');
+        const test3Lacivert = rowIndex === 0 && enIyiler.siraBirTestEnKucukTop3?.has(kosuKey + '|TEST3');
         const test9SiraBirYanip = rowIndex === 0 && enIyiler.siraBirTest9YanipSonen?.has(horseIndex);
 
         return {
@@ -1012,7 +1036,9 @@ const GosterimEngine = {
                 test3Class: enIyiler.enIyilerTest3.has(kosuKey) ? 'eslesme-yesil' : '',
                 test12YakinClass: test12Yakin ? 'fosfor-sari-yazi' : '',
                 test23YanipClass: test23Yanip ? 'test23-yanip-son' : '',
-                kirmiziClass: kirmiziYazi ? 'kirmizi-yazi' : '',
+                test1LacivertClass: test1Lacivert ? 'lacivert-test-enkucuk-vurgu' : '',
+                test2LacivertClass: test2Lacivert ? 'lacivert-test-enkucuk-vurgu' : '',
+                test3LacivertClass: test3Lacivert ? 'lacivert-test-enkucuk-vurgu' : '',
                 test5KahveVurguClass: test5KahveVurgu ? 'kahve-test5-sifir-vurgu' : '',
                 farkClass: farkBosMu && !fark8002BosMu ? 'pembe-hucre' : '',
                 fark8002Class: !farkBosMu && fark8002BosMu ? 'pembe-hucre' : '',
@@ -1052,18 +1078,18 @@ const GosterimEngine = {
         if (c === COL.SON800_1 && classes.son800_1Class) parts.push(classes.son800_1Class);
         if (c === COL.SON800_2 && classes.son800_2Class) parts.push(classes.son800_2Class);
         if (c === COL.TEST1) {
+            if (classes.test1LacivertClass) parts.push(classes.test1LacivertClass);
             if (classes.test1Class) parts.push(classes.test1Class);
             if (classes.test12YakinClass) parts.push(classes.test12YakinClass);
-            else if (classes.kirmiziClass) parts.push(classes.kirmiziClass);
         } else if (c === COL.TEST2) {
             if (classes.test23YanipClass) parts.push(classes.test23YanipClass);
+            if (classes.test2LacivertClass) parts.push(classes.test2LacivertClass);
             if (classes.test2Class) parts.push(classes.test2Class);
             if (classes.test12YakinClass) parts.push(classes.test12YakinClass);
-            else if (classes.kirmiziClass) parts.push(classes.kirmiziClass);
         } else if (c === COL.TEST3) {
             if (classes.test23YanipClass) parts.push(classes.test23YanipClass);
+            if (classes.test3LacivertClass) parts.push(classes.test3LacivertClass);
             if (classes.test3Class) parts.push(classes.test3Class);
-            else if (classes.kirmiziClass) parts.push(classes.kirmiziClass);
         } else if (c === COL.TEST2_MINUS_TEST3 && classes.test2m3EnNegatifClass) {
             parts.push(classes.test2m3EnNegatifClass);
         } else if (c === COL.TEST5 && classes.test5KahveVurguClass) {
@@ -1092,7 +1118,7 @@ const GosterimEngine = {
             || c === COL.FARK8002 || c === COL.TEST5 || c === COL.TEST9;
         if (classes.maviFosforClass && !skipMaviFosfor && !parts.includes('test23-yanip-son')
             && !parts.includes('gri-kenar-fark8002-vurgu') && !parts.includes('kahve-test5-sifir-vurgu')
-            && !parts.includes('test9-yanip-son-guclu')) {
+            && !parts.includes('lacivert-test-enkucuk-vurgu') && !parts.includes('test9-yanip-son-guclu')) {
             parts.push(classes.maviFosforClass);
         }
         return parts.length ? parts.join(' ') : '';
@@ -1123,6 +1149,7 @@ const GosterimEngine = {
         const trends = this.computeHorseTrends(calcRace, hedefMesafe);
         Object.assign(enIyiler, this.collectSiraBirFark8002SifiraYakin(calcRace));
         Object.assign(enIyiler, this.collectSiraBirTest5SifiraYakinTop3(calcRace, hedefMesafe));
+        Object.assign(enIyiler, this.collectSiraBirTestEnKucukTop3(calcRace, hedefMesafe));
         Object.assign(enIyiler, this.collectSiraBirTop5T2m3Test9Yakin(calcRace, hedefMesafe, trends));
         const { maviKenarTest9VurguAtlar } = this.collectMaviKenarTest9YakinAtlar(
             calcRace, hedefMesafe, trends, enIyiler
@@ -1182,6 +1209,7 @@ const GosterimEngine = {
         const trends = this.computeHorseTrends(calcRace, hedefMesafe);
         Object.assign(enIyiler, this.collectSiraBirFark8002SifiraYakin(calcRace));
         Object.assign(enIyiler, this.collectSiraBirTest5SifiraYakinTop3(calcRace, hedefMesafe));
+        Object.assign(enIyiler, this.collectSiraBirTestEnKucukTop3(calcRace, hedefMesafe));
         Object.assign(enIyiler, this.collectSiraBirTop5T2m3Test9Yakin(calcRace, hedefMesafe, trends));
         const { maviKenarTest9VurguAtlar } = this.collectMaviKenarTest9YakinAtlar(
             calcRace, hedefMesafe, trends, enIyiler

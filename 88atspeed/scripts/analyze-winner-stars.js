@@ -23,7 +23,7 @@ const MAXCOL = Math.max(...Object.values(COL));
 
 // Anlamlı renk kuralları (yapısal/kendi-satır vurguları hariç) — lib ile aynı katalog
 const KURALLAR = [
-    { token: 'kirmizi-yazi',               ad: 'Kırmızı (TEST en küçük)' },
+    { token: 'lacivert-test-enkucuk-vurgu', ad: 'Lacivert (TEST en küçük)' },
     { token: 'fosfor-kirmizi-yazi',        ad: 'Kırmızı (T1×DR son koşu)' },
     { token: 'fosfor-kirmizi-kenar-satir', ad: 'Kırmızı kenar satır', satir: true },
     { token: 'guclu-uyari-satir',          ad: 'Güçlü uyarı satır', satir: true },

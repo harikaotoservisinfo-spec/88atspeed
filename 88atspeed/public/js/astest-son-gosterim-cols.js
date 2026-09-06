@@ -131,7 +131,7 @@ const AtestSonGosterimCols = (function () {
         return html;
     }
 
-    /** TEST1 + TEST2 + TEST3 hücrelerinin üçünün de kirmizi-yazi olması */
+    /** TEST1 + TEST2 + TEST3 hücrelerinin üçünün de lacivert-test-enkucuk-vurgu olması */
     function allTest123Kirmizi(gosRow) {
         if (!gosRow?.classes || typeof GosterimEngine === 'undefined') return false;
         const cols = [
@@ -141,7 +141,7 @@ const AtestSonGosterimCols = (function () {
         ];
         for (let i = 0; i < cols.length; i++) {
             const cellClass = GosterimEngine.getCellClass(cols[i], gosRow.classes);
-            if (!cellClass || !/\bkirmizi-yazi\b/.test(cellClass)) return false;
+            if (!cellClass || !/\blacivert-test-enkucuk-vurgu\b/.test(cellClass)) return false;
         }
         return true;
     }
@@ -167,7 +167,7 @@ const AtestSonGosterimCols = (function () {
     function isTest1Kirmizi(gosRow) {
         if (!gosRow?.classes || typeof GosterimEngine === 'undefined') return false;
         const cellClass = GosterimEngine.getCellClass(GosterimEngine.COL.TEST1, gosRow.classes);
-        return !!(cellClass && /\bkirmizi-yazi\b/.test(cellClass));
+        return !!(cellClass && /\blacivert-test-enkucuk-vurgu\b/.test(cellClass));
     }
 
     /**
@@ -452,7 +452,7 @@ const AtestSonGosterimCols = (function () {
     }
 
     /**
-     * TEST9 yanıp → +%45 · 8002-8001 sıfır (gri) → +%5 · TEST1/2/3 kırmızı → +%25
+     * TEST9 yanıp → +%45 · 8002-8001 sıfır (gri) → +%5 · TEST1/2/3 lacivert top-3 → +%25
      * TEST1 yeşil: koşuda 1 at +%15 · 2+ at TEST1 süresine göre 15/12/9…
      * TEST1 en iyi 3 süre: +7 / +5 / +3 · TEST1 kırmızı yazı +3 ekstra
      * AT İSMİ mavi fosfor (son 7): +5 · mavi değil: −5
@@ -607,7 +607,7 @@ const AtestSonGosterimCols = (function () {
                 if (flags.test123Kirmizi) {
                     bonus += TEST123_KIRMIZI_TAHMIN_BONUS;
                     bonusTerms.push({
-                        label: 'TEST1/2/3 kırmızı',
+                        label: 'TEST1/2/3 lacivert (en küçük 3)',
                         points: TEST123_KIRMIZI_TAHMIN_BONUS,
                         source: 'gosterim'
                     });

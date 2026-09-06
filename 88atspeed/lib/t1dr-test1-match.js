@@ -4,12 +4,13 @@
 const { loadGostergeEngines } = require('../scripts/ptest-terminal-lib');
 
 // Yıldız veri şeması sürümü — değiştikçe artır ki eski kayıtlar yeniden hesaplansın.
-const YILDIZ_SURUM = 14;
+const YILDIZ_SURUM = 15;
 
 const T1DR_SON_KOSU_AD = 'Kırmızı (T1×DR son koşu)';
 const MOR_TEST9_AD = 'Mor yanıp (TEST9)';
 const FARK8002_SIFIR_AD = 'Gri çerçeve (8002-8001 sıfır)';
 const TEST5_KAHVE_AD = 'Kahve (TEST5 sıfır)';
+const TEST_EN_KUCUK_AD = 'Lacivert (TEST en küçük)';
 
 let enginesReady = false;
 
@@ -59,16 +60,16 @@ function t1drEqualsTest1(t1dr, test1) {
     return false;
 }
 
-function isKirmiziYazi(cls) {
-    return !!(cls && /\bkirmizi-yazi\b/.test(cls));
+function isTestEnKucukLacivert(cls) {
+    return !!(cls && /\blacivert-test-enkucuk-vurgu\b/.test(cls));
 }
 
-/** SIRA=1 (en yeni koşu) satırında TEST1 + TEST2 + TEST3 üçünün de kırmızı-yazı olması */
-function rowTest123Kirmizi(G, row) {
+/** SIRA=1 satırında TEST1 + TEST2 + TEST3 hücrelerinin üçünün de lacivert-test-enkucuk-vurgu olması */
+function rowTest123Lacivert(G, row) {
     const COL = G.COL;
     const cols = [COL.TEST1, COL.TEST2, COL.TEST3];
     for (let i = 0; i < cols.length; i++) {
-        if (!isKirmiziYazi(G.getCellClass(cols[i], row.classes))) return false;
+        if (!isTestEnKucukLacivert(G.getCellClass(cols[i], row.classes))) return false;
     }
     return true;
 }
@@ -110,7 +111,7 @@ function rowSatirTamYesil(row) {
  * bunlar her atta bulunur, ayırt edici değildir.
  */
 const YILDIZ_KURALLARI = [
-    { token: 'kirmizi-yazi',               renk: '#e53935', ad: 'Kırmızı (TEST en küçük)' },
+    { token: 'lacivert-test-enkucuk-vurgu', renk: '#283593', ad: 'Lacivert (TEST en küçük)' },
     { token: 'fosfor-kirmizi-yazi',        renk: '#b71c1c', ad: 'Kırmızı (T1×DR son koşu)' },
     { token: 'fosfor-kirmizi-kenar-satir', renk: '#c62828', ad: 'Kırmızı kenar satır', satir: true },
     { token: 'guclu-uyari-satir',          renk: '#d84315', ad: 'Güçlü uyarı satır', satir: true },
@@ -290,7 +291,7 @@ function analyzeRace(race, meta) {
         const t1dr = row.values[COL.TEST1_ENTEGRE];
         const test1 = row.values[COL.TEST1];
         if (t1drEqualsTest1(t1dr, test1)) matched.add(key);
-        if (row.values[0] === '1' && rowTest123Kirmizi(G, row)) kirmizi.add(key);
+        if (row.values[0] === '1' && rowTest123Lacivert(G, row)) kirmizi.add(key);
         if (row.values[0] === '1' && rowTest9Yanip(G, row)) mor.add(key);
         if (row.values[0] === '1' && rowFark8002SifirVurgu(G, row)) mavi.add(key);
         // Son 7 yarışın (sira 1..7) HERHANGİ birinde TEST1 hücresi yeşilse
@@ -318,6 +319,7 @@ function analyzeRace(race, meta) {
     markTest9MorYildizlari(yildizlar, rowsByKey, G);
     markFark8002GriYildizlari(yildizlar, rowsByKey, G);
     markTest5KahveYildizlari(yildizlar, rowsByKey, G);
+    markTestEnKucukLacivertYildizlari(yildizlar, rowsByKey, G);
     markT1drSonKosuVurgu(yildizlar, rowsByKey, calcRace, G, meta);
     const ivmeMap = computeIvme(yildizlar, raceCounts);
     return { matched, kirmizi, mor, mavi, yesil, yesilSatir, yildizlar, ivme: ivmeMap };
@@ -438,6 +440,43 @@ function markTest5KahveYildizlari(yildizlar, rowsByKey, G) {
             });
             for (const s of w[win]) {
                 if (s.ad === TEST5_KAHVE_AD && ok.has(key + '|' + s.k)) s.t5k = true;
+            }
+        }
+        w.n7 = (w.son7 || []).length;
+    }
+}
+
+/**
+ * Lacivert (TEST en küçük) yıldızı: yalnızca TEST1/2/3 hücresinde lacivert-test-enkucuk-vurgu olan koşular.
+ */
+function markTestEnKucukLacivertYildizlari(yildizlar, rowsByKey, G) {
+    const ok = new Set();
+    const COL = G.COL;
+    const cols = [COL.TEST1, COL.TEST2, COL.TEST3];
+    const colAd = { [COL.TEST1]: 'TEST1', [COL.TEST2]: 'TEST2', [COL.TEST3]: 'TEST3' };
+    for (const [key, horseRows] of rowsByKey) {
+        for (const row of horseRows) {
+            const sira = parseInt(row.values[0], 10);
+            if (isNaN(sira) || sira < 1) continue;
+            for (const c of cols) {
+                const cls = G.getCellClass(c, row.classes);
+                if (!isTestEnKucukLacivert(cls)) continue;
+                ok.add(key + '|' + sira + '|' + colAd[c]);
+            }
+        }
+    }
+    for (const [key, w] of yildizlar) {
+        for (const win of ['son7', 'son2', 'son1']) {
+            if (!Array.isArray(w[win])) continue;
+            w[win] = w[win].filter((s) => {
+                if (s.ad !== TEST_EN_KUCUK_AD) return true;
+                const sutun = String(s.t || '').split(' · ')[1] || '';
+                return ok.has(key + '|' + s.k + '|' + sutun);
+            });
+            for (const s of w[win]) {
+                if (s.ad !== TEST_EN_KUCUK_AD) continue;
+                const sutun = String(s.t || '').split(' · ')[1] || '';
+                if (ok.has(key + '|' + s.k + '|' + sutun)) s.tkl = true;
             }
         }
         w.n7 = (w.son7 || []).length;
