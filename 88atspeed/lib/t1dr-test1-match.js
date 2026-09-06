@@ -4,7 +4,7 @@
 const { loadGostergeEngines } = require('../scripts/ptest-terminal-lib');
 
 // Yıldız veri şeması sürümü — değiştikçe artır ki eski kayıtlar yeniden hesaplansın.
-const YILDIZ_SURUM = 21;
+const YILDIZ_SURUM = 22;
 
 const T1DR_SON_KOSU_AD = 'Kırmızı (T1×DR son koşu)';
 const MOR_TEST9_AD = 'Mor yanıp (TEST9)';
@@ -420,7 +420,7 @@ function markTest1EnIyiYesilGosterge(yildizlar, rowsByKey, G) {
                 const sutun = String(s.t || '').split(' · ')[1] || '';
                 if (sutun === 'TEST1' && ok.has(key + '|' + s.k)) {
                     s.t1y = true;
-                    s.c = '#4caf50';
+                    s.c = '#2e7d32';
                     delete s.v;
                 }
             }
