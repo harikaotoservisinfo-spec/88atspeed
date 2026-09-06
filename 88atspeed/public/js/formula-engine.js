@@ -811,22 +811,22 @@ const GosterimEngine = {
         return { enNegatifTest2MinusTest3 };
     },
 
+    /** Tabloda 0.0000 olarak görünen 8002-8001 değeri (4 ondalık) */
+    _isFark8002TamSifir(val) {
+        if (val === null || val === undefined) return false;
+        return Number(val.toFixed(4)) === 0;
+    },
+
     /**
-     * Görünüm SIRA=1 (en yeni koşu): 8002-8001 değeri 0'a en yakın olan tüm atlar
-     * (|değer| minimum — eşitlikte hepsi) → 8002-8001 hücresi gri çerçeve vurgusu.
+     * Görünüm SIRA=1 (en yeni koşu): 8002-8001 değeri tam 0 olan tüm atlar
+     * → 8002-8001 hücresi gri çerçeve vurgusu (ne kadar 0 olan varsa hepsi).
      */
     collectSiraBirFark8002SifiraYakin(calcRace) {
-        const candidates = [];
-        for (const { j, kosuKey, atKosu } of this._iterGosterimSiraBirKosular(calcRace)) {
-            const val = this._computeFark8002Sl(atKosu);
-            if (val === null) continue;
-            candidates.push({ j, kosuKey, val, abs: Math.abs(val) });
-        }
         const siraBirFark8002SifiraVurgu = new Set();
-        if (!candidates.length) return { siraBirFark8002SifiraVurgu };
-        const minAbs = candidates.reduce((m, c) => Math.min(m, c.abs), Infinity);
-        for (const c of candidates) {
-            if (c.abs === minAbs) siraBirFark8002SifiraVurgu.add(c.kosuKey);
+        for (const { kosuKey, atKosu } of this._iterGosterimSiraBirKosular(calcRace)) {
+            const val = this._computeFark8002Sl(atKosu);
+            if (!this._isFark8002TamSifir(val)) continue;
+            siraBirFark8002SifiraVurgu.add(kosuKey);
         }
         return { siraBirFark8002SifiraVurgu };
     },
