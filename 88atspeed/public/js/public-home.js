@@ -962,7 +962,9 @@
             if (prevGroup === 'taban' && group === 'orta') html += sep(ivmeArrow(iv.t2, iv.t2y));
             if ((prevGroup === 'taban' || prevGroup === 'orta') && group === 'guncel') html += sep(ivmeArrow(iv.t1, iv.t1y));
             const stars = arr.map((y) => {
-                const vCls = y.v ? ' vurgu' : '';
+                let vCls = '';
+                if (y.t4) vCls = ' vurgu-t1dr-top4';
+                else if (y.v) vCls = ' vurgu';
                 return '<span class="pub-prog-yildiz-star' + vCls + '" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">★</span>';
             }).join('');
             html += '<div class="pub-yk-col" title="' + k + '. koşu">'

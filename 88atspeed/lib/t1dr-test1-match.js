@@ -4,7 +4,7 @@
 const { loadGostergeEngines } = require('../scripts/ptest-terminal-lib');
 
 // Yıldız veri şeması sürümü — değiştikçe artır ki eski kayıtlar yeniden hesaplansın.
-const YILDIZ_SURUM = 8;
+const YILDIZ_SURUM = 9;
 
 const T1DR_SON_KOSU_AD = 'Kırmızı (T1×DR son koşu)';
 
@@ -352,8 +352,7 @@ function computeIvme(yildizlar, raceCounts) {
 }
 
 /**
- * Son koşu T1×DR kırmızı yıldızı: yalnızca sahada en iyi 4 at.
- * En iyi (1.) atın yıldızına soft fosforlu yeşil vurgu (v=true).
+ * Son koşu T1×DR kırmızı yıldızı: yalnızca sahada en iyi 4 at (t4=true → mavi çerçeve + yanıp sönen vurgu).
  */
 function markT1drSonKosuVurgu(yildizlar, rowsByKey, calcRace, G, meta) {
     const hedefMesafe = G._hedefMesafe(calcRace);
@@ -382,9 +381,9 @@ function markT1drSonKosuVurgu(yildizlar, rowsByKey, calcRace, G, meta) {
                 if (s.ad !== T1DR_SON_KOSU_AD || s.k !== 1) return true;
                 return inTop4;
             });
-            if (isTop1) {
+            if (inTop4) {
                 for (const s of w[win]) {
-                    if (s.ad === T1DR_SON_KOSU_AD && s.k === 1) s.v = true;
+                    if (s.ad === T1DR_SON_KOSU_AD && s.k === 1) s.t4 = true;
                 }
             }
         }
