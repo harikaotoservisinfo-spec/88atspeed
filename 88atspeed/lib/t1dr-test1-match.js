@@ -4,7 +4,7 @@
 const { loadGostergeEngines } = require('../scripts/ptest-terminal-lib');
 
 // Yıldız veri şeması sürümü — değiştikçe artır ki eski kayıtlar yeniden hesaplansın.
-const YILDIZ_SURUM = 10;
+const YILDIZ_SURUM = 11;
 
 const T1DR_SON_KOSU_AD = 'Kırmızı (T1×DR son koşu)';
 const MOR_TEST9_AD = 'Mor yanıp (TEST9)';
@@ -372,6 +372,9 @@ function markTest9MorYildizlari(yildizlar, rowsByKey, G) {
                 if (s.ad !== MOR_TEST9_AD) return true;
                 return ok.has(key + '|' + s.k);
             });
+            for (const s of w[win]) {
+                if (s.ad === MOR_TEST9_AD && ok.has(key + '|' + s.k)) s.t9m = true;
+            }
         }
         w.n7 = (w.son7 || []).length;
     }
