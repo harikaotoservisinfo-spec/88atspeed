@@ -970,6 +970,7 @@
         let glyph = '★';
         if (y.tei) glyph = 'T';
         else if (y.shs) glyph = 'Ş';
+        else if (y.t46) glyph = '4';
         else if (y.t1y || y.t1ym || y.t1yk || y.t2y || y.t2ym || y.t2yk || y.t3y || y.t3ym || y.t3yk) glyph = '●';
         if (y.tei) {
             if (y.teiy) vCls = ' vurgu-yesil-tam';
@@ -978,6 +979,8 @@
             else vCls = ' vurgu-sehir-mavi';
         } else if (y.shs) {
             vCls = y.shk ? ' vurgu-sehir-kirmizi' : ' vurgu-sehir-mavi';
+        } else if (y.t46) {
+            vCls = ' vurgu-test46-acik-mavi';
         }
         return '<span class="pub-prog-yildiz-star' + vCls + '" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">' + glyph + '</span>';
     }

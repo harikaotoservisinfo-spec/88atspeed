@@ -2888,6 +2888,53 @@ a { color: inherit; text-decoration: none; }
     }
 }
 
+/* TEST4=TEST6: açık mavi 4 + açık mavi fosforlu kare çerçeve */
+.pub-prog-yildiz-star.vurgu-test46-acik-mavi {
+    position: relative;
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 900;
+    line-height: 1;
+    padding: 1px 4px;
+    border-radius: 3px;
+    border: 2px solid #4fc3f7;
+    box-shadow:
+        0 0 0 1px rgba(79, 195, 247, 0.55),
+        0 0 7px rgba(79, 195, 247, 0.7),
+        inset 0 0 5px rgba(179, 229, 252, 0.55);
+    -webkit-text-stroke: 0.45px rgba(3, 155, 229, 0.9);
+    paint-order: stroke fill;
+    text-shadow: none;
+    animation: pub-test46-acik-mavi-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-test46-acik-mavi-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #b3e5fc,
+            0 0 6px rgba(179, 229, 252, 0.95),
+            0 0 11px rgba(79, 195, 247, 0.65);
+        box-shadow:
+            0 0 0 1.5px #4fc3f7,
+            0 0 8px rgba(79, 195, 247, 0.85),
+            0 0 14px rgba(129, 212, 250, 0.55),
+            inset 0 0 4px rgba(225, 245, 254, 0.5);
+        filter: brightness(1.1);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #e1f5fe,
+            0 0 10px rgba(225, 245, 254, 1),
+            0 0 18px rgba(129, 212, 250, 0.9);
+        box-shadow:
+            0 0 0 2px #29b6f6,
+            0 0 11px rgba(79, 195, 247, 0.95),
+            0 0 18px rgba(41, 182, 246, 0.65),
+            inset 0 0 6px rgba(240, 248, 255, 0.7);
+        filter: brightness(1.22);
+    }
+}
+
 .pub-prog-yildiz-empty {
     color: #bbb;
     font-size: 11px;

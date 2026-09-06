@@ -4,10 +4,11 @@
 const { loadGostergeEngines } = require('../scripts/ptest-terminal-lib');
 
 // Yıldız veri şeması sürümü — değiştikçe artır ki eski kayıtlar yeniden hesaplansın.
-const YILDIZ_SURUM = 28;
+const YILDIZ_SURUM = 29;
 
 const T1DR_SON_KOSU_AD = 'Kırmızı (T1×DR son koşu)';
 const T1DR_ENIYI_AD = 'Mavi yanıp (T1×DR en iyi 2)';
+const TEST46_AD = 'Yeşil (TEST4=TEST6)';
 const MOR_TEST9_AD = 'Mor yanıp (TEST9)';
 const FARK8002_SIFIR_AD = 'Gri çerçeve (8002-8001 sıfır)';
 const TEST5_KAHVE_AD = 'Kahve (TEST5 sıfır)';
@@ -121,6 +122,22 @@ function isT1drEnIyiGostergeStar(s) {
     const sutun = String(s.t || '').split(' · ')[1] || '';
     if (sutun !== 'T1×DR') return false;
     return s.ad === T1DR_ENIYI_AD;
+}
+
+/** TEST4 veya TEST6 hücresinde TEST4=TEST6 (fosfor-yesil-hucre) olması */
+function rowTest46Equal(G, row) {
+    const c4 = G.getCellClass(G.COL.TEST4, row.classes);
+    const c6 = G.getCellClass(G.COL.TEST6, row.classes);
+    return !!(
+        (c4 && /\bfosfor-yesil-hucre\b/.test(c4))
+        || (c6 && /\bfosfor-yesil-hucre\b/.test(c6))
+    );
+}
+
+function isTest46GostergeStar(s) {
+    if (s.ad !== TEST46_AD) return false;
+    const sutun = String(s.t || '').split(' · ')[1] || '';
+    return sutun === 'TEST4' || sutun === 'TEST6';
 }
 
 /** Herhangi bir satırda TEST1 hücresi yeşil eşleşme (eslesme-yesil) olması */
@@ -383,6 +400,7 @@ function analyzeRace(race, meta) {
     markTest3EnIyiGriGosterge(yildizlar, rowsByKey, G);
     markSehirEslesmeGosterge(yildizlar, rowsByKey, G);
     markT1drEnIyiGosterge(yildizlar, rowsByKey, G);
+    markTest46Gosterge(yildizlar, rowsByKey, G);
     markTest9MorYildizlari(yildizlar, rowsByKey, G);
     markFark8002GriYildizlari(yildizlar, rowsByKey, G);
     markTest5KahveYildizlari(yildizlar, rowsByKey, G);
@@ -654,6 +672,44 @@ function markT1drEnIyiGosterge(yildizlar, rowsByKey, G) {
                 else if (info.frame === 'yesil') s.teiy = true;
                 else if (info.frame === 'sari') s.teis = true;
                 else s.teim = true;
+            }
+        }
+        w.n7 = (w.son7 || []).length;
+    }
+}
+
+/**
+ * TEST4=TEST6: açık mavi 4 rakamı + açık mavi fosforlu kare çerçeve (koşu başı tek).
+ */
+function markTest46Gosterge(yildizlar, rowsByKey, G) {
+    const ok = new Set();
+    const LETTER = '#4fc3f7';
+    for (const [key, horseRows] of rowsByKey) {
+        for (const row of horseRows) {
+            if (!rowTest46Equal(G, row)) continue;
+            const sira = parseInt(row.values[0], 10);
+            if (isNaN(sira) || sira < 1) continue;
+            ok.add(key + '|' + sira);
+        }
+    }
+    for (const [key, w] of yildizlar) {
+        for (const win of ['son7', 'son2', 'son1']) {
+            if (!Array.isArray(w[win])) continue;
+            const kept = new Set();
+            w[win] = w[win].filter((s) => {
+                if (!isTest46GostergeStar(s)) return true;
+                if (!ok.has(key + '|' + s.k)) return false;
+                const dk = key + '|' + s.k;
+                if (kept.has(dk)) return false;
+                kept.add(dk);
+                return true;
+            });
+            for (const s of w[win]) {
+                if (!isTest46GostergeStar(s)) continue;
+                if (!ok.has(key + '|' + s.k)) continue;
+                s.t46 = true;
+                s.c = LETTER;
+                delete s.v;
             }
         }
         w.n7 = (w.son7 || []).length;
