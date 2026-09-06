@@ -4,7 +4,7 @@
 const { loadGostergeEngines } = require('../scripts/ptest-terminal-lib');
 
 // Yıldız veri şeması sürümü — değiştikçe artır ki eski kayıtlar yeniden hesaplansın.
-const YILDIZ_SURUM = 25;
+const YILDIZ_SURUM = 26;
 
 const T1DR_SON_KOSU_AD = 'Kırmızı (T1×DR son koşu)';
 const MOR_TEST9_AD = 'Mor yanıp (TEST9)';
@@ -16,6 +16,7 @@ const MAVI_KENAR_AD = 'Mavi kenar satır';
 const SATIR_TAM_SARI_AD = 'Satır tam sarı';
 const SATIR_TAM_YESIL_AD = 'Satır tam yeşil';
 const YESIL_ESLESME_AD = 'Yeşil eşleşme';
+const GUCUL_SEHIR_AD = 'Güçlü şehir eşleşme';
 
 let enginesReady = false;
 
@@ -95,6 +96,18 @@ function rowTest5KahveVurgu(G, row) {
 function rowFark8002SifirVurgu(G, row) {
     const cls = G.getCellClass(G.COL.FARK8002, row.classes);
     return !!(cls && /\bgri-kenar-fark8002-vurgu\b/.test(cls));
+}
+
+/** ŞEHİR hücresinde şehir eşleşmesi (eslesme-yesil) olması */
+function rowSehirEslesme(G, row) {
+    const cls = G.getCellClass(G.COL.SEHIR, row.classes);
+    return !!(cls && /\beslesme-yesil\b/.test(cls));
+}
+
+function isSehirGostergeStar(s) {
+    const sutun = String(s.t || '').split(' · ')[1] || '';
+    if (sutun !== 'ŞEHİR') return false;
+    return s.ad === YESIL_ESLESME_AD || s.ad === GUCUL_SEHIR_AD;
 }
 
 /** Herhangi bir satırda TEST1 hücresi yeşil eşleşme (eslesme-yesil) olması */
@@ -355,6 +368,7 @@ function analyzeRace(race, meta) {
     markTest1EnIyiYesilGosterge(yildizlar, rowsByKey, G);
     markTest2EnIyiYesilGosterge(yildizlar, rowsByKey, G);
     markTest3EnIyiGriGosterge(yildizlar, rowsByKey, G);
+    markSehirEslesmeGosterge(yildizlar, rowsByKey, G);
     markTest9MorYildizlari(yildizlar, rowsByKey, G);
     markFark8002GriYildizlari(yildizlar, rowsByKey, G);
     markTest5KahveYildizlari(yildizlar, rowsByKey, G);
@@ -528,6 +542,48 @@ function markTest3EnIyiGriGosterge(yildizlar, rowsByKey, G) {
                 if (variant === 'kirmizi') s.t3yk = true;
                 else if (variant === 'mavi') s.t3ym = true;
                 else s.t3y = true;
+            }
+        }
+        w.n7 = (w.son7 || []).length;
+    }
+}
+
+/**
+ * Şehir eşleşmesi: mavi Ş harfi + daire — satır rengine ve kenar çizgisine göre vurgu.
+ */
+function markSehirEslesmeGosterge(yildizlar, rowsByKey, G) {
+    const ok = new Map();
+    const LETTER = { mavi: '#1565c0', yesil: '#1b5e20', sari: '#f9a825' };
+    for (const [key, horseRows] of rowsByKey) {
+        for (const row of horseRows) {
+            if (!rowSehirEslesme(G, row)) continue;
+            const sira = parseInt(row.values[0], 10);
+            if (isNaN(sira) || sira < 1) continue;
+            let border = 'mavi';
+            if (rowKirmiziKenarSatir(row)) border = 'kirmizi';
+            else if (rowMaviKenarSatir(row)) border = 'mavi';
+            let letter = 'mavi';
+            if (rowSatirTamYesilKoyu(row)) letter = 'yesil';
+            else if (rowSatirTamYesil(row)) letter = 'sari';
+            ok.set(key + '|' + sira, { border, letter });
+        }
+    }
+    for (const [key, w] of yildizlar) {
+        for (const win of ['son7', 'son2', 'son1']) {
+            if (!Array.isArray(w[win])) continue;
+            w[win] = w[win].filter((s) => {
+                if (!isSehirGostergeStar(s)) return true;
+                return ok.has(key + '|' + s.k);
+            });
+            for (const s of w[win]) {
+                if (!isSehirGostergeStar(s)) continue;
+                const info = ok.get(key + '|' + s.k);
+                if (!info) continue;
+                s.shs = true;
+                s.c = LETTER[info.letter] || LETTER.mavi;
+                delete s.v;
+                if (info.border === 'kirmizi') s.shk = true;
+                else s.shm = true;
             }
         }
         w.n7 = (w.son7 || []).length;
