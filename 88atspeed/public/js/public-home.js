@@ -355,6 +355,37 @@
 
     let vitrinAbortController = null;
     let vitrinLoadSeq = 0;
+    let tahminScorePollTimer = null;
+
+    function countHorsesWithScores(hipodromlar) {
+        let n = 0;
+        for (const hip of hipodromlar || []) {
+            for (const race of hip.kosular || []) {
+                for (const h of race.horses || []) {
+                    const sc = h.scores || {};
+                    if (Object.values(sc).some((t) => t && t.pct != null && t.pct > 0)) n++;
+                }
+            }
+        }
+        return n;
+    }
+
+    function scheduleTahminScorePoll(iso) {
+        if (tahminScorePollTimer) {
+            clearTimeout(tahminScorePollTimer);
+            tahminScorePollTimer = null;
+        }
+        const total = (state.hipodromlar || []).reduce((sum, hip) => sum
+            + (hip.kosular || []).reduce((s, r) => s + (r.horses || []).length, 0), 0);
+        if (!total || countHorsesWithScores(state.hipodromlar) > 0) {
+            state.tahminPollCount = 0;
+            return;
+        }
+        const n = (state.tahminPollCount || 0) + 1;
+        if (n > 12) return;
+        state.tahminPollCount = n;
+        tahminScorePollTimer = setTimeout(() => loadVitrin(iso), 15000);
+    }
 
     function renderYarinFetchUi() {
         const bar = $('#gunun-kosulari');
@@ -522,6 +553,7 @@
             if ($('#panel-rehber')?.classList.contains('active')) {
                 loadRehberLeaderboard({ silent: true });
             }
+            scheduleTahminScorePoll(clampedIso);
             return;
             } catch (err) {
                 lastErr = err;
@@ -1111,8 +1143,10 @@
     }
 
     function formatHorseNameCell(h) {
-        // Yıldızlar artık GÖSTERGE sütununda gösteriliyor; isim hücresi sade kalır.
-        return escapeHtml(h.name || '—');
+        const name = escapeHtml(h.name || '—');
+        if (!h.t1drTest1) return name;
+        return '<span class="pub-prog-t1dr-star" title="T1×DR=TEST1 — geçmiş koşuda eşleşme var">★</span> '
+            + '<span class="pub-prog-at-name">' + name + '</span>';
     }
 
     function normalizeHorseName(s) {

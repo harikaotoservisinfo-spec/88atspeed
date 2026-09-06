@@ -191,6 +191,7 @@ app.get('/api/public/vitrin', async (req, res) => {
         const cacheKey = tarih;
         const cached = vitrinResponseCache.get(cacheKey);
         if (cached && Date.now() - cached.at < VITRIN_CACHE_MS) {
+            res.set('Cache-Control', 'no-store');
             return res.json(cached.body);
         }
 
@@ -204,6 +205,7 @@ app.get('/api/public/vitrin', async (req, res) => {
             iso: publicProgram.trToIso(tarih)
         };
         vitrinResponseCache.set(cacheKey, { at: Date.now(), body });
+        res.set('Cache-Control', 'no-store');
         res.json(body);
     } catch (err) {
         console.error('public/vitrin:', err.message);

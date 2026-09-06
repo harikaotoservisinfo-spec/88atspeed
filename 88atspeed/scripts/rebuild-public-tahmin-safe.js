@@ -93,6 +93,13 @@ function scoredCount(races) {
             + ' dataHits=' + b.dataHits + ' (kalibrasyon önce: gos=' + ok + ')');
     }
     console.log('✅ Tamamlandı');
+    try {
+        const { execSync } = require('child_process');
+        execSync('pm2 reload 88atspeed --update-env', { stdio: 'ignore', timeout: 30000 });
+        console.log('   PM2 reload — vitrin önbelleği temizlendi');
+    } catch (e) {
+        console.warn('   PM2 reload atlandı:', e.message);
+    }
     db.close();
     process.exit(0);
 })().catch((e) => { console.error('❌', e); db.close(); process.exit(1); });
