@@ -912,8 +912,79 @@
             label: 'GÖSTERGE',
             cls: 'pub-prog-yildizgrup',
             colCls: 'pub-col-yildizgrup',
-            title: 'Son 7 / Son 2 / Son yarış renk kuralları (üstten alta)'
+            title: 'Son 7 yarış — koşu-başı işaretler ve ivme'
+        }, {
+            key: 'yildizTek',
+            label: 'TEK',
+            cls: 'pub-prog-yildiztek',
+            colCls: 'pub-col-yildiztek',
+            title: 'Yalnızca bu ata özgü işaretler (koşudaki diğer atlarda olmayan)'
         }];
+    }
+
+    function horseRowKey(h) {
+        if (h?.atId != null && h.atId !== '') return String(h.atId);
+        if (h?.no != null && h.no !== '') return 'no:' + String(h.no);
+        return 'name:' + String(h.name || '');
+    }
+
+    /** GÖSTERGE işaretinin koşu içi karşılaştırma anahtarı */
+    function gostergeMarkerSignature(y) {
+        const sutun = String(y?.t || '').split(' · ')[1] || '';
+        if (y.s8) return 's8:' + (y.s8r || 0);
+        if (y.tei) return 'tei:' + (y.teik ? 'k' : y.teiy ? 'y' : y.teis ? 's' : 'm');
+        if (y.shs) return 'shs:' + (y.shk ? 'k' : 'm');
+        if (y.t46) return 't46';
+        if (y.t12) return 't12:' + (y.t12k ? 'k' : 'o');
+        if (y.t9m) return 't9m';
+        if (y.t5k) return 't5k';
+        if (y.f8g) return 'f8g';
+        if (y.tkl) return 'tkl';
+        if (y.t4) return 't4';
+        if (y.t1yk) return 't1yk';
+        if (y.t1ym) return 't1ym';
+        if (y.t1y) return 't1y';
+        if (y.t2yk) return 't2yk';
+        if (y.t2ym) return 't2ym';
+        if (y.t2y) return 't2y';
+        if (y.t3yk) return 't3yk';
+        if (y.t3ym) return 't3ym';
+        if (y.t3y) return 't3y';
+        if (y.tkr) return 'tkr';
+        if (y.tmk) return 'tmk';
+        if (y.ttsk) return 'ttsk';
+        if (y.ttsm) return 'ttsm';
+        if (y.tts) return 'tts';
+        if (y.ttyk) return 'ttyk';
+        if (y.ttym) return 'ttym';
+        if (y.tty) return 'tty';
+        return (y.ad || 'star') + '|' + sutun;
+    }
+
+    /** Koşu içinde yalnızca bir ata ait işaret listeleri */
+    function buildRaceUniqueGostergeMap(horses) {
+        const rows = (horses || []).map((h) => {
+            const list = Array.isArray(h.yildizlar) ? h.yildizlar : [];
+            const sigs = new Set(list.map(gostergeMarkerSignature));
+            return { key: horseRowKey(h), list, sigs };
+        });
+        const horseCountBySig = new Map();
+        rows.forEach(({ sigs }) => {
+            sigs.forEach((sig) => horseCountBySig.set(sig, (horseCountBySig.get(sig) || 0) + 1));
+        });
+        const uniqueMap = new Map();
+        rows.forEach(({ key, list }) => {
+            const seen = new Set();
+            const unique = [];
+            for (const y of list) {
+                const sig = gostergeMarkerSignature(y);
+                if (horseCountBySig.get(sig) !== 1 || seen.has(sig)) continue;
+                seen.add(sig);
+                unique.push(y);
+            }
+            uniqueMap.set(key, unique);
+        });
+        return uniqueMap;
     }
 
     function renderStarRun(list, vurguCls) {
@@ -1081,6 +1152,14 @@
             + '</div>';
     }
 
+    function formatYildizTekCell(h, ctx) {
+        const list = ctx?.uniqueGostergeMap?.get(horseRowKey(h)) || [];
+        if (!list.length) return '<span class="pub-prog-yildiz-empty">—</span>';
+        return '<div class="pub-prog-yildiz-tek-wrap" title="' + escapeHtml('Koşudaki diğer atlarda olmayan işaretler') + '">'
+            + list.map((y) => formatGostergeMarker(y)).join('')
+            + '</div>';
+    }
+
     function computeYildizGrupWidth(kosular) {
         let maxTotal = 0;
         for (const race of kosular || []) {
@@ -1090,7 +1169,18 @@
             }
         }
         // tek satır yıldızlar yan yana + sütun boşlukları + ayraç/ok + etiket
-        return Math.min(2000, Math.max(620, maxTotal * 11 + 190));
+        return Math.min(2200, Math.max(680, maxTotal * 12 + 210));
+    }
+
+    function computeYildizTekWidth(kosular) {
+        let maxUnique = 0;
+        for (const race of kosular || []) {
+            const uniqueMap = buildRaceUniqueGostergeMap(race.horses || []);
+            for (const list of uniqueMap.values()) {
+                if (list.length > maxUnique) maxUnique = list.length;
+            }
+        }
+        return Math.min(420, Math.max(72, maxUnique * 18 + 24));
     }
 
     function computeTakiColWidth(kosular) {
@@ -1162,6 +1252,7 @@
             return '<span class="pub-prog-bitis' + cls + '">' + escapeHtml(String(s)) + '</span>';
         }
         if (col.key === 'yildizGrup') return formatYildizGrupCell(h);
+        if (col.key === 'yildizTek') return formatYildizTekCell(h, ctx);
         if (col.key === 'name') return formatHorseNameCell(h);
         const v = String(h[col.key] || '').trim();
         return v || '—';
@@ -1907,7 +1998,11 @@
             return;
         }
         const cols = getKayitEvalColumns(kosular);
-        const colWidths = { yildizGrup: computeYildizGrupWidth(kosular), bitisSira: 36 };
+        const colWidths = {
+            yildizGrup: computeYildizGrupWidth(kosular),
+            yildizTek: computeYildizTekWidth(kosular),
+            bitisSira: 36
+        };
         const colgroup = renderProgramColgroup(cols, colWidths);
         el.innerHTML = '<div class="pub-program-list pub-kayit-eval-list">' + kosular.map((race) => {
             const hdr = formatProgramRaceHeader(race);
@@ -1918,11 +2013,12 @@
                 return '<th' + clsAttr + titleAttr + '>' + c.label + '</th>';
             }).join('') + '<th class="pub-col-spacer-hdr" aria-hidden="true"></th>';
             const horses = race.horses || [];
+            const uniqueGostergeMap = buildRaceUniqueGostergeMap(horses);
             const body = horses.length
                 ? horses.map((h) => '<tr>'
                     + cols.map((c) => {
-                        const val = programHorseCell(h, c, {});
-                        const isRawCol = c.key === 'name' || c.key === 'yildizGrup';
+                        const val = programHorseCell(h, c, { uniqueGostergeMap });
+                        const isRawCol = c.key === 'name' || c.key === 'yildizGrup' || c.key === 'yildizTek';
                         return '<td class="' + escapeHtml(c.cls) + (c.colCls ? ' ' + escapeHtml(c.colCls) : '') + '">'
                             + (isRawCol ? val : escapeHtml(val)) + '</td>';
                     }).join('')
@@ -2010,6 +2106,7 @@
             score_go: 40,
             score_hyb: 40,
             yildizGrup: computeYildizGrupWidth(kosular),
+            yildizTek: computeYildizTekWidth(kosular),
             fob_ganyan: 44,
             fob_ilk2: 40,
             fob_ilk3: 40
@@ -2049,15 +2146,16 @@
                 return '<th' + clsAttr + titleAttr + '>' + c.label + '</th>';
             }).join('') + '<th class="pub-col-spacer-hdr" aria-hidden="true"></th>';
             const horses = race.horses || [];
+            const uniqueGostergeMap = buildRaceUniqueGostergeMap(horses);
             const body = horses.length
                 ? horses.map((h) => {
-                    const ctx = { ganyanMap, ...bltMaps, ...gpMaps, fobMaps: raceFobMaps, btMaps };
+                    const ctx = { ganyanMap, ...bltMaps, ...gpMaps, fobMaps: raceFobMaps, btMaps, uniqueGostergeMap };
                     return '<tr>'
                         + cols.map((c) => {
                             let cls = c.cls;
                             const val = programHorseCell(h, c, ctx);
                             const isNameCol = c.key === 'name';
-                            const isRawCol = isNameCol || c.key === 'yildizGrup';
+                            const isRawCol = isNameCol || c.key === 'yildizGrup' || c.key === 'yildizTek';
                             if (c.key === 'ganyan') {
                                 if (!ganyanMap[String(h.no)]) cls += ' pub-prog-ganyan-empty';
                                 else if (leaderNo && String(h.no) === leaderNo) cls += ' pub-prog-ganyan-leader';

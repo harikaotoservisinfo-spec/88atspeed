@@ -1762,7 +1762,30 @@ a { color: inherit; text-decoration: none; }
 .pub-ivme-chip.neg { background: #fdecec; color: #c62828; }
 .pub-ivme-chip.nil { background: #f0f0f0; color: #999; }
 
-.pub-col-yildizgrup { min-width: 420px; }
+.pub-col-yildizgrup { min-width: 480px; }
+
+.pub-col-yildiztek { min-width: 72px; max-width: 420px; }
+
+.pub-program-table th.pub-col-yildiztek {
+    background: #fff3e0;
+    color: #e65100;
+}
+
+.pub-prog-yildiztek {
+    text-align: left;
+    white-space: normal;
+    overflow: hidden;
+    padding: 2px 5px !important;
+    vertical-align: top;
+}
+
+.pub-prog-yildiz-tek-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px;
+    max-width: 100%;
+}
 
 .pub-program-table th.pub-col-yildizgrup {
     background: #ede7f6;
