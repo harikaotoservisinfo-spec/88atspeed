@@ -200,6 +200,26 @@ async function saveRaceSnapshot(db, tarih, hipId, raceNo, veri) {
         [tarih, String(hipId), Number(raceNo), JSON.stringify(veri)]);
 }
 
+/** Tahminler sekmesindeki atlarla hazır kupon seçimlerini eşleştir */
+function enrichPicksWithTahmin(picks, tahminler) {
+    const byNo = new Map();
+    for (const t of tahminler || []) {
+        byNo.set(String(t.horseNo), t);
+    }
+    return (picks || []).map((p) => {
+        const t = byNo.get(String(p.no));
+        if (!t) return Object.assign({}, p, { inTahmin: false });
+        const skor = t.pct != null && Number(t.pct) > 0
+            ? Math.round(Number(t.pct))
+            : (t.score != null && Number(t.score) > 0 ? Number(t.score) : null);
+        return Object.assign({}, p, {
+            inTahmin: true,
+            tahminRank: t.rank != null ? Number(t.rank) : null,
+            tahminSkor: skor
+        });
+    });
+}
+
 async function buildHazirKupon(db, opts = {}) {
     await ensureTables(db);
     const tarih = opts.tarih || publicProgram.isoToTr(opts.iso) || publicProgram.todayTr();
@@ -260,13 +280,18 @@ async function buildHazirKupon(db, opts = {}) {
                 gunluk.totalPicks += pred.picks.length;
             }
 
+            const rawPicks = evaluation ? evaluation.picks : pred.picks;
+            const picks = enrichPicksWithTahmin(rawPicks, progRace.tahminler);
+            const tahminMatchCount = picks.filter((p) => p.inTahmin).length;
+
             const raceData = {
                 raceNo: progRace.raceNo,
                 mesafe: progRace.mesafe || progRace.distance || '',
                 saat: progRace.saat || progRace.time || '',
                 horseCount: pred.horseCount,
                 markedCount: pred.markedCount,
-                picks: evaluation ? evaluation.picks : pred.picks,
+                picks,
+                tahminMatchCount,
                 status: finished ? 'finished' : (pred.picks.length ? 'pending' : 'empty'),
                 actualTop4: finished ? actualTop4 : [],
                 finishByNo: finished && resultRace ? buildFinishByNo(resultRace) : {},

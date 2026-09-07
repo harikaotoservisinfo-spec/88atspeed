@@ -655,6 +655,13 @@
         ).join('');
     }
 
+    function formatTahminSkorCell(p) {
+        if (!p.inTahmin || p.tahminSkor == null) return '';
+        const rankHint = p.tahminRank != null ? ' (T#' + p.tahminRank + ')' : '';
+        return '<span class="pub-hazir-tahmin-skor" title="Tahminler skoru' + rankHint + '">%'
+            + escapeHtml(String(p.tahminSkor)) + '</span>';
+    }
+
     function renderRaceCard(race) {
         const statusCls = race.status === 'finished'
             ? (race.poolHit ? 'hit' : 'miss')
@@ -669,7 +676,7 @@
         if (race.picks?.length) {
             picksHtml = '<div class="pub-hazir-table-wrap"><table class="pub-hazir-pick-table"><thead><tr>'
                 + oddHeaders
-                + '<th class="pub-hazir-ayak-th">#</th><th>No</th><th>At</th><th>İşaretler</th><th>İlk4%</th><th>Pay</th>'
+                + '<th class="pub-hazir-ayak-th">#</th><th>No</th><th>At</th><th>İşaretler</th><th>İlk4% · Skor</th><th>Pay</th>'
                 + (race.status === 'finished' ? '<th>Sonuç</th>' : '')
                 + '</tr></thead><tbody>'
                 + race.picks.map((p) => {
@@ -681,13 +688,16 @@
                         + (p.hit ? '✓ ' + (p.finishPos || '?') + '.' : '✗')
                         + '</td>'
                         : '';
-                    return '<tr class="' + (p.hit ? 'pub-hazir-row-hit' : '') + '">'
+                    const nameCls = 'pub-hazir-name-td' + (p.inTahmin ? ' pub-hazir-name-match' : '');
+                    const ilk4Cell = '<span class="pub-hazir-pct">' + p.top4Prob + '%</span>'
+                        + formatTahminSkorCell(p);
+                    return '<tr class="' + (p.hit ? 'pub-hazir-row-hit' : '') + (p.inTahmin ? ' pub-hazir-row-tahmin-match' : '') + '">'
                         + oddCells
                         + '<td class="pub-hazir-ayak-td"><span class="pub-hazir-ayak">' + p.rank + '</span></td>'
                         + '<td><b>' + escapeHtml(p.no) + '</b></td>'
-                        + '<td class="pub-hazir-name-td">' + escapeHtml((p.name || '').slice(0, 22)) + '</td>'
+                        + '<td class="' + nameCls + '">' + escapeHtml((p.name || '').slice(0, 22)) + '</td>'
                         + '<td class="pub-hazir-markers">' + renderMarkerTags(p.markers) + '</td>'
-                        + '<td><span class="pub-hazir-pct">' + p.top4Prob + '%</span></td>'
+                        + '<td class="pub-hazir-ilk4-td">' + ilk4Cell + '</td>'
                         + '<td>' + (p.raceSharePct || 0) + '%</td>'
                         + resultCell
                         + '</tr>';
@@ -705,10 +715,15 @@
             ? '<div class="pub-hazir-actual">Gerçek ilk-4: <b>' + race.actualTop4.join(' · ') + '</b></div>'
             : '';
 
+        const tahminBadge = race.tahminMatchCount > 0
+            ? '<span class="pub-hazir-tahmin-badge">' + race.tahminMatchCount + '/4 tahmin</span>'
+            : '';
+
         return '<div class="pub-hazir-race-card pub-hazir-premium-card ' + statusCls + '" data-race="' + race.raceNo + '">'
             + '<div class="pub-hazir-race-hdr">'
             + '<span class="pub-hazir-race-no">Koşu ' + race.raceNo + '</span>'
             + (metaParts ? '<span class="pub-hazir-race-meta">' + metaParts + '</span>' : '')
+            + tahminBadge
             + '<span class="pub-hazir-race-status pub-hazir-status-' + statusCls + '">' + statusLabel + '</span>'
             + '</div>'
             + picksHtml
@@ -740,7 +755,9 @@
         root.innerHTML = ''
             + '<div class="pub-hazir-toolbar">'
             + '<div><h2 class="pub-hazir-title">Hazır Kupon — İlk 4 Tahmin</h2>'
-            + '<p class="pub-hazir-subtitle">TEK · S2 · S1 · YUV işaret analizi · ' + escapeHtml(data.tarih || '') + '</p></div>'
+            + '<p class="pub-hazir-subtitle">TEK · S2 · S1 · YUV işaret analizi · ' + escapeHtml(data.tarih || '') + '</p>'
+            + '<p class="pub-hazir-match-legend"><span class="pub-hazir-name-match-sample">Kırmızı at adı</span>'
+            + ' = Tahminler ve Hazır Kupon ortak · mor <b>%skor</b> = Tahminler skoru</p></div>'
             + '<button type="button" class="pub-hazir-refresh-btn" id="pubHazirRefresh" title="Yenile">↻ Yenile</button>'
             + '</div>'
             + renderCalibrationBanner(data.calibration)
