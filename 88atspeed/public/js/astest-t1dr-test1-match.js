@@ -199,6 +199,24 @@ const AtestT1drTest1Match = (function () {
         return out;
     }
 
+    function collectMatchingHorseKeys(race, meta, resolveKosular) {
+        const matched = new Set();
+        const rows = collectMatchRows(race, meta, resolveKosular);
+        for (let i = 0; i < rows.length; i++) {
+            const key = horseKey(rows[i].horse);
+            if (key) matched.add(key);
+        }
+        return matched;
+    }
+
+    function formatSonTestStarCell(horse, matchedKeys) {
+        const key = horseKey(horse);
+        if (!key || !matchedKeys || !matchedKeys.has(key)) {
+            return '<td class="col-t1dr-star">—</td>';
+        }
+        return '<td class="col-t1dr-star col-t1dr-star-hit" title="T1×DR=TEST1 — geçmiş GÖSTERİM satırında eşleşme var">★</td>';
+    }
+
     function formatRankPctCell(tahmin, calibrated, cls, missingTitle) {
         if (!calibrated) {
             return '<td class="' + cls + '" title="' + (missingTitle || 'Kalibrasyon gerekli') + '">—</td>';
@@ -360,6 +378,8 @@ const AtestT1drTest1Match = (function () {
     return {
         t1drEqualsTest1,
         collectMatchRows,
+        collectMatchingHorseKeys,
+        formatSonTestStarCell,
         buildRaceScoreMaps,
         renderRaces,
         bindRaceSelector,

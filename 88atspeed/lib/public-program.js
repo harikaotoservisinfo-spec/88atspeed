@@ -816,6 +816,37 @@ async function filterVitrinByTjk(tarih, hipodromlar, opts = {}) {
     return filtered;
 }
 
+/** Kamu vitrin yanıtından at geçmişi kosular[] kaldırılır (MB'larca JSON önlenir). */
+function stripHorseKosularFromRaces(races) {
+    return (races || []).map((race) => ({
+        ...race,
+        horses: (race.horses || []).map((h) => {
+            if (!h.kosular?.length) return h;
+            const slim = { ...h };
+            delete slim.kosular;
+            return slim;
+        })
+    }));
+}
+
+async function listPublicProgramHipodromlar(db, tarih) {
+    const rows = await new Promise((resolve, reject) => {
+        db.all(
+            `SELECT hipodrom_id, hipodrom, kosu_sayisi, ilk_kosu_saat, cekilme_tarihi
+             FROM public_gunluk_program WHERE tarih = ? AND durum = 'yayinda' ORDER BY hipodrom`,
+            [tarih],
+            (err, r) => (err ? reject(err) : resolve(r || []))
+        );
+    });
+    return rows.map((r) => ({
+        id: r.hipodrom_id,
+        name: r.hipodrom,
+        kosuSayisi: r.kosu_sayisi,
+        ilkKosuSaat: r.ilk_kosu_saat,
+        cekilmeTarihi: r.cekilme_tarihi
+    }));
+}
+
 async function prunePublicProgramNotInTjk(db, tarih, allowedIds) {
     if (!db || !tarih || !allowedIds?.size) return 0;
     const ids = [...allowedIds];
@@ -883,11 +914,11 @@ async function getPublicVitrin(db, tarih, opts = {}) {
         kosuSayisi: r.kosu_sayisi,
         ilkKosuSaat: r.ilk_kosu_saat,
         durum: r.durum,
-        kosular: mergeTahminIntoKosular(
+        kosular: stripHorseKosularFromRaces(mergeTahminIntoKosular(
             safeParseJson(r.program_json, []),
             r.tahmin_json
-        ),
-        tahminler: safeParseJson(r.tahmin_json, null),
+        )),
+        tahminler: null,
         yayinTarihi: r.yayin_tarihi,
         cekilmeTarihi: r.cekilme_tarihi
     }));
@@ -933,6 +964,12 @@ async function getTjkHipodromlarCached(tarih, fetchOpts = {}) {
     const entry = tjkListCache.get(tarih);
     if (entry && Date.now() - entry.at < TJK_CACHE_MS) {
         return { hipodromlar: entry.hipodromlar, cached: true };
+    }
+    if (fetchOpts.cacheOnly) {
+        if (entry?.hipodromlar?.length) {
+            return { hipodromlar: entry.hipodromlar, cached: true, stale: true };
+        }
+        return { hipodromlar: [], cached: false, stale: true };
     }
     const hipodromlar = await tjkScrape.fetchHipodromlarForDate(tarih, fetchOpts);
     tjkListCache.set(tarih, { at: Date.now(), hipodromlar });
@@ -1053,26 +1090,26 @@ function summarizeDayStatus(tarih, dbRows, tjkRows) {
 }
 
 async function getProgramSyncForDate(db, tarih, opts = {}) {
-    const vitrin = await getPublicVitrin(db, tarih, { tjkValidate: false });
+    const dbRows = await listPublicProgramHipodromlar(db, tarih);
     let tjkRows = [];
     let tjkError = null;
     let tjkCached = false;
 
-    if (opts.live !== false) {
-        try {
-            const tjk = await getTjkHipodromlarCached(tarih, {
-                maxAttempts: opts.maxAttempts || 3,
-                timeoutMs: opts.timeoutMs || 25000
-            });
-            tjkRows = tjk.hipodromlar;
-            tjkCached = tjk.cached;
-        } catch (err) {
-            tjkError = err.message;
-        }
+    const useLiveTjk = opts.live === true;
+    try {
+        const tjk = await getTjkHipodromlarCached(tarih, {
+            maxAttempts: useLiveTjk ? (opts.maxAttempts || 2) : 1,
+            timeoutMs: useLiveTjk ? (opts.timeoutMs || 12000) : 5000,
+            cacheOnly: !useLiveTjk
+        });
+        tjkRows = tjk.hipodromlar;
+        tjkCached = tjk.cached;
+    } catch (err) {
+        tjkError = err.message;
     }
 
     return {
-        ...summarizeDayStatus(tarih, vitrin.hipodromlar, tjkRows),
+        ...summarizeDayStatus(tarih, dbRows, tjkRows),
         tjkError,
         tjkCached
     };

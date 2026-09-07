@@ -14,6 +14,7 @@ const STARTUP_DELAY_MS = 45 * 1000;
 const STATE_FILE = path.join(__dirname, '..', 'data', 'yarin-fetch-state.json');
 const LOG_FILE = '/var/log/88atspeed-program.log';
 const STALE_RUNNING_MS = 3 * 60 * 60 * 1000;
+const STALE_NO_PID_MS = 20 * 60 * 1000;
 const APP_ROOT = path.join(__dirname, '..');
 
 let timer = null;
@@ -98,7 +99,16 @@ function isBackgroundFetchActive() {
     if (isPidAlive(state.childPid)) return true;
     if (!state.startedAt) return false;
     const age = Date.now() - new Date(state.startedAt).getTime();
-    return age < STALE_RUNNING_MS;
+    return age < STALE_NO_PID_MS;
+}
+
+function isStaleRunningState() {
+    const state = loadState();
+    if (state.status !== 'running') return false;
+    if (isPidAlive(state.childPid)) return false;
+    if (!state.startedAt) return true;
+    const age = Date.now() - new Date(state.startedAt).getTime();
+    return age >= STALE_NO_PID_MS;
 }
 
 function isRunningFromState(state) {
@@ -147,12 +157,16 @@ async function getStatus(db) {
 
     const tahminReady = !!tahminQuality.ready;
     const bgActive = isBackgroundFetchActive();
+    const staleRunning = isStaleRunningState();
     let status = 'idle';
     let message = '';
 
     if (bgActive) {
         status = 'running';
         message = phaseMessage(state);
+    } else if (staleRunning) {
+        status = 'error';
+        message = 'Çekim takıldı veya yarıda kaldı — yeniden başlatılıyor…';
     } else if (tahminReady) {
         status = 'done';
         message = tahminQuality.hipodromSayisi + ' hipodrom · '
@@ -189,7 +203,13 @@ async function getStatus(db) {
         basarili: state.basarili || 0,
         scheduleDue: isScheduleDue(),
         running: status === 'running' || status === 'pending',
-        backgroundActive: bgActive
+        backgroundActive: bgActive,
+        staleRunning,
+        childPid: state.childPid || null,
+        childAlive: isPidAlive(state.childPid),
+        elapsedMs: state.startedAt
+            ? Date.now() - new Date(state.startedAt).getTime()
+            : null
     };
 }
 
@@ -198,6 +218,14 @@ function spawnTomorrowFetch(opts = {}) {
         console.log('program-scheduler: çekim zaten çalışıyor (pid ' + (loadState().childPid || '?') + ')');
         return false;
     }
+    try {
+        const { execSync } = require('child_process');
+        const out = execSync("pgrep -f 'fetch-public-program.js.*--yarin' || true", { encoding: 'utf8' }).trim();
+        if (out) {
+            console.log('program-scheduler: fetch-public-program-yarin zaten çalışıyor (pgrep)');
+            return false;
+        }
+    } catch (_) { /* */ }
     if (spawnInFlight) return false;
     spawnInFlight = true;
 
@@ -287,6 +315,10 @@ function start(db, opts = {}) {
 
     timer = setInterval(() => {
         runIfDue(db).catch((err) => console.warn('program-scheduler:', err.message));
+        if (isStaleRunningState() && !isBackgroundFetchActive()) {
+            console.warn('program-scheduler: stale running state — yeniden spawn');
+            spawnTomorrowFetch({ force: true, source: 'stale-recovery' });
+        }
     }, CHECK_MS);
 }
 

@@ -757,7 +757,7 @@
     <script src="js/astest-son-ptest-tahmin.js?v=20260903bundle"></script>
     <script src="js/gosterim-headers.js?v=20260901a"></script>
     <script src="js/astest-son-gosterim-cols.js?v=20260903c"></script>
-    <script src="js/astest-t1dr-test1-match.js?v=20260903bitis"></script>
+    <script src="js/astest-t1dr-test1-match.js?v=20260905sontest"></script>
     <script>
         const RECENT_WINDOWS = FieldSizeStatsEngine.RECENT_WINDOWS;
 
@@ -1886,6 +1886,7 @@
                 + '👥 KOŞU AT SAYISI, 🏟️ ŞEHİR, 🏇 KOŞU CİNSİ, 🎽 TAKİ, 🌿 PİST, 📊 HP, ⚖️ SİKLET. '
                 + 'Her sütun ilgili sekmedeki BAŞ+ ile aynı hesap (SON800-1 · Δ boost dahil). '
                 + '<strong>TAHMİN</strong> = 7 BAŞ+ · '
+                + '<strong>T1×DR</strong> = KOŞU AT SAYISI testi (★ geçmişte T1×DR=TEST1 eşleşmesi) · '
                 + '<strong>R2</strong> = Renk Puanlama · '
                 + '<strong>MTR/T9V/ASF/G1↕/G1⇄/GÖ/HYB</strong> = PUANLAMA TEST motorları · '
                 + '<strong>GÖSTERİM (SIRA=1)</strong> = gösterim sekmesi · en yeni geçmiş koşu satırı (tam renklendirme). '
@@ -1925,6 +1926,7 @@
                 html += '<thead><tr>';
                 html += '<th class="col-no">#</th>';
                 html += '<th class="col-name">AT İSMİ</th>';
+                html += '<th class="col-t1dr-star-hdr" title="T1×DR=TEST1 — GÖSTERİM geçmiş satırında T1×DR ile TEST1 eşleşmesi">T1×DR</th>';
                 html += '<th class="col-k1" title="Bugünkü koşudaki at sayısı">K1</th>';
                 for (let si = 0; si < SON_TEST_BAS_SOURCES.length; si++) {
                     const src = SON_TEST_BAS_SOURCES[si];
@@ -1952,10 +1954,13 @@
                     html += AtestSonGosterimCols.renderHeaderCells(escapeHtml);
                 }
                 html += '</tr></thead><tbody>';
-                const totalCols = 4 + SON_TEST_BAS_SOURCES.length + extraTahminColCount + gosColCount + (showBitisCol ? 1 : 0);
+                const totalCols = 5 + SON_TEST_BAS_SOURCES.length + extraTahminColCount + gosColCount + (showBitisCol ? 1 : 0);
                 if (!horses.length) {
                     html += '<tr><td colspan="' + totalCols + '" class="col-name">At yok</td></tr>';
                 } else {
+                    const t1drMatched = typeof AtestT1drTest1Match !== 'undefined'
+                        ? AtestT1drTest1Match.collectMatchingHorseKeys(race, meta, resolveHorseKosular)
+                        : new Set();
                     let renkByKey = new Map();
                     let ptestByCol = {};
                     if (renkCalibrated && typeof AtestSonRenkTahmin !== 'undefined') {
@@ -2022,6 +2027,11 @@
                             html += '<td class="col-no">' + escapeHtml(String(h.no ?? (j + 1))) + '</td>';
                         }
                         html += '<td class="col-name">' + escapeHtml(h.name || '—') + '</td>';
+                        if (typeof AtestT1drTest1Match !== 'undefined') {
+                            html += AtestT1drTest1Match.formatSonTestStarCell(h, t1drMatched);
+                        } else {
+                            html += '<td class="col-t1dr-star">—</td>';
+                        }
                         html += '<td class="col-k1">' + raceK1 + '</td>';
                         for (let si = 0; si < SON_TEST_BAS_SOURCES.length; si++) {
                             const src = SON_TEST_BAS_SOURCES[si];

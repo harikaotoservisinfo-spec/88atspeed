@@ -9,6 +9,7 @@ const {
     openDb,
     dbAll
 } = require('../scripts/ptest-terminal-lib');
+const { annotateKosular } = require('./t1dr-test1-match');
 
 let enginesLoaded = false;
 let calibrationPromise = null;
@@ -130,6 +131,14 @@ async function buildAtIdKosularIndex(db) {
         }
     }
     return index;
+}
+
+function veriCacheFromAtIndex(atIndex) {
+    const veriCache = {};
+    for (const [atId, rec] of atIndex) {
+        if (rec?.kosular?.length) veriCache[atId] = rec.kosular;
+    }
+    return veriCache;
 }
 
 function resolveHorseKosular(veriCache, horse) {
@@ -418,16 +427,18 @@ async function buildTahminForHipodrom(db, tarih, hipodromRow, opts = {}) {
         scored++;
     }
 
+    const annotatedRaces = annotateKosular(races, { ...meta, veriCache });
+
     return {
         hipodrom: hipodromRow.hipodrom,
         hipodromId: hipodromRow.hipodrom_id,
-        raceCount: races.length,
+        raceCount: annotatedRaces.length,
         scored,
         dataHits,
         engine: global.HybridTahminScoringEngine?.isCalibrated?.() ? 'hybrid' : 'fallback',
         byRace,
         byHorseByRace,
-        races,
+        races: annotatedRaces,
         tahminPayload: {
             generatedAt: new Date().toISOString(),
             engine: 'hybrid',
@@ -590,5 +601,7 @@ module.exports = {
     mergeTahminIntoKosular,
     ensureCalibration,
     assessTahminReadiness,
-    getProgramRows
+    getProgramRows,
+    buildAtIdKosularIndex,
+    veriCacheFromAtIndex
 };
