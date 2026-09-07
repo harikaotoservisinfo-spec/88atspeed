@@ -8,6 +8,7 @@
         activeHipId: null,
         activeTahminHipId: null,
         vitrin: null,
+        tahminPollCount: 0,
         muhtemeller: null,
         muhtIso: null,
         muhtHipKey: null,
@@ -41,7 +42,12 @@
         sonucHipId: null,
         sonucLastUpdate: null,
         sonucLoading: false,
-        yarinFetch: null
+        yarinFetch: null,
+        rehberData: null,
+        kayitEvalKayitlar: [],
+        kayitEvalId: null,
+        kayitEvalData: null,
+        kayitEvalLoading: false
     };
 
     const MUHT_REFRESH_SEC = 15;
@@ -60,6 +66,7 @@
     let muhtPollTimer = null;
     let progGanyanPollTimer = null;
     let sonucPollTimer = null;
+    let rehberPollTimer = null;
     let muhtSelectTimer = null;
     let tjkTvLoaded = false;
     let tjkHls = null;
@@ -191,8 +198,8 @@
         return t.rank + '. %' + t.pct;
     }
 
-    function getTahminScoreColumnDefs(kosular) {
-        const all = [
+    function getTahminScoreColumnDefs() {
+        return [
             { key: 'score_tahmin', scoreKey: 'tahmin', label: 'TAHMİN', cls: 'pub-prog-score pub-prog-score-tahmin', colCls: 'pub-col-score pub-col-score-tahmin', title: '7 BAŞ+ boyut karışımı · dimension-tahmin motoru' },
             { key: 'score_r2', scoreKey: 'r2', label: 'R2', cls: 'pub-prog-score pub-prog-score-r2', colCls: 'pub-col-score pub-col-score-r2', title: 'Renk Puanlama Test · R2' },
             { key: 'score_mtr', scoreKey: 'mtr', label: 'MTR', cls: 'pub-prog-score pub-prog-score-ptest', colCls: 'pub-col-score pub-col-score-ptest', title: 'Metrik Tarama · SON800-1 %10 · T9V %40' },
@@ -203,12 +210,6 @@
             { key: 'score_go', scoreKey: 'go', label: 'GÖ', cls: 'pub-prog-score pub-prog-score-ptest', colCls: 'pub-col-score pub-col-score-ptest', title: 'Gösterge · tam puanlama motoru' },
             { key: 'score_hyb', scoreKey: 'hyb', label: 'HYB', cls: 'pub-prog-score pub-prog-score-ptest', colCls: 'pub-col-score pub-col-score-ptest', title: 'Hibrit TAHMİN' }
         ];
-        const races = Array.isArray(kosular) ? kosular : (kosular?.kosular || []);
-        const horses = races.flatMap((r) => r.horses || []);
-        return all.filter((col) => horses.some((h) => {
-            const t = h.scores?.[col.scoreKey];
-            return t && t.rank != null && t.pct != null && t.pct > 0;
-        }));
     }
 
     function formatTahminPicks(tahminler) {
@@ -304,12 +305,19 @@
     async function loadProgramSync() {
         const el = $('#pubProgramSyncBody');
         if (!el) return;
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), 15000);
         try {
-            const res = await fetch('/api/public/program-sync');
+            const res = await fetch('/api/public/program-sync', { signal: controller.signal });
+            clearTimeout(tid);
             const data = await res.json();
             renderProgramSync(data);
         } catch (err) {
-            el.innerHTML = '<div class="pub-program-sync-meta">Bağlantı hatası: ' + escapeHtml(err.message || '') + '</div>';
+            clearTimeout(tid);
+            const msg = err.name === 'AbortError'
+                ? 'Durum zaman aşımı (15 sn). Sunucu yoğun olabilir — ↻ ile tekrar deneyin.'
+                : ('Bağlantı hatası: ' + (err.message || ''));
+            el.innerHTML = '<div class="pub-program-sync-meta">' + escapeHtml(msg) + '</div>';
         }
     }
 
@@ -322,6 +330,16 @@
             const snippet = text.replace(/\s+/g, ' ').trim().slice(0, 120);
             throw new Error('Sunucu JSON yerine başka yanıt döndü (HTTP ' + res.status + '): ' + snippet);
         }
+    }
+
+    function isRetryableLoadError(err, res) {
+        if (err?.name === 'AbortError') return true;
+        const status = res?.status;
+        if (status === 502 || status === 503 || status === 504) return true;
+        const msg = err?.message || '';
+        if (/aborted|network|fetch failed|failed to fetch/i.test(msg)) return true;
+        if (/HTTP 502|HTTP 503|HTTP 504|Bad Gateway|Gateway Timeout/i.test(msg)) return true;
+        return false;
     }
 
     function isTomorrowIso(iso) {
@@ -338,6 +356,37 @@
 
     let vitrinAbortController = null;
     let vitrinLoadSeq = 0;
+    let tahminScorePollTimer = null;
+
+    function countHorsesWithScores(hipodromlar) {
+        let n = 0;
+        for (const hip of hipodromlar || []) {
+            for (const race of hip.kosular || []) {
+                for (const h of race.horses || []) {
+                    const sc = h.scores || {};
+                    if (Object.values(sc).some((t) => t && t.pct != null && t.pct > 0)) n++;
+                }
+            }
+        }
+        return n;
+    }
+
+    function scheduleTahminScorePoll(iso) {
+        if (tahminScorePollTimer) {
+            clearTimeout(tahminScorePollTimer);
+            tahminScorePollTimer = null;
+        }
+        const total = (state.hipodromlar || []).reduce((sum, hip) => sum
+            + (hip.kosular || []).reduce((s, r) => s + (r.horses || []).length, 0), 0);
+        if (!total || countHorsesWithScores(state.hipodromlar) > 0) {
+            state.tahminPollCount = 0;
+            return;
+        }
+        const n = (state.tahminPollCount || 0) + 1;
+        if (n > 12) return;
+        state.tahminPollCount = n;
+        tahminScorePollTimer = setTimeout(() => loadVitrin(iso), 15000);
+    }
 
     function renderYarinFetchUi() {
         const bar = $('#gunun-kosulari');
@@ -446,15 +495,16 @@
         raceList.innerHTML = '<div class="pub-loading"><div class="pub-spinner"></div>Program yükleniyor…</div>';
         hipTabs.innerHTML = '';
 
-        const maxAttempts = 3;
+        const maxAttempts = 5;
         let lastErr = null;
 
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             if (loadId !== vitrinLoadSeq) return;
             const signal = vitrinAbortController.signal;
+            let res = null;
             try {
-                const tid = setTimeout(() => vitrinAbortController?.abort(), 90000);
-                const res = await fetch('/api/public/vitrin?iso=' + encodeURIComponent(clampedIso), {
+                const tid = setTimeout(() => vitrinAbortController?.abort(), 35000);
+                res = await fetch('/api/public/vitrin?iso=' + encodeURIComponent(clampedIso), {
                     signal,
                     cache: 'no-store'
                 });
@@ -501,16 +551,21 @@
             if ($('#panel-kosular')?.classList.contains('active')) {
                 startProgramGanyanPolling();
             }
+            if ($('#panel-rehber')?.classList.contains('active')) {
+                loadRehberLeaderboard({ silent: true });
+            }
+            if ($('#panel-hazir')?.classList.contains('active')) {
+                window.pubHazirKupon?.load({ iso: clampedIso });
+            }
+            scheduleTahminScorePoll(clampedIso);
             return;
             } catch (err) {
                 lastErr = err;
                 if (loadId !== vitrinLoadSeq) return;
-                const retryable = err.name === 'AbortError'
-                    || /aborted|network|fetch|failed/i.test(err.message || '');
-                if (attempt < maxAttempts && retryable) {
+                if (attempt < maxAttempts && isRetryableLoadError(err, res)) {
                     raceList.innerHTML = '<div class="pub-loading"><div class="pub-spinner"></div>'
-                        + 'Yeniden deneniyor (' + (attempt + 1) + '/' + maxAttempts + ')…</div>';
-                    await new Promise((r) => setTimeout(r, 1500 * attempt));
+                        + 'Sunucu hazırlanıyor, yeniden deneniyor (' + (attempt + 1) + '/' + maxAttempts + ')…</div>';
+                    await new Promise((r) => setTimeout(r, 2000 * attempt));
                     vitrinAbortController = new AbortController();
                     continue;
                 }
@@ -843,10 +898,386 @@
         if (takiIdx >= 0) filtered.splice(takiIdx + 1, 0, bltCol, gp2Col);
         else filtered.push(bltCol, gp2Col);
         filtered.push(...getBitalihColumnDefs());
-        filtered.push(...getTahminScoreColumnDefs(kosular));
+        filtered.push(...getTahminScoreColumnDefs());
+        filtered.push(...getYildizColumnDef(kosular));
         const fobCols = getFobColumnDefs();
         if (fobCols.length) filtered.push(...fobCols);
         return filtered;
+    }
+
+    function getYildizColumnDef(kosular) {
+        const races = Array.isArray(kosular) ? kosular : (kosular?.kosular || []);
+        const horses = races.flatMap((r) => r.horses || []);
+        const hasStars = horses.some((h) => Array.isArray(h.yildizlar) && h.yildizlar.length);
+        if (!hasStars) return [];
+        return [{
+            key: 'yildizTek',
+            label: 'TEK',
+            cls: 'pub-prog-yildiztek',
+            colCls: 'pub-col-yildiztek',
+            title: 'Yalnızca bu ata özgü işaretler (koşudaki diğer atlarda olmayan)'
+        }, {
+            key: 'yildizSon2Tek',
+            label: 'S2',
+            cls: 'pub-prog-yildizson2tek',
+            colCls: 'pub-col-yildizson2tek',
+            title: 'Son 2 koşuda yalnız bu ata özgü işaretler (diğer atlarda olmayan)'
+        }, {
+            key: 'yildizSon1Tek',
+            label: 'S1',
+            cls: 'pub-prog-yildizson1tek',
+            colCls: 'pub-col-yildizson1tek',
+            title: 'Son koşuda yalnız bu ata özgü işaretler (diğer atlarda olmayan)'
+        }, {
+            key: 'yildizYuvarlak',
+            label: 'YUV',
+            cls: 'pub-prog-yildizyuvarlak',
+            colCls: 'pub-col-yildizyuvarlak',
+            title: 'TEST1/TEST2/TEST3 en iyi 3 yuvarlak (●) işaretler'
+        }, {
+            key: 'yildizGrup',
+            label: 'GÖSTERGE',
+            cls: 'pub-prog-yildizgrup',
+            colCls: 'pub-col-yildizgrup',
+            title: 'Son 7 yarış — koşu-başı işaretler ve ivme'
+        }];
+    }
+
+    function horseRowKey(h) {
+        if (h?.atId != null && h.atId !== '') return String(h.atId);
+        if (h?.no != null && h.no !== '') return 'no:' + String(h.no);
+        return 'name:' + String(h.name || '');
+    }
+
+    /** GÖSTERGE işaretinin koşu içi karşılaştırma anahtarı */
+    function gostergeMarkerSignature(y) {
+        const sutun = String(y?.t || '').split(' · ')[1] || '';
+        if (y.s8) return 's8:' + (y.s8r || 0);
+        if (y.tei) return 'tei:' + (y.teik ? 'k' : y.teiy ? 'y' : y.teis ? 's' : 'm');
+        if (y.shs) return 'shs:' + (y.shk ? 'k' : 'm');
+        if (y.t46) return 't46';
+        if (y.t12) return 't12:' + (y.t12k ? 'k' : 'o');
+        if (y.t9m) return 't9m';
+        if (y.t5k) return 't5k';
+        if (y.f8g) return 'f8g';
+        if (y.tkl) return 'tkl';
+        if (y.t4) return 't4';
+        if (y.t1yk) return 't1yk';
+        if (y.t1ym) return 't1ym';
+        if (y.t1y) return 't1y';
+        if (y.t2yk) return 't2yk';
+        if (y.t2ym) return 't2ym';
+        if (y.t2y) return 't2y';
+        if (y.t3yk) return 't3yk';
+        if (y.t3ym) return 't3ym';
+        if (y.t3y) return 't3y';
+        if (y.tkr) return 'tkr';
+        if (y.tmk) return 'tmk';
+        if (y.ttsk) return 'ttsk';
+        if (y.ttsm) return 'ttsm';
+        if (y.tts) return 'tts';
+        if (y.ttyk) return 'ttyk';
+        if (y.ttym) return 'ttym';
+        if (y.tty) return 'tty';
+        return (y.ad || 'star') + '|' + sutun;
+    }
+
+    function isSon2GostergeMarker(y) {
+        const k = parseInt(y?.k, 10);
+        return !isNaN(k) && k >= 1 && k <= 2;
+    }
+
+    function isSon1GostergeMarker(y) {
+        const k = parseInt(y?.k, 10);
+        return k === 1;
+    }
+
+    /** TEST1/TEST2/TEST3 en iyi 3 yuvarlak (●) kuralı */
+    function isYuvarlakGostergeMarker(y) {
+        return !!(y.t1y || y.t1ym || y.t1yk || y.t2y || y.t2ym || y.t2yk || y.t3y || y.t3ym || y.t3yk);
+    }
+
+    function collectYuvarlakGostergeMarkers(h) {
+        return (Array.isArray(h.yildizlar) ? h.yildizlar : []).filter(isYuvarlakGostergeMarker);
+    }
+
+    /** Koşu içinde yalnızca bir ata ait işaret listeleri (isteğe bağlı filtre) */
+    function buildRaceUniqueGostergeMap(horses, markerFilter) {
+        const rows = (horses || []).map((h) => {
+            const raw = Array.isArray(h.yildizlar) ? h.yildizlar : [];
+            const list = markerFilter ? raw.filter(markerFilter) : raw;
+            const sigs = new Set(list.map(gostergeMarkerSignature));
+            return { key: horseRowKey(h), list, sigs };
+        });
+        const horseCountBySig = new Map();
+        rows.forEach(({ sigs }) => {
+            sigs.forEach((sig) => horseCountBySig.set(sig, (horseCountBySig.get(sig) || 0) + 1));
+        });
+        const uniqueMap = new Map();
+        rows.forEach(({ key, list }) => {
+            const seen = new Set();
+            const unique = [];
+            for (const y of list) {
+                const sig = gostergeMarkerSignature(y);
+                if (horseCountBySig.get(sig) !== 1 || seen.has(sig)) continue;
+                seen.add(sig);
+                unique.push(y);
+            }
+            uniqueMap.set(key, unique);
+        });
+        return uniqueMap;
+    }
+
+    function renderStarRun(list, vurguCls) {
+        if (!Array.isArray(list) || !list.length) return '<span class="pub-prog-yildiz-empty">—</span>';
+        return list.map((y) => {
+            const cls = 'pub-prog-yildiz-star' + (y.v && vurguCls ? ' ' + vurguCls : '');
+            return '<span class="' + cls + '" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">★</span>';
+        }).join('');
+    }
+
+    // Kronolojik SON 7: koşular (k=sira) arası ince ayraç; en eski → en yeni
+    function renderStarRunKron(list) {
+        if (!Array.isArray(list) || !list.length) return '<span class="pub-prog-yildiz-empty">—</span>';
+        let html = '';
+        let prevK = null;
+        list.forEach((y) => {
+            if (prevK !== null && y.k !== prevK) html += '<span class="pub-yildiz-ayrac" title="' + escapeHtml((y.k || '') + '. koşu') + '"></span>';
+            prevK = y.k;
+            html += '<span class="pub-prog-yildiz-star" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">★</span>';
+        });
+        return html;
+    }
+
+    function formatIvmeCell(h) {
+        const iv = h.yildizIvme;
+        if (!iv) return '';
+        const d = Array.isArray(iv.d) ? iv.d : [null, null, null];
+        const chip = (label, v, yeni) => {
+            let txt;
+            let cls;
+            if (yeni) { txt = '↑yeni'; cls = 'pos'; }
+            else if (v == null) { txt = '—'; cls = 'nil'; }
+            else { txt = (v >= 0 ? '+' : '') + v + '%'; cls = v > 0 ? 'pos' : (v < 0 ? 'neg' : 'nil'); }
+            return '<span class="pub-ivme-chip ' + cls + '"><b>' + label + '</b>&nbsp;' + txt + '</span>';
+        };
+        const dens = (x) => (x == null ? '—' : x);
+        const tip = 'Ayrık pencere yıldız yoğunluğu (yıldız/koşu)\n'
+            + 'taban 3-7: ' + dens(d[0]) + ' · 2. koşu: ' + dens(d[1]) + ' · son koşu: ' + dens(d[2]);
+        return '<div class="pub-prog-ivme" title="' + escapeHtml(tip) + '">'
+            + '<span class="pub-ivme-lbl">İVME</span>'
+            + chip('3-7→2', iv.t2, iv.t2y)
+            + chip('2→1', iv.t1, iv.t1y)
+            + '</div>';
+    }
+
+    function ivmeArrow(v, yeni) {
+        if (yeni) return '<span class="pub-yk-arrow pos">↑yeni</span>';
+        if (v == null) return '<span class="pub-yk-arrow nil">—</span>';
+        const dir = v > 0 ? '↗' : (v < 0 ? '↘' : '→');
+        const cls = v > 0 ? 'pos' : (v < 0 ? 'neg' : 'nil');
+        return '<span class="pub-yk-arrow ' + cls + '">' + dir + (v >= 0 ? '+' : '') + v + '%</span>';
+    }
+
+    function formatGostergeMarker(y) {
+        let vCls = '';
+        if (y.t4) vCls = ' vurgu-t1dr-top4';
+        else if (y.tkl) vCls = ' vurgu-test-pembe';
+        else if (y.t9m) vCls = ' vurgu-test9-mor';
+        else if (y.t5k) vCls = ' vurgu-test5-kahve';
+        else if (y.f8g) vCls = ' vurgu-fark8002-sifir';
+        else if (y.t12k) vCls = ' vurgu-test12-kirmizi';
+        else if (y.t12o) vCls = ' vurgu-test12-turuncu';
+        else if (y.tkr) vCls = ' vurgu-kirmizi-kenar';
+        else if (y.tmk) vCls = ' vurgu-mavi-kenar';
+        else if (y.ttsk) vCls = ' vurgu-sari-tam-kirmizi';
+        else if (y.ttsm) vCls = ' vurgu-sari-tam-mavi';
+        else if (y.tts) vCls = ' vurgu-sari-tam';
+        else if (y.ttyk) vCls = ' vurgu-yesil-tam-kirmizi';
+        else if (y.ttym) vCls = ' vurgu-yesil-tam-mavi';
+        else if (y.tty) vCls = ' vurgu-yesil-tam';
+        else if (y.t1yk) vCls = ' vurgu-test1-yesil-kirmizi';
+        else if (y.t1ym) vCls = ' vurgu-test1-yesil-mavi';
+        else if (y.t1y) vCls = ' vurgu-test1-yesil';
+        else if (y.t2yk) vCls = ' vurgu-test2-yesil-kirmizi';
+        else if (y.t2ym) vCls = ' vurgu-test2-yesil-mavi';
+        else if (y.t2y) vCls = ' vurgu-test2-yesil';
+        else if (y.t3yk) vCls = ' vurgu-test3-gri-kirmizi';
+        else if (y.t3ym) vCls = ' vurgu-test3-gri-mavi';
+        else if (y.t3y) vCls = ' vurgu-test3-gri';
+        else if (y.s8k) {
+            if (y.s8r === 1) vCls = ' vurgu-son8001-yesil-kirmizi';
+            else if (y.s8r === 2) vCls = ' vurgu-son8001-sari-kirmizi';
+            else vCls = ' vurgu-son8001-kirmizi-kirmizi';
+        } else if (y.s8m) {
+            if (y.s8r === 1) vCls = ' vurgu-son8001-yesil-mavi';
+            else if (y.s8r === 2) vCls = ' vurgu-son8001-sari-mavi';
+            else vCls = ' vurgu-son8001-kirmizi-mavi';
+        } else if (y.s8r === 1) vCls = ' vurgu-son8001-yesil';
+        else if (y.s8r === 2) vCls = ' vurgu-son8001-sari';
+        else if (y.s8) vCls = ' vurgu-son8001-kirmizi';
+        else if (y.shk) vCls = ' vurgu-sehir-kirmizi';
+        else if (y.shm) vCls = ' vurgu-sehir-mavi';
+        else if (y.v) vCls = ' vurgu';
+        let glyph = '★';
+        if (y.tei) glyph = 'T';
+        else if (y.shs) glyph = 'Ş';
+        else if (y.t46) glyph = '4';
+        else if (y.t12) glyph = '2';
+        else if (y.s8) glyph = '8';
+        else if (y.t1y || y.t1ym || y.t1yk || y.t2y || y.t2ym || y.t2yk || y.t3y || y.t3ym || y.t3yk) glyph = '●';
+        if (y.tei) {
+            if (y.teiy) vCls = ' vurgu-yesil-tam';
+            else if (y.teis) vCls = ' vurgu-sari-tam';
+            else if (y.teik) vCls = ' vurgu-sehir-kirmizi';
+            else vCls = ' vurgu-sehir-mavi';
+        } else if (y.shs) {
+            vCls = y.shk ? ' vurgu-sehir-kirmizi' : ' vurgu-sehir-mavi';
+        } else if (y.t46) {
+            vCls = ' vurgu-test46-acik-mavi';
+        } else if (y.t12) {
+            vCls = y.t12k ? ' vurgu-test12-kirmizi' : ' vurgu-test12-turuncu';
+        } else if (y.s8) {
+            if (y.s8k) {
+                if (y.s8r === 1) vCls = ' vurgu-son8001-yesil-kirmizi';
+                else if (y.s8r === 2) vCls = ' vurgu-son8001-sari-kirmizi';
+                else vCls = ' vurgu-son8001-kirmizi-kirmizi';
+            } else if (y.s8m) {
+                if (y.s8r === 1) vCls = ' vurgu-son8001-yesil-mavi';
+                else if (y.s8r === 2) vCls = ' vurgu-son8001-sari-mavi';
+                else vCls = ' vurgu-son8001-kirmizi-mavi';
+            } else if (y.s8r === 1) vCls = ' vurgu-son8001-yesil';
+            else if (y.s8r === 2) vCls = ' vurgu-son8001-sari';
+            else vCls = ' vurgu-son8001-kirmizi';
+        }
+        return '<span class="pub-prog-yildiz-star' + vCls + '" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">' + glyph + '</span>';
+    }
+
+    // "7" satırı: her yarış ayrı sütun (yıldızlar üstte, koşu-başı sayı altta),
+    // yarışlar 7→1 kronolojik; taban(3-7)→2 ve 2→1 geçişlerinde ivme okları.
+    function formatKronGrid(h) {
+        const list = Array.isArray(h.yildizlar) ? h.yildizlar : [];
+        if (!list.length) return '<span class="pub-prog-yildiz-empty">—</span>';
+        const iv = h.yildizIvme || {};
+        const byK = new Map();
+        list.forEach((y) => {
+            const k = y.k;
+            if (!byK.has(k)) byK.set(k, []);
+            byK.get(k).push(y);
+        });
+        const sep = (arrowHtml) => '<div class="pub-yk-sep"><span class="pub-yk-line"></span>' + arrowHtml + '</div>';
+        let html = '<div class="pub-yk-grid">';
+        let prevGroup = null;
+        for (let k = 7; k >= 1; k--) {
+            const arr = byK.get(k);
+            if (!arr) continue;
+            const group = k >= 3 ? 'taban' : (k === 2 ? 'orta' : 'guncel');
+            if (prevGroup === 'taban' && group === 'orta') html += sep(ivmeArrow(iv.t2, iv.t2y));
+            if ((prevGroup === 'taban' || prevGroup === 'orta') && group === 'guncel') html += sep(ivmeArrow(iv.t1, iv.t1y));
+            const stars = arr.map((y) => formatGostergeMarker(y)).join('');
+            html += '<div class="pub-yk-col" title="' + k + '. koşu">'
+                + '<span class="pub-yk-stars">' + stars + '</span>'
+                + '<span class="pub-yk-n">' + arr.length + '</span>'
+                + '<span class="pub-yk-k">' + k + '</span>'
+                + '</div>';
+            prevGroup = group;
+        }
+        html += '</div>';
+        return html;
+    }
+
+    function formatYildizGrupCell(h) {
+        return '<div class="pub-prog-yildiz-satir kron">'
+            + '<span class="pub-prog-yildiz-lbl" title="' + escapeHtml('Son 7 yarış — en yeni → eski, koşu-başı yıldız + ivme') + '">7</span>'
+            + '<span class="pub-prog-yildiz-wrap">' + formatKronGrid(h) + '</span>'
+            + '</div>';
+    }
+
+    function formatYildizTekCell(h, ctx) {
+        const list = ctx?.uniqueGostergeMap?.get(horseRowKey(h)) || [];
+        if (!list.length) return '<span class="pub-prog-yildiz-empty">—</span>';
+        return '<div class="pub-prog-yildiz-tek-wrap" title="' + escapeHtml('Koşudaki diğer atlarda olmayan işaretler') + '">'
+            + '<span class="pub-prog-yildiz-tek-lbl">TEK</span>'
+            + '<span class="pub-prog-yildiz-tek-stars">' + list.map((y) => formatGostergeMarker(y)).join('') + '</span>'
+            + '</div>';
+    }
+
+    function formatYildizSon2TekCell(h, ctx) {
+        const list = ctx?.uniqueSon2GostergeMap?.get(horseRowKey(h)) || [];
+        if (!list.length) return '<span class="pub-prog-yildiz-empty">—</span>';
+        return '<div class="pub-prog-yildiz-son2tek-wrap" title="' + escapeHtml('Son 2 koşuda diğer atlarda olmayan işaretler') + '">'
+            + '<span class="pub-prog-yildiz-son2tek-lbl">S2</span>'
+            + '<span class="pub-prog-yildiz-tek-stars">' + list.map((y) => formatGostergeMarker(y)).join('') + '</span>'
+            + '</div>';
+    }
+
+    function formatYildizSon1TekCell(h, ctx) {
+        const list = ctx?.uniqueSon1GostergeMap?.get(horseRowKey(h)) || [];
+        if (!list.length) return '<span class="pub-prog-yildiz-empty">—</span>';
+        return '<div class="pub-prog-yildiz-son1tek-wrap" title="' + escapeHtml('Son koşuda diğer atlarda olmayan işaretler') + '">'
+            + '<span class="pub-prog-yildiz-son1tek-lbl">S1</span>'
+            + '<span class="pub-prog-yildiz-tek-stars">' + list.map((y) => formatGostergeMarker(y)).join('') + '</span>'
+            + '</div>';
+    }
+
+    function formatYildizYuvarlakCell(h) {
+        const list = collectYuvarlakGostergeMarkers(h);
+        if (!list.length) return '<span class="pub-prog-yildiz-empty">—</span>';
+        return '<div class="pub-prog-yildiz-yuvarlak-wrap" title="' + escapeHtml('TEST1/TEST2/TEST3 en iyi 3 yuvarlak işaretler') + '">'
+            + '<span class="pub-prog-yildiz-yuvarlak-lbl">●</span>'
+            + '<span class="pub-prog-yildiz-tek-stars">' + list.map((y) => formatGostergeMarker(y)).join('') + '</span>'
+            + '</div>';
+    }
+
+    function isYildizHtmlCol(key) {
+        return key === 'yildizGrup' || key === 'yildizTek' || key === 'yildizSon2Tek'
+            || key === 'yildizSon1Tek' || key === 'yildizYuvarlak';
+    }
+
+    function computeYildizGrupWidth(kosular) {
+        let maxTotal = 0;
+        for (const race of kosular || []) {
+            for (const h of race.horses || []) {
+                const n = Array.isArray(h.yildizlar) ? h.yildizlar.length : 0;
+                if (n > maxTotal) maxTotal = n;
+            }
+        }
+        // tek satır yıldızlar yan yana + sütun boşlukları + ayraç/ok + etiket
+        return Math.min(2200, Math.max(680, maxTotal * 12 + 210));
+    }
+
+    function computeYildizUniqueColWidth(kosular, markerFilter) {
+        let maxUnique = 0;
+        for (const race of kosular || []) {
+            const uniqueMap = buildRaceUniqueGostergeMap(race.horses || [], markerFilter);
+            for (const list of uniqueMap.values()) {
+                if (list.length > maxUnique) maxUnique = list.length;
+            }
+        }
+        return Math.min(480, Math.max(110, maxUnique * 20 + 36));
+    }
+
+    function computeYildizTekWidth(kosular) {
+        return computeYildizUniqueColWidth(kosular);
+    }
+
+    function computeYildizSon2TekWidth(kosular) {
+        return computeYildizUniqueColWidth(kosular, isSon2GostergeMarker);
+    }
+
+    function computeYildizSon1TekWidth(kosular) {
+        return computeYildizUniqueColWidth(kosular, isSon1GostergeMarker);
+    }
+
+    function computeYildizYuvarlakWidth(kosular) {
+        let maxCount = 0;
+        for (const race of kosular || []) {
+            for (const h of race.horses || []) {
+                const n = collectYuvarlakGostergeMarkers(h).length;
+                if (n > maxCount) maxCount = n;
+            }
+        }
+        return Math.min(520, Math.max(110, maxCount * 18 + 36));
     }
 
     function computeTakiColWidth(kosular) {
@@ -857,7 +1288,7 @@
                 if (len > maxChars) maxChars = len;
             }
         }
-        return Math.min(128, Math.max(56, maxChars * 7 + 18));
+        return Math.min(100, Math.max(44, maxChars * 6 + 12));
     }
 
     function renderProgramColgroup(cols, colWidths) {
@@ -869,6 +1300,12 @@
             }).join('')
             + '<col class="pub-col-spacer">'
             + '</colgroup>';
+    }
+
+    function isPlaceholderBtOdd(val) {
+        if (val == null || val === '' || val === '—') return true;
+        const v = parseFloat(String(val).replace(',', '.'));
+        return !isNaN(v) && v <= 1.01;
     }
 
     function programHorseCell(h, col, ctx) {
@@ -897,7 +1334,7 @@
             const betKey = col.betKey || col.key.replace(/^bt_/, '');
             const maps = ctx?.btMaps?.[betKey] || {};
             const odd = maps.byNo?.[String(h.no)] || maps.byName?.[normalizeHorseName(h.name)] || '';
-            if (odd) return odd;
+            if (odd && !isPlaceholderBtOdd(odd)) return odd;
             if (state.progBtLoading) return '…';
             return '—';
         }
@@ -905,9 +1342,27 @@
             const t = h.scores?.[col.scoreKey];
             return formatScoreCell(t);
         }
-        if (col.key === 'name') return h.name || '—';
+        if (col.key === 'bitisSira') {
+            const s = h.bitisSira;
+            if (s == null || s === '') return '<span class="pub-prog-bitis-empty">—</span>';
+            const cls = s === 1 ? ' pub-prog-bitis-win' : (s <= 3 ? ' pub-prog-bitis-top3' : '');
+            return '<span class="pub-prog-bitis' + cls + '">' + escapeHtml(String(s)) + '</span>';
+        }
+        if (col.key === 'yildizGrup') return formatYildizGrupCell(h);
+        if (col.key === 'yildizTek') return formatYildizTekCell(h, ctx);
+        if (col.key === 'yildizSon2Tek') return formatYildizSon2TekCell(h, ctx);
+        if (col.key === 'yildizSon1Tek') return formatYildizSon1TekCell(h, ctx);
+        if (col.key === 'yildizYuvarlak') return formatYildizYuvarlakCell(h);
+        if (col.key === 'name') return formatHorseNameCell(h);
         const v = String(h[col.key] || '').trim();
         return v || '—';
+    }
+
+    function formatHorseNameCell(h) {
+        const name = escapeHtml(h.name || '—');
+        if (!h.t1drTest1) return name;
+        return '<span class="pub-prog-t1dr-star" title="T1×DR=TEST1 — geçmiş koşuda eşleşme var">★</span> '
+            + '<span class="pub-prog-at-name">' + name + '</span>';
     }
 
     function normalizeHorseName(s) {
@@ -1149,30 +1604,23 @@
         renderRaceList(hip);
 
         try {
-            for (let i = 0; i < raceNos.length; i++) {
-                const raceNo = raceNos[i];
-                const controller = new AbortController();
-                const tid = setTimeout(() => controller.abort(), 35000);
-                try {
-                    const res = await fetch(
-                        '/api/public/liderform-gp?iso=' + encodeURIComponent(iso)
-                        + '&hipodrom=' + encodeURIComponent(hip.name)
-                        + '&races=' + encodeURIComponent(String(raceNo))
-                        + (opts.refresh ? '&refresh=1' : ''),
-                        { signal: controller.signal }
-                    );
-                    const data = await res.json();
-                    if (data.success && data.races) {
-                        Object.assign(state.progGpData.races, data.races);
-                        const activeHip = state.hipodromlar.find((h) => h.id === state.activeHipId);
-                        if (activeHip) renderRaceList(activeHip);
-                    }
-                } catch (_) {
-                    /* tek koşu atlanır */
-                } finally {
-                    clearTimeout(tid);
-                }
+            const controller = new AbortController();
+            const tid = setTimeout(() => controller.abort(), 120000);
+            const res = await fetch(
+                '/api/public/liderform-gp?iso=' + encodeURIComponent(iso)
+                + '&hipodrom=' + encodeURIComponent(hip.name)
+                + '&races=' + encodeURIComponent(raceNos.join(','))
+                + (opts.refresh ? '&refresh=1' : ''),
+                { signal: controller.signal }
+            );
+            clearTimeout(tid);
+            const data = await res.json();
+            if (data.success && data.races) {
+                state.progGpData = { success: true, races: data.races, hipodrom: hip.name };
+                state.progGpHipId = hip.id;
             }
+        } catch (_) {
+            /* disk önbellek veya kısmi veri kalır */
         } finally {
             state.progGpLoading = false;
             const activeHip = state.hipodromlar.find((h) => h.id === state.activeHipId);
@@ -1450,6 +1898,292 @@
         startSonucPolling();
     }
 
+    const REHBER_COL_CLS = {
+        r2: 'pub-rehber-col--r2',
+        tahmin: 'pub-rehber-col--tahmin',
+        blt: 'pub-rehber-col--at'
+    };
+
+    function renderRehberTierList(rows) {
+        if (!rows || !rows.length) {
+            return '<div class="pub-rehber-empty-row">Henüz değerlendirilecek koşu yok</div>';
+        }
+        return '<ol class="pub-rehber-list">' + rows.map((row, idx) => {
+            const rankCls = idx === 0 ? ' pub-rehber-row--top1' : (idx === 1 ? ' pub-rehber-row--top2' : (idx === 2 ? ' pub-rehber-row--top3' : ''));
+            const colCls = REHBER_COL_CLS[row.id] || '';
+            return '<li class="pub-rehber-row' + rankCls + '">'
+                + '<span class="pub-rehber-rank">' + (idx + 1) + '</span>'
+                + '<span class="pub-rehber-col ' + colCls + '">' + escapeHtml(row.label) + '</span>'
+                + '<span class="pub-rehber-hits">' + row.hits + '/' + row.total + '</span>'
+                + '<span class="pub-rehber-pct">%' + row.pct + '</span>'
+                + '</li>';
+        }).join('') + '</ol>';
+    }
+
+    function renderRehberPanel(data, opts = {}) {
+        const root = $('#pubRehberRoot');
+        if (!root) return;
+
+        const loadingNote = opts.loading
+            ? '<div class="pub-rehber-sub" style="color:#1565c0"><span class="pub-yarin-spin"></span> Güncelleniyor…</div>'
+            : '';
+
+        if (!data || data.success === false) {
+            if (!opts.loading) {
+                root.innerHTML = '<div class="pub-empty"><div class="pub-empty-icon">📅</div>'
+                    + '<h3>Veri alınamadı</h3><p>Lütfen yenileyin.</p></div>';
+            }
+            return;
+        }
+
+        const dateLabel = data.tarih ? trToDisplay(data.tarih) : (state.tarih ? trToDisplay(state.tarih) : 'Bugün');
+        const raceCount = data.raceCount || 0;
+        const hipCount = data.hipodromCount || state.hipodromlar.length || 0;
+        const finishedHips = data.finishedHipCount || 0;
+        const updated = data.updatedAt
+            ? new Date(data.updatedAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+            : '';
+
+        root.innerHTML = '<div class="pub-rehber-wrap">'
+            + '<div class="pub-rehber-hdr">'
+            + '<div>'
+            + '<h2 class="pub-rehber-title">Günün Tahmin Liderleri</h2>'
+            + '<div class="pub-rehber-sub">' + escapeHtml(dateLabel)
+            + ' · ' + raceCount + ' sonuçlanan koşu'
+            + ' · ' + hipCount + ' hipodrom'
+            + (finishedHips ? ' (' + finishedHips + ' sonuçlu)' : '')
+            + (updated ? ' · güncelleme ' + escapeHtml(updated) : '')
+            + '</div>'
+            + loadingNote
+            + '</div>'
+            + '<button type="button" class="pub-rehber-refresh" id="pubRehberRefresh">Yenile</button>'
+            + '</div>'
+            + '<div class="pub-rehber-grid">'
+            + '<div class="pub-rehber-card">'
+            + '<div class="pub-rehber-card-hdr pub-rehber-card-hdr--gold">1. Bilen'
+            + '<div class="pub-rehber-card-desc">Kazananı en çok doğru tahmin eden sütunlar</div></div>'
+            + renderRehberTierList(data.top1)
+            + '</div>'
+            + '<div class="pub-rehber-card">'
+            + '<div class="pub-rehber-card-hdr pub-rehber-card-hdr--silver">1–2 Bilen'
+            + '<div class="pub-rehber-card-desc">İlk iki atı tam sırayla bilen sütunlar</div></div>'
+            + renderRehberTierList(data.top2)
+            + '</div>'
+            + '<div class="pub-rehber-card">'
+            + '<div class="pub-rehber-card-hdr pub-rehber-card-hdr--bronze">1–2–3 Bilen'
+            + '<div class="pub-rehber-card-desc">Podyumu tam sırayla bilen sütunlar</div></div>'
+            + renderRehberTierList(data.top3)
+            + '</div>'
+            + '</div>'
+            + (raceCount === 0
+                ? '<div class="pub-rehber-help" style="margin-top:0;background:#fff8e1;border-color:#ffe082">'
+                + 'Henüz sonuçlanan koşu yok veya sonuçlar kaydedilmedi. '
+                + 'Koşular bittikçe liste otomatik dolacak — <em>Sonuçlar</em> sekmesinden bir hipodrom açmak senkronu hızlandırır.'
+                + '</div>'
+                : '')
+            + '<div class="pub-rehber-help">'
+            + '<strong>Nasıl okunur?</strong> Her sütun (R2, MTR, T9V, ASF, G1↕, G1⇄, GÖ, HYB, TAHMİN, @) '
+            + 'koşu başına kendi sıralamasını üretir. <em>1. Bilen</em> = 1 numaralı tahmin kazandı; '
+            + '<em>1–2 Bilen</em> = ilk iki tahmin 1. ve 2. oldu; <em>1–2–3 Bilen</em> = podyum tam isabet. '
+            + 'Liste gün içinde sonuçlandıkça güncellenir.'
+            + '</div>'
+            + '</div>';
+
+        $('#pubRehberRefresh')?.addEventListener('click', () => loadRehberLeaderboard({ refresh: true }));
+    }
+
+    async function loadRehberLeaderboard(opts = {}) {
+        const root = $('#pubRehberRoot');
+        if (!root || !$('#panel-rehber')?.classList.contains('active')) return;
+
+        const iso = state.iso || localTodayIso();
+        if (!opts.silent && !state.rehberData) {
+            root.innerHTML = '<div class="pub-loading"><div class="pub-spinner"></div>Liderlik tablosu yükleniyor…</div>';
+        } else if (state.rehberData) {
+            renderRehberPanel(state.rehberData, { loading: true });
+        }
+
+        try {
+            const res = await fetch('/api/public/rehber-leaderboard?iso=' + encodeURIComponent(iso));
+            const data = await parseJsonResponse(res);
+            if (!res.ok || data.success === false) {
+                throw new Error(data.error || ('HTTP ' + res.status));
+            }
+            state.rehberData = data;
+            renderRehberPanel(data);
+        } catch (err) {
+            if (state.rehberData) {
+                renderRehberPanel(state.rehberData);
+                return;
+            }
+            root.innerHTML = '<div class="pub-empty"><div class="pub-empty-icon">⚠️</div>'
+                + '<h3>Liderlik tablosu yüklenemedi</h3>'
+                + '<p>' + escapeHtml(err.message || 'Bağlantı hatası') + '</p>'
+                + '<button type="button" class="pub-btn pub-btn-white" id="pubRehberRetry" style="margin-top:12px">Tekrar dene</button></div>';
+            $('#pubRehberRetry')?.addEventListener('click', () => loadRehberLeaderboard({ refresh: true }));
+        }
+    }
+
+    function startRehberPolling() {
+        stopRehberPolling();
+        if (!$('#panel-rehber')?.classList.contains('active')) return;
+        let countdown = SONUC_REFRESH_SEC;
+        rehberPollTimer = setInterval(() => {
+            if (document.hidden) return;
+            if (!$('#panel-rehber')?.classList.contains('active')) return;
+            countdown -= 1;
+            if (countdown <= 0) {
+                countdown = SONUC_REFRESH_SEC;
+                loadRehberLeaderboard({ silent: true });
+            }
+        }, 1000);
+    }
+
+    function stopRehberPolling() {
+        if (rehberPollTimer) {
+            clearInterval(rehberPollTimer);
+            rehberPollTimer = null;
+        }
+    }
+
+    function initRehberPanel() {
+        loadRehberLeaderboard();
+        startRehberPolling();
+    }
+
+    function getKayitEvalColumns(kosular) {
+        const base = getProgramColumns(kosular).filter((c) => {
+            if (c.key === 'ganyan') return false;
+            if (c.key && c.key.startsWith('fob_')) return false;
+            if (c.key && c.key.startsWith('bt_')) return false;
+            if (c.key === 'blt' || c.key === 'gp2') return false;
+            if (c.scoreKey) return false;
+            return true;
+        });
+        const races = Array.isArray(kosular) ? kosular : [];
+        const hasBitis = races.some((r) => (r.horses || []).some((h) => h.bitisSira != null));
+        if (hasBitis) {
+            base.splice(1, 0, {
+                key: 'bitisSira',
+                label: 'Sıra',
+                cls: 'pub-prog-bitis-col',
+                colCls: 'pub-col-bitis',
+                always: true,
+                title: 'Bitiş sırası (puanlama_bitis_sonuclari)'
+            });
+        }
+        return base;
+    }
+
+    function renderKayitEvalStats(stats, bitisCount) {
+        const el = $('#pubKayitEvalStats');
+        if (!el || !stats) {
+            if (el) el.hidden = true;
+            return;
+        }
+        const pct = (v) => (v == null ? '—' : v + '%');
+        el.hidden = false;
+        el.innerHTML = '<div class="pub-kayit-eval-stat"><b>Yıldızlı at</b> ' + stats.withStars + '</div>'
+            + '<div class="pub-kayit-eval-stat"><b>Bitiş bilinen</b> ' + stats.withBitis + ' / ' + bitisCount + ' kayıt</div>'
+            + '<div class="pub-kayit-eval-stat"><b>İlk 3</b> ' + stats.top3 + ' (' + pct(stats.top3Pct) + ')</div>'
+            + '<div class="pub-kayit-eval-stat"><b>Birincilik</b> ' + stats.wins + ' (' + pct(stats.winPct) + ')</div>';
+    }
+
+    function renderKayitEvalList(data) {
+        const el = $('#pubKayitEvalList');
+        if (!el) return;
+        const kosular = data?.kosular || [];
+        if (!kosular.length) {
+            el.innerHTML = '<div class="pub-empty"><h3>Koşu yok</h3></div>';
+            return;
+        }
+        const cols = getKayitEvalColumns(kosular);
+        const colWidths = {
+            yildizGrup: computeYildizGrupWidth(kosular),
+            yildizTek: computeYildizTekWidth(kosular),
+            yildizSon2Tek: computeYildizSon2TekWidth(kosular),
+            yildizSon1Tek: computeYildizSon1TekWidth(kosular),
+            yildizYuvarlak: computeYildizYuvarlakWidth(kosular),
+            bitisSira: 36
+        };
+        const colgroup = renderProgramColgroup(cols, colWidths);
+        el.innerHTML = '<div class="pub-program-list pub-kayit-eval-list">' + kosular.map((race) => {
+            const hdr = formatProgramRaceHeader(race);
+            const surfaceClass = getRaceSurfaceClass(race);
+            const head = cols.map((c) => {
+                const titleAttr = c.title ? ' title="' + escapeHtml(c.title) + '"' : '';
+                const clsAttr = c.colCls ? ' class="' + escapeHtml(c.colCls) + '"' : '';
+                return '<th' + clsAttr + titleAttr + '>' + c.label + '</th>';
+            }).join('') + '<th class="pub-col-spacer-hdr" aria-hidden="true"></th>';
+            const horses = race.horses || [];
+            const uniqueGostergeMap = buildRaceUniqueGostergeMap(horses);
+            const uniqueSon2GostergeMap = buildRaceUniqueGostergeMap(horses, isSon2GostergeMarker);
+            const uniqueSon1GostergeMap = buildRaceUniqueGostergeMap(horses, isSon1GostergeMarker);
+            const body = horses.length
+                ? horses.map((h) => '<tr>'
+                    + cols.map((c) => {
+                        const val = programHorseCell(h, c, { uniqueGostergeMap, uniqueSon2GostergeMap, uniqueSon1GostergeMap });
+                        const isRawCol = c.key === 'name' || isYildizHtmlCol(c.key);
+                        return '<td class="' + escapeHtml(c.cls) + (c.colCls ? ' ' + escapeHtml(c.colCls) : '') + '">'
+                            + (isRawCol ? val : escapeHtml(val)) + '</td>';
+                    }).join('')
+                    + '<td class="pub-col-spacer" aria-hidden="true"></td></tr>').join('')
+                : '<tr><td colspan="' + (cols.length + 1) + '" class="pub-prog-empty">At listesi yok</td></tr>';
+            return '<div class="pub-program-race ' + surfaceClass + '">'
+                + '<div class="pub-program-race-hdr">' + hdr.title
+                + (hdr.meta ? '<span class="pub-program-race-meta">' + escapeHtml(hdr.meta) + '</span>' : '')
+                + '</div>'
+                + '<div class="pub-program-table-wrap"><table class="pub-program-table">'
+                + colgroup + '<thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div></div>';
+        }).join('') + '</div>';
+    }
+
+    async function loadKayitEvalKayitlar() {
+        const sel = $('#pubKayitEvalSelect');
+        if (!sel) return;
+        try {
+            const res = await fetch('/api/public/kayit-degerlendirme/kayitlar');
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Liste alınamadı');
+            state.kayitEvalKayitlar = data.kayitlar || [];
+            const opts = state.kayitEvalKayitlar.map((k) =>
+                '<option value="' + k.id + '">#' + k.id + ' · ' + escapeHtml(k.hipodrom || '') + ' · ' + escapeHtml(k.tarih || '') + '</option>'
+            ).join('');
+            sel.innerHTML = '<option value="">Kayıt seçin…</option>' + opts;
+            if (state.kayitEvalId) sel.value = String(state.kayitEvalId);
+        } catch (err) {
+            sel.innerHTML = '<option value="">Hata: ' + escapeHtml(err.message) + '</option>';
+        }
+    }
+
+    async function loadKayitEval(kayitId) {
+        const el = $('#pubKayitEvalList');
+        if (!kayitId) return;
+        state.kayitEvalLoading = true;
+        if (el) el.innerHTML = '<div class="pub-loading"><div class="pub-spinner"></div>Kayıt yükleniyor…</div>';
+        try {
+            const res = await fetch('/api/public/kayit-degerlendirme/' + encodeURIComponent(kayitId));
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Kayıt yüklenemedi');
+            state.kayitEvalId = kayitId;
+            state.kayitEvalData = data;
+            const lbl = $('#pubKayitEvalLabel');
+            if (lbl) lbl.textContent = '#' + data.kayitId + ' · ' + (data.hipodrom || '') + ' · ' + (data.tarih || '');
+            renderKayitEvalStats(data.stats, data.bitisCount);
+            renderKayitEvalList(data);
+        } catch (err) {
+            if (el) el.innerHTML = '<div class="pub-empty"><h3>Hata</h3><p>' + escapeHtml(err.message) + '</p></div>';
+        } finally {
+            state.kayitEvalLoading = false;
+        }
+    }
+
+    function initKayitEvalPanel() {
+        loadKayitEvalKayitlar().then(() => {
+            if (state.kayitEvalId) loadKayitEval(state.kayitEvalId);
+        });
+    }
+
     function renderRaceList(hip) {
         const el = $('#pubRaceList');
         const kosular = hip.kosular || [];
@@ -1461,29 +2195,34 @@
         const cols = getProgramColumns(kosular);
         const colWidths = {
             taki: computeTakiColWidth(kosular),
-            blt: 40,
-            gp2: 40,
-            bt_ganyan: 52,
-            bt_ilk2: 48,
-            bt_ilk3: 48,
-            bt_ilk4: 48,
-            score_tahmin: 58,
-            score_r2: 52,
-            score_mtr: 52,
-            score_t9v: 52,
-            score_asf: 52,
-            score_g1side: 52,
-            score_g1pair: 52,
-            score_go: 52,
-            score_hyb: 52,
-            fob_ganyan: 52,
-            fob_ilk2: 48,
-            fob_ilk3: 48
+            blt: 30,
+            gp2: 30,
+            bt_ganyan: 44,
+            bt_ilk2: 40,
+            bt_ilk3: 40,
+            bt_ilk4: 40,
+            score_tahmin: 46,
+            score_r2: 40,
+            score_mtr: 40,
+            score_t9v: 40,
+            score_asf: 40,
+            score_g1side: 40,
+            score_g1pair: 40,
+            score_go: 40,
+            score_hyb: 40,
+            yildizGrup: computeYildizGrupWidth(kosular),
+            yildizTek: computeYildizTekWidth(kosular),
+            yildizSon2Tek: computeYildizSon2TekWidth(kosular),
+            yildizSon1Tek: computeYildizSon1TekWidth(kosular),
+            yildizYuvarlak: computeYildizYuvarlakWidth(kosular),
+            fob_ganyan: 44,
+            fob_ilk2: 40,
+            fob_ilk3: 40
         };
         cols.forEach((c) => {
-            if (c.key && c.key.startsWith('fob_') && !colWidths[c.key]) colWidths[c.key] = 52;
-            if (c.key && c.key.startsWith('bt_') && !colWidths[c.key]) colWidths[c.key] = 48;
-            if (c.key && c.key.startsWith('score_') && !colWidths[c.key]) colWidths[c.key] = 52;
+            if (c.key && c.key.startsWith('fob_') && !colWidths[c.key]) colWidths[c.key] = 42;
+            if (c.key && c.key.startsWith('bt_') && !colWidths[c.key]) colWidths[c.key] = 40;
+            if (c.key && c.key.startsWith('score_') && !colWidths[c.key]) colWidths[c.key] = 40;
         });
         const colgroup = renderProgramColgroup(cols, colWidths);
 
@@ -1515,13 +2254,18 @@
                 return '<th' + clsAttr + titleAttr + '>' + c.label + '</th>';
             }).join('') + '<th class="pub-col-spacer-hdr" aria-hidden="true"></th>';
             const horses = race.horses || [];
+            const uniqueGostergeMap = buildRaceUniqueGostergeMap(horses);
+            const uniqueSon2GostergeMap = buildRaceUniqueGostergeMap(horses, isSon2GostergeMarker);
+            const uniqueSon1GostergeMap = buildRaceUniqueGostergeMap(horses, isSon1GostergeMarker);
             const body = horses.length
                 ? horses.map((h) => {
-                    const ctx = { ganyanMap, ...bltMaps, ...gpMaps, fobMaps: raceFobMaps, btMaps };
+                    const ctx = { ganyanMap, ...bltMaps, ...gpMaps, fobMaps: raceFobMaps, btMaps, uniqueGostergeMap, uniqueSon2GostergeMap, uniqueSon1GostergeMap };
                     return '<tr>'
                         + cols.map((c) => {
                             let cls = c.cls;
                             const val = programHorseCell(h, c, ctx);
+                            const isNameCol = c.key === 'name';
+                            const isRawCol = isNameCol || isYildizHtmlCol(c.key);
                             if (c.key === 'ganyan') {
                                 if (!ganyanMap[String(h.no)]) cls += ' pub-prog-ganyan-empty';
                                 else if (leaderNo && String(h.no) === leaderNo) cls += ' pub-prog-ganyan-leader';
@@ -1558,7 +2302,7 @@
                                 else if (t.rank === 1) cls += ' pub-prog-score-leader';
                                 if (c.scoreKey === 'tahmin' && t?.rank === 1) cls += ' pub-prog-score-tahmin-top';
                             }
-                            return '<td class="' + cls + '">' + escapeHtml(val) + '</td>';
+                            return '<td class="' + cls + '">' + (isRawCol ? val : escapeHtml(val)) + '</td>';
                         }).join('')
                         + '<td class="pub-col-spacer-cell" aria-hidden="true"></td>'
                         + '</tr>';
@@ -1705,6 +2449,8 @@
             stopMuhtPolling();
             pauseTjkTv();
             stopSonucPolling();
+            stopRehberPolling();
+            window.pubHazirKupon?.onTabDeactivate();
             if (panelId === 'kosular') {
                 refreshProgramGanyanOdds();
                 refreshProgramBltData();
@@ -1715,6 +2461,15 @@
             }
             if (panelId === 'sonuclar') {
                 initSonuclarPanel();
+            }
+            if (panelId === 'rehber') {
+                initRehberPanel();
+            }
+            if (panelId === 'kayit-eval') {
+                initKayitEvalPanel();
+            }
+            if (panelId === 'hazir') {
+                window.pubHazirKupon?.onTabActivate();
             }
         }
         if (panelId === 'kazanc') {
@@ -2498,6 +3253,7 @@
         state.sonucByHip = {};
         state.sonucHipId = null;
         state.sonucLastUpdate = null;
+        state.rehberData = null;
         loadVitrin(clamped);
         if ($('#panel-muhtemeller')?.classList.contains('active')) {
             loadMuhtemeller(clamped);
@@ -2526,6 +3282,14 @@
             if (body) body.innerHTML = '<div class="pub-loading pub-program-sync-loading"><div class="pub-spinner"></div> Durum kontrol ediliyor…</div>';
             loadProgramSync();
         });
+        $('#pubKayitEvalSelect')?.addEventListener('change', (e) => {
+            const id = parseInt(e.target.value, 10);
+            if (id) loadKayitEval(id);
+        });
+        $('#pubKayitEvalRefresh')?.addEventListener('click', () => {
+            if (state.kayitEvalId) loadKayitEval(state.kayitEvalId);
+            else loadKayitEvalKayitlar();
+        });
     }
 
     initTabs();
@@ -2533,4 +3297,9 @@
     initMuhtControls();
     initFobToolbar();
     initDate();
+
+    window.pubVitrinState = {
+        getIso: () => state.iso || localTodayIso(),
+        getTarih: () => state.tarih
+    };
 })();

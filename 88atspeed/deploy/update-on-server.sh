@@ -45,6 +45,11 @@ rm -rf "$TMP"
 
 cd "$APP_DIR"
 
+# rsync sonrası diskteki güncel post-deploy betiğini çalıştır (tahmin rebuild vb.)
+if [ -f "$APP_DIR/deploy/post-deploy.sh" ]; then
+  bash "$APP_DIR/deploy/post-deploy.sh"
+fi
+
 LOCK_HASH="$(sha256sum package-lock.json 2>/dev/null | awk '{print $1}')"
 LOCK_STAMP="$APP_DIR/.deploy-package-lock.sha256"
 NEED_NPM=0
@@ -80,14 +85,50 @@ if [ "$NEED_NPM" = "1" ]; then
   echo "$LOCK_HASH" > "$LOCK_STAMP"
 fi
 
+wait_for_app() {
+  for i in $(seq 1 45); do
+    if curl -sf "http://127.0.0.1:3023/api/public/ping" >/dev/null 2>&1; then
+      echo "✅ Uygulama hazır (${i}x2sn)"
+      return 0
+    fi
+    sleep 2
+  done
+  echo "⚠️  Uygulama 3023 portunda yanıt vermiyor — pm2 logs 88atspeed"
+  return 1
+}
+
 echo "🔧 PM2 (fork modu, ecosystem.config.js)..."
-pm2 delete 88atspeed 2>/dev/null || true
-pm2 delete 88atspeed-bitalih 2>/dev/null || true
-pm2 start ecosystem.config.js
+if pm2 describe 88atspeed >/dev/null 2>&1; then
+  pm2 reload ecosystem.config.js --update-env
+else
+  pm2 start ecosystem.config.js
+fi
 pm2 save
+
+echo "⏳ Uygulama ayağa kalkıyor..."
+wait_for_app || true
+
+echo "🌐 Nginx..."
+if [ -f "/etc/letsencrypt/live/88atspeed.lerta.tr/fullchain.pem" ]; then
+  cp "$APP_DIR/deploy/nginx-88atspeed.conf" /etc/nginx/sites-available/88atspeed.conf
+else
+  cp "$APP_DIR/deploy/nginx-88atspeed-http.conf" /etc/nginx/sites-available/88atspeed.conf
+fi
+cp "$APP_DIR/deploy/nginx-ip-default.conf" /etc/nginx/sites-available/88atspeed-ip.conf
+ln -sf /etc/nginx/sites-available/88atspeed.conf /etc/nginx/sites-enabled/88atspeed.conf
+ln -sf /etc/nginx/sites-available/88atspeed-ip.conf /etc/nginx/sites-enabled/88atspeed-ip.conf
+nginx -t && systemctl reload nginx || echo "⚠️  Nginx reload atlandı — bash deploy/fix-server.sh çalıştırın"
 
 echo "⏰ Yarın programı cron (18:30 TR)..."
 bash "$APP_DIR/deploy/cron-public-program.sh" || echo "⚠️  Cron kurulumu atlandı"
+
+echo "⏰ Liderform GP önbellek cron..."
+bash "$APP_DIR/deploy/cron-liderform-gp.sh" || echo "⚠️  GP cron atlandı"
+
+ISO_TODAY="$(date -u +%Y-%m-%d)"
+echo "📊 Liderform GP önbellek ısıtma ($ISO_TODAY)..."
+nohup node "$APP_DIR/scripts/prefetch-liderform-gp.js" --iso "$ISO_TODAY" \
+  >> "$APP_DIR/data/liderform-gp-prefetch.log" 2>&1 &
 
 echo "🧹 Haftalık disk temizliği cron..."
 bash "$APP_DIR/deploy/cron-disk-cleanup.sh" || echo "⚠️  Disk cron atlandı"
@@ -112,34 +153,6 @@ if [ "$HOUR_TR" -gt 18 ] || { [ "$HOUR_TR" -eq 18 ] && [ "$MIN_TR" -ge 30 ]; }; 
     echo "  Log: tail -f /var/log/88atspeed-program.log"
   fi
 fi
-
-echo "🔥 Kalibrasyon bundle ısıtılıyor (arka plan, ~40sn)..."
-nohup node "$APP_DIR/scripts/warm-calibration-bundle.js" --db "$APP_DIR/atlar.db" \
-  >> "$APP_DIR/data/calib-warm.log" 2>&1 &
-echo "  Log: $APP_DIR/data/calib-warm.log"
-
-echo "🌐 Nginx..."
-if [ -f "/etc/letsencrypt/live/88atspeed.lerta.tr/fullchain.pem" ]; then
-  cp "$APP_DIR/deploy/nginx-88atspeed.conf" /etc/nginx/sites-available/88atspeed.conf
-else
-  cp "$APP_DIR/deploy/nginx-88atspeed-http.conf" /etc/nginx/sites-available/88atspeed.conf
-fi
-cp "$APP_DIR/deploy/nginx-ip-default.conf" /etc/nginx/sites-available/88atspeed-ip.conf
-ln -sf /etc/nginx/sites-available/88atspeed.conf /etc/nginx/sites-enabled/88atspeed.conf
-ln -sf /etc/nginx/sites-available/88atspeed-ip.conf /etc/nginx/sites-enabled/88atspeed-ip.conf
-nginx -t && systemctl reload nginx || echo "⚠️  Nginx reload atlandı — bash deploy/fix-server.sh çalıştırın"
-
-wait_for_app() {
-  for i in $(seq 1 30); do
-    if curl -sf "http://127.0.0.1:3023/api/public/ping" >/dev/null 2>&1; then
-      echo "✅ Uygulama hazır (${i}x2sn)"
-      return 0
-    fi
-    sleep 2
-  done
-  echo "⚠️  Uygulama 3023 portunda yanıt vermiyor — pm2 logs 88atspeed"
-  return 1
-}
 
 echo "🔍 Bi'Talih sağlık:"
 wait_for_app || true
