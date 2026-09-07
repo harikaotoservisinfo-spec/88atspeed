@@ -8,6 +8,7 @@
         activeHipId: null,
         activeTahminHipId: null,
         vitrin: null,
+        tahminPollCount: 0,
         muhtemeller: null,
         muhtIso: null,
         muhtHipKey: null,
@@ -992,6 +993,17 @@
         else if (y.t3yk) vCls = ' vurgu-test3-gri-kirmizi';
         else if (y.t3ym) vCls = ' vurgu-test3-gri-mavi';
         else if (y.t3y) vCls = ' vurgu-test3-gri';
+        else if (y.s8k) {
+            if (y.s8r === 1) vCls = ' vurgu-son8001-yesil-kirmizi';
+            else if (y.s8r === 2) vCls = ' vurgu-son8001-sari-kirmizi';
+            else vCls = ' vurgu-son8001-kirmizi-kirmizi';
+        } else if (y.s8m) {
+            if (y.s8r === 1) vCls = ' vurgu-son8001-yesil-mavi';
+            else if (y.s8r === 2) vCls = ' vurgu-son8001-sari-mavi';
+            else vCls = ' vurgu-son8001-kirmizi-mavi';
+        } else if (y.s8r === 1) vCls = ' vurgu-son8001-yesil';
+        else if (y.s8r === 2) vCls = ' vurgu-son8001-sari';
+        else if (y.s8) vCls = ' vurgu-son8001-kirmizi';
         else if (y.shk) vCls = ' vurgu-sehir-kirmizi';
         else if (y.shm) vCls = ' vurgu-sehir-mavi';
         else if (y.v) vCls = ' vurgu';
@@ -1000,6 +1012,7 @@
         else if (y.shs) glyph = 'Ş';
         else if (y.t46) glyph = '4';
         else if (y.t12) glyph = '2';
+        else if (y.s8) glyph = '8';
         else if (y.t1y || y.t1ym || y.t1yk || y.t2y || y.t2ym || y.t2yk || y.t3y || y.t3ym || y.t3yk) glyph = '●';
         if (y.tei) {
             if (y.teiy) vCls = ' vurgu-yesil-tam';
@@ -1012,6 +1025,18 @@
             vCls = ' vurgu-test46-acik-mavi';
         } else if (y.t12) {
             vCls = y.t12k ? ' vurgu-test12-kirmizi' : ' vurgu-test12-turuncu';
+        } else if (y.s8) {
+            if (y.s8k) {
+                if (y.s8r === 1) vCls = ' vurgu-son8001-yesil-kirmizi';
+                else if (y.s8r === 2) vCls = ' vurgu-son8001-sari-kirmizi';
+                else vCls = ' vurgu-son8001-kirmizi-kirmizi';
+            } else if (y.s8m) {
+                if (y.s8r === 1) vCls = ' vurgu-son8001-yesil-mavi';
+                else if (y.s8r === 2) vCls = ' vurgu-son8001-sari-mavi';
+                else vCls = ' vurgu-son8001-kirmizi-mavi';
+            } else if (y.s8r === 1) vCls = ' vurgu-son8001-yesil';
+            else if (y.s8r === 2) vCls = ' vurgu-son8001-sari';
+            else vCls = ' vurgu-son8001-kirmizi';
         }
         return '<span class="pub-prog-yildiz-star' + vCls + '" style="color:' + escapeHtml(y.c || '#888') + '" title="' + escapeHtml(y.t || '') + '">' + glyph + '</span>';
     }

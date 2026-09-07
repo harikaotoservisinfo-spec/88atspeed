@@ -4,7 +4,7 @@
 const { loadGostergeEngines } = require('../scripts/ptest-terminal-lib');
 
 // Yıldız veri şeması sürümü — değiştikçe artır ki eski kayıtlar yeniden hesaplansın.
-const YILDIZ_SURUM = 34;
+const YILDIZ_SURUM = 35;
 
 const T1DR_SON_KOSU_AD = 'Kırmızı (T1×DR son koşu)';
 const T1DR_ENIYI_AD = 'Mavi yanıp (T1×DR en iyi 2)';
@@ -21,6 +21,8 @@ const SATIR_TAM_SARI_AD = 'Satır tam sarı';
 const SATIR_TAM_YESIL_AD = 'Satır tam yeşil';
 const YESIL_ESLESME_AD = 'Yeşil eşleşme';
 const GUCUL_SEHIR_AD = 'Güçlü şehir eşleşme';
+const SON800_1_TOP3_AD = 'SON800-1 top-3';
+const SON800_RANK_COLORS = { 1: '#2e7d32', 2: '#f9a825', 3: '#c62828' };
 
 let enginesReady = false;
 
@@ -150,6 +152,10 @@ function isTest12SariHucreStar(s) {
 
 function isTest12YakinGostergeStar(s) {
     return s.ad === TEST12_YAKIN_AD || !!s.t12;
+}
+
+function isSon800GostergeStar(s) {
+    return s.ad === SON800_1_TOP3_AD || !!s.s8;
 }
 
 /** Herhangi bir satırda TEST1 hücresi yeşil eşleşme (eslesme-yesil) olması */
@@ -404,6 +410,7 @@ function analyzeRace(race, meta) {
     markT1drEnIyiGosterge(yildizlar, rowsByKey, G);
     markTest46Gosterge(yildizlar, rowsByKey, G);
     markTest12YakinGosterge(yildizlar, rowsByKey, calcRace, G, meta);
+    markSon800Top3Gosterge(yildizlar, rowsByKey, calcRace, G);
     markTest9MorYildizlari(yildizlar, rowsByKey, G);
     markFark8002GriYildizlari(yildizlar, rowsByKey, G);
     markTest5KahveYildizlari(yildizlar, rowsByKey, G);
@@ -756,6 +763,106 @@ function buildTest12ClosestTop4(calcRace, G, meta) {
         out.set(p.key + '|' + p.sira, t === 0 ? 'kirmizi' : 'turuncu');
     }
     return out;
+}
+
+function buildSon800Top3RankByKosuKey(calcRace, G) {
+    const son800_1 = [];
+    for (let j = 0; j < calcRace.horses.length; j++) {
+        for (const atKosu of calcRace.horses[j].kosular || []) {
+            const s1 = global.AtSpeedUtils?.dereceToSalise(atKosu.son800_bir);
+            if (s1 !== null) son800_1.push({ j, atKosu, val: s1 });
+        }
+    }
+    son800_1.sort((a, b) => (a.val !== b.val ? a.val - b.val : a.j - b.j));
+    const rankByKosuKey = new Map();
+    for (let t = 0; t < Math.min(3, son800_1.length); t++) {
+        rankByKosuKey.set(G._kosuKey(son800_1[t].j, son800_1[t].atKosu), t + 1);
+    }
+    return rankByKosuKey;
+}
+
+function makeSon800GostergeStar(sira, rank, border) {
+    const star = {
+        c: SON800_RANK_COLORS[rank] || SON800_RANK_COLORS[3],
+        t: SON800_1_TOP3_AD + ' · SON800-1 · ' + sira + '. koşu · #' + rank,
+        ad: SON800_1_TOP3_AD,
+        k: sira,
+        s8: true,
+        s8r: rank
+    };
+    if (border === 'kirmizi') star.s8k = true;
+    else if (border === 'mavi') star.s8m = true;
+    return star;
+}
+
+/**
+ * SON800-1 koşu top-3: kare içinde 8 — 1. yeşil, 2. sarı, 3. kırmızı çerçeve;
+ * mavi/kırmızı kenar satırda ilgili vurgu.
+ */
+function markSon800Top3Gosterge(yildizlar, rowsByKey, calcRace, G) {
+    const rankByKosuKey = buildSon800Top3RankByKosuKey(calcRace, G);
+    const ok = new Map();
+    for (const [key, horseRows] of rowsByKey) {
+        for (const row of horseRows) {
+            const sira = parseInt(row.values[0], 10);
+            if (isNaN(sira) || sira < 1) continue;
+            const hi = row.meta?.horseIndex;
+            if (hi == null) continue;
+            const horse = calcRace.horses[hi];
+            const kosularSorted = G._sortKosularNewest(horse?.kosular || []);
+            const atKosu = kosularSorted[sira - 1];
+            if (!atKosu) continue;
+            const rank = rankByKosuKey.get(G._kosuKey(hi, atKosu));
+            if (!rank) continue;
+            let border = null;
+            if (rowKirmiziKenarSatir(row)) border = 'kirmizi';
+            else if (rowMaviKenarSatir(row)) border = 'mavi';
+            ok.set(key + '|' + sira, { rank, border });
+        }
+    }
+    const maxSiraForWin = { son7: 7, son2: 2, son1: 1 };
+    for (const [key, w] of yildizlar) {
+        for (const win of ['son7', 'son2', 'son1']) {
+            if (!Array.isArray(w[win])) continue;
+            const limit = maxSiraForWin[win];
+            w[win] = w[win].filter((s) => {
+                if (!isSon800GostergeStar(s)) return true;
+                return ok.has(key + '|' + s.k) && s.k <= limit;
+            });
+            const kept = new Set();
+            w[win] = w[win].filter((s) => {
+                if (!isSon800GostergeStar(s)) return true;
+                const dk = key + '|' + s.k;
+                if (kept.has(dk)) return false;
+                kept.add(dk);
+                return true;
+            });
+            for (const s of w[win]) {
+                if (!isSon800GostergeStar(s)) continue;
+                const info = ok.get(key + '|' + s.k);
+                if (!info) continue;
+                s.s8 = true;
+                s.s8r = info.rank;
+                s.c = SON800_RANK_COLORS[info.rank];
+                delete s.v;
+                delete s.s8k;
+                delete s.s8m;
+                if (info.border === 'kirmizi') s.s8k = true;
+                else if (info.border === 'mavi') s.s8m = true;
+            }
+            for (const [mapKey, info] of ok) {
+                const sep = mapKey.lastIndexOf('|');
+                if (sep < 0) continue;
+                const kKey = mapKey.slice(0, sep);
+                const sira = parseInt(mapKey.slice(sep + 1), 10);
+                if (kKey !== key) continue;
+                if (isNaN(sira) || sira < 1 || sira > limit) continue;
+                if (w[win].some((s) => isSon800GostergeStar(s) && s.k === sira)) continue;
+                w[win].push(makeSon800GostergeStar(sira, info.rank, info.border));
+            }
+        }
+        w.n7 = (w.son7 || []).length;
+    }
 }
 
 function makeTest12YakinStar(sira, variant) {

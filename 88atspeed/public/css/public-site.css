@@ -3029,6 +3029,137 @@ a { color: inherit; text-decoration: none; }
     }
 }
 
+/* SON800-1 top-3: kare içinde 8 — 1. yeşil, 2. sarı, 3. kırmızı çerçeve */
+.pub-prog-yildiz-star.vurgu-son8001-yesil,
+.pub-prog-yildiz-star.vurgu-son8001-sari,
+.pub-prog-yildiz-star.vurgu-son8001-kirmizi,
+.pub-prog-yildiz-star.vurgu-son8001-yesil-mavi,
+.pub-prog-yildiz-star.vurgu-son8001-sari-mavi,
+.pub-prog-yildiz-star.vurgu-son8001-kirmizi-mavi,
+.pub-prog-yildiz-star.vurgu-son8001-yesil-kirmizi,
+.pub-prog-yildiz-star.vurgu-son8001-sari-kirmizi,
+.pub-prog-yildiz-star.vurgu-son8001-kirmizi-kirmizi {
+    position: relative;
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 900;
+    line-height: 1;
+    padding: 1px 3px;
+    border-radius: 2px;
+    border-width: 2px;
+    border-style: solid;
+    paint-order: stroke fill;
+    text-shadow: none;
+}
+
+.pub-prog-yildiz-star.vurgu-son8001-yesil {
+    border-color: #1b5e20;
+    color: #2e7d32;
+    box-shadow: 0 0 0 1px rgba(27, 94, 32, 0.55), 0 0 6px rgba(46, 125, 50, 0.65), inset 0 0 4px rgba(200, 230, 201, 0.5);
+    animation: pub-son8001-yesil-blink 1.35s ease-in-out infinite;
+}
+
+.pub-prog-yildiz-star.vurgu-son8001-sari {
+    border-color: #f9a825;
+    color: #f57f17;
+    box-shadow: 0 0 0 1px rgba(249, 168, 37, 0.55), 0 0 6px rgba(255, 193, 7, 0.65), inset 0 0 4px rgba(255, 248, 225, 0.5);
+    animation: pub-son8001-sari-blink 1.35s ease-in-out infinite;
+}
+
+.pub-prog-yildiz-star.vurgu-son8001-kirmizi {
+    border-color: #c62828;
+    color: #b71c1c;
+    box-shadow: 0 0 0 1px rgba(198, 40, 40, 0.55), 0 0 6px rgba(211, 47, 47, 0.65), inset 0 0 4px rgba(255, 205, 210, 0.5);
+    animation: pub-son8001-kirmizi-blink 1.35s ease-in-out infinite;
+}
+
+.pub-prog-yildiz-star.vurgu-son8001-yesil-mavi {
+    border-color: #1565c0;
+    color: #2e7d32;
+    box-shadow: 0 0 0 1px rgba(21, 101, 192, 0.45), 0 0 6px rgba(21, 101, 192, 0.55), inset 0 0 4px rgba(200, 230, 201, 0.45);
+    animation: pub-son8001-yesil-mavi-blink 1.35s ease-in-out infinite;
+}
+
+.pub-prog-yildiz-star.vurgu-son8001-sari-mavi {
+    border-color: #1565c0;
+    color: #f57f17;
+    box-shadow: 0 0 0 1px rgba(21, 101, 192, 0.45), 0 0 6px rgba(21, 101, 192, 0.55), inset 0 0 4px rgba(255, 248, 225, 0.45);
+    animation: pub-son8001-sari-mavi-blink 1.35s ease-in-out infinite;
+}
+
+.pub-prog-yildiz-star.vurgu-son8001-kirmizi-mavi {
+    border-color: #1565c0;
+    color: #b71c1c;
+    box-shadow: 0 0 0 1px rgba(21, 101, 192, 0.45), 0 0 6px rgba(21, 101, 192, 0.55), inset 0 0 4px rgba(255, 205, 210, 0.45);
+    animation: pub-son8001-kirmizi-mavi-blink 1.35s ease-in-out infinite;
+}
+
+.pub-prog-yildiz-star.vurgu-son8001-yesil-kirmizi {
+    border-color: #b71c1c;
+    color: #2e7d32;
+    box-shadow: 0 0 0 1px rgba(183, 28, 28, 0.55), 0 0 6px rgba(211, 47, 47, 0.65), inset 0 0 4px rgba(200, 230, 201, 0.45);
+    animation: pub-son8001-yesil-kirmizi-blink 1.35s ease-in-out infinite;
+}
+
+.pub-prog-yildiz-star.vurgu-son8001-sari-kirmizi {
+    border-color: #b71c1c;
+    color: #f57f17;
+    box-shadow: 0 0 0 1px rgba(183, 28, 28, 0.55), 0 0 6px rgba(211, 47, 47, 0.65), inset 0 0 4px rgba(255, 248, 225, 0.45);
+    animation: pub-son8001-sari-kirmizi-blink 1.35s ease-in-out infinite;
+}
+
+.pub-prog-yildiz-star.vurgu-son8001-kirmizi-kirmizi {
+    border-color: #b71c1c;
+    color: #b71c1c;
+    box-shadow: 0 0 0 1px rgba(183, 28, 28, 0.55), 0 0 6px rgba(211, 47, 47, 0.65), inset 0 0 4px rgba(255, 205, 210, 0.45);
+    animation: pub-son8001-kirmizi-kirmizi-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-son8001-yesil-blink {
+    0%, 100% { box-shadow: 0 0 0 1.5px #1b5e20, 0 0 7px rgba(27, 94, 32, 0.75), inset 0 0 4px rgba(200, 230, 201, 0.45); filter: brightness(1.08); }
+    50% { box-shadow: 0 0 0 2px #0d3d0d, 0 0 10px rgba(27, 94, 32, 0.95), inset 0 0 6px rgba(232, 245, 233, 0.65); filter: brightness(1.2); }
+}
+
+@keyframes pub-son8001-sari-blink {
+    0%, 100% { box-shadow: 0 0 0 1.5px #f9a825, 0 0 7px rgba(255, 193, 7, 0.75), inset 0 0 4px rgba(255, 248, 225, 0.45); filter: brightness(1.08); }
+    50% { box-shadow: 0 0 0 2px #f57f17, 0 0 10px rgba(255, 193, 7, 0.95), inset 0 0 6px rgba(255, 253, 231, 0.65); filter: brightness(1.2); }
+}
+
+@keyframes pub-son8001-kirmizi-blink {
+    0%, 100% { box-shadow: 0 0 0 1.5px #c62828, 0 0 7px rgba(211, 47, 47, 0.75), inset 0 0 4px rgba(255, 205, 210, 0.45); filter: brightness(1.08); }
+    50% { box-shadow: 0 0 0 2px #b71c1c, 0 0 10px rgba(244, 67, 54, 0.95), inset 0 0 6px rgba(255, 235, 238, 0.65); filter: brightness(1.2); }
+}
+
+@keyframes pub-son8001-yesil-mavi-blink {
+    0%, 100% { box-shadow: 0 0 0 1.5px #1565c0, 0 0 7px rgba(21, 101, 192, 0.75), inset 0 0 4px rgba(200, 230, 201, 0.45); filter: brightness(1.08); }
+    50% { box-shadow: 0 0 0 2px #0d47a1, 0 0 10px rgba(21, 101, 192, 0.95), inset 0 0 6px rgba(227, 242, 253, 0.65); filter: brightness(1.2); }
+}
+
+@keyframes pub-son8001-sari-mavi-blink {
+    0%, 100% { box-shadow: 0 0 0 1.5px #1565c0, 0 0 7px rgba(21, 101, 192, 0.75), inset 0 0 4px rgba(255, 248, 225, 0.45); filter: brightness(1.08); }
+    50% { box-shadow: 0 0 0 2px #0d47a1, 0 0 10px rgba(21, 101, 192, 0.95), inset 0 0 6px rgba(227, 242, 253, 0.65); filter: brightness(1.2); }
+}
+
+@keyframes pub-son8001-kirmizi-mavi-blink {
+    0%, 100% { box-shadow: 0 0 0 1.5px #1565c0, 0 0 7px rgba(21, 101, 192, 0.75), inset 0 0 4px rgba(255, 205, 210, 0.45); filter: brightness(1.08); }
+    50% { box-shadow: 0 0 0 2px #0d47a1, 0 0 10px rgba(21, 101, 192, 0.95), inset 0 0 6px rgba(227, 242, 253, 0.65); filter: brightness(1.2); }
+}
+
+@keyframes pub-son8001-yesil-kirmizi-blink {
+    0%, 100% { box-shadow: 0 0 0 1.5px #b71c1c, 0 0 7px rgba(211, 47, 47, 0.75), inset 0 0 4px rgba(200, 230, 201, 0.45); filter: brightness(1.08); }
+    50% { box-shadow: 0 0 0 2px #c62828, 0 0 10px rgba(244, 67, 54, 0.95), inset 0 0 6px rgba(255, 235, 238, 0.65); filter: brightness(1.2); }
+}
+
+@keyframes pub-son8001-sari-kirmizi-blink {
+    0%, 100% { box-shadow: 0 0 0 1.5px #b71c1c, 0 0 7px rgba(211, 47, 47, 0.75), inset 0 0 4px rgba(255, 248, 225, 0.45); filter: brightness(1.08); }
+    50% { box-shadow: 0 0 0 2px #c62828, 0 0 10px rgba(244, 67, 54, 0.95), inset 0 0 6px rgba(255, 235, 238, 0.65); filter: brightness(1.2); }
+}
+
+@keyframes pub-son8001-kirmizi-kirmizi-blink {
+    0%, 100% { box-shadow: 0 0 0 1.5px #b71c1c, 0 0 7px rgba(211, 47, 47, 0.75), inset 0 0 4px rgba(255, 205, 210, 0.45); filter: brightness(1.08); }
+    50% { box-shadow: 0 0 0 2px #c62828, 0 0 10px rgba(244, 67, 54, 0.95), inset 0 0 6px rgba(255, 235, 238, 0.65); filter: brightness(1.2); }
+}
+
 .pub-prog-yildiz-empty {
     color: #bbb;
     font-size: 11px;
