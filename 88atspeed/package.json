@@ -64,6 +64,8 @@
     "test:son-test-kayit-open": "node --max-old-space-size=4096 scripts/test-son-test-kayit-open.js --db atlar.db --kayit 162",
     "fetch:public-program": "node scripts/fetch-public-program.js",
     "fetch:public-program-yarin": "node scripts/fetch-public-program.js --yarin --full --tahmin",
+    "diagnose:yarin-fetch": "node scripts/diagnose-yarin-fetch.js",
+    "reset:yarin-program": "node scripts/reset-yarin-program.js",
     "fetch:public-program-bugun": "node scripts/fetch-public-program.js --bugun",
     "fetch:public-program-hipodrom": "node scripts/fetch-public-program.js --bugun --source hipodrom",
     "fetch:public-program-tjk": "node scripts/fetch-public-program.js --bugun --tjk",
@@ -77,7 +79,8 @@
     "publish:test-vitrin": "node scripts/publish-kayit-to-vitrin.js --kaynak 02/09/2026 --bugun --hipodrom İstanbul,Elazığ --build-tahmin",
     "publish:kayit-to-vitrin": "node scripts/publish-kayit-to-vitrin.js",
     "build:public-tahmin": "node --max-old-space-size=3072 scripts/build-public-tahmin.js",
-    "build:public-tahmin-bugun": "node --max-old-space-size=3072 scripts/build-public-tahmin.js --bugun"
+    "build:public-tahmin-bugun": "node --max-old-space-size=3072 scripts/build-public-tahmin.js --bugun",
+    "backfill:t1dr-test1": "node scripts/backfill-t1dr-test1-flags.js --bugun --yarin"
   },
   "dependencies": {
     "cheerio": "^1.2.0",

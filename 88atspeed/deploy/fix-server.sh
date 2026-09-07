@@ -42,9 +42,11 @@ swapon --show 2>/dev/null || true
 
 # 2) PM2 — cluster modundan çık, ecosystem ile başlat
 echo "🔧 PM2 yeniden yapılandırılıyor (fork modu)..."
-pm2 delete 88atspeed 2>/dev/null || true
-pm2 delete 88atspeed-bitalih 2>/dev/null || true
-pm2 start "$APP_DIR/ecosystem.config.js"
+if pm2 describe 88atspeed >/dev/null 2>&1; then
+  pm2 reload ecosystem.config.js --update-env
+else
+  pm2 start "$APP_DIR/ecosystem.config.js"
+fi
 pm2 save
 pm2 reset 88atspeed 2>/dev/null || true
 pm2 reset 88atspeed-bitalih 2>/dev/null || true
