@@ -37,8 +37,11 @@
         muhtOverview: null,
         muhtIso: null,
         savingSim: false,
-        useSavedSim: true
+        useSavedSim: true,
+        kasa: null
     };
+
+    const KASA_STORAGE_PREFIX = 'hazir_kasa_';
 
     function $(sel, root) { return (root || document).querySelector(sel); }
     function $$(sel, root) { return Array.from((root || document).querySelectorAll(sel)); }
@@ -261,6 +264,201 @@
         return (v >= 0 ? '' : '-') + Math.abs(v).toFixed(2) + ' ₺';
     }
 
+    function kasaBetKey(hipId, raceNo) {
+        return String(hipId) + '|' + String(raceNo);
+    }
+
+    function createEmptyKasa(iso) {
+        return { iso, startBank: START_BANK, stake: STAKE, bets: {} };
+    }
+
+    function loadKasa(iso) {
+        const key = KASA_STORAGE_PREFIX + iso;
+        try {
+            const raw = localStorage.getItem(key);
+            if (!raw) return createEmptyKasa(iso);
+            const parsed = JSON.parse(raw);
+            if (!parsed || parsed.iso !== iso) return createEmptyKasa(iso);
+            parsed.bets = parsed.bets || {};
+            parsed.startBank = parsed.startBank ?? START_BANK;
+            parsed.stake = parsed.stake ?? STAKE;
+            return parsed;
+        } catch (_) {
+            return createEmptyKasa(iso);
+        }
+    }
+
+    function saveKasa(kasa) {
+        if (!kasa?.iso) return;
+        localStorage.setItem(KASA_STORAGE_PREFIX + kasa.iso, JSON.stringify(kasa));
+    }
+
+    function computeKasaBalance(kasa) {
+        let bal = kasa.startBank ?? START_BANK;
+        for (const bet of Object.values(kasa.bets || {})) {
+            bal -= bet.stake ?? STAKE;
+            if (bet.status === 'won') bal += (bet.stake ?? STAKE) * bet.odd;
+        }
+        return Math.round(bal * 100) / 100;
+    }
+
+    function getKasaStats(kasa) {
+        const bets = Object.values(kasa.bets || {});
+        let pending = 0;
+        let wins = 0;
+        let losses = 0;
+        let settledPnl = 0;
+        let staked = 0;
+        for (const b of bets) {
+            staked += b.stake ?? STAKE;
+            if (b.status === 'pending') pending++;
+            else if (b.status === 'won') { wins++; settledPnl += b.pnl ?? 0; }
+            else if (b.status === 'lost') { losses++; settledPnl += b.pnl ?? 0; }
+        }
+        const balance = computeKasaBalance(kasa);
+        return {
+            balance,
+            pnl: Math.round((balance - (kasa.startBank ?? START_BANK)) * 100) / 100,
+            pending,
+            wins,
+            losses,
+            totalBets: bets.length,
+            staked,
+            settledPnl: Math.round(settledPnl * 100) / 100
+        };
+    }
+
+    function settleKasaBets(data) {
+        if (!state.kasa || !data) return;
+        let changed = false;
+        for (const hip of data.hipodromlar || []) {
+            for (const race of hip.races || []) {
+                if (race.status !== 'finished') continue;
+                const key = kasaBetKey(hip.id, race.raceNo);
+                const bet = state.kasa.bets[key];
+                if (!bet || bet.status !== 'pending') continue;
+                const finish = getFinishPos(race, bet.horseNo);
+                const won = finish != null && finish > 0 && finish <= (BET_WIN_MAX_POS[bet.betKey] || 4);
+                bet.finishPos = finish;
+                bet.status = won ? 'won' : 'lost';
+                bet.pnl = won
+                    ? Math.round((bet.stake * (bet.odd - 1)) * 100) / 100
+                    : -bet.stake;
+                bet.settledAt = new Date().toISOString();
+                changed = true;
+            }
+        }
+        if (changed) saveKasa(state.kasa);
+    }
+
+    function placeKasaBet(hip, race, pick, betKey) {
+        if (!state.kasa || race.status !== 'pending') return;
+        const odd = parseSimOdd(getPickOdd(pick, race.raceNo, betKey, hip.id));
+        if (odd == null) {
+            window.alert('Bu bahis için geçerli oran yok.');
+            return;
+        }
+        const key = kasaBetKey(hip.id, race.raceNo);
+        const existing = state.kasa.bets[key];
+        const stats = getKasaStats(state.kasa);
+        const stake = state.kasa.stake ?? STAKE;
+        const balanceIfNew = stats.balance + (existing ? existing.stake : 0);
+        if (balanceIfNew < stake) {
+            window.alert('Yetersiz bakiye. Mevcut: ' + formatMoney(stats.balance));
+            return;
+        }
+        state.kasa.bets[key] = {
+            hipId: hip.id,
+            hipName: hip.name,
+            raceNo: race.raceNo,
+            horseNo: pick.no,
+            horseName: pick.name,
+            betKey,
+            betLabel: BET_LABELS[betKey],
+            odd,
+            stake,
+            status: 'pending',
+            placedAt: new Date().toISOString(),
+            finishPos: null,
+            pnl: null
+        };
+        saveKasa(state.kasa);
+        render();
+    }
+
+    function resetKasa() {
+        const iso = state.iso || getIso();
+        if (!window.confirm('Kasa sıfırlanacak. Tüm bahisler silinir. Emin misiniz?')) return;
+        state.kasa = createEmptyKasa(iso);
+        saveKasa(state.kasa);
+        render();
+    }
+
+    function renderKasaPanel() {
+        const kasa = state.kasa;
+        if (!kasa) return '';
+        const stats = getKasaStats(kasa);
+        const pnlCls = stats.pnl > 0 ? 'pos' : (stats.pnl < 0 ? 'neg' : '');
+        const bets = Object.values(kasa.bets || {}).sort((a, b) => {
+            const hipCmp = String(a.hipName || '').localeCompare(String(b.hipName || ''), 'tr');
+            if (hipCmp !== 0) return hipCmp;
+            return Number(a.raceNo) - Number(b.raceNo);
+        });
+
+        const betRows = bets.length
+            ? bets.map((b) => {
+                const stCls = b.status === 'won' ? 'win' : (b.status === 'lost' ? 'lose' : 'pending');
+                const res = b.status === 'pending'
+                    ? 'Bekliyor'
+                    : (b.status === 'won'
+                        ? '✓ ' + (b.finishPos != null ? b.finishPos + '.' : '')
+                        : '✗ ' + (b.finishPos != null ? b.finishPos + '.' : ''));
+                return '<div class="pub-hazir-kasa-bet ' + stCls + '">'
+                    + '<span>' + escapeHtml(b.hipName) + ' K' + b.raceNo + '</span>'
+                    + '<span>' + escapeHtml(b.horseNo) + ' ' + escapeHtml((b.horseName || '').slice(0, 14)) + '</span>'
+                    + '<span>' + escapeHtml(b.betLabel) + ' @' + b.odd + '</span>'
+                    + '<span class="pub-hazir-kasa-bet-res">' + res + '</span>'
+                    + '<span class="pub-hazir-kasa-bet-pnl">' + (b.pnl != null ? formatMoney(b.pnl) : '—') + '</span>'
+                    + '</div>';
+            }).join('')
+            : '<p class="pub-hazir-sim-empty">Henüz bahis yok. Koşu tablosunda oran hücresine tıklayın.</p>';
+
+        return '<div class="pub-hazir-kasa pub-hazir-premium-card">'
+            + '<div class="pub-hazir-kasa-hdr">'
+            + '<div><h3>💰 Kasa</h3>'
+            + '<p>Her koşuda bir at + bahis türü seçin · ' + (kasa.stake ?? STAKE) + ' ₺ / bahis</p></div>'
+            + '<button type="button" class="pub-hazir-kasa-reset" id="pubHazirKasaReset">Sıfırla</button>'
+            + '</div>'
+            + '<div class="pub-hazir-kasa-metrics">'
+            + '<div class="pub-hazir-kasa-metric main"><b>' + formatMoney(stats.balance) + '</b><span>Bakiye</span></div>'
+            + '<div class="pub-hazir-kasa-metric"><b>' + formatMoney(kasa.startBank) + '</b><span>Başlangıç</span></div>'
+            + '<div class="pub-hazir-kasa-metric ' + pnlCls + '"><b>' + formatMoney(stats.pnl) + '</b><span>Kar / Zarar</span></div>'
+            + '<div class="pub-hazir-kasa-metric"><b>' + stats.wins + '/' + (stats.wins + stats.losses) + '</b><span>İsabet</span></div>'
+            + '<div class="pub-hazir-kasa-metric"><b>' + stats.pending + '</b><span>Bekleyen</span></div>'
+            + '</div>'
+            + '<details class="pub-hazir-kasa-details"><summary>'
+            + stats.totalBets + ' bahis · ' + formatMoney(stats.staked) + ' yatırıldı'
+            + '</summary><div class="pub-hazir-kasa-log">' + betRows + '</div></details>'
+            + '</div>';
+    }
+
+    function formatOddPickCell(pick, raceNo, betKey, hipId, race, kasaBet) {
+        const val = getPickOdd(pick, raceNo, betKey, hipId);
+        const odd = parseSimOdd(val);
+        const isPick = kasaBet
+            && String(kasaBet.horseNo) === String(pick.no)
+            && kasaBet.betKey === betKey;
+        const canPick = race.status === 'pending' && odd != null && !state.btLoading;
+        const cls = 'pub-hazir-odd-td'
+            + (canPick ? ' pub-hazir-odd-pick' : '')
+            + (isPick ? ' pub-hazir-odd-selected' : '');
+        const attrs = canPick
+            ? ' data-horse-no="' + escapeHtml(pick.no) + '" data-bet-key="' + betKey + '" data-race-no="' + raceNo + '"'
+            : '';
+        const inner = formatOddCell(val, state.btLoading);
+        return '<td class="' + cls + '"' + attrs + '>' + inner + '</td>';
+    }
+
     async function ensureMuhtOverview(iso) {
         if (state.muhtOverview && state.muhtIso === iso) return state.muhtOverview;
         try {
@@ -383,6 +581,8 @@
             if (!data.success) throw new Error(data.error || 'Yükleme hatası');
             state.data = data;
             state.iso = iso;
+            state.kasa = loadKasa(iso);
+            settleKasaBets(data);
             if (data.savedSimulation?.kayit?.stages?.length) {
                 state.useSavedSim = true;
             }
@@ -662,7 +862,8 @@
             + escapeHtml(String(p.tahminSkor)) + '</span>';
     }
 
-    function renderRaceCard(race) {
+    function renderRaceCard(race, hip) {
+        const kasaBet = state.kasa?.bets?.[kasaBetKey(hip.id, race.raceNo)] || null;
         const statusCls = race.status === 'finished'
             ? (race.poolHit ? 'hit' : 'miss')
             : (race.status === 'pending' ? 'pending' : 'empty');
@@ -681,7 +882,7 @@
                 + '</tr></thead><tbody>'
                 + race.picks.map((p) => {
                     const oddCells = BET_KEYS.map((k) =>
-                        '<td class="pub-hazir-odd-td">' + formatOddCell(getPickOdd(p, race.raceNo, k, state.activeHipId), state.btLoading) + '</td>'
+                        formatOddPickCell(p, race.raceNo, k, hip.id, race, kasaBet)
                     ).join('');
                     const resultCell = race.status === 'finished'
                         ? '<td class="' + (p.hit ? 'pub-hazir-hit' : 'pub-hazir-miss') + '">'
@@ -719,6 +920,17 @@
             ? '<span class="pub-hazir-tahmin-badge">' + race.tahminMatchCount + '/4 tahmin</span>'
             : '';
 
+        const kasaLine = kasaBet
+            ? '<div class="pub-hazir-kasa-race-bet">Bahsiniz: <b>' + escapeHtml(kasaBet.horseNo) + ' '
+            + escapeHtml((kasaBet.horseName || '').slice(0, 18)) + '</b> · '
+            + escapeHtml(kasaBet.betLabel) + ' @' + kasaBet.odd
+            + (kasaBet.status === 'won' ? ' <span class="pub-hazir-kasa-win">+' + formatMoney(kasaBet.pnl) + '</span>'
+                : (kasaBet.status === 'lost' ? ' <span class="pub-hazir-kasa-lose">' + formatMoney(kasaBet.pnl) + '</span>' : ''))
+            + '</div>'
+            : (race.status === 'pending' && race.picks?.length
+                ? '<div class="pub-hazir-kasa-race-hint">Oran hücresine tıklayarak bahis yapın</div>'
+                : '');
+
         return '<div class="pub-hazir-race-card pub-hazir-premium-card ' + statusCls + '" data-race="' + race.raceNo + '">'
             + '<div class="pub-hazir-race-hdr">'
             + '<span class="pub-hazir-race-no">Koşu ' + race.raceNo + '</span>'
@@ -726,6 +938,7 @@
             + tahminBadge
             + '<span class="pub-hazir-race-status pub-hazir-status-' + statusCls + '">' + statusLabel + '</span>'
             + '</div>'
+            + kasaLine
             + picksHtml
             + actualLine
             + '</div>';
@@ -746,7 +959,7 @@
             + '</button>'
         ).join('');
 
-        const racesHtml = (activeHip?.races || []).map(renderRaceCard).join('');
+        const racesHtml = (activeHip?.races || []).map((r) => renderRaceCard(r, activeHip)).join('');
 
         const liveSim = runBankrollSimulation(data);
         const displaySim = resolveDisplaySim(data, liveSim);
@@ -762,6 +975,7 @@
             + '</div>'
             + renderCalibrationBanner(data.calibration)
             + renderGunlukBasari(data.gunlukBasari)
+            + renderKasaPanel()
             + renderBankrollPanel(displaySim, { liveSim, hasSaved })
             + renderSimHistory(data)
             + '<div class="pub-hazir-hip-tabs" role="tablist">' + hipTabs + '</div>'
@@ -787,6 +1001,18 @@
         $('#pubHazirSimToggle')?.addEventListener('click', () => {
             state.useSavedSim = !state.useSavedSim;
             render();
+        });
+        $('#pubHazirKasaReset')?.addEventListener('click', resetKasa);
+        $$('.pub-hazir-odd-pick', root).forEach((cell) => {
+            cell.addEventListener('click', () => {
+                const raceNo = cell.dataset.raceNo;
+                const horseNo = cell.dataset.horseNo;
+                const betKey = cell.dataset.betKey;
+                const hip = hips.find((h) => h.id === state.activeHipId);
+                const race = hip?.races?.find((r) => String(r.raceNo) === String(raceNo));
+                const pick = race?.picks?.find((p) => String(p.no) === String(horseNo));
+                if (hip && race && pick && betKey) placeKasaBet(hip, race, pick, betKey);
+            });
         });
         $$('.pub-hazir-hist-row', root).forEach((row) => {
             row.addEventListener('click', () => {
