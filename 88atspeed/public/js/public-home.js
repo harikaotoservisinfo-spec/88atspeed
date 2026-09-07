@@ -554,6 +554,9 @@
             if ($('#panel-rehber')?.classList.contains('active')) {
                 loadRehberLeaderboard({ silent: true });
             }
+            if ($('#panel-hazir')?.classList.contains('active')) {
+                window.pubHazirKupon?.load({ iso: clampedIso });
+            }
             scheduleTahminScorePoll(clampedIso);
             return;
             } catch (err) {
@@ -2447,6 +2450,7 @@
             pauseTjkTv();
             stopSonucPolling();
             stopRehberPolling();
+            window.pubHazirKupon?.onTabDeactivate();
             if (panelId === 'kosular') {
                 refreshProgramGanyanOdds();
                 refreshProgramBltData();
@@ -2463,6 +2467,9 @@
             }
             if (panelId === 'kayit-eval') {
                 initKayitEvalPanel();
+            }
+            if (panelId === 'hazir') {
+                window.pubHazirKupon?.onTabActivate();
             }
         }
         if (panelId === 'kazanc') {
@@ -3290,4 +3297,9 @@
     initMuhtControls();
     initFobToolbar();
     initDate();
+
+    window.pubVitrinState = {
+        getIso: () => state.iso || localTodayIso(),
+        getTarih: () => state.tarih
+    };
 })();

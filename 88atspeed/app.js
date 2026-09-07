@@ -27,6 +27,7 @@ const bitalihAutoConfig = require('./lib/bitalih-auto-config');
 const { resolveChromePath } = require('./lib/chrome-path');
 const publicTahminBuild = require('./lib/public-tahmin-build');
 const publicKayitDegerlendirme = require('./lib/public-kayit-degerlendirme');
+const publicHazirKupon = require('./lib/public-hazir-kupon');
 const app = express();
 const PORT = Number(process.env.PORT) || 3023;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -148,6 +149,15 @@ db.run(`CREATE TABLE IF NOT EXISTS puanlama_bitis_sonuclari (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     veri TEXT NOT NULL DEFAULT '{}',
     guncelleme DATETIME DEFAULT CURRENT_TIMESTAMP
+)`);
+
+db.run(`CREATE TABLE IF NOT EXISTS hazir_kupon_snapshots (
+    tarih TEXT NOT NULL,
+    hipodrom_id TEXT NOT NULL,
+    race_no INTEGER NOT NULL,
+    veri TEXT NOT NULL,
+    guncelleme DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (tarih, hipodrom_id, race_no)
 )`);
 
 app.use(express.json({ limit: '50mb' }));
@@ -427,6 +437,25 @@ app.get('/api/public/rehber-leaderboard', async (req, res) => {
         res.json(data);
     } catch (err) {
         console.error('public/rehber-leaderboard:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+/** Hazır Kupon — TEK/S2/S1/YUV ilk-4 tahminleri + kayıt kalibrasyonu */
+app.get('/api/public/hazir-kupon', async (req, res) => {
+    try {
+        let iso = req.query.iso;
+        const tarih = req.query.tarih;
+        if (!iso && tarih) iso = publicProgram.trToIso(tarih);
+        const data = await publicHazirKupon.buildHazirKupon(db, {
+            iso,
+            tarih,
+            force: req.query.refresh === '1'
+        });
+        res.set('Cache-Control', 'no-store');
+        res.json(data);
+    } catch (err) {
+        console.error('public/hazir-kupon:', err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 });
