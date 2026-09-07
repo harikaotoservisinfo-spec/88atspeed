@@ -914,6 +914,12 @@
             colCls: 'pub-col-yildiztek',
             title: 'Yalnızca bu ata özgü işaretler (koşudaki diğer atlarda olmayan)'
         }, {
+            key: 'yildizSon2Tek',
+            label: 'S2',
+            cls: 'pub-prog-yildizson2tek',
+            colCls: 'pub-col-yildizson2tek',
+            title: 'Son 2 koşuda yalnız bu ata özgü işaretler (diğer atlarda olmayan)'
+        }, {
             key: 'yildizGrup',
             label: 'GÖSTERGE',
             cls: 'pub-prog-yildizgrup',
@@ -961,10 +967,16 @@
         return (y.ad || 'star') + '|' + sutun;
     }
 
-    /** Koşu içinde yalnızca bir ata ait işaret listeleri */
-    function buildRaceUniqueGostergeMap(horses) {
+    function isSon2GostergeMarker(y) {
+        const k = parseInt(y?.k, 10);
+        return !isNaN(k) && k >= 1 && k <= 2;
+    }
+
+    /** Koşu içinde yalnızca bir ata ait işaret listeleri (isteğe bağlı filtre) */
+    function buildRaceUniqueGostergeMap(horses, markerFilter) {
         const rows = (horses || []).map((h) => {
-            const list = Array.isArray(h.yildizlar) ? h.yildizlar : [];
+            const raw = Array.isArray(h.yildizlar) ? h.yildizlar : [];
+            const list = markerFilter ? raw.filter(markerFilter) : raw;
             const sigs = new Set(list.map(gostergeMarkerSignature));
             return { key: horseRowKey(h), list, sigs };
         });
@@ -1161,6 +1173,19 @@
             + '</div>';
     }
 
+    function formatYildizSon2TekCell(h, ctx) {
+        const list = ctx?.uniqueSon2GostergeMap?.get(horseRowKey(h)) || [];
+        if (!list.length) return '<span class="pub-prog-yildiz-empty">—</span>';
+        return '<div class="pub-prog-yildiz-son2tek-wrap" title="' + escapeHtml('Son 2 koşuda diğer atlarda olmayan işaretler') + '">'
+            + '<span class="pub-prog-yildiz-son2tek-lbl">S2</span>'
+            + '<span class="pub-prog-yildiz-tek-stars">' + list.map((y) => formatGostergeMarker(y)).join('') + '</span>'
+            + '</div>';
+    }
+
+    function isYildizHtmlCol(key) {
+        return key === 'yildizGrup' || key === 'yildizTek' || key === 'yildizSon2Tek';
+    }
+
     function computeYildizGrupWidth(kosular) {
         let maxTotal = 0;
         for (const race of kosular || []) {
@@ -1173,15 +1198,23 @@
         return Math.min(2200, Math.max(680, maxTotal * 12 + 210));
     }
 
-    function computeYildizTekWidth(kosular) {
+    function computeYildizUniqueColWidth(kosular, markerFilter) {
         let maxUnique = 0;
         for (const race of kosular || []) {
-            const uniqueMap = buildRaceUniqueGostergeMap(race.horses || []);
+            const uniqueMap = buildRaceUniqueGostergeMap(race.horses || [], markerFilter);
             for (const list of uniqueMap.values()) {
                 if (list.length > maxUnique) maxUnique = list.length;
             }
         }
-        return Math.min(420, Math.max(110, maxUnique * 20 + 36));
+        return Math.min(480, Math.max(110, maxUnique * 20 + 36));
+    }
+
+    function computeYildizTekWidth(kosular) {
+        return computeYildizUniqueColWidth(kosular);
+    }
+
+    function computeYildizSon2TekWidth(kosular) {
+        return computeYildizUniqueColWidth(kosular, isSon2GostergeMarker);
     }
 
     function computeTakiColWidth(kosular) {
@@ -1254,6 +1287,7 @@
         }
         if (col.key === 'yildizGrup') return formatYildizGrupCell(h);
         if (col.key === 'yildizTek') return formatYildizTekCell(h, ctx);
+        if (col.key === 'yildizSon2Tek') return formatYildizSon2TekCell(h, ctx);
         if (col.key === 'name') return formatHorseNameCell(h);
         const v = String(h[col.key] || '').trim();
         return v || '—';
@@ -2002,6 +2036,7 @@
         const colWidths = {
             yildizGrup: computeYildizGrupWidth(kosular),
             yildizTek: computeYildizTekWidth(kosular),
+            yildizSon2Tek: computeYildizSon2TekWidth(kosular),
             bitisSira: 36
         };
         const colgroup = renderProgramColgroup(cols, colWidths);
@@ -2015,11 +2050,12 @@
             }).join('') + '<th class="pub-col-spacer-hdr" aria-hidden="true"></th>';
             const horses = race.horses || [];
             const uniqueGostergeMap = buildRaceUniqueGostergeMap(horses);
+            const uniqueSon2GostergeMap = buildRaceUniqueGostergeMap(horses, isSon2GostergeMarker);
             const body = horses.length
                 ? horses.map((h) => '<tr>'
                     + cols.map((c) => {
-                        const val = programHorseCell(h, c, { uniqueGostergeMap });
-                        const isRawCol = c.key === 'name' || c.key === 'yildizGrup' || c.key === 'yildizTek';
+                        const val = programHorseCell(h, c, { uniqueGostergeMap, uniqueSon2GostergeMap });
+                        const isRawCol = c.key === 'name' || isYildizHtmlCol(c.key);
                         return '<td class="' + escapeHtml(c.cls) + (c.colCls ? ' ' + escapeHtml(c.colCls) : '') + '">'
                             + (isRawCol ? val : escapeHtml(val)) + '</td>';
                     }).join('')
@@ -2108,6 +2144,7 @@
             score_hyb: 40,
             yildizGrup: computeYildizGrupWidth(kosular),
             yildizTek: computeYildizTekWidth(kosular),
+            yildizSon2Tek: computeYildizSon2TekWidth(kosular),
             fob_ganyan: 44,
             fob_ilk2: 40,
             fob_ilk3: 40
@@ -2148,15 +2185,16 @@
             }).join('') + '<th class="pub-col-spacer-hdr" aria-hidden="true"></th>';
             const horses = race.horses || [];
             const uniqueGostergeMap = buildRaceUniqueGostergeMap(horses);
+            const uniqueSon2GostergeMap = buildRaceUniqueGostergeMap(horses, isSon2GostergeMarker);
             const body = horses.length
                 ? horses.map((h) => {
-                    const ctx = { ganyanMap, ...bltMaps, ...gpMaps, fobMaps: raceFobMaps, btMaps, uniqueGostergeMap };
+                    const ctx = { ganyanMap, ...bltMaps, ...gpMaps, fobMaps: raceFobMaps, btMaps, uniqueGostergeMap, uniqueSon2GostergeMap };
                     return '<tr>'
                         + cols.map((c) => {
                             let cls = c.cls;
                             const val = programHorseCell(h, c, ctx);
                             const isNameCol = c.key === 'name';
-                            const isRawCol = isNameCol || c.key === 'yildizGrup' || c.key === 'yildizTek';
+                            const isRawCol = isNameCol || isYildizHtmlCol(c.key);
                             if (c.key === 'ganyan') {
                                 if (!ganyanMap[String(h.no)]) cls += ' pub-prog-ganyan-empty';
                                 else if (leaderNo && String(h.no) === leaderNo) cls += ' pub-prog-ganyan-leader';
