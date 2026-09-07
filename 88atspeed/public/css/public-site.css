@@ -5886,6 +5886,7 @@ a { color: inherit; text-decoration: none; }
 }
 .pub-hazir-odd-empty { color: #ccc; font-weight: 400; }
 .pub-hazir-odd-loading { color: #999; }
+.pub-hazir-odd-saved { color: #5d4037; font-style: italic; }
 .pub-hazir-ayak-th, .pub-hazir-ayak-td { text-align: center; }
 .pub-hazir-ayak {
     display: inline-flex; align-items: center; justify-content: center;

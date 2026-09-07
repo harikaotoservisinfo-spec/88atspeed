@@ -20,6 +20,7 @@ const {
 } = require('./gosterge-predict');
 const { buildFinishByNo } = require('./hazir-kupon-simulator');
 const hazirKuponSimStore = require('./hazir-kupon-sim-store');
+const hazirKuponOddsStore = require('./hazir-kupon-odds-store');
 
 const CALIB_CACHE_MS = 10 * 60 * 1000;
 let calibCache = { at: 0, data: null };
@@ -335,13 +336,23 @@ async function buildHazirKupon(db, opts = {}) {
 
     const savedSimulation = await hazirKuponSimStore.getSimKayit(db, { tarih });
     const simStats = await hazirKuponSimStore.getSimStats(db);
+    const oddsSnapshots = await hazirKuponOddsStore.getOddsMapForDay(db, tarih);
+
+    for (const hip of result.hipodromlar) {
+        for (const race of hip.races) {
+            const snapKey = hazirKuponOddsStore.raceOddsKey(hip.id, race.raceNo);
+            const snap = oddsSnapshots[snapKey];
+            if (snap?.byHorse) race.savedOdds = snap.byHorse;
+        }
+    }
 
     return Object.assign(result, {
         savedSimulation,
         simStats: {
             aggregate: simStats.aggregate,
             recent: simStats.list.slice(0, 12)
-        }
+        },
+        oddsSnapshots
     });
 }
 

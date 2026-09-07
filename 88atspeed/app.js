@@ -30,6 +30,7 @@ const publicKayitDegerlendirme = require('./lib/public-kayit-degerlendirme');
 const publicHazirKupon = require('./lib/public-hazir-kupon');
 const hazirKuponSimStore = require('./lib/hazir-kupon-sim-store');
 const hazirKuponKasaStore = require('./lib/hazir-kupon-kasa-store');
+const hazirKuponOddsStore = require('./lib/hazir-kupon-odds-store');
 const app = express();
 const PORT = Number(process.env.PORT) || 3023;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -549,6 +550,17 @@ app.post('/api/public/hazir-kupon-kasa', async (req, res) => {
         res.json(result);
     } catch (err) {
         console.error('public/hazir-kupon-kasa POST:', err.message);
+        res.status(400).json({ success: false, error: err.message });
+    }
+});
+
+/** Hazır Kupon — koşu bazlı son oran snapshot (Ganyan / İlk 2 / 3 / 4) */
+app.post('/api/public/hazir-kupon-odds', async (req, res) => {
+    try {
+        const result = await hazirKuponOddsStore.saveBulkOddsSnapshots(db, req.body || {});
+        res.json(result);
+    } catch (err) {
+        console.error('public/hazir-kupon-odds POST:', err.message);
         res.status(400).json({ success: false, error: err.message });
     }
 });

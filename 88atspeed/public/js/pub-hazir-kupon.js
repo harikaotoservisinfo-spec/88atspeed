@@ -40,7 +40,9 @@
         useSavedSim: true,
         kasa: null,
         kasaSaving: false,
-        kasaSavedAt: null
+        kasaSavedAt: null,
+        oddsSnapshot: {},
+        oddsSaveTimer: null
     };
 
     const KASA_STORAGE_PREFIX = 'hazir_kasa_';
@@ -95,10 +97,55 @@
         return !isNaN(v) && v <= 1.01;
     }
 
-    function formatOddCell(val, loading) {
+    function formatOddCell(val, loading, saved) {
         if (loading) return '<span class="pub-hazir-odd pub-hazir-odd-loading">…</span>';
         if (!val || isPlaceholderBtOdd(val)) return '<span class="pub-hazir-odd pub-hazir-odd-empty">—</span>';
-        return '<span class="pub-hazir-odd">' + escapeHtml(String(val)) + '</span>';
+        const savedCls = saved ? ' pub-hazir-odd-saved' : '';
+        return '<span class="pub-hazir-odd' + savedCls + '">' + escapeHtml(String(val)) + '</span>';
+    }
+
+    function raceOddsKey(hipId, raceNo) {
+        return String(hipId) + '|' + String(raceNo);
+    }
+
+    function mergeByHorseClient(existing, incoming) {
+        const base = existing && typeof existing === 'object' ? Object.assign({}, existing) : {};
+        if (!incoming || typeof incoming !== 'object') return base;
+        for (const [no, bets] of Object.entries(incoming)) {
+            if (!bets || typeof bets !== 'object') continue;
+            if (!base[no]) base[no] = {};
+            for (const [k, v] of Object.entries(bets)) {
+                if (v != null && String(v).trim() !== '' && String(v) !== '—') {
+                    base[no][k] = String(v);
+                }
+            }
+        }
+        return base;
+    }
+
+    function hydrateOddsSnapshots(data) {
+        if (!data) return;
+        if (data.oddsSnapshots && typeof data.oddsSnapshots === 'object') {
+            for (const [key, snap] of Object.entries(data.oddsSnapshots)) {
+                if (!snap?.byHorse) continue;
+                const existing = state.oddsSnapshot[key]?.byHorse || {};
+                state.oddsSnapshot[key] = {
+                    byHorse: mergeByHorseClient(existing, snap.byHorse),
+                    capturedAt: snap.capturedAt || state.oddsSnapshot[key]?.capturedAt
+                };
+            }
+        }
+        for (const hip of data.hipodromlar || []) {
+            for (const race of hip.races || []) {
+                if (!race.savedOdds) continue;
+                const key = raceOddsKey(hip.id, race.raceNo);
+                const existing = state.oddsSnapshot[key]?.byHorse || {};
+                state.oddsSnapshot[key] = {
+                    byHorse: mergeByHorseClient(existing, race.savedOdds),
+                    capturedAt: state.oddsSnapshot[key]?.capturedAt
+                };
+            }
+        }
     }
 
     function resolveMuhtHipKey(hipName) {
@@ -145,7 +192,7 @@
         return out;
     }
 
-    function getPickOdd(pick, raceNo, betKey, hipId) {
+    function getLivePickOdd(pick, raceNo, betKey, hipId) {
         const resolvedHipId = hipId || state.activeHipId;
         const no = String(pick.no);
         const nameKey = normalizeHorseName(pick.name);
@@ -160,6 +207,18 @@
             return tjk[no] || '';
         }
         return '';
+    }
+
+    function getSavedPickOdd(pick, raceNo, betKey, hipId) {
+        const key = raceOddsKey(hipId || state.activeHipId, raceNo);
+        const saved = state.oddsSnapshot[key]?.byHorse?.[String(pick.no)]?.[betKey];
+        return saved && !isPlaceholderBtOdd(saved) ? saved : '';
+    }
+
+    function getPickOdd(pick, raceNo, betKey, hipId) {
+        const live = getLivePickOdd(pick, raceNo, betKey, hipId);
+        if (live && !isPlaceholderBtOdd(live)) return live;
+        return getSavedPickOdd(pick, raceNo, betKey, hipId) || live || '';
     }
 
     function getFinishPos(race, horseNo) {
@@ -265,6 +324,57 @@
         const v = Number(n);
         if (!Number.isFinite(v)) return '—';
         return (v >= 0 ? '' : '-') + Math.abs(v).toFixed(2) + ' ₺';
+    }
+
+    function captureOddsForHip(hip) {
+        if (!hip) return null;
+        const payload = [];
+        for (const race of hip.races || []) {
+            const byHorse = {};
+            for (const pick of race.picks || []) {
+                const entry = {};
+                for (const betKey of BET_KEYS) {
+                    const val = getLivePickOdd(pick, race.raceNo, betKey, hip.id);
+                    if (val && !isPlaceholderBtOdd(val)) entry[betKey] = String(val);
+                }
+                if (Object.keys(entry).length) byHorse[String(pick.no)] = entry;
+            }
+            if (!Object.keys(byHorse).length) continue;
+            const key = raceOddsKey(hip.id, race.raceNo);
+            const merged = mergeByHorseClient(state.oddsSnapshot[key]?.byHorse, byHorse);
+            state.oddsSnapshot[key] = {
+                byHorse: merged,
+                capturedAt: new Date().toISOString()
+            };
+            payload.push({ hipId: String(hip.id), raceNo: race.raceNo, byHorse: merged });
+        }
+        return payload.length ? payload : null;
+    }
+
+    function scheduleOddsPersist(races) {
+        if (!races?.length) return;
+        if (state.oddsSaveTimer) clearTimeout(state.oddsSaveTimer);
+        state.oddsSaveTimer = setTimeout(() => persistOddsSnapshots(races), 1500);
+    }
+
+    async function persistOddsSnapshots(races) {
+        const data = state.data;
+        if (!data || !races?.length) return;
+        try {
+            await fetch('/api/public/hazir-kupon-odds', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    iso: data.iso,
+                    tarih: data.tarih,
+                    races,
+                    source: 'client',
+                    capturedAt: new Date().toISOString()
+                })
+            });
+        } catch (err) {
+            console.warn('Oran snapshot kaydı başarısız:', err.message);
+        }
     }
 
     function kasaBetKey(hipId, raceNo) {
@@ -559,7 +669,10 @@
     }
 
     function formatOddPickCell(pick, raceNo, betKey, hipId, race, kasaBet) {
+        const liveVal = getLivePickOdd(pick, raceNo, betKey, hipId);
         const val = getPickOdd(pick, raceNo, betKey, hipId);
+        const savedVal = getSavedPickOdd(pick, raceNo, betKey, hipId);
+        const isSaved = !!savedVal && (!liveVal || isPlaceholderBtOdd(liveVal));
         const odd = parseSimOdd(val);
         const isPick = kasaBet
             && String(kasaBet.horseNo) === String(pick.no)
@@ -571,7 +684,8 @@
         const attrs = canPick
             ? ' data-horse-no="' + escapeHtml(pick.no) + '" data-bet-key="' + betKey + '" data-race-no="' + raceNo + '"'
             : '';
-        const inner = formatOddCell(val, state.btLoading);
+        const loading = state.btLoading && race.status === 'pending';
+        const inner = formatOddCell(val, loading, isSaved);
         return '<td class="' + cls + '"' + attrs + '>' + inner + '</td>';
     }
 
@@ -640,12 +754,16 @@
 
     async function loadOddsForHip(hip, refresh) {
         if (!hip) return;
+        const hasPending = (hip.races || []).some((r) => r.status === 'pending');
+        if (!hasPending) return;
         const iso = state.iso || getIso();
-        const raceNos = (hip.races || []).map((r) => r.raceNo);
+        const raceNos = (hip.races || []).filter((r) => r.status === 'pending').map((r) => r.raceNo);
         await Promise.all([
             fetchBtOddsForHip(hip.id, hip.name, refresh),
             fetchGanyanForHip(iso, hip.id, hip.name, raceNos, refresh)
         ]);
+        const captured = captureOddsForHip(hip);
+        if (captured) scheduleOddsPersist(captured);
     }
 
     async function loadOddsForActiveHip(refresh) {
@@ -695,10 +813,15 @@
             const res = await fetch(qs, { cache: 'no-store' });
             const data = await res.json();
             if (!data.success) throw new Error(data.error || 'Yükleme hatası');
+            const prevIso = state.iso;
             state.data = data;
             const resolvedIso = data.iso || iso;
             const resolvedTarih = data.tarih || '';
+            if (prevIso && prevIso !== resolvedIso) {
+                state.oddsSnapshot = {};
+            }
             state.iso = resolvedIso;
+            hydrateOddsSnapshots(data);
             if (!state.kasa || state.kasa.iso !== resolvedIso) {
                 state.kasa = await loadKasa(resolvedIso, resolvedTarih);
             } else if (resolvedTarih && !state.kasa.tarih) {
