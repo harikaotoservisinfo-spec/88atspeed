@@ -10,10 +10,10 @@
     const BET_LABELS = { ganyan: 'Ganyan', ilk2: 'İlk 2', ilk3: 'İlk 3', ilk4: 'İlk 4' };
     const BET_WIN_MAX_POS = { ganyan: 1, ilk2: 2, ilk3: 3, ilk4: 4 };
     const SIM_STAGES = [
-        { id: 1, label: 'Kademe 1 — Sadece Ganyan', bets: ['ganyan'] },
-        { id: 2, label: 'Kademe 2 — Ganyan + İlk 2', bets: ['ganyan', 'ilk2'] },
-        { id: 3, label: 'Kademe 3 — + İlk 3', bets: ['ganyan', 'ilk2', 'ilk3'] },
-        { id: 4, label: 'Kademe 4 — Tümü', bets: ['ganyan', 'ilk2', 'ilk3', 'ilk4'] }
+        { id: 1, label: 'Kupon 1 — Ganyan', betKey: 'ganyan' },
+        { id: 2, label: 'Kupon 2 — İlk 2', betKey: 'ilk2' },
+        { id: 3, label: 'Kupon 3 — İlk 3', betKey: 'ilk3' },
+        { id: 4, label: 'Kupon 4 — İlk 4', betKey: 'ilk4' }
     ];
     const START_BANK = 1000;
     const STAKE = 20;
@@ -309,12 +309,23 @@
         };
     }
 
+    function countPendingPoolBets(races, betKey) {
+        let n = 0;
+        for (const race of races) {
+            for (const pick of race.picks || []) {
+                if (parseSimOdd(getPickOdd(pick, race.raceNo, betKey, race.hipId)) != null) n++;
+            }
+        }
+        return n;
+    }
+
     function runBankrollSimulation(data) {
         const races = flattenAllRaces(data);
         const finished = races.filter((r) => r.status === 'finished' && r.picks?.length);
         const pending = races.filter((r) => r.status === 'pending' && r.picks?.length);
 
         const stages = SIM_STAGES.map((stage) => {
+            const betKey = stage.betKey;
             let bank = START_BANK;
             let wins = 0;
             let losses = 0;
@@ -322,15 +333,15 @@
             const bets = [];
 
             for (const race of finished) {
-                for (const betKey of stage.bets) {
-                    const sel = pickHighestOddBet(race.picks, race.raceNo, betKey, race.hipId);
-                    if (!sel) {
+                for (const pick of race.picks || []) {
+                    const odd = parseSimOdd(getPickOdd(pick, race.raceNo, betKey, race.hipId));
+                    if (odd == null) {
                         skipped++;
                         continue;
                     }
-                    const finish = getFinishPos(race, sel.pick.no);
+                    const finish = getFinishPos(race, pick.no);
                     const won = isBetWon(betKey, finish);
-                    const result = applySimBet(bank, STAKE, sel.odd, won);
+                    const result = applySimBet(bank, STAKE, odd, won);
                     bank = result.bank;
                     if (won) wins++;
                     else losses++;
@@ -339,9 +350,9 @@
                         raceNo: race.raceNo,
                         betKey,
                         betLabel: BET_LABELS[betKey],
-                        horseNo: sel.pick.no,
-                        horseName: sel.pick.name,
-                        odd: sel.odd,
+                        horseNo: pick.no,
+                        horseName: pick.name,
+                        odd,
                         finishPos: finish,
                         won,
                         stake: STAKE,
@@ -360,7 +371,7 @@
                 skipped,
                 totalBets: wins + losses,
                 pendingRaces: pending.length,
-                pendingBets: pending.length * stage.bets.length,
+                pendingBets: countPendingPoolBets(pending, betKey),
                 bets
             });
         });
@@ -899,8 +910,11 @@
                 state.kasa.tarih = resolvedTarih;
             }
             await settleKasaBets(data);
-            if (data.savedSimulation?.kayit?.stages?.length) {
+            if (data.savedSimulation?.kayit?.stages?.length
+                && data.savedSimulation.kayit.stages[0]?.betKey) {
                 state.useSavedSim = true;
+            } else {
+                state.useSavedSim = false;
             }
             if (!state.activeHipId && data.hipodromlar?.length) {
                 state.activeHipId = data.hipodromlar[0].id;
@@ -1098,8 +1112,8 @@
 
             return '<div class="pub-hazir-sim-stage pub-hazir-premium-card">'
                 + '<div class="pub-hazir-sim-stage-hdr">'
-                + '<span class="pub-hazir-sim-kademe">Kademe ' + s.id + '</span>'
-                + '<h4>' + escapeHtml(s.label.replace(/^Kademe \d+ — /, '')) + '</h4>'
+                + '<span class="pub-hazir-sim-kademe">Kupon ' + s.id + '</span>'
+                + '<h4>' + escapeHtml(s.label.replace(/^Kupon \d+ — /, '')) + '</h4>'
                 + '</div>'
                 + '<div class="pub-hazir-sim-metrics">'
                 + '<div class="pub-hazir-sim-metric"><b>' + formatMoney(sim.startBank) + '</b><span>Başlangıç</span></div>'
@@ -1137,8 +1151,8 @@
             + (canSave && !state.savingSim ? '' : ' disabled')
             + '>' + (state.savingSim ? 'Kaydediliyor…' : saveLabel) + '</button>'
             + '</div></div>'
-            + '<p>Her koşuda tahmin havuzundaki <b>en yüksek oranlı</b> ata ' + STAKE + ' ₺ · Başlangıç ' + START_BANK + ' ₺'
-            + ' · Kazanç = oran × ' + STAKE + ' ₺</p>'
+            + '<p>4 ayrı kupon · Her koşuda havuzdaki <b>tüm atlara</b> ' + STAKE + ' ₺'
+            + ' · Başlangıç ' + START_BANK + ' ₺ · Kazanç = oran × ' + STAKE + ' ₺</p>'
             + savedBadge
             + '<span class="pub-hazir-sim-status">' + sim.finishedRaceCount + ' koşu sonuçlandı'
             + (sim.pendingRaceCount ? ' · ' + sim.pendingRaceCount + ' bekliyor' : '')

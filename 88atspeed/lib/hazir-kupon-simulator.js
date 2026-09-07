@@ -1,15 +1,15 @@
 /**
- * Hazır Kupon bankroll simülasyonu — en yüksek oranlı seçime 20 TL
+ * Hazır Kupon bankroll simülasyonu — havuzdaki her ata 20 TL (4 kupon)
  */
 const BET_KEYS = ['ganyan', 'ilk2', 'ilk3', 'ilk4'];
 const BET_WIN_MAX_POS = { ganyan: 1, ilk2: 2, ilk3: 3, ilk4: 4 };
 const BET_LABELS = { ganyan: 'Ganyan', ilk2: 'İlk 2', ilk3: 'İlk 3', ilk4: 'İlk 4' };
 
 const STAGES = [
-    { id: 1, label: 'Kademe 1 — Sadece Ganyan', bets: ['ganyan'] },
-    { id: 2, label: 'Kademe 2 — Ganyan + İlk 2', bets: ['ganyan', 'ilk2'] },
-    { id: 3, label: 'Kademe 3 — + İlk 3', bets: ['ganyan', 'ilk2', 'ilk3'] },
-    { id: 4, label: 'Kademe 4 — Tümü', bets: ['ganyan', 'ilk2', 'ilk3', 'ilk4'] }
+    { id: 1, label: 'Kupon 1 — Ganyan', betKey: 'ganyan' },
+    { id: 2, label: 'Kupon 2 — İlk 2', betKey: 'ilk2' },
+    { id: 3, label: 'Kupon 3 — İlk 3', betKey: 'ilk3' },
+    { id: 4, label: 'Kupon 4 — İlk 4', betKey: 'ilk4' }
 ];
 
 const DEFAULT_START_BANK = 1000;
@@ -117,6 +117,7 @@ function simulateBankroll(opts = {}) {
     const pendingRaces = races.filter((r) => r.status === 'pending' && r.picks?.length);
 
     const stages = STAGES.map((stage) => {
+        const betKey = stage.betKey;
         let bank = startBank;
         let wins = 0;
         let losses = 0;
@@ -124,15 +125,15 @@ function simulateBankroll(opts = {}) {
         const bets = [];
 
         for (const race of finishedRaces) {
-            for (const betKey of stage.bets) {
-                const selection = pickHighestOdd(race.picks, (p) => getOdd(race, p, betKey));
-                if (!selection) {
+            for (const pick of race.picks || []) {
+                const odd = parseOdd(getOdd(race, pick, betKey));
+                if (!odd) {
                     skipped++;
                     continue;
                 }
-                const finish = getFinishPos(race, selection.pick.no);
+                const finish = getFinishPos(race, pick.no);
                 const won = isBetWon(betKey, finish);
-                const result = applyBetToBank(bank, stake, selection.odd, won);
+                const result = applyBetToBank(bank, stake, odd, won);
                 bank = result.bank;
                 if (won) wins++;
                 else losses++;
@@ -143,9 +144,9 @@ function simulateBankroll(opts = {}) {
                     raceNo: race.raceNo,
                     betKey,
                     betLabel: BET_LABELS[betKey] || betKey,
-                    horseNo: selection.pick.no,
-                    horseName: selection.pick.name || '',
-                    odd: selection.odd,
+                    horseNo: pick.no,
+                    horseName: pick.name || '',
+                    odd,
                     finishPos: finish,
                     won,
                     stake,
@@ -156,7 +157,12 @@ function simulateBankroll(opts = {}) {
             }
         }
 
-        const pendingBets = pendingRaces.length * stage.bets.length;
+        let pendingBets = 0;
+        for (const race of pendingRaces) {
+            for (const pick of race.picks || []) {
+                if (parseOdd(getOdd(race, pick, betKey))) pendingBets++;
+            }
+        }
 
         return Object.assign({}, stage, {
             startBank,
