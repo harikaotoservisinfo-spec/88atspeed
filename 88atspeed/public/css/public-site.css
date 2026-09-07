@@ -202,7 +202,172 @@ a { color: inherit; text-decoration: none; }
 
 .pub-header-brand { min-width: 0; }
 
-/* Logo ultra */
+/* 88 AT SPEED — cam/altın logo */
+.atspeed-brand-link {
+    display: inline-block;
+    text-decoration: none;
+    color: inherit;
+}
+
+.atspeed-brand-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.logo-badge-container {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    flex-shrink: 0;
+}
+
+.glass-glow {
+    position: absolute;
+    inset: -6px;
+    border-radius: 20px;
+    background: radial-gradient(circle at 50% 50%, rgba(255, 215, 100, 0.45) 0%, rgba(255, 193, 7, 0.15) 40%, transparent 70%);
+    filter: blur(8px);
+    animation: atspeed-glow-pulse 3s ease-in-out infinite;
+}
+
+@keyframes atspeed-glow-pulse {
+    0%, 100% { opacity: 0.7; transform: scale(0.95); }
+    50% { opacity: 1; transform: scale(1.05); }
+}
+
+.glass-frame {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border-radius: 16px;
+    padding: 3px;
+    background: linear-gradient(145deg, rgba(255, 235, 150, 0.9) 0%, rgba(255, 193, 7, 0.6) 30%, rgba(180, 120, 20, 0.8) 70%, rgba(255, 220, 100, 0.9) 100%);
+    box-shadow:
+        0 8px 24px rgba(0, 0, 0, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.5),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.inner-icon {
+    width: 100%;
+    height: 100%;
+    border-radius: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(160deg, rgba(40, 10, 10, 0.95) 0%, rgba(90, 20, 20, 0.9) 45%, rgba(25, 5, 5, 0.98) 100%);
+    box-shadow: inset 0 2px 12px rgba(255, 255, 255, 0.08), inset 0 -4px 8px rgba(0, 0, 0, 0.4);
+    position: relative;
+    overflow: hidden;
+}
+
+.inner-icon::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.12) 50%, transparent 65%);
+    animation: atspeed-glass-shine 4s ease-in-out infinite;
+}
+
+@keyframes atspeed-glass-shine {
+    0%, 65% { transform: translateX(-120%) skewX(-12deg); }
+    100% { transform: translateX(120%) skewX(-12deg); }
+}
+
+.number-88 {
+    position: relative;
+    z-index: 1;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: -1px;
+    background: linear-gradient(180deg, #fff9c4 0%, #ffd54f 35%, #ff8f00 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 2px 6px rgba(255, 193, 7, 0.5));
+}
+
+.logo-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.text-and-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.brand-text {
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+    line-height: 1;
+}
+
+.text-at {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 28px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: 1px;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+}
+
+.text-speed {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 28px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    background: linear-gradient(90deg, #90caf9 0%, #e3f2fd 40%, #42a5f5 60%, #90caf9 100%);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: pub-speed-shimmer 3s linear infinite;
+    filter: drop-shadow(0 0 16px rgba(66, 165, 245, 0.45));
+}
+
+.pro-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    color: #1a1a2e;
+    background: linear-gradient(135deg, #ffd54f 0%, #ffb300 50%, #ff8f00 100%);
+    box-shadow: 0 2px 10px rgba(255, 193, 7, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.pro-badge i {
+    font-size: 9px;
+    color: #5d4037;
+}
+
+.sub-heading {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.72);
+    letter-spacing: 0.15px;
+    line-height: 1.4;
+}
+
+.sub-heading .dot {
+    margin: 0 6px;
+    color: rgba(255, 215, 100, 0.7);
+}
+
+/* Eski logo sınıfları (footer uyumluluk) */
 .pub-logo-ultra {
     display: inline-flex;
     align-items: center;
@@ -4161,12 +4326,9 @@ a { color: inherit; text-decoration: none; }
         gap: 16px;
     }
     .pub-header-brand { display: flex; flex-direction: column; align-items: center; }
-    .pub-header-tagline { justify-content: center; }
+    .atspeed-brand-wrapper { justify-content: center; }
     .pub-header-mid { justify-content: center; }
-    .pub-header-actions { justify-content: center; }
-    .pub-logo-ultra { justify-content: center; }
-    .pub-tab-track { width: 100%; }
-    .lerta-ad-lb-1 .lerta-ad-link,
+    .pub-tab-track { width: 100%; }    .pub-tab-track { width: 100%; }
     .lerta-ad-lb-2 .lerta-ad-link {
         flex-wrap: wrap;
         justify-content: center;
