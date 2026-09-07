@@ -4163,7 +4163,7 @@ a { color: inherit; text-decoration: none; }
         gap: 16px;
     }
     .pub-header-brand { display: flex; flex-direction: column; align-items: center; }
-    .atspeed-brand-wrapper { justify-content: center; }
+    .atspeed-brand-link { margin: 0 auto; }
     .pub-header-mid { justify-content: center; }
     .pub-header-actions { justify-content: center; }
     .pub-tab-track { width: 100%; }
