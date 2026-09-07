@@ -20,7 +20,7 @@
             gucluUyari: satir.includes('guclu-uyari-satir'),
             maviFosfor: satir.includes('fosfor-mavi-satir'),
             pembeSatir: satir.includes('pembe-satir'),
-            kirmiziTest: !!c.kirmiziClass,
+            kirmiziTest: !!(c.test1PembeVurguClass || c.test2PembeVurguClass || c.test3PembeVurguClass),
             sariTest12: !!c.test12YakinClass,
             test1EnIyi: !!c.test1Class,
             test2EnIyi: !!c.test2Class,

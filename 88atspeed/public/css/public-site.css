@@ -1557,26 +1557,27 @@ a { color: inherit; text-decoration: none; }
 }
 
 .pub-program-table {
-    width: 100%;
+    width: auto;
+    min-width: 100%;
     border-collapse: collapse;
-    font-size: 13px;
+    font-size: 11px;
     table-layout: fixed;
 }
 
 .pub-program-table th {
     background: #f7f7f7;
-    padding: 6px 8px;
+    padding: 4px 4px;
     text-align: left;
-    font-size: 11px;
+    font-size: 9.5px;
     text-transform: uppercase;
-    letter-spacing: 0.4px;
+    letter-spacing: 0.2px;
     color: var(--pub-muted);
     border-bottom: 1px solid #ececec;
     white-space: nowrap;
 }
 
 .pub-program-table td {
-    padding: 6px 8px;
+    padding: 4px 4px;
     border-bottom: 1px solid #f3f3f3;
     vertical-align: middle;
 }
@@ -1605,6 +1606,1754 @@ a { color: inherit; text-decoration: none; }
     padding-left: 4px !important;
 }
 
+.pub-prog-t1dr-star {
+    color: #f9a825;
+    font-size: 13px;
+    font-weight: 900;
+    line-height: 1;
+    margin-right: 2px;
+    vertical-align: middle;
+}
+
+.pub-prog-t123-star {
+    color: #e53935;
+    font-size: 13px;
+    font-weight: 900;
+    line-height: 1;
+    margin-right: 2px;
+    vertical-align: middle;
+}
+
+.pub-prog-t9-star {
+    color: #8e24aa;
+    font-size: 13px;
+    font-weight: 900;
+    line-height: 1;
+    margin-right: 2px;
+    vertical-align: middle;
+}
+
+.pub-prog-f8002-star {
+    color: #1e88e5;
+    font-size: 13px;
+    font-weight: 900;
+    line-height: 1;
+    margin-right: 2px;
+    vertical-align: middle;
+}
+
+.pub-prog-t1yesil-star {
+    color: #2e7d32;
+    font-size: 13px;
+    font-weight: 900;
+    line-height: 1;
+    margin-right: 2px;
+    vertical-align: middle;
+}
+
+.pub-prog-satiryesil-star {
+    color: #00bfa5;
+    font-size: 13px;
+    font-weight: 900;
+    line-height: 1;
+    margin-right: 2px;
+    vertical-align: middle;
+}
+
+.pub-yildiz-ayrac {
+    display: inline-block;
+    width: 0;
+    align-self: stretch;
+    border-left: 1px dotted #bbb;
+    margin: 0 3px;
+    height: 12px;
+}
+
+/* Kronolojik "7" ızgarası: her yarış ayrı sütun, yıldızlar üstte, sayı altta */
+.pub-prog-yildiz-satir.kron { align-items: flex-start; }
+.pub-yk-grid {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 0;
+}
+.pub-yk-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    min-width: 26px;
+    padding: 0 3px;
+}
+.pub-yk-stars {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: center;
+    gap: 0 1px;
+    white-space: nowrap;
+    flex: 0 0 auto;
+}
+.pub-yk-n {
+    font-size: 10px;
+    font-weight: 800;
+    color: #333;
+    margin-top: 2px;
+    border-top: 1px solid #e2e2e2;
+    width: 100%;
+    text-align: center;
+}
+.pub-yk-k {
+    font-size: 7.5px;
+    font-weight: 700;
+    color: #aaa;
+    letter-spacing: 0.3px;
+}
+.pub-yk-sep {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 2px;
+}
+.pub-yk-line {
+    flex: 1 1 auto;
+    border-left: 1px dotted #bbb;
+    width: 0;
+    min-height: 12px;
+}
+.pub-yk-arrow {
+    font-size: 9px;
+    font-weight: 800;
+    white-space: nowrap;
+    padding: 1px 3px;
+    border-radius: 6px;
+    margin-top: 2px;
+}
+.pub-yk-arrow.pos { background: #e6f5e9; color: #1b7a35; }
+.pub-yk-arrow.neg { background: #fdecec; color: #c62828; }
+.pub-yk-arrow.nil { background: #f0f0f0; color: #999; }
+
+.pub-prog-ivme {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    margin-top: 3px;
+    padding-top: 3px;
+    border-top: 1px solid #e0e0e0;
+}
+.pub-ivme-lbl {
+    font-size: 8px;
+    font-weight: 800;
+    color: #888;
+    letter-spacing: 0.4px;
+}
+.pub-ivme-chip {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 6px;
+    white-space: nowrap;
+    background: #f2f2f2;
+    color: #555;
+}
+.pub-ivme-chip b { font-weight: 800; opacity: 0.7; }
+.pub-ivme-chip.pos { background: #e6f5e9; color: #1b7a35; }
+.pub-ivme-chip.neg { background: #fdecec; color: #c62828; }
+.pub-ivme-chip.nil { background: #f0f0f0; color: #999; }
+
+.pub-col-yildizgrup { min-width: 480px; }
+
+.pub-col-yildiztek { min-width: 110px; max-width: 420px; }
+
+.pub-program-table th.pub-col-yildiztek {
+    background: #fff3e0;
+    color: #e65100;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    border-right: 2px solid #ffb74d;
+}
+
+.pub-prog-yildiztek {
+    text-align: left;
+    white-space: normal;
+    overflow: visible;
+    padding: 2px 6px !important;
+    vertical-align: top;
+    background: #fffaf3;
+    border-right: 2px solid #ffe0b2;
+}
+
+.pub-prog-yildiz-tek-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 3px;
+    max-width: 100%;
+}
+
+.pub-prog-yildiz-tek-lbl {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 14px;
+    margin-top: 1px;
+    padding: 0 4px;
+    font-size: 8px;
+    font-weight: 900;
+    color: #fff;
+    background: #ef6c00;
+    border-radius: 2px;
+    letter-spacing: 0.03em;
+}
+
+.pub-prog-yildiz-tek-stars {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.pub-col-yildizson2tek { min-width: 110px; }
+
+.pub-program-table th.pub-col-yildizson2tek {
+    background: #e3f2fd;
+    color: #0d47a1;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    border-right: 2px solid #64b5f6;
+}
+
+.pub-prog-yildizson2tek {
+    text-align: left;
+    white-space: normal;
+    overflow: visible;
+    padding: 2px 6px !important;
+    vertical-align: top;
+    background: #f5fbff;
+    border-right: 2px solid #bbdefb;
+}
+
+.pub-prog-yildiz-son2tek-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 3px;
+    max-width: 100%;
+}
+
+.pub-prog-yildiz-son2tek-lbl {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 14px;
+    margin-top: 1px;
+    padding: 0 4px;
+    font-size: 8px;
+    font-weight: 900;
+    color: #fff;
+    background: #1565c0;
+    border-radius: 2px;
+    letter-spacing: 0.03em;
+}
+
+.pub-col-yildizson1tek { min-width: 110px; }
+
+.pub-program-table th.pub-col-yildizson1tek {
+    background: #e8f5e9;
+    color: #1b5e20;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    border-right: 2px solid #81c784;
+}
+
+.pub-prog-yildizson1tek {
+    text-align: left;
+    white-space: normal;
+    overflow: visible;
+    padding: 2px 6px !important;
+    vertical-align: top;
+    background: #f6fff7;
+    border-right: 2px solid #c8e6c9;
+}
+
+.pub-prog-yildiz-son1tek-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 3px;
+    max-width: 100%;
+}
+
+.pub-prog-yildiz-son1tek-lbl {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 14px;
+    margin-top: 1px;
+    padding: 0 4px;
+    font-size: 8px;
+    font-weight: 900;
+    color: #fff;
+    background: #2e7d32;
+    border-radius: 2px;
+    letter-spacing: 0.03em;
+}
+
+.pub-col-yildizyuvarlak { min-width: 110px; }
+
+.pub-program-table th.pub-col-yildizyuvarlak {
+    background: #f3e5f5;
+    color: #6a1b9a;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    border-right: 2px solid #ce93d8;
+}
+
+.pub-prog-yildizyuvarlak {
+    text-align: left;
+    white-space: normal;
+    overflow: visible;
+    padding: 2px 6px !important;
+    vertical-align: top;
+    background: #fdf5ff;
+    border-right: 2px solid #e1bee7;
+}
+
+.pub-prog-yildiz-yuvarlak-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 3px;
+    max-width: 100%;
+}
+
+.pub-prog-yildiz-yuvarlak-lbl {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 14px;
+    height: 14px;
+    margin-top: 1px;
+    padding: 0 3px;
+    font-size: 10px;
+    font-weight: 900;
+    color: #fff;
+    background: #7b1fa2;
+    border-radius: 50%;
+    line-height: 1;
+}
+
+.pub-program-table th.pub-col-yildizgrup {
+    background: #ede7f6;
+    color: #4527a0;
+}
+
+.pub-prog-yildizgrup {
+    text-align: left;
+    white-space: normal;
+    overflow: hidden;
+    padding: 2px 5px !important;
+    vertical-align: top;
+}
+
+.pub-prog-yildiz-satir {
+    display: flex;
+    align-items: flex-start;
+    gap: 3px;
+    padding: 2px 0;
+    border-bottom: 1px dashed #e6e0f2;
+}
+
+.pub-prog-yildiz-satir:last-child {
+    border-bottom: none;
+}
+
+.pub-prog-yildiz-lbl {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 14px;
+    height: 14px;
+    margin-top: 1px;
+    padding: 0 3px;
+    font-size: 9px;
+    font-weight: 800;
+    color: #fff;
+    background: #7e57c2;
+    border-radius: 3px;
+}
+
+.pub-prog-yildiz-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1px;
+    max-width: 100%;
+}
+
+.pub-prog-yildiz-star {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 900;
+    line-height: 1;
+    cursor: default;
+    text-shadow: 0 0 1px rgba(0, 0, 0, 0.2);
+}
+
+/* Son koşuda sahada ayırt edici (1-2 atta olup diğerlerinde olmayan) yıldız:
+   fosforlu yeşil parıltıyla vurgulanır — siyah kenar/yanıp sönme yok. */
+.pub-prog-yildiz-star.vurgu {
+    font-size: 13px;
+    text-shadow:
+        0 0 2px #39ff14,
+        0 0 5px #39ff14,
+        0 0 9px rgba(57, 255, 20, 0.8);
+    filter: brightness(1.12);
+}
+
+/* Son 2 yarışta ayırt edici (1-2 atta olup diğerlerinde olmayan) yıldız:
+   yumuşak kırmızı parıltıyla vurgulanır. */
+.pub-prog-yildiz-star.vurgu-kirmizi {
+    font-size: 13px;
+    text-shadow:
+        0 0 2px #ff7b7b,
+        0 0 5px #ff5a5a,
+        0 0 9px rgba(255, 90, 90, 0.75);
+    filter: brightness(1.1);
+}
+
+/* T1×DR son koşu top-4: mavi dış hat + açık mavi fosforlu yanıp sönen vurgu */
+.pub-prog-yildiz-star.vurgu-t1dr-top4 {
+    position: relative;
+    display: inline-block;
+    font-size: 13px;
+    line-height: 1;
+    padding: 1px 2px;
+    border-radius: 3px;
+    border: 1.5px solid #1565c0;
+    box-shadow:
+        0 0 0 1px rgba(21, 101, 192, 0.35),
+        inset 0 0 4px rgba(129, 212, 250, 0.45);
+    -webkit-text-stroke: 0.45px #0d47a1;
+    paint-order: stroke fill;
+    animation: pub-t1dr-top4-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-t1dr-top4-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #4fc3f7,
+            0 0 6px rgba(79, 195, 247, 0.95),
+            0 0 11px rgba(3, 169, 244, 0.55);
+        box-shadow:
+            0 0 0 1px rgba(21, 101, 192, 0.45),
+            0 0 5px rgba(79, 195, 247, 0.5),
+            inset 0 0 3px rgba(129, 212, 250, 0.35);
+        filter: brightness(1.06);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #81d4fa,
+            0 0 10px rgba(129, 212, 250, 1),
+            0 0 18px rgba(3, 169, 244, 0.9);
+        box-shadow:
+            0 0 0 1.5px #1976d2,
+            0 0 9px rgba(41, 182, 246, 0.85),
+            0 0 14px rgba(3, 169, 244, 0.45),
+            inset 0 0 6px rgba(179, 229, 252, 0.65);
+        filter: brightness(1.18);
+    }
+}
+
+/* TEST9 mor yanıp: mor dış hat + fosforlu mor parıltılı yanıp sönme (T1×DR top-4 ile aynı mantık) */
+.pub-prog-yildiz-star.vurgu-test9-mor {
+    position: relative;
+    display: inline-block;
+    font-size: 13px;
+    line-height: 1;
+    padding: 1px 2px;
+    border-radius: 3px;
+    border: 1.5px solid #7b1fa2;
+    box-shadow:
+        0 0 0 1px rgba(123, 31, 162, 0.35),
+        inset 0 0 4px rgba(206, 147, 218, 0.45);
+    -webkit-text-stroke: 0.45px #4a148c;
+    paint-order: stroke fill;
+    animation: pub-test9-mor-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-test9-mor-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #ce93d8,
+            0 0 6px rgba(206, 147, 218, 0.95),
+            0 0 11px rgba(171, 71, 188, 0.55);
+        box-shadow:
+            0 0 0 1px rgba(123, 31, 162, 0.45),
+            0 0 5px rgba(186, 104, 200, 0.5),
+            inset 0 0 3px rgba(225, 190, 231, 0.35);
+        filter: brightness(1.06);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #e1bee7,
+            0 0 10px rgba(225, 190, 231, 1),
+            0 0 18px rgba(171, 71, 188, 0.9);
+        box-shadow:
+            0 0 0 1.5px #8e24aa,
+            0 0 9px rgba(186, 104, 200, 0.85),
+            0 0 14px rgba(142, 36, 170, 0.45),
+            inset 0 0 6px rgba(243, 229, 245, 0.65);
+        filter: brightness(1.18);
+    }
+}
+
+/* TEST en küçük top-3: pembe dış hat + fosforlu pembe parıltı */
+.pub-prog-yildiz-star.vurgu-test-pembe {
+    position: relative;
+    display: inline-block;
+    font-size: 13px;
+    line-height: 1;
+    padding: 1px 2px;
+    border-radius: 3px;
+    border: 1.5px solid #c2185b;
+    box-shadow:
+        0 0 0 1px rgba(194, 24, 91, 0.4),
+        inset 0 0 4px rgba(244, 143, 177, 0.45);
+    -webkit-text-stroke: 0.45px #880e4f;
+    paint-order: stroke fill;
+    animation: pub-test-pembe-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-test-pembe-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #f48fb1,
+            0 0 6px rgba(244, 143, 177, 0.95),
+            0 0 11px rgba(216, 27, 96, 0.55);
+        box-shadow:
+            0 0 0 1px rgba(194, 24, 91, 0.45),
+            0 0 5px rgba(236, 64, 122, 0.5),
+            inset 0 0 3px rgba(248, 187, 208, 0.35);
+        filter: brightness(1.06);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #f8bbd0,
+            0 0 10px rgba(248, 187, 208, 1),
+            0 0 18px rgba(216, 27, 96, 0.9);
+        box-shadow:
+            0 0 0 1.5px #d81b60,
+            0 0 9px rgba(236, 64, 122, 0.85),
+            0 0 14px rgba(194, 24, 91, 0.45),
+            inset 0 0 6px rgba(252, 228, 236, 0.65);
+        filter: brightness(1.18);
+    }
+}
+
+/* TEST5 kahve sıfır: koyu kahve dış hat + fosforlu kahve parıltı */
+.pub-prog-yildiz-star.vurgu-test5-kahve {
+    position: relative;
+    display: inline-block;
+    font-size: 13px;
+    line-height: 1;
+    padding: 1px 2px;
+    border-radius: 3px;
+    border: 1.5px solid #5d4037;
+    box-shadow:
+        0 0 0 1px rgba(93, 64, 55, 0.4),
+        inset 0 0 4px rgba(161, 136, 127, 0.45);
+    -webkit-text-stroke: 0.45px #3e2723;
+    paint-order: stroke fill;
+    animation: pub-test5-kahve-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-test5-kahve-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #a1887f,
+            0 0 6px rgba(161, 136, 127, 0.95),
+            0 0 11px rgba(109, 76, 65, 0.55);
+        box-shadow:
+            0 0 0 1px rgba(93, 64, 55, 0.45),
+            0 0 5px rgba(141, 110, 99, 0.5),
+            inset 0 0 3px rgba(215, 204, 200, 0.35);
+        filter: brightness(1.06);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #d7ccc8,
+            0 0 10px rgba(215, 204, 200, 1),
+            0 0 18px rgba(109, 76, 65, 0.9);
+        box-shadow:
+            0 0 0 1.5px #6d4c41,
+            0 0 9px rgba(141, 110, 99, 0.85),
+            0 0 14px rgba(93, 64, 55, 0.45),
+            inset 0 0 6px rgba(239, 235, 233, 0.65);
+        filter: brightness(1.18);
+    }
+}
+
+/* Kırmızı kenar satır: koyu kahve yıldız + fosforlu kırmızı parıltılı yanıp sönme */
+.pub-prog-yildiz-star.vurgu-kirmizi-kenar {
+    position: relative;
+    display: inline-block;
+    font-size: 13px;
+    line-height: 1;
+    padding: 1px 2px;
+    border-radius: 3px;
+    border: 1.5px solid #c62828;
+    box-shadow:
+        0 0 0 1px rgba(198, 40, 40, 0.4),
+        inset 0 0 4px rgba(255, 138, 128, 0.45);
+    -webkit-text-stroke: 0.45px #3e2723;
+    paint-order: stroke fill;
+    animation: pub-kirmizi-kenar-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-kirmizi-kenar-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #ef9a9a,
+            0 0 6px rgba(239, 154, 154, 0.95),
+            0 0 11px rgba(229, 57, 53, 0.55);
+        box-shadow:
+            0 0 0 1px rgba(198, 40, 40, 0.45),
+            0 0 5px rgba(244, 67, 54, 0.5),
+            inset 0 0 3px rgba(255, 171, 145, 0.35);
+        filter: brightness(1.06);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #ff8a80,
+            0 0 10px rgba(255, 138, 128, 1),
+            0 0 18px rgba(229, 57, 53, 0.9);
+        box-shadow:
+            0 0 0 1.5px #e53935,
+            0 0 9px rgba(244, 67, 54, 0.85),
+            0 0 14px rgba(198, 40, 40, 0.45),
+            inset 0 0 6px rgba(255, 205, 210, 0.65);
+        filter: brightness(1.18);
+    }
+}
+
+/* Mavi kenar satır: koyu kahve yıldız + fosforlu mavi parıltılı yanıp sönme */
+.pub-prog-yildiz-star.vurgu-mavi-kenar {
+    position: relative;
+    display: inline-block;
+    font-size: 13px;
+    line-height: 1;
+    padding: 1px 2px;
+    border-radius: 3px;
+    border: 1.5px solid #1565c0;
+    box-shadow:
+        0 0 0 1px rgba(21, 101, 192, 0.35),
+        inset 0 0 4px rgba(129, 212, 250, 0.45);
+    -webkit-text-stroke: 0.45px #3e2723;
+    paint-order: stroke fill;
+    animation: pub-mavi-kenar-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-mavi-kenar-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #4fc3f7,
+            0 0 6px rgba(79, 195, 247, 0.95),
+            0 0 11px rgba(3, 169, 244, 0.55);
+        box-shadow:
+            0 0 0 1px rgba(21, 101, 192, 0.45),
+            0 0 5px rgba(79, 195, 247, 0.5),
+            inset 0 0 3px rgba(129, 212, 250, 0.35);
+        filter: brightness(1.06);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #81d4fa,
+            0 0 10px rgba(129, 212, 250, 1),
+            0 0 18px rgba(3, 169, 244, 0.9);
+        box-shadow:
+            0 0 0 1.5px #1976d2,
+            0 0 9px rgba(41, 182, 246, 0.85),
+            0 0 14px rgba(3, 169, 244, 0.45),
+            inset 0 0 6px rgba(179, 229, 252, 0.65);
+        filter: brightness(1.18);
+    }
+}
+
+/* Satır tam sarı: sarı yıldız + fosforlu sarı parıltı */
+.pub-prog-yildiz-star.vurgu-sari-tam {
+    position: relative;
+    display: inline-block;
+    font-size: 13px;
+    line-height: 1;
+    padding: 1px 2px;
+    border-radius: 3px;
+    border: 1.5px solid #f9a825;
+    box-shadow:
+        0 0 0 1px rgba(249, 168, 37, 0.4),
+        inset 0 0 4px rgba(255, 236, 179, 0.55);
+    -webkit-text-stroke: 0.45px #f57f17;
+    paint-order: stroke fill;
+    animation: pub-sari-tam-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-sari-tam-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #fff176,
+            0 0 6px rgba(255, 241, 118, 0.95),
+            0 0 11px rgba(251, 192, 45, 0.55);
+        box-shadow:
+            0 0 0 1px rgba(249, 168, 37, 0.45),
+            0 0 5px rgba(255, 213, 79, 0.5),
+            inset 0 0 3px rgba(255, 249, 196, 0.4);
+        filter: brightness(1.06);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #fff9c4,
+            0 0 10px rgba(255, 249, 196, 1),
+            0 0 18px rgba(251, 192, 45, 0.9);
+        box-shadow:
+            0 0 0 1.5px #fbc02d,
+            0 0 9px rgba(255, 213, 79, 0.85),
+            0 0 14px rgba(249, 168, 37, 0.45),
+            inset 0 0 6px rgba(255, 253, 231, 0.65);
+        filter: brightness(1.18);
+    }
+}
+
+/* Satır tam sarı + mavi kenar: sarı yıldız + fosforlu mavi çerçeve */
+.pub-prog-yildiz-star.vurgu-sari-tam-mavi {
+    position: relative;
+    display: inline-block;
+    font-size: 13px;
+    line-height: 1;
+    padding: 1px 2px;
+    border-radius: 3px;
+    border: 1.5px solid #1565c0;
+    box-shadow:
+        0 0 0 1px rgba(21, 101, 192, 0.35),
+        inset 0 0 4px rgba(129, 212, 250, 0.45);
+    -webkit-text-stroke: 0.45px #f57f17;
+    paint-order: stroke fill;
+    animation: pub-sari-tam-mavi-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-sari-tam-mavi-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #fff176,
+            0 0 6px rgba(255, 241, 118, 0.95),
+            0 0 11px rgba(251, 192, 45, 0.55);
+        box-shadow:
+            0 0 0 1px rgba(21, 101, 192, 0.45),
+            0 0 5px rgba(79, 195, 247, 0.5),
+            inset 0 0 3px rgba(129, 212, 250, 0.35);
+        filter: brightness(1.06);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #fff9c4,
+            0 0 10px rgba(255, 249, 196, 1),
+            0 0 18px rgba(251, 192, 45, 0.9);
+        box-shadow:
+            0 0 0 1.5px #1976d2,
+            0 0 9px rgba(41, 182, 246, 0.85),
+            0 0 14px rgba(3, 169, 244, 0.45),
+            inset 0 0 6px rgba(179, 229, 252, 0.65);
+        filter: brightness(1.18);
+    }
+}
+
+/* Satır tam sarı + kırmızı kenar: sarı yıldız + fosforlu kırmızı çerçeve */
+.pub-prog-yildiz-star.vurgu-sari-tam-kirmizi {
+    position: relative;
+    display: inline-block;
+    font-size: 13px;
+    line-height: 1;
+    padding: 1px 2px;
+    border-radius: 3px;
+    border: 1.5px solid #c62828;
+    box-shadow:
+        0 0 0 1px rgba(198, 40, 40, 0.4),
+        inset 0 0 4px rgba(255, 138, 128, 0.45);
+    -webkit-text-stroke: 0.45px #f57f17;
+    paint-order: stroke fill;
+    animation: pub-sari-tam-kirmizi-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-sari-tam-kirmizi-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #fff176,
+            0 0 6px rgba(255, 241, 118, 0.95),
+            0 0 11px rgba(251, 192, 45, 0.55);
+        box-shadow:
+            0 0 0 1px rgba(198, 40, 40, 0.45),
+            0 0 5px rgba(244, 67, 54, 0.5),
+            inset 0 0 3px rgba(255, 171, 145, 0.35);
+        filter: brightness(1.06);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #fff9c4,
+            0 0 10px rgba(255, 249, 196, 1),
+            0 0 18px rgba(251, 192, 45, 0.9);
+        box-shadow:
+            0 0 0 1.5px #e53935,
+            0 0 9px rgba(244, 67, 54, 0.85),
+            0 0 14px rgba(198, 40, 40, 0.45),
+            inset 0 0 6px rgba(255, 205, 210, 0.65);
+        filter: brightness(1.18);
+    }
+}
+
+/* 8002-8001 sıfıra en yakın: gri dış çerçeve vurgusu */
+.pub-prog-yildiz-star.vurgu-fark8002-sifir {
+    position: relative;
+    display: inline-block;
+    font-size: 13px;
+    line-height: 1;
+    padding: 1px 2px;
+    border-radius: 3px;
+    border: 1.5px solid #616161;
+    box-shadow:
+        0 0 0 1px rgba(97, 97, 97, 0.4),
+        inset 0 0 4px rgba(189, 189, 189, 0.45);
+    -webkit-text-stroke: 0.45px #424242;
+    paint-order: stroke fill;
+    text-shadow: 0 0 4px rgba(158, 158, 158, 0.55);
+}
+
+/* Satır tam yeşil: koyu yeşil yıldız + fosforlu yeşil parıltı */
+.pub-prog-yildiz-star.vurgu-yesil-tam {
+    position: relative;
+    display: inline-block;
+    font-size: 13px;
+    line-height: 1;
+    padding: 1px 2px;
+    border-radius: 3px;
+    border: 1.5px solid #2e7d32;
+    box-shadow:
+        0 0 0 1px rgba(46, 125, 50, 0.4),
+        inset 0 0 4px rgba(165, 214, 167, 0.5);
+    -webkit-text-stroke: 0.45px #0d3d0d;
+    paint-order: stroke fill;
+    animation: pub-yesil-tam-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-yesil-tam-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #a5d6a7,
+            0 0 6px rgba(165, 214, 167, 0.95),
+            0 0 11px rgba(76, 175, 80, 0.55);
+        box-shadow:
+            0 0 0 1px rgba(46, 125, 50, 0.45),
+            0 0 5px rgba(102, 187, 106, 0.5),
+            inset 0 0 3px rgba(200, 230, 201, 0.4);
+        filter: brightness(1.06);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #c8e6c9,
+            0 0 10px rgba(200, 230, 201, 1),
+            0 0 18px rgba(76, 175, 80, 0.9);
+        box-shadow:
+            0 0 0 1.5px #43a047,
+            0 0 9px rgba(102, 187, 106, 0.85),
+            0 0 14px rgba(46, 125, 50, 0.45),
+            inset 0 0 6px rgba(232, 245, 233, 0.65);
+        filter: brightness(1.18);
+    }
+}
+
+/* Satır tam yeşil + mavi kenar: koyu yeşil yıldız + fosforlu mavi çerçeve */
+.pub-prog-yildiz-star.vurgu-yesil-tam-mavi {
+    position: relative;
+    display: inline-block;
+    font-size: 13px;
+    line-height: 1;
+    padding: 1px 2px;
+    border-radius: 3px;
+    border: 1.5px solid #1565c0;
+    box-shadow:
+        0 0 0 1px rgba(21, 101, 192, 0.35),
+        inset 0 0 4px rgba(129, 212, 250, 0.45);
+    -webkit-text-stroke: 0.45px #0d3d0d;
+    paint-order: stroke fill;
+    animation: pub-yesil-tam-mavi-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-yesil-tam-mavi-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #a5d6a7,
+            0 0 6px rgba(165, 214, 167, 0.95),
+            0 0 11px rgba(76, 175, 80, 0.55);
+        box-shadow:
+            0 0 0 1px rgba(21, 101, 192, 0.45),
+            0 0 5px rgba(79, 195, 247, 0.5),
+            inset 0 0 3px rgba(129, 212, 250, 0.35);
+        filter: brightness(1.06);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #c8e6c9,
+            0 0 10px rgba(200, 230, 201, 1),
+            0 0 18px rgba(76, 175, 80, 0.9);
+        box-shadow:
+            0 0 0 1.5px #1976d2,
+            0 0 9px rgba(41, 182, 246, 0.85),
+            0 0 14px rgba(3, 169, 244, 0.45),
+            inset 0 0 6px rgba(179, 229, 252, 0.65);
+        filter: brightness(1.18);
+    }
+}
+
+/* Satır tam yeşil + kırmızı kenar: koyu yeşil yıldız + fosforlu kırmızı çerçeve */
+.pub-prog-yildiz-star.vurgu-yesil-tam-kirmizi {
+    position: relative;
+    display: inline-block;
+    font-size: 13px;
+    line-height: 1;
+    padding: 1px 2px;
+    border-radius: 3px;
+    border: 1.5px solid #c62828;
+    box-shadow:
+        0 0 0 1px rgba(198, 40, 40, 0.4),
+        inset 0 0 4px rgba(255, 138, 128, 0.45);
+    -webkit-text-stroke: 0.45px #0d3d0d;
+    paint-order: stroke fill;
+    animation: pub-yesil-tam-kirmizi-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-yesil-tam-kirmizi-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #a5d6a7,
+            0 0 6px rgba(165, 214, 167, 0.95),
+            0 0 11px rgba(76, 175, 80, 0.55);
+        box-shadow:
+            0 0 0 1px rgba(198, 40, 40, 0.45),
+            0 0 5px rgba(244, 67, 54, 0.5),
+            inset 0 0 3px rgba(255, 171, 145, 0.35);
+        filter: brightness(1.06);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #c8e6c9,
+            0 0 10px rgba(200, 230, 201, 1),
+            0 0 18px rgba(76, 175, 80, 0.9);
+        box-shadow:
+            0 0 0 1.5px #e53935,
+            0 0 9px rgba(244, 67, 54, 0.85),
+            0 0 14px rgba(198, 40, 40, 0.45),
+            inset 0 0 6px rgba(255, 205, 210, 0.65);
+        filter: brightness(1.18);
+    }
+}
+
+/* TEST1 en iyi 3: yeşil yuvarlak + koyu yeşil fosforlu çerçeve (belirgin) */
+.pub-prog-yildiz-star.vurgu-test1-yesil {
+    position: relative;
+    display: inline-block;
+    font-size: 13px;
+    line-height: 1;
+    padding: 1px 3px;
+    border-radius: 50%;
+    border: 2px solid #1b5e20;
+    box-shadow:
+        0 0 0 1px rgba(27, 94, 32, 0.55),
+        0 0 6px rgba(27, 94, 32, 0.65),
+        inset 0 0 5px rgba(129, 199, 132, 0.55);
+    -webkit-text-stroke: 0.45px #2e7d32;
+    paint-order: stroke fill;
+    text-shadow: none;
+    animation: pub-test1-yesil-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-test1-yesil-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #66bb6a,
+            0 0 6px rgba(102, 187, 106, 0.95),
+            0 0 11px rgba(46, 125, 50, 0.6);
+        box-shadow:
+            0 0 0 1.5px #1b5e20,
+            0 0 7px rgba(27, 94, 32, 0.75),
+            0 0 12px rgba(46, 125, 50, 0.45),
+            inset 0 0 4px rgba(200, 230, 201, 0.45);
+        filter: brightness(1.08);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #a5d6a7,
+            0 0 10px rgba(165, 214, 167, 1),
+            0 0 18px rgba(27, 94, 32, 0.9);
+        box-shadow:
+            0 0 0 2px #0d3d0d,
+            0 0 10px rgba(27, 94, 32, 0.95),
+            0 0 16px rgba(46, 125, 50, 0.7),
+            0 0 22px rgba(27, 94, 32, 0.35),
+            inset 0 0 6px rgba(232, 245, 233, 0.65);
+        filter: brightness(1.2);
+    }
+}
+
+/* TEST1 en iyi 3 + mavi kenar: koyu yeşil daire + fosforlu mavi çerçeve */
+.pub-prog-yildiz-star.vurgu-test1-yesil-mavi {
+    position: relative;
+    display: inline-block;
+    font-size: 13px;
+    line-height: 1;
+    padding: 1px 3px;
+    border-radius: 50%;
+    border: 2px solid #1565c0;
+    box-shadow:
+        0 0 0 1px rgba(21, 101, 192, 0.45),
+        0 0 6px rgba(21, 101, 192, 0.55),
+        inset 0 0 5px rgba(129, 212, 250, 0.45);
+    -webkit-text-stroke: 0.45px #2e7d32;
+    paint-order: stroke fill;
+    text-shadow: none;
+    animation: pub-test1-yesil-mavi-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-test1-yesil-mavi-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #66bb6a,
+            0 0 6px rgba(102, 187, 106, 0.95),
+            0 0 11px rgba(46, 125, 50, 0.55);
+        box-shadow:
+            0 0 0 1.5px #1565c0,
+            0 0 7px rgba(21, 101, 192, 0.75),
+            0 0 12px rgba(3, 169, 244, 0.45),
+            inset 0 0 4px rgba(129, 212, 250, 0.35);
+        filter: brightness(1.08);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #a5d6a7,
+            0 0 10px rgba(165, 214, 167, 1),
+            0 0 18px rgba(46, 125, 50, 0.85);
+        box-shadow:
+            0 0 0 2px #0d47a1,
+            0 0 10px rgba(41, 182, 246, 0.9),
+            0 0 16px rgba(3, 169, 244, 0.55),
+            inset 0 0 6px rgba(179, 229, 252, 0.6);
+        filter: brightness(1.18);
+    }
+}
+
+/* TEST1 en iyi 3 + kırmızı kenar: koyu yeşil daire + fosforlu kırmızı çerçeve */
+.pub-prog-yildiz-star.vurgu-test1-yesil-kirmizi {
+    position: relative;
+    display: inline-block;
+    font-size: 13px;
+    line-height: 1;
+    padding: 1px 3px;
+    border-radius: 50%;
+    border: 2px solid #c62828;
+    box-shadow:
+        0 0 0 1px rgba(198, 40, 40, 0.45),
+        0 0 6px rgba(198, 40, 40, 0.55),
+        inset 0 0 5px rgba(255, 138, 128, 0.45);
+    -webkit-text-stroke: 0.45px #2e7d32;
+    paint-order: stroke fill;
+    text-shadow: none;
+    animation: pub-test1-yesil-kirmizi-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-test1-yesil-kirmizi-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #66bb6a,
+            0 0 6px rgba(102, 187, 106, 0.95),
+            0 0 11px rgba(46, 125, 50, 0.55);
+        box-shadow:
+            0 0 0 1.5px #c62828,
+            0 0 7px rgba(244, 67, 54, 0.75),
+            0 0 12px rgba(198, 40, 40, 0.45),
+            inset 0 0 4px rgba(255, 171, 145, 0.35);
+        filter: brightness(1.08);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #a5d6a7,
+            0 0 10px rgba(165, 214, 167, 1),
+            0 0 18px rgba(46, 125, 50, 0.85);
+        box-shadow:
+            0 0 0 2px #b71c1c,
+            0 0 10px rgba(244, 67, 54, 0.9),
+            0 0 16px rgba(198, 40, 40, 0.55),
+            inset 0 0 6px rgba(255, 205, 210, 0.6);
+        filter: brightness(1.18);
+    }
+}
+
+/* TEST2 en iyi 3: açık yeşil yuvarlak + koyu yeşil fosforlu çerçeve */
+.pub-prog-yildiz-star.vurgu-test2-yesil {
+    position: relative;
+    display: inline-block;
+    font-size: 13px;
+    line-height: 1;
+    padding: 1px 3px;
+    border-radius: 50%;
+    border: 2px solid #1b5e20;
+    box-shadow:
+        0 0 0 1px rgba(27, 94, 32, 0.55),
+        0 0 6px rgba(27, 94, 32, 0.65),
+        inset 0 0 5px rgba(165, 214, 167, 0.55);
+    -webkit-text-stroke: 0.45px #66bb6a;
+    paint-order: stroke fill;
+    text-shadow: none;
+    animation: pub-test2-yesil-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-test2-yesil-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #c8e6c9,
+            0 0 6px rgba(200, 230, 201, 0.95),
+            0 0 11px rgba(129, 199, 132, 0.6);
+        box-shadow:
+            0 0 0 1.5px #1b5e20,
+            0 0 7px rgba(27, 94, 32, 0.75),
+            0 0 12px rgba(46, 125, 50, 0.45),
+            inset 0 0 4px rgba(220, 237, 200, 0.5);
+        filter: brightness(1.08);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #e8f5e9,
+            0 0 10px rgba(232, 245, 233, 1),
+            0 0 18px rgba(102, 187, 106, 0.9);
+        box-shadow:
+            0 0 0 2px #0d3d0d,
+            0 0 10px rgba(27, 94, 32, 0.95),
+            0 0 16px rgba(76, 175, 80, 0.7),
+            0 0 22px rgba(27, 94, 32, 0.35),
+            inset 0 0 6px rgba(241, 248, 233, 0.65);
+        filter: brightness(1.2);
+    }
+}
+
+/* TEST2 en iyi 3 + mavi kenar: açık yeşil daire + fosforlu mavi çerçeve */
+.pub-prog-yildiz-star.vurgu-test2-yesil-mavi {
+    position: relative;
+    display: inline-block;
+    font-size: 13px;
+    line-height: 1;
+    padding: 1px 3px;
+    border-radius: 50%;
+    border: 2px solid #1565c0;
+    box-shadow:
+        0 0 0 1px rgba(21, 101, 192, 0.45),
+        0 0 6px rgba(21, 101, 192, 0.55),
+        inset 0 0 5px rgba(129, 212, 250, 0.45);
+    -webkit-text-stroke: 0.45px #66bb6a;
+    paint-order: stroke fill;
+    text-shadow: none;
+    animation: pub-test2-yesil-mavi-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-test2-yesil-mavi-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #c8e6c9,
+            0 0 6px rgba(200, 230, 201, 0.95),
+            0 0 11px rgba(129, 199, 132, 0.55);
+        box-shadow:
+            0 0 0 1.5px #1565c0,
+            0 0 7px rgba(21, 101, 192, 0.75),
+            0 0 12px rgba(3, 169, 244, 0.45),
+            inset 0 0 4px rgba(129, 212, 250, 0.35);
+        filter: brightness(1.08);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #e8f5e9,
+            0 0 10px rgba(232, 245, 233, 1),
+            0 0 18px rgba(102, 187, 106, 0.85);
+        box-shadow:
+            0 0 0 2px #0d47a1,
+            0 0 10px rgba(41, 182, 246, 0.9),
+            0 0 16px rgba(3, 169, 244, 0.55),
+            inset 0 0 6px rgba(179, 229, 252, 0.6);
+        filter: brightness(1.18);
+    }
+}
+
+/* TEST2 en iyi 3 + kırmızı kenar: açık yeşil daire + fosforlu kırmızı çerçeve */
+.pub-prog-yildiz-star.vurgu-test2-yesil-kirmizi {
+    position: relative;
+    display: inline-block;
+    font-size: 13px;
+    line-height: 1;
+    padding: 1px 3px;
+    border-radius: 50%;
+    border: 2px solid #c62828;
+    box-shadow:
+        0 0 0 1px rgba(198, 40, 40, 0.45),
+        0 0 6px rgba(198, 40, 40, 0.55),
+        inset 0 0 5px rgba(255, 138, 128, 0.45);
+    -webkit-text-stroke: 0.45px #66bb6a;
+    paint-order: stroke fill;
+    text-shadow: none;
+    animation: pub-test2-yesil-kirmizi-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-test2-yesil-kirmizi-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #c8e6c9,
+            0 0 6px rgba(200, 230, 201, 0.95),
+            0 0 11px rgba(129, 199, 132, 0.55);
+        box-shadow:
+            0 0 0 1.5px #c62828,
+            0 0 7px rgba(244, 67, 54, 0.75),
+            0 0 12px rgba(198, 40, 40, 0.45),
+            inset 0 0 4px rgba(255, 171, 145, 0.35);
+        filter: brightness(1.08);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #e8f5e9,
+            0 0 10px rgba(232, 245, 233, 1),
+            0 0 18px rgba(102, 187, 106, 0.85);
+        box-shadow:
+            0 0 0 2px #b71c1c,
+            0 0 10px rgba(244, 67, 54, 0.9),
+            0 0 16px rgba(198, 40, 40, 0.55),
+            inset 0 0 6px rgba(255, 205, 210, 0.6);
+        filter: brightness(1.18);
+    }
+}
+
+/* TEST3 en iyi 3: gri yuvarlak + koyu yeşil fosforlu çerçeve */
+.pub-prog-yildiz-star.vurgu-test3-gri {
+    position: relative;
+    display: inline-block;
+    font-size: 13px;
+    line-height: 1;
+    padding: 1px 3px;
+    border-radius: 50%;
+    border: 2px solid #1b5e20;
+    box-shadow:
+        0 0 0 1px rgba(27, 94, 32, 0.55),
+        0 0 6px rgba(27, 94, 32, 0.65),
+        inset 0 0 5px rgba(189, 189, 189, 0.45);
+    -webkit-text-stroke: 0.45px #757575;
+    paint-order: stroke fill;
+    text-shadow: none;
+    animation: pub-test3-gri-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-test3-gri-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #bdbdbd,
+            0 0 6px rgba(189, 189, 189, 0.95),
+            0 0 11px rgba(117, 117, 117, 0.55);
+        box-shadow:
+            0 0 0 1.5px #1b5e20,
+            0 0 7px rgba(27, 94, 32, 0.75),
+            0 0 12px rgba(46, 125, 50, 0.45),
+            inset 0 0 4px rgba(224, 224, 224, 0.45);
+        filter: brightness(1.08);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #e0e0e0,
+            0 0 10px rgba(224, 224, 224, 1),
+            0 0 18px rgba(117, 117, 117, 0.85);
+        box-shadow:
+            0 0 0 2px #0d3d0d,
+            0 0 10px rgba(27, 94, 32, 0.95),
+            0 0 16px rgba(76, 175, 80, 0.7),
+            0 0 22px rgba(27, 94, 32, 0.35),
+            inset 0 0 6px rgba(245, 245, 245, 0.65);
+        filter: brightness(1.2);
+    }
+}
+
+/* TEST3 en iyi 3 + mavi kenar: gri daire + fosforlu mavi çerçeve */
+.pub-prog-yildiz-star.vurgu-test3-gri-mavi {
+    position: relative;
+    display: inline-block;
+    font-size: 13px;
+    line-height: 1;
+    padding: 1px 3px;
+    border-radius: 50%;
+    border: 2px solid #1565c0;
+    box-shadow:
+        0 0 0 1px rgba(21, 101, 192, 0.45),
+        0 0 6px rgba(21, 101, 192, 0.55),
+        inset 0 0 5px rgba(129, 212, 250, 0.45);
+    -webkit-text-stroke: 0.45px #757575;
+    paint-order: stroke fill;
+    text-shadow: none;
+    animation: pub-test3-gri-mavi-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-test3-gri-mavi-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #bdbdbd,
+            0 0 6px rgba(189, 189, 189, 0.95),
+            0 0 11px rgba(117, 117, 117, 0.55);
+        box-shadow:
+            0 0 0 1.5px #1565c0,
+            0 0 7px rgba(21, 101, 192, 0.75),
+            0 0 12px rgba(3, 169, 244, 0.45),
+            inset 0 0 4px rgba(129, 212, 250, 0.35);
+        filter: brightness(1.08);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #e0e0e0,
+            0 0 10px rgba(224, 224, 224, 1),
+            0 0 18px rgba(117, 117, 117, 0.85);
+        box-shadow:
+            0 0 0 2px #0d47a1,
+            0 0 10px rgba(41, 182, 246, 0.9),
+            0 0 16px rgba(3, 169, 244, 0.55),
+            inset 0 0 6px rgba(179, 229, 252, 0.6);
+        filter: brightness(1.18);
+    }
+}
+
+/* TEST3 en iyi 3 + kırmızı kenar: gri daire + fosforlu kırmızı çerçeve */
+.pub-prog-yildiz-star.vurgu-test3-gri-kirmizi {
+    position: relative;
+    display: inline-block;
+    font-size: 13px;
+    line-height: 1;
+    padding: 1px 3px;
+    border-radius: 50%;
+    border: 2px solid #c62828;
+    box-shadow:
+        0 0 0 1px rgba(198, 40, 40, 0.45),
+        0 0 6px rgba(198, 40, 40, 0.55),
+        inset 0 0 5px rgba(255, 138, 128, 0.45);
+    -webkit-text-stroke: 0.45px #757575;
+    paint-order: stroke fill;
+    text-shadow: none;
+    animation: pub-test3-gri-kirmizi-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-test3-gri-kirmizi-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #bdbdbd,
+            0 0 6px rgba(189, 189, 189, 0.95),
+            0 0 11px rgba(117, 117, 117, 0.55);
+        box-shadow:
+            0 0 0 1.5px #c62828,
+            0 0 7px rgba(244, 67, 54, 0.75),
+            0 0 12px rgba(198, 40, 40, 0.45),
+            inset 0 0 4px rgba(255, 171, 145, 0.35);
+        filter: brightness(1.08);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #e0e0e0,
+            0 0 10px rgba(224, 224, 224, 1),
+            0 0 18px rgba(117, 117, 117, 0.85);
+        box-shadow:
+            0 0 0 2px #b71c1c,
+            0 0 10px rgba(244, 67, 54, 0.9),
+            0 0 16px rgba(198, 40, 40, 0.55),
+            inset 0 0 6px rgba(255, 205, 210, 0.6);
+        filter: brightness(1.18);
+    }
+}
+
+/* Şehir eşleşmesi: Ş harfi + mavi fosforlu kare çerçeve */
+.pub-prog-yildiz-star.vurgu-sehir-mavi {
+    position: relative;
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 900;
+    line-height: 1;
+    padding: 1px 4px;
+    border-radius: 3px;
+    border: 2px solid #1565c0;
+    box-shadow:
+        0 0 0 1px rgba(21, 101, 192, 0.55),
+        0 0 7px rgba(21, 101, 192, 0.65),
+        inset 0 0 5px rgba(129, 212, 250, 0.5);
+    -webkit-text-stroke: 0.45px rgba(13, 71, 161, 0.9);
+    paint-order: stroke fill;
+    text-shadow: none;
+    animation: pub-sehir-mavi-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-sehir-mavi-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #64b5f6,
+            0 0 6px rgba(100, 181, 246, 0.95),
+            0 0 11px rgba(21, 101, 192, 0.55);
+        box-shadow:
+            0 0 0 1.5px #1565c0,
+            0 0 8px rgba(21, 101, 192, 0.8),
+            0 0 14px rgba(3, 169, 244, 0.5),
+            inset 0 0 4px rgba(129, 212, 250, 0.4);
+        filter: brightness(1.1);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #90caf9,
+            0 0 10px rgba(144, 202, 249, 1),
+            0 0 18px rgba(3, 169, 244, 0.85);
+        box-shadow:
+            0 0 0 2px #0d47a1,
+            0 0 11px rgba(41, 182, 246, 0.95),
+            0 0 18px rgba(3, 169, 244, 0.6),
+            inset 0 0 6px rgba(179, 229, 252, 0.65);
+        filter: brightness(1.22);
+    }
+}
+
+/* Şehir eşleşmesi + kırmızı kenar: Ş harfi + kırmızı fosforlu kare çerçeve */
+.pub-prog-yildiz-star.vurgu-sehir-kirmizi {
+    position: relative;
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 900;
+    line-height: 1;
+    padding: 1px 4px;
+    border-radius: 3px;
+    border: 2px solid #c62828;
+    box-shadow:
+        0 0 0 1px rgba(198, 40, 40, 0.55),
+        0 0 7px rgba(198, 40, 40, 0.65),
+        inset 0 0 5px rgba(255, 138, 128, 0.5);
+    -webkit-text-stroke: 0.45px rgba(183, 28, 28, 0.9);
+    paint-order: stroke fill;
+    text-shadow: none;
+    animation: pub-sehir-kirmizi-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-sehir-kirmizi-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #ef9a9a,
+            0 0 6px rgba(239, 154, 154, 0.95),
+            0 0 11px rgba(198, 40, 40, 0.55);
+        box-shadow:
+            0 0 0 1.5px #c62828,
+            0 0 8px rgba(244, 67, 54, 0.8),
+            0 0 14px rgba(198, 40, 40, 0.5),
+            inset 0 0 4px rgba(255, 171, 145, 0.4);
+        filter: brightness(1.1);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #ffcdd2,
+            0 0 10px rgba(255, 205, 210, 1),
+            0 0 18px rgba(244, 67, 54, 0.85);
+        box-shadow:
+            0 0 0 2px #b71c1c,
+            0 0 11px rgba(244, 67, 54, 0.95),
+            0 0 18px rgba(198, 40, 40, 0.6),
+            inset 0 0 6px rgba(255, 205, 210, 0.65);
+        filter: brightness(1.22);
+    }
+}
+
+/* TEST4=TEST6: açık mavi 4 + açık mavi fosforlu kare çerçeve */
+.pub-prog-yildiz-star.vurgu-test46-acik-mavi {
+    position: relative;
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 900;
+    line-height: 1;
+    padding: 1px 4px;
+    border-radius: 3px;
+    border: 2px solid #4fc3f7;
+    box-shadow:
+        0 0 0 1px rgba(79, 195, 247, 0.55),
+        0 0 7px rgba(79, 195, 247, 0.7),
+        inset 0 0 5px rgba(179, 229, 252, 0.55);
+    -webkit-text-stroke: 0.45px rgba(3, 155, 229, 0.9);
+    paint-order: stroke fill;
+    text-shadow: none;
+    animation: pub-test46-acik-mavi-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-test46-acik-mavi-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #b3e5fc,
+            0 0 6px rgba(179, 229, 252, 0.95),
+            0 0 11px rgba(79, 195, 247, 0.65);
+        box-shadow:
+            0 0 0 1.5px #4fc3f7,
+            0 0 8px rgba(79, 195, 247, 0.85),
+            0 0 14px rgba(129, 212, 250, 0.55),
+            inset 0 0 4px rgba(225, 245, 254, 0.5);
+        filter: brightness(1.1);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #e1f5fe,
+            0 0 10px rgba(225, 245, 254, 1),
+            0 0 18px rgba(129, 212, 250, 0.9);
+        box-shadow:
+            0 0 0 2px #29b6f6,
+            0 0 11px rgba(79, 195, 247, 0.95),
+            0 0 18px rgba(41, 182, 246, 0.65),
+            inset 0 0 6px rgba(240, 248, 255, 0.7);
+        filter: brightness(1.22);
+    }
+}
+
+/* TEST1-TEST2 yakın: turuncu 2 + koyu turuncu kare çerçeve */
+.pub-prog-yildiz-star.vurgu-test12-turuncu {
+    position: relative;
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 900;
+    line-height: 1;
+    padding: 1px 4px;
+    border-radius: 3px;
+    border: 2px solid #e65100;
+    box-shadow:
+        0 0 0 1px rgba(230, 81, 0, 0.55),
+        0 0 7px rgba(255, 152, 0, 0.7),
+        inset 0 0 5px rgba(255, 204, 128, 0.55);
+    -webkit-text-stroke: 0.45px rgba(230, 81, 0, 0.9);
+    paint-order: stroke fill;
+    text-shadow: none;
+    animation: pub-test12-turuncu-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-test12-turuncu-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #ffcc80,
+            0 0 6px rgba(255, 204, 128, 0.95),
+            0 0 11px rgba(255, 152, 0, 0.65);
+        box-shadow:
+            0 0 0 1.5px #e65100,
+            0 0 8px rgba(255, 152, 0, 0.85),
+            0 0 14px rgba(255, 167, 38, 0.55),
+            inset 0 0 4px rgba(255, 224, 178, 0.5);
+        filter: brightness(1.1);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #ffe0b2,
+            0 0 10px rgba(255, 224, 178, 1),
+            0 0 18px rgba(255, 167, 38, 0.9);
+        box-shadow:
+            0 0 0 2px #bf360c,
+            0 0 11px rgba(255, 152, 0, 0.95),
+            0 0 18px rgba(255, 111, 0, 0.65),
+            inset 0 0 6px rgba(255, 243, 224, 0.7);
+        filter: brightness(1.22);
+    }
+}
+
+/* TEST1-TEST2 en yakın: kırmızı 2 + kırmızı kare çerçeve */
+.pub-prog-yildiz-star.vurgu-test12-kirmizi {
+    position: relative;
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 900;
+    line-height: 1;
+    padding: 1px 4px;
+    border-radius: 3px;
+    border: 2px solid #b71c1c;
+    box-shadow:
+        0 0 0 1px rgba(183, 28, 28, 0.55),
+        0 0 7px rgba(211, 47, 47, 0.7),
+        inset 0 0 5px rgba(255, 138, 128, 0.55);
+    -webkit-text-stroke: 0.45px rgba(183, 28, 28, 0.9);
+    paint-order: stroke fill;
+    text-shadow: none;
+    animation: pub-test12-kirmizi-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-test12-kirmizi-blink {
+    0%, 100% {
+        text-shadow:
+            0 0 2px #ef9a9a,
+            0 0 6px rgba(239, 154, 154, 0.95),
+            0 0 11px rgba(211, 47, 47, 0.65);
+        box-shadow:
+            0 0 0 1.5px #b71c1c,
+            0 0 8px rgba(211, 47, 47, 0.85),
+            0 0 14px rgba(244, 67, 54, 0.55),
+            inset 0 0 4px rgba(255, 205, 210, 0.5);
+        filter: brightness(1.1);
+    }
+    50% {
+        text-shadow:
+            0 0 4px #ffcdd2,
+            0 0 10px rgba(255, 205, 210, 1),
+            0 0 18px rgba(244, 67, 54, 0.9);
+        box-shadow:
+            0 0 0 2px #c62828,
+            0 0 11px rgba(244, 67, 54, 0.95),
+            0 0 18px rgba(198, 40, 40, 0.65),
+            inset 0 0 6px rgba(255, 235, 238, 0.7);
+        filter: brightness(1.22);
+    }
+}
+
+/* SON800-1 top-3: kare içinde 8 — 1. yeşil, 2. sarı, 3. kırmızı çerçeve */
+.pub-prog-yildiz-star.vurgu-son8001-yesil,
+.pub-prog-yildiz-star.vurgu-son8001-sari,
+.pub-prog-yildiz-star.vurgu-son8001-kirmizi,
+.pub-prog-yildiz-star.vurgu-son8001-yesil-mavi,
+.pub-prog-yildiz-star.vurgu-son8001-sari-mavi,
+.pub-prog-yildiz-star.vurgu-son8001-kirmizi-mavi,
+.pub-prog-yildiz-star.vurgu-son8001-yesil-kirmizi,
+.pub-prog-yildiz-star.vurgu-son8001-sari-kirmizi,
+.pub-prog-yildiz-star.vurgu-son8001-kirmizi-kirmizi {
+    position: relative;
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 900;
+    line-height: 1;
+    padding: 1px 3px;
+    border-radius: 2px;
+    border-width: 2px;
+    border-style: solid;
+    paint-order: stroke fill;
+    text-shadow: none;
+}
+
+.pub-prog-yildiz-star.vurgu-son8001-yesil {
+    border-color: #1b5e20;
+    color: #2e7d32;
+    box-shadow: 0 0 0 1px rgba(27, 94, 32, 0.55), 0 0 6px rgba(46, 125, 50, 0.65), inset 0 0 4px rgba(200, 230, 201, 0.5);
+    animation: pub-son8001-yesil-blink 1.35s ease-in-out infinite;
+}
+
+.pub-prog-yildiz-star.vurgu-son8001-sari {
+    border-color: #f9a825;
+    color: #f57f17;
+    box-shadow: 0 0 0 1px rgba(249, 168, 37, 0.55), 0 0 6px rgba(255, 193, 7, 0.65), inset 0 0 4px rgba(255, 248, 225, 0.5);
+    animation: pub-son8001-sari-blink 1.35s ease-in-out infinite;
+}
+
+.pub-prog-yildiz-star.vurgu-son8001-kirmizi {
+    border-color: #c62828;
+    color: #b71c1c;
+    box-shadow: 0 0 0 1px rgba(198, 40, 40, 0.55), 0 0 6px rgba(211, 47, 47, 0.65), inset 0 0 4px rgba(255, 205, 210, 0.5);
+    animation: pub-son8001-kirmizi-blink 1.35s ease-in-out infinite;
+}
+
+.pub-prog-yildiz-star.vurgu-son8001-yesil-mavi {
+    border-color: #1565c0;
+    color: #2e7d32;
+    box-shadow: 0 0 0 1px rgba(21, 101, 192, 0.45), 0 0 6px rgba(21, 101, 192, 0.55), inset 0 0 4px rgba(200, 230, 201, 0.45);
+    animation: pub-son8001-yesil-mavi-blink 1.35s ease-in-out infinite;
+}
+
+.pub-prog-yildiz-star.vurgu-son8001-sari-mavi {
+    border-color: #1565c0;
+    color: #f57f17;
+    box-shadow: 0 0 0 1px rgba(21, 101, 192, 0.45), 0 0 6px rgba(21, 101, 192, 0.55), inset 0 0 4px rgba(255, 248, 225, 0.45);
+    animation: pub-son8001-sari-mavi-blink 1.35s ease-in-out infinite;
+}
+
+.pub-prog-yildiz-star.vurgu-son8001-kirmizi-mavi {
+    border-color: #1565c0;
+    color: #b71c1c;
+    box-shadow: 0 0 0 1px rgba(21, 101, 192, 0.45), 0 0 6px rgba(21, 101, 192, 0.55), inset 0 0 4px rgba(255, 205, 210, 0.45);
+    animation: pub-son8001-kirmizi-mavi-blink 1.35s ease-in-out infinite;
+}
+
+.pub-prog-yildiz-star.vurgu-son8001-yesil-kirmizi {
+    border-color: #b71c1c;
+    color: #2e7d32;
+    box-shadow: 0 0 0 1px rgba(183, 28, 28, 0.55), 0 0 6px rgba(211, 47, 47, 0.65), inset 0 0 4px rgba(200, 230, 201, 0.45);
+    animation: pub-son8001-yesil-kirmizi-blink 1.35s ease-in-out infinite;
+}
+
+.pub-prog-yildiz-star.vurgu-son8001-sari-kirmizi {
+    border-color: #b71c1c;
+    color: #f57f17;
+    box-shadow: 0 0 0 1px rgba(183, 28, 28, 0.55), 0 0 6px rgba(211, 47, 47, 0.65), inset 0 0 4px rgba(255, 248, 225, 0.45);
+    animation: pub-son8001-sari-kirmizi-blink 1.35s ease-in-out infinite;
+}
+
+.pub-prog-yildiz-star.vurgu-son8001-kirmizi-kirmizi {
+    border-color: #b71c1c;
+    color: #b71c1c;
+    box-shadow: 0 0 0 1px rgba(183, 28, 28, 0.55), 0 0 6px rgba(211, 47, 47, 0.65), inset 0 0 4px rgba(255, 205, 210, 0.45);
+    animation: pub-son8001-kirmizi-kirmizi-blink 1.35s ease-in-out infinite;
+}
+
+@keyframes pub-son8001-yesil-blink {
+    0%, 100% { box-shadow: 0 0 0 1.5px #1b5e20, 0 0 7px rgba(27, 94, 32, 0.75), inset 0 0 4px rgba(200, 230, 201, 0.45); filter: brightness(1.08); }
+    50% { box-shadow: 0 0 0 2px #0d3d0d, 0 0 10px rgba(27, 94, 32, 0.95), inset 0 0 6px rgba(232, 245, 233, 0.65); filter: brightness(1.2); }
+}
+
+@keyframes pub-son8001-sari-blink {
+    0%, 100% { box-shadow: 0 0 0 1.5px #f9a825, 0 0 7px rgba(255, 193, 7, 0.75), inset 0 0 4px rgba(255, 248, 225, 0.45); filter: brightness(1.08); }
+    50% { box-shadow: 0 0 0 2px #f57f17, 0 0 10px rgba(255, 193, 7, 0.95), inset 0 0 6px rgba(255, 253, 231, 0.65); filter: brightness(1.2); }
+}
+
+@keyframes pub-son8001-kirmizi-blink {
+    0%, 100% { box-shadow: 0 0 0 1.5px #c62828, 0 0 7px rgba(211, 47, 47, 0.75), inset 0 0 4px rgba(255, 205, 210, 0.45); filter: brightness(1.08); }
+    50% { box-shadow: 0 0 0 2px #b71c1c, 0 0 10px rgba(244, 67, 54, 0.95), inset 0 0 6px rgba(255, 235, 238, 0.65); filter: brightness(1.2); }
+}
+
+@keyframes pub-son8001-yesil-mavi-blink {
+    0%, 100% { box-shadow: 0 0 0 1.5px #1565c0, 0 0 7px rgba(21, 101, 192, 0.75), inset 0 0 4px rgba(200, 230, 201, 0.45); filter: brightness(1.08); }
+    50% { box-shadow: 0 0 0 2px #0d47a1, 0 0 10px rgba(21, 101, 192, 0.95), inset 0 0 6px rgba(227, 242, 253, 0.65); filter: brightness(1.2); }
+}
+
+@keyframes pub-son8001-sari-mavi-blink {
+    0%, 100% { box-shadow: 0 0 0 1.5px #1565c0, 0 0 7px rgba(21, 101, 192, 0.75), inset 0 0 4px rgba(255, 248, 225, 0.45); filter: brightness(1.08); }
+    50% { box-shadow: 0 0 0 2px #0d47a1, 0 0 10px rgba(21, 101, 192, 0.95), inset 0 0 6px rgba(227, 242, 253, 0.65); filter: brightness(1.2); }
+}
+
+@keyframes pub-son8001-kirmizi-mavi-blink {
+    0%, 100% { box-shadow: 0 0 0 1.5px #1565c0, 0 0 7px rgba(21, 101, 192, 0.75), inset 0 0 4px rgba(255, 205, 210, 0.45); filter: brightness(1.08); }
+    50% { box-shadow: 0 0 0 2px #0d47a1, 0 0 10px rgba(21, 101, 192, 0.95), inset 0 0 6px rgba(227, 242, 253, 0.65); filter: brightness(1.2); }
+}
+
+@keyframes pub-son8001-yesil-kirmizi-blink {
+    0%, 100% { box-shadow: 0 0 0 1.5px #b71c1c, 0 0 7px rgba(211, 47, 47, 0.75), inset 0 0 4px rgba(200, 230, 201, 0.45); filter: brightness(1.08); }
+    50% { box-shadow: 0 0 0 2px #c62828, 0 0 10px rgba(244, 67, 54, 0.95), inset 0 0 6px rgba(255, 235, 238, 0.65); filter: brightness(1.2); }
+}
+
+@keyframes pub-son8001-sari-kirmizi-blink {
+    0%, 100% { box-shadow: 0 0 0 1.5px #b71c1c, 0 0 7px rgba(211, 47, 47, 0.75), inset 0 0 4px rgba(255, 248, 225, 0.45); filter: brightness(1.08); }
+    50% { box-shadow: 0 0 0 2px #c62828, 0 0 10px rgba(244, 67, 54, 0.95), inset 0 0 6px rgba(255, 235, 238, 0.65); filter: brightness(1.2); }
+}
+
+@keyframes pub-son8001-kirmizi-kirmizi-blink {
+    0%, 100% { box-shadow: 0 0 0 1.5px #b71c1c, 0 0 7px rgba(211, 47, 47, 0.75), inset 0 0 4px rgba(255, 205, 210, 0.45); filter: brightness(1.08); }
+    50% { box-shadow: 0 0 0 2px #c62828, 0 0 10px rgba(244, 67, 54, 0.95), inset 0 0 6px rgba(255, 235, 238, 0.65); filter: brightness(1.2); }
+}
+
+.pub-prog-yildiz-empty {
+    color: #bbb;
+    font-size: 11px;
+}
+
 .pub-prog-ganyan {
     text-align: right;
     font-weight: 800;
@@ -1625,16 +3374,16 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* Sabit sütun genişlikleri — sağdaki spacer boş alanı doldurur */
-.pub-col-no { width: 36px; }
-.pub-col-ganyan { width: 48px; }
-.pub-col-name { width: 180px; }
-.pub-col-yas { width: 44px; }
-.pub-col-siklet { width: 52px; }
-.pub-col-hp { width: 40px; }
-.pub-col-jokey { width: 132px; }
-.pub-col-taki { width: 56px; min-width: 56px; }
-.pub-col-blt { width: 40px; min-width: 40px; }
-.pub-col-gp2 { width: 40px; min-width: 40px; }
+.pub-col-no { width: 26px; }
+.pub-col-ganyan { width: 36px; }
+.pub-col-name { width: 148px; }
+.pub-col-yas { width: 32px; }
+.pub-col-siklet { width: 40px; }
+.pub-col-hp { width: 30px; }
+.pub-col-jokey { width: 100px; }
+.pub-col-taki { width: 44px; min-width: 44px; }
+.pub-col-blt { width: 30px; min-width: 30px; }
+.pub-col-gp2 { width: 30px; min-width: 30px; }
 .pub-col-spacer { width: auto; }
 
 .pub-col-spacer-hdr {
@@ -1717,8 +3466,8 @@ a { color: inherit; text-decoration: none; }
     font-weight: 600;
 }
 
-.pub-col-bt { width: 48px; min-width: 44px; }
-.pub-col-bt:first-of-type { width: 52px; min-width: 48px; }
+.pub-col-bt { width: 40px; min-width: 36px; }
+.pub-col-bt:first-of-type { width: 44px; min-width: 40px; }
 
 .pub-prog-bt {
     text-align: center;
@@ -1744,8 +3493,8 @@ a { color: inherit; text-decoration: none; }
     font-weight: 600;
 }
 
-.pub-col-score { width: 52px; min-width: 48px; }
-.pub-col-score-tahmin { width: 58px; min-width: 54px; }
+.pub-col-score { width: 40px; min-width: 36px; }
+.pub-col-score-tahmin { width: 46px; min-width: 42px; }
 
 .pub-program-table th.pub-col-score-tahmin {
     background: #ffe0b2;
@@ -1764,9 +3513,9 @@ a { color: inherit; text-decoration: none; }
 
 .pub-prog-score {
     text-align: center;
-    font-size: 11px;
+    font-size: 9px;
     white-space: nowrap;
-    padding-left: 3px !important;
+    padding-left: 2px !important;
     padding-right: 3px !important;
     line-height: 1.2;
 }
@@ -1843,7 +3592,7 @@ a { color: inherit; text-decoration: none; }
     font-weight: 600;
 }
 
-.pub-col-fob { width: 52px; min-width: 48px; }
+.pub-col-fob { width: 42px; min-width: 38px; }
 
 .pub-prog-fob {
     text-align: center;
@@ -3850,3 +5599,179 @@ a { color: inherit; text-decoration: none; }
     .pub-kazanc-inline-form input { width: 100%; }
     .pub-kazanc-embed-body { min-height: 360px; height: 55vh; }
 }
+
+/* ── Rehber: günlük tahmin liderleri ── */
+.pub-rehber-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.pub-rehber-hdr {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.pub-rehber-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: #1a237e;
+    margin: 0;
+}
+
+.pub-rehber-sub {
+    font-size: 13px;
+    color: #666;
+    margin-top: 4px;
+}
+
+.pub-rehber-refresh {
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid #cfd8dc;
+    background: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    color: #37474f;
+}
+
+.pub-rehber-refresh:hover { background: #f5f5f5; }
+
+.pub-rehber-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+}
+
+@media (max-width: 960px) {
+    .pub-rehber-grid { grid-template-columns: 1fr; }
+}
+
+.pub-rehber-card {
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid #e0e0e0;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.pub-rehber-card-hdr {
+    padding: 12px 14px;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    border-bottom: 1px solid #eee;
+}
+
+.pub-rehber-card-hdr--gold { background: linear-gradient(135deg, #fff8e1, #ffecb3); color: #e65100; }
+.pub-rehber-card-hdr--silver { background: linear-gradient(135deg, #eceff1, #cfd8dc); color: #37474f; }
+.pub-rehber-card-hdr--bronze { background: linear-gradient(135deg, #fbe9e7, #ffccbc); color: #bf360c; }
+
+.pub-rehber-card-desc {
+    font-size: 11px;
+    font-weight: 500;
+    opacity: 0.85;
+    margin-top: 2px;
+}
+
+.pub-rehber-list {
+    list-style: none;
+    margin: 0;
+    padding: 6px 0;
+}
+
+.pub-rehber-row {
+    display: grid;
+    grid-template-columns: 28px 1fr auto auto;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 14px;
+    font-size: 13px;
+    border-bottom: 1px solid #f5f5f5;
+}
+
+.pub-rehber-row:last-child { border-bottom: none; }
+
+.pub-rehber-row--top1 { background: rgba(255, 193, 7, 0.08); }
+.pub-rehber-row--top2 { background: rgba(158, 158, 158, 0.06); }
+.pub-rehber-row--top3 { background: rgba(141, 110, 99, 0.06); }
+
+.pub-rehber-rank {
+    font-weight: 800;
+    color: #9e9e9e;
+    text-align: center;
+    font-size: 12px;
+}
+
+.pub-rehber-col {
+    font-weight: 800;
+    color: #263238;
+    letter-spacing: 0.02em;
+}
+
+.pub-rehber-col--tahmin { color: #6a1b9a; }
+.pub-rehber-col--r2 { color: #c62828; }
+.pub-rehber-col--at { color: #1565c0; }
+
+.pub-rehber-hits {
+    font-weight: 700;
+    color: #2e7d32;
+    font-variant-numeric: tabular-nums;
+}
+
+.pub-rehber-pct {
+    font-size: 12px;
+    color: #757575;
+    font-variant-numeric: tabular-nums;
+    min-width: 42px;
+    text-align: right;
+}
+
+.pub-rehber-empty-row {
+    padding: 16px 14px;
+    font-size: 13px;
+    color: #9e9e9e;
+    text-align: center;
+}
+
+.pub-rehber-help {
+    font-size: 13px;
+    line-height: 1.65;
+    color: #555;
+    padding: 14px 16px;
+    background: #fafafa;
+    border-radius: 10px;
+    border: 1px solid #eee;
+}
+
+.pub-rehber-help strong { color: #333; }
+
+/* Kayıt Test paneli */
+.pub-kayit-eval-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.pub-kayit-eval-title { margin: 0 0 4px; font-size: 1.25rem; }
+.pub-kayit-eval-label { margin: 0; font-size: 13px; color: #666; }
+.pub-kayit-eval-controls { display: flex; align-items: center; gap: 8px; }
+.pub-kayit-eval-select { min-width: 260px; padding: 6px 10px; border-radius: 8px; border: 1px solid #ddd; }
+.pub-kayit-eval-refresh {
+    padding: 6px 12px; border-radius: 8px; border: 1px solid #ddd; background: #fff; cursor: pointer;
+}
+.pub-kayit-eval-stats {
+    display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px;
+    padding: 10px 12px; background: #f5f0fa; border-radius: 10px; border: 1px solid #e1d5ec;
+}
+.pub-kayit-eval-stat { font-size: 13px; color: #444; }
+.pub-prog-bitis-col { text-align: center; font-weight: 800; }
+.pub-prog-bitis-win { color: #1b5e20; }
+.pub-prog-bitis-top3 { color: #2e7d32; }
+.pub-prog-bitis-empty { color: #bbb; }
