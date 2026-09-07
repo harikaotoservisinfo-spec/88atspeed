@@ -35,12 +35,28 @@ function pickHighestOdd(picks, getOdd) {
     return best;
 }
 
+function normalizeHorseNo(no) {
+    const s = String(no ?? '').trim();
+    if (!s) return '';
+    const n = parseInt(s, 10);
+    return Number.isFinite(n) ? String(n) : s;
+}
+
 function getFinishPos(race, horseNo) {
-    const no = String(horseNo);
-    if (race.finishByNo && race.finishByNo[no] != null) {
-        return Number(race.finishByNo[no]);
+    const no = normalizeHorseNo(horseNo);
+    if (!no) return null;
+
+    const fbn = race.finishByNo || {};
+    if (fbn[no] != null) return Number(fbn[no]);
+    for (const [k, v] of Object.entries(fbn)) {
+        if (normalizeHorseNo(k) === no) return Number(v);
     }
-    const pick = (race.picks || []).find((p) => String(p.no) === no);
+
+    const top4 = race.actualTop4 || [];
+    const idx = top4.findIndex((n) => normalizeHorseNo(n) === no);
+    if (idx >= 0) return idx + 1;
+
+    const pick = (race.picks || []).find((p) => normalizeHorseNo(p.no) === no);
     return pick?.finishPos != null ? Number(pick.finishPos) : null;
 }
 
@@ -183,7 +199,7 @@ function buildFinishByNo(resultRace) {
     for (const h of resultRace?.horses || []) {
         if (h.kosmaz) continue;
         const sira = h.siraNum != null ? h.siraNum : parseInt(String(h.sira || '').replace(/[^\d]/g, ''), 10);
-        const no = String(h.no || '').trim();
+        const no = normalizeHorseNo(h.no);
         if (no && Number.isFinite(sira) && sira > 0) map[no] = sira;
     }
     return map;
@@ -199,6 +215,7 @@ module.exports = {
     parseOdd,
     pickHighestOdd,
     getFinishPos,
+    normalizeHorseNo,
     isBetWon,
     calcBetPayout,
     calcBetPnl,

@@ -221,13 +221,48 @@
         return getSavedPickOdd(pick, raceNo, betKey, hipId) || live || '';
     }
 
+    function normalizeHorseNo(no) {
+        const s = String(no ?? '').trim();
+        if (!s) return '';
+        const n = parseInt(s, 10);
+        return Number.isFinite(n) ? String(n) : s;
+    }
+
     function getFinishPos(race, horseNo) {
-        const no = String(horseNo);
-        if (race.finishByNo && race.finishByNo[no] != null) {
-            return Number(race.finishByNo[no]);
+        const no = normalizeHorseNo(horseNo);
+        if (!no) return null;
+
+        const fbn = race.finishByNo || {};
+        if (fbn[no] != null) return Number(fbn[no]);
+        for (const [k, v] of Object.entries(fbn)) {
+            if (normalizeHorseNo(k) === no) return Number(v);
         }
-        const pick = (race.picks || []).find((p) => String(p.no) === no);
+
+        const top4 = race.actualTop4 || [];
+        const idx = top4.findIndex((n) => normalizeHorseNo(n) === no);
+        if (idx >= 0) return idx + 1;
+
+        const pick = (race.picks || []).find((p) => normalizeHorseNo(p.no) === no);
         return pick?.finishPos != null ? Number(pick.finishPos) : null;
+    }
+
+    function isBetWon(betKey, finishPos) {
+        if (finishPos == null || finishPos <= 0) return false;
+        return finishPos <= (BET_WIN_MAX_POS[betKey] || 4);
+    }
+
+    function findRaceForKasaBet(data, bet) {
+        if (!bet) return null;
+        for (const hip of data?.hipodromlar || []) {
+            if (bet.hipId && String(hip.id) !== String(bet.hipId)) continue;
+            const race = (hip.races || []).find((r) => String(r.raceNo) === String(bet.raceNo));
+            if (race) return { hip, race };
+        }
+        for (const hip of data?.hipodromlar || []) {
+            const race = (hip.races || []).find((r) => String(r.raceNo) === String(bet.raceNo));
+            if (race) return { hip, race };
+        }
+        return null;
     }
 
     function pickHighestOddBet(picks, raceNo, betKey, hipId) {
@@ -294,7 +329,7 @@
                         continue;
                     }
                     const finish = getFinishPos(race, sel.pick.no);
-                    const won = finish != null && finish > 0 && finish <= (BET_WIN_MAX_POS[betKey] || 4);
+                    const won = isBetWon(betKey, finish);
                     const result = applySimBet(bank, STAKE, sel.odd, won);
                     bank = result.bank;
                     if (won) wins++;
@@ -567,27 +602,38 @@
     }
 
     async function settleKasaBets(data) {
-        if (!state.kasa || !data) return;
+        if (!state.kasa || !data) return false;
         let changed = false;
-        for (const hip of data.hipodromlar || []) {
-            for (const race of hip.races || []) {
-                if (race.status !== 'finished') continue;
-                const key = kasaBetKey(hip.id, race.raceNo);
-                const bet = state.kasa.bets[key];
-                if (!bet || bet.status !== 'pending') continue;
-                const finish = getFinishPos(race, bet.horseNo);
-                const won = finish != null && finish > 0 && finish <= (BET_WIN_MAX_POS[bet.betKey] || 4);
-                bet.finishPos = finish;
-                bet.status = won ? 'won' : 'lost';
-                bet.payout = won ? Math.round((bet.stake * bet.odd) * 100) / 100 : 0;
-                bet.pnl = won
-                    ? Math.round((bet.stake * (bet.odd - 1)) * 100) / 100
-                    : -bet.stake;
-                bet.settledAt = new Date().toISOString();
-                changed = true;
+
+        for (const bet of Object.values(state.kasa.bets || {})) {
+            const found = findRaceForKasaBet(data, bet);
+            if (!found || found.race.status !== 'finished') continue;
+
+            const finish = getFinishPos(found.race, bet.horseNo);
+            const won = isBetWon(bet.betKey, finish);
+            const newStatus = won ? 'won' : 'lost';
+            const newPayout = won ? Math.round((bet.stake * bet.odd) * 100) / 100 : 0;
+            const newPnl = won
+                ? Math.round((bet.stake * (bet.odd - 1)) * 100) / 100
+                : -(bet.stake ?? STAKE);
+
+            if (bet.status === newStatus
+                && bet.finishPos === finish
+                && bet.payout === newPayout
+                && bet.pnl === newPnl) {
+                continue;
             }
+
+            bet.finishPos = finish;
+            bet.status = newStatus;
+            bet.payout = newPayout;
+            bet.pnl = newPnl;
+            bet.settledAt = new Date().toISOString();
+            changed = true;
         }
+
         if (changed) await saveKasa(state.kasa);
+        return changed;
     }
 
     async function placeKasaBet(hip, race, pick, betKey) {
@@ -681,6 +727,11 @@
             + '<div class="pub-hazir-kasa-metric ' + pnlCls + '"><b>' + formatMoney(stats.pnl) + '</b><span>Kar / Zarar</span></div>'
             + '<div class="pub-hazir-kasa-metric"><b>' + stats.wins + '/' + (stats.wins + stats.losses) + '</b><span>İsabet</span></div>'
             + '<div class="pub-hazir-kasa-metric"><b>' + stats.pending + '</b><span>Bekleyen</span></div>'
+            + (stats.wins > 0
+                ? '<div class="pub-hazir-kasa-metric pos"><b>' + formatMoney(
+                    Object.values(kasa.bets || {}).reduce((s, b) => s + (b.payout || 0), 0)
+                ) + '</b><span>Toplam kazanç</span></div>'
+                : '')
             + '</div>'
             + '<details class="pub-hazir-kasa-details"><summary>'
             + stats.totalBets + ' bahis · ' + formatMoney(stats.staked) + ' yatırıldı'
