@@ -8,6 +8,15 @@
     const COL_COLORS = { TEK: '#e65100', S2: '#1565c0', S1: '#2e7d32', YUV: '#6a1b9a' };
     const BET_KEYS = ['ganyan', 'ilk2', 'ilk3', 'ilk4'];
     const BET_LABELS = { ganyan: 'Ganyan', ilk2: 'İlk 2', ilk3: 'İlk 3', ilk4: 'İlk 4' };
+    const BET_WIN_MAX_POS = { ganyan: 1, ilk2: 2, ilk3: 3, ilk4: 4 };
+    const SIM_STAGES = [
+        { id: 1, label: 'Kademe 1 — Sadece Ganyan', bets: ['ganyan'] },
+        { id: 2, label: 'Kademe 2 — Ganyan + İlk 2', bets: ['ganyan', 'ilk2'] },
+        { id: 3, label: 'Kademe 3 — + İlk 3', bets: ['ganyan', 'ilk2', 'ilk3'] },
+        { id: 4, label: 'Kademe 4 — Tümü', bets: ['ganyan', 'ilk2', 'ilk3', 'ilk4'] }
+    ];
+    const START_BANK = 1000;
+    const STAKE = 20;
     const POLL_MS = 60000;
     const ODDS_POLL_MS = 30000;
 
@@ -20,7 +29,10 @@
         oddsPollTimer: null,
         btData: null,
         btHipId: null,
+        btDataByHipId: {},
+        ganyanByHipId: {},
         btLoading: false,
+        btLoadingHips: {},
         ganyanByRace: {},
         muhtOverview: null,
         muhtIso: null
@@ -105,8 +117,15 @@
         return map;
     }
 
-    function getRaceBtMaps(raceNo) {
-        const race = state.btData?.races?.[String(raceNo)] || null;
+    function parseSimOdd(val) {
+        if (val == null || val === '' || val === '—') return null;
+        const v = parseFloat(String(val).replace(',', '.'));
+        if (!Number.isFinite(v) || v <= 1.01) return null;
+        return v;
+    }
+
+    function getRaceBtMaps(hipId, raceNo) {
+        const race = state.btDataByHipId[hipId]?.races?.[String(raceNo)] || null;
         const bets = race?.bets || {};
         const out = {};
         BET_KEYS.forEach((key) => {
@@ -118,20 +137,126 @@
         return out;
     }
 
-    function getPickOdd(pick, raceNo, betKey) {
+    function getPickOdd(pick, raceNo, betKey, hipId) {
+        const resolvedHipId = hipId || state.activeHipId;
         const no = String(pick.no);
         const nameKey = normalizeHorseName(pick.name);
-        const btMaps = getRaceBtMaps(raceNo);
+        const btMaps = getRaceBtMaps(resolvedHipId, raceNo);
         const bt = btMaps[betKey];
         if (bt) {
             const val = bt.byNo[no] || bt.byName[nameKey] || '';
             if (val && !isPlaceholderBtOdd(val)) return val;
         }
         if (betKey === 'ganyan') {
-            const tjk = state.ganyanByRace[String(raceNo)] || {};
+            const tjk = (state.ganyanByHipId[resolvedHipId] || state.ganyanByRace || {})[String(raceNo)] || {};
             return tjk[no] || '';
         }
         return '';
+    }
+
+    function getFinishPos(race, horseNo) {
+        const no = String(horseNo);
+        if (race.finishByNo && race.finishByNo[no] != null) {
+            return Number(race.finishByNo[no]);
+        }
+        const pick = (race.picks || []).find((p) => String(p.no) === no);
+        return pick?.finishPos != null ? Number(pick.finishPos) : null;
+    }
+
+    function pickHighestOddBet(picks, raceNo, betKey, hipId) {
+        let best = null;
+        let bestOdd = 0;
+        for (const p of picks || []) {
+            const odd = parseSimOdd(getPickOdd(p, raceNo, betKey, hipId));
+            if (odd != null && odd > bestOdd) {
+                bestOdd = odd;
+                best = { pick: p, odd: bestOdd };
+            }
+        }
+        return best;
+    }
+
+    function flattenAllRaces(data) {
+        const out = [];
+        for (const hip of data?.hipodromlar || []) {
+            for (const race of hip.races || []) {
+                out.push(Object.assign({}, race, { hipId: hip.id, hipName: hip.name }));
+            }
+        }
+        return out.sort((a, b) => {
+            const hipCmp = String(a.hipName || '').localeCompare(String(b.hipName || ''), 'tr');
+            if (hipCmp !== 0) return hipCmp;
+            return Number(a.raceNo) - Number(b.raceNo);
+        });
+    }
+
+    function runBankrollSimulation(data) {
+        const races = flattenAllRaces(data);
+        const finished = races.filter((r) => r.status === 'finished' && r.picks?.length);
+        const pending = races.filter((r) => r.status === 'pending' && r.picks?.length);
+
+        const stages = SIM_STAGES.map((stage) => {
+            let bank = START_BANK;
+            let wins = 0;
+            let losses = 0;
+            let skipped = 0;
+            const bets = [];
+
+            for (const race of finished) {
+                for (const betKey of stage.bets) {
+                    const sel = pickHighestOddBet(race.picks, race.raceNo, betKey, race.hipId);
+                    if (!sel) {
+                        skipped++;
+                        continue;
+                    }
+                    const finish = getFinishPos(race, sel.pick.no);
+                    const won = finish != null && finish > 0 && finish <= (BET_WIN_MAX_POS[betKey] || 4);
+                    const before = bank;
+                    bank += won ? STAKE * (sel.odd - 1) : -STAKE;
+                    if (won) wins++;
+                    else losses++;
+                    bets.push({
+                        hipName: race.hipName,
+                        raceNo: race.raceNo,
+                        betKey,
+                        betLabel: BET_LABELS[betKey],
+                        horseNo: sel.pick.no,
+                        horseName: sel.pick.name,
+                        odd: sel.odd,
+                        finishPos: finish,
+                        won,
+                        pnl: Math.round((bank - before) * 100) / 100,
+                        bankAfter: Math.round(bank * 100) / 100
+                    });
+                }
+            }
+
+            return Object.assign({}, stage, {
+                endBank: Math.round(bank * 100) / 100,
+                pnl: Math.round((bank - START_BANK) * 100) / 100,
+                wins,
+                losses,
+                skipped,
+                totalBets: wins + losses,
+                pendingRaces: pending.length,
+                pendingBets: pending.length * stage.bets.length,
+                bets
+            });
+        });
+
+        return {
+            startBank: START_BANK,
+            stake: STAKE,
+            finishedRaceCount: finished.length,
+            pendingRaceCount: pending.length,
+            stages
+        };
+    }
+
+    function formatMoney(n) {
+        const v = Number(n);
+        if (!Number.isFinite(v)) return '—';
+        return (v >= 0 ? '' : '-') + Math.abs(v).toFixed(2) + ' ₺';
     }
 
     async function ensureMuhtOverview(iso) {
@@ -148,7 +273,7 @@
         }
     }
 
-    async function fetchGanyanForHip(iso, hipName, raceNos, refresh) {
+    async function fetchGanyanForHip(iso, hipId, hipName, raceNos, refresh) {
         const overview = await ensureMuhtOverview(iso);
         const muhtKey = resolveMuhtHipKey(hipName);
         if (!muhtKey || !overview) return;
@@ -168,11 +293,13 @@
                 }
             } catch (_) { /* atla */ }
         }
-        state.ganyanByRace = map;
+        state.ganyanByHipId[hipId] = map;
+        if (hipId === state.activeHipId) state.ganyanByRace = map;
     }
 
-    async function fetchBtOdds(hipName, refresh) {
-        if (state.btLoading && !refresh) return;
+    async function fetchBtOddsForHip(hipId, hipName, refresh) {
+        if (state.btLoadingHips[hipId] && !refresh) return;
+        state.btLoadingHips[hipId] = true;
         state.btLoading = true;
         try {
             const res = await fetch(
@@ -182,25 +309,41 @@
             );
             const data = await res.json();
             if (data.success) {
-                state.btData = data;
-                state.btHipId = state.activeHipId;
+                state.btDataByHipId[hipId] = data;
+                if (hipId === state.activeHipId) {
+                    state.btData = data;
+                    state.btHipId = hipId;
+                }
             }
         } catch (_) { /* sessiz */ }
         finally {
-            state.btLoading = false;
+            state.btLoadingHips[hipId] = false;
+            state.btLoading = Object.values(state.btLoadingHips).some(Boolean);
         }
+    }
+
+    async function loadOddsForHip(hip, refresh) {
+        if (!hip) return;
+        const iso = state.iso || getIso();
+        const raceNos = (hip.races || []).map((r) => r.raceNo);
+        await Promise.all([
+            fetchBtOddsForHip(hip.id, hip.name, refresh),
+            fetchGanyanForHip(iso, hip.id, hip.name, raceNos, refresh)
+        ]);
     }
 
     async function loadOddsForActiveHip(refresh) {
         const data = state.data;
         const hip = data?.hipodromlar?.find((h) => h.id === state.activeHipId);
         if (!hip) return;
-        const iso = state.iso || getIso();
-        const raceNos = (hip.races || []).map((r) => r.raceNo);
-        await Promise.all([
-            fetchBtOdds(hip.name, refresh),
-            fetchGanyanForHip(iso, hip.name, raceNos, refresh)
-        ]);
+        await loadOddsForHip(hip, refresh);
+        render();
+    }
+
+    async function loadOddsForAllHips(refresh) {
+        const hips = state.data?.hipodromlar || [];
+        if (!hips.length) return;
+        await Promise.all(hips.map((h) => loadOddsForHip(h, refresh)));
         render();
     }
 
@@ -208,7 +351,7 @@
         stopOddsPolling();
         state.oddsPollTimer = setInterval(() => {
             if ($('#panel-hazir')?.classList.contains('active')) {
-                loadOddsForActiveHip(true);
+                loadOddsForAllHips(true);
             }
         }, ODDS_POLL_MS);
     }
@@ -242,7 +385,7 @@
                 state.activeHipId = data.hipodromlar[0].id;
             }
             render();
-            loadOddsForActiveHip(false);
+            loadOddsForAllHips(false);
             if (!opts.silent) {
                 startPolling();
                 startOddsPolling();
@@ -292,6 +435,61 @@
             + '</div></div>';
     }
 
+    function renderBankrollPanel(sim) {
+        if (!sim) return '';
+        const stageCards = sim.stages.map((s) => {
+            const pnlCls = s.pnl > 0 ? 'pos' : (s.pnl < 0 ? 'neg' : '');
+            const betList = s.bets.length
+                ? '<details class="pub-hazir-sim-details"><summary>'
+                    + s.totalBets + ' bahis detayı</summary><div class="pub-hazir-sim-log">'
+                    + s.bets.map((b) => {
+                        const cls = b.won ? 'win' : 'lose';
+                        const finish = b.finishPos != null ? b.finishPos + '.' : '—';
+                        return '<div class="pub-hazir-sim-bet ' + cls + '">'
+                            + '<span class="pub-hazir-sim-bet-race">' + escapeHtml(b.hipName) + ' K' + b.raceNo + '</span>'
+                            + '<span class="pub-hazir-sim-bet-type">' + escapeHtml(b.betLabel) + '</span>'
+                            + '<span class="pub-hazir-sim-bet-horse">' + escapeHtml(b.horseNo) + ' ' + escapeHtml((b.horseName || '').slice(0, 16)) + '</span>'
+                            + '<span class="pub-hazir-sim-bet-odd">@' + b.odd + '</span>'
+                            + '<span class="pub-hazir-sim-bet-res">' + (b.won ? '✓' : '✗') + ' ' + finish + '</span>'
+                            + '<span class="pub-hazir-sim-bet-pnl">' + formatMoney(b.pnl) + '</span>'
+                            + '</div>';
+                    }).join('')
+                    + '</div></details>'
+                : '<p class="pub-hazir-sim-empty">Henüz sonuçlanmış koşu yok.</p>';
+
+            return '<div class="pub-hazir-sim-stage pub-hazir-premium-card">'
+                + '<div class="pub-hazir-sim-stage-hdr">'
+                + '<span class="pub-hazir-sim-kademe">Kademe ' + s.id + '</span>'
+                + '<h4>' + escapeHtml(s.label.replace(/^Kademe \d+ — /, '')) + '</h4>'
+                + '</div>'
+                + '<div class="pub-hazir-sim-metrics">'
+                + '<div class="pub-hazir-sim-metric"><b>' + formatMoney(sim.startBank) + '</b><span>Başlangıç</span></div>'
+                + '<div class="pub-hazir-sim-metric"><b>' + formatMoney(s.endBank) + '</b><span>Güncel sermaye</span></div>'
+                + '<div class="pub-hazir-sim-metric ' + pnlCls + '"><b>' + formatMoney(s.pnl) + '</b><span>Kar / Zarar</span></div>'
+                + '<div class="pub-hazir-sim-metric"><b>' + s.wins + '/' + s.totalBets + '</b><span>İsabet</span></div>'
+                + '</div>'
+                + '<p class="pub-hazir-sim-meta">'
+                + sim.stake + ' ₺ / bahis · ' + s.bets.length + ' sonuçlandı'
+                + (s.pendingBets ? ' · ' + s.pendingBets + ' bekliyor' : '')
+                + (s.skipped ? ' · ' + s.skipped + ' oran yok' : '')
+                + '</p>'
+                + betList
+                + '</div>';
+        }).join('');
+
+        return '<div class="pub-hazir-sim pub-hazir-premium-card">'
+            + '<div class="pub-hazir-sim-hdr">'
+            + '<h3>Sermaye Simülasyonu</h3>'
+            + '<p>Her koşuda tahmin havuzundaki <b>en yüksek oranlı</b> ata ' + STAKE + ' ₺ · Başlangıç ' + START_BANK + ' ₺</p>'
+            + '<span class="pub-hazir-sim-status">' + sim.finishedRaceCount + ' koşu sonuçlandı'
+            + (sim.pendingRaceCount ? ' · ' + sim.pendingRaceCount + ' bekliyor' : '')
+            + (state.btLoading ? ' · oranlar güncelleniyor…' : '')
+            + '</span>'
+            + '</div>'
+            + '<div class="pub-hazir-sim-stages">' + stageCards + '</div>'
+            + '</div>';
+    }
+
     function renderGunlukBasari(g) {
         if (!g) return '';
         return '<div class="pub-hazir-gunluk pub-hazir-premium-card">'
@@ -337,7 +535,7 @@
                 + '</tr></thead><tbody>'
                 + race.picks.map((p) => {
                     const oddCells = BET_KEYS.map((k) =>
-                        '<td class="pub-hazir-odd-td">' + formatOddCell(getPickOdd(p, race.raceNo, k), state.btLoading) + '</td>'
+                        '<td class="pub-hazir-odd-td">' + formatOddCell(getPickOdd(p, race.raceNo, k, state.activeHipId), state.btLoading) + '</td>'
                     ).join('');
                     const resultCell = race.status === 'finished'
                         ? '<td class="' + (p.hit ? 'pub-hazir-hit' : 'pub-hazir-miss') + '">'
@@ -396,6 +594,8 @@
 
         const racesHtml = (activeHip?.races || []).map(renderRaceCard).join('');
 
+        const sim = runBankrollSimulation(data);
+
         root.innerHTML = ''
             + '<div class="pub-hazir-toolbar">'
             + '<div><h2 class="pub-hazir-title">Hazır Kupon — İlk 4 Tahmin</h2>'
@@ -404,21 +604,25 @@
             + '</div>'
             + renderCalibrationBanner(data.calibration)
             + renderGunlukBasari(data.gunlukBasari)
+            + renderBankrollPanel(sim)
             + '<div class="pub-hazir-hip-tabs" role="tablist">' + hipTabs + '</div>'
             + '<div class="pub-hazir-races">' + (racesHtml || '<div class="pub-empty"><p>Bugün için program yok.</p></div>') + '</div>';
 
         $$('.pub-hazir-hip-tab', root).forEach((btn) => {
             btn.addEventListener('click', () => {
                 state.activeHipId = btn.dataset.hip;
-                state.btData = null;
-                state.ganyanByRace = {};
+                state.btData = state.btDataByHipId[state.activeHipId] || null;
+                state.ganyanByRace = state.ganyanByHipId[state.activeHipId] || {};
                 render();
-                loadOddsForActiveHip(false);
+                if (!state.btDataByHipId[state.activeHipId]) {
+                    const hip = hips.find((h) => h.id === state.activeHipId);
+                    if (hip) loadOddsForHip(hip, false);
+                }
             });
         });
         $('#pubHazirRefresh')?.addEventListener('click', () => {
             loadHazirKupon({ refresh: true });
-            loadOddsForActiveHip(true);
+            loadOddsForAllHips(true);
         });
     }
 
@@ -434,7 +638,7 @@
         } else {
             startPolling();
             startOddsPolling();
-            loadOddsForActiveHip(true);
+            loadOddsForAllHips(true);
         }
     }
 

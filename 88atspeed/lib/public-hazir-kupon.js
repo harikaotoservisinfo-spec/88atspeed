@@ -18,6 +18,7 @@ const {
     evaluateRaceResult,
     getActualTop4
 } = require('./gosterge-predict');
+const { buildFinishByNo } = require('./hazir-kupon-simulator');
 
 const CALIB_CACHE_MS = 10 * 60 * 1000;
 let calibCache = { at: 0, data: null };
@@ -267,6 +268,7 @@ async function buildHazirKupon(db, opts = {}) {
                 picks: evaluation ? evaluation.picks : pred.picks,
                 status: finished ? 'finished' : (pred.picks.length ? 'pending' : 'empty'),
                 actualTop4: finished ? actualTop4 : [],
+                finishByNo: finished && resultRace ? buildFinishByNo(resultRace) : {},
                 hitCount: evaluation?.hitCount ?? null,
                 hitPct: evaluation?.hitPct ?? null,
                 poolHit: evaluation?.poolHit ?? null

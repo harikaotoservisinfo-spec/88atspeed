@@ -5916,3 +5916,45 @@ a { color: inherit; text-decoration: none; }
 .pub-hazir-empty-race { margin: 0; font-size: 13px; color: #999; }
 .pub-hazir-error { text-align: center; padding: 40px 20px; }
 .pub-hazir-no-mark { color: #ccc; }
+
+/* Sermaye simülasyonu */
+.pub-hazir-sim { margin-bottom: 16px; }
+.pub-hazir-sim-hdr h3 { margin: 0 0 4px; font-size: 1.05rem; }
+.pub-hazir-sim-hdr p { margin: 0 0 6px; font-size: 12px; color: #5f7a6e; }
+.pub-hazir-sim-status { font-size: 11px; color: #888; }
+.pub-hazir-sim-stages {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 12px;
+}
+@media (max-width: 900px) { .pub-hazir-sim-stages { grid-template-columns: 1fr; } }
+.pub-hazir-sim-stage { padding: 12px 14px; }
+.pub-hazir-sim-stage-hdr { margin-bottom: 8px; }
+.pub-hazir-sim-kademe {
+    display: inline-block; font-size: 10px; font-weight: 800; text-transform: uppercase;
+    color: #00695c; background: #e0f2f1; padding: 2px 8px; border-radius: 6px; margin-bottom: 4px;
+}
+.pub-hazir-sim-stage-hdr h4 { margin: 0; font-size: 14px; color: #1a3a2f; }
+.pub-hazir-sim-metrics {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 6px;
+}
+@media (max-width: 520px) { .pub-hazir-sim-metrics { grid-template-columns: repeat(2, 1fr); } }
+.pub-hazir-sim-metric { text-align: center; }
+.pub-hazir-sim-metric b { display: block; font-size: 1rem; color: #1a3a2f; }
+.pub-hazir-sim-metric.pos b { color: #2e7d32; }
+.pub-hazir-sim-metric.neg b { color: #c62828; }
+.pub-hazir-sim-metric span { font-size: 10px; color: #888; }
+.pub-hazir-sim-meta { margin: 0 0 8px; font-size: 11px; color: #888; }
+.pub-hazir-sim-details summary {
+    cursor: pointer; font-size: 12px; font-weight: 600; color: #00695c; padding: 4px 0;
+}
+.pub-hazir-sim-log { max-height: 180px; overflow-y: auto; margin-top: 6px; }
+.pub-hazir-sim-bet {
+    display: grid; grid-template-columns: 1.2fr 0.7fr 1.4fr 0.5fr 0.5fr 0.7fr;
+    gap: 4px; font-size: 11px; padding: 4px 0; border-bottom: 1px solid #f0f0f0;
+    align-items: center;
+}
+.pub-hazir-sim-bet.win { background: #f1f8f4; }
+.pub-hazir-sim-bet.lose { background: #fff8f8; }
+.pub-hazir-sim-bet-pnl { font-weight: 700; text-align: right; }
+.pub-hazir-sim-bet.win .pub-hazir-sim-bet-pnl { color: #2e7d32; }
+.pub-hazir-sim-bet.lose .pub-hazir-sim-bet-pnl { color: #c62828; }
+.pub-hazir-sim-empty { margin: 0; font-size: 12px; color: #999; }
