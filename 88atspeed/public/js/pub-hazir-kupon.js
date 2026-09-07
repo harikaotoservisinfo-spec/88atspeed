@@ -35,7 +35,9 @@
         btLoadingHips: {},
         ganyanByRace: {},
         muhtOverview: null,
-        muhtIso: null
+        muhtIso: null,
+        savingSim: false,
+        useSavedSim: true
     };
 
     function $(sel, root) { return (root || document).querySelector(sel); }
@@ -381,6 +383,9 @@
             if (!data.success) throw new Error(data.error || 'Yükleme hatası');
             state.data = data;
             state.iso = iso;
+            if (data.savedSimulation?.kayit?.stages?.length) {
+                state.useSavedSim = true;
+            }
             if (!state.activeHipId && data.hipodromlar?.length) {
                 state.activeHipId = data.hipodromlar[0].id;
             }
@@ -435,7 +440,122 @@
             + '</div></div>';
     }
 
-    function renderBankrollPanel(sim) {
+    function formatKayitTime(val) {
+        if (!val) return '—';
+        const d = new Date(val);
+        if (Number.isNaN(d.getTime())) return String(val);
+        return d.toLocaleString('tr-TR', {
+            day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+        });
+    }
+
+    function resolveDisplaySim(data, liveSim) {
+        const saved = data?.savedSimulation;
+        if (state.useSavedSim && saved?.kayit?.stages?.length) {
+            const k = saved.kayit;
+            return {
+                startBank: k.startBank ?? START_BANK,
+                stake: k.stake ?? STAKE,
+                finishedRaceCount: k.finishedRaceCount ?? liveSim.finishedRaceCount,
+                pendingRaceCount: k.pendingRaceCount ?? liveSim.pendingRaceCount,
+                stages: k.stages,
+                isSaved: true,
+                savedAt: k.savedAt || saved.guncelleme || saved.kayitTarihi,
+                savedDurum: saved.durum || k.status
+            };
+        }
+        return Object.assign({}, liveSim, { isSaved: false });
+    }
+
+    async function saveSimulationKayit(liveSim) {
+        const data = state.data;
+        if (!data || state.savingSim) return;
+        if (!liveSim?.finishedRaceCount) {
+            window.alert('Kaydetmek için en az bir sonuçlanmış koşu gerekli.');
+            return;
+        }
+        if (liveSim.pendingRaceCount > 0) {
+            const ok = window.confirm(
+                liveSim.pendingRaceCount + ' koşu henüz bitmedi. Kısmi kayıt olarak saklanacak. Devam?'
+            );
+            if (!ok) return;
+        }
+        state.savingSim = true;
+        render();
+        try {
+            const res = await fetch('/api/public/hazir-kupon-sim', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    iso: data.iso,
+                    tarih: data.tarih,
+                    simulation: liveSim,
+                    gunlukBasari: data.gunlukBasari,
+                    hipodromlar: (data.hipodromlar || []).map((h) => ({
+                        id: h.id,
+                        name: h.name,
+                        raceCount: h.races?.length || 0,
+                        finishedCount: h.finishedCount || 0
+                    })),
+                    status: liveSim.pendingRaceCount === 0 ? 'complete' : 'partial'
+                })
+            });
+            const result = await res.json();
+            if (!result.success) throw new Error(result.error || 'Kayıt başarısız');
+            state.useSavedSim = true;
+            await loadHazirKupon({ silent: true, iso: data.iso });
+            state.savingSim = false;
+        } catch (err) {
+            window.alert(err.message || 'Kayıt hatası');
+            state.savingSim = false;
+            render();
+        }
+    }
+
+    function renderSimHistory(data) {
+        const agg = data?.simStats?.aggregate;
+        const recent = (data?.simStats?.recent || []).filter((r) => r.tarih !== data.tarih);
+        if (!agg?.days && !recent.length) return '';
+
+        const aggCards = (agg?.stages || []).map((s) => {
+            const pnlCls = (s.avgPnl || 0) > 0 ? 'pos' : ((s.avgPnl || 0) < 0 ? 'neg' : '');
+            return '<div class="pub-hazir-hist-stage">'
+                + '<span class="pub-hazir-hist-stage-lbl">K' + s.id + '</span>'
+                + '<b class="' + pnlCls + '">' + (s.avgPnl != null ? formatMoney(s.avgPnl) : '—') + '</b>'
+                + '<small>ort. k/z</small>'
+                + '</div>';
+        }).join('');
+
+        const rows = recent.map((r) => {
+            const s4 = (r.stageSummary || []).find((x) => x.id === 4);
+            const pnlCls = (s4?.pnl || 0) > 0 ? 'pos' : ((s4?.pnl || 0) < 0 ? 'neg' : '');
+            const durum = r.durum === 'complete' ? 'Tam' : 'Kısmi';
+            return '<tr class="pub-hazir-hist-row" data-iso="' + escapeHtml(r.iso || '') + '">'
+                + '<td>' + escapeHtml(r.tarih) + '</td>'
+                + '<td>' + (r.finishedRaceCount || 0) + '/' + (r.totalRaceCount || 0) + '</td>'
+                + '<td><span class="pub-hazir-hist-durum ' + (r.durum === 'complete' ? 'complete' : 'partial') + '">' + durum + '</span></td>'
+                + '<td class="' + pnlCls + '">' + (s4?.pnl != null ? formatMoney(s4.pnl) : '—') + '</td>'
+                + '<td>' + (s4?.endBank != null ? formatMoney(s4.endBank) : '—') + '</td>'
+                + '<td class="pub-hazir-hist-date">' + formatKayitTime(r.kayitTarihi) + '</td>'
+                + '</tr>';
+        }).join('');
+
+        return '<div class="pub-hazir-hist pub-hazir-premium-card">'
+            + '<div class="pub-hazir-hist-hdr">'
+            + '<h3>Simülasyon Geçmişi</h3>'
+            + '<span class="pub-hazir-hist-meta">' + (agg?.days || 0) + ' gün kayıtlı'
+            + (agg?.completeDays ? ' · ' + agg.completeDays + ' tam' : '')
+            + '</span></div>'
+            + (agg?.days ? '<div class="pub-hazir-hist-agg">' + aggCards + '</div>' : '')
+            + (rows
+                ? '<div class="pub-hazir-hist-table-wrap"><table class="pub-hazir-hist-table">'
+                    + '<thead><tr><th>Tarih</th><th>Koşu</th><th>Durum</th><th>K4 K/Z</th><th>K4 Sermaye</th><th>Kayıt</th></tr></thead>'
+                    + '<tbody>' + rows + '</tbody></table></div>'
+                : '<p class="pub-hazir-sim-empty">Henüz başka gün kaydı yok.</p>')
+            + '</div>';
+    }
+
+    function renderBankrollPanel(sim, meta) {
         if (!sim) return '';
         const stageCards = sim.stages.map((s) => {
             const pnlCls = s.pnl > 0 ? 'pos' : (s.pnl < 0 ? 'neg' : '');
@@ -477,13 +597,32 @@
                 + '</div>';
         }).join('');
 
+        const savedBadge = sim.isSaved
+            ? '<span class="pub-hazir-sim-saved">Kayıtlı · ' + formatKayitTime(sim.savedAt)
+                + (sim.savedDurum === 'complete' ? ' · Tam gün' : ' · Kısmi') + '</span>'
+            : '';
+        const canSave = (meta?.liveSim?.finishedRaceCount || 0) > 0;
+        const saveLabel = sim.isSaved ? 'Güncelle' : 'Günü Kaydet';
+        const viewToggle = meta?.hasSaved
+            ? '<button type="button" class="pub-hazir-sim-toggle' + (state.useSavedSim ? ' active' : '') + '" id="pubHazirSimToggle">'
+                + (state.useSavedSim ? 'Kayıtlı' : 'Canlı') + '</button>'
+            : '';
+
         return '<div class="pub-hazir-sim pub-hazir-premium-card">'
             + '<div class="pub-hazir-sim-hdr">'
+            + '<div class="pub-hazir-sim-hdr-top">'
             + '<h3>Sermaye Simülasyonu</h3>'
+            + '<div class="pub-hazir-sim-actions">'
+            + viewToggle
+            + '<button type="button" class="pub-hazir-sim-save-btn" id="pubHazirSimSave"'
+            + (canSave && !state.savingSim ? '' : ' disabled')
+            + '>' + (state.savingSim ? 'Kaydediliyor…' : saveLabel) + '</button>'
+            + '</div></div>'
             + '<p>Her koşuda tahmin havuzundaki <b>en yüksek oranlı</b> ata ' + STAKE + ' ₺ · Başlangıç ' + START_BANK + ' ₺</p>'
+            + savedBadge
             + '<span class="pub-hazir-sim-status">' + sim.finishedRaceCount + ' koşu sonuçlandı'
             + (sim.pendingRaceCount ? ' · ' + sim.pendingRaceCount + ' bekliyor' : '')
-            + (state.btLoading ? ' · oranlar güncelleniyor…' : '')
+            + (state.btLoading && !sim.isSaved ? ' · oranlar güncelleniyor…' : '')
             + '</span>'
             + '</div>'
             + '<div class="pub-hazir-sim-stages">' + stageCards + '</div>'
@@ -594,7 +733,9 @@
 
         const racesHtml = (activeHip?.races || []).map(renderRaceCard).join('');
 
-        const sim = runBankrollSimulation(data);
+        const liveSim = runBankrollSimulation(data);
+        const displaySim = resolveDisplaySim(data, liveSim);
+        const hasSaved = !!data.savedSimulation?.kayit?.stages?.length;
 
         root.innerHTML = ''
             + '<div class="pub-hazir-toolbar">'
@@ -604,7 +745,8 @@
             + '</div>'
             + renderCalibrationBanner(data.calibration)
             + renderGunlukBasari(data.gunlukBasari)
-            + renderBankrollPanel(sim)
+            + renderBankrollPanel(displaySim, { liveSim, hasSaved })
+            + renderSimHistory(data)
             + '<div class="pub-hazir-hip-tabs" role="tablist">' + hipTabs + '</div>'
             + '<div class="pub-hazir-races">' + (racesHtml || '<div class="pub-empty"><p>Bugün için program yok.</p></div>') + '</div>';
 
@@ -623,6 +765,19 @@
         $('#pubHazirRefresh')?.addEventListener('click', () => {
             loadHazirKupon({ refresh: true });
             loadOddsForAllHips(true);
+        });
+        $('#pubHazirSimSave')?.addEventListener('click', () => saveSimulationKayit(liveSim));
+        $('#pubHazirSimToggle')?.addEventListener('click', () => {
+            state.useSavedSim = !state.useSavedSim;
+            render();
+        });
+        $$('.pub-hazir-hist-row', root).forEach((row) => {
+            row.addEventListener('click', () => {
+                const iso = row.dataset.iso;
+                if (!iso) return;
+                state.useSavedSim = true;
+                loadHazirKupon({ iso });
+            });
         });
     }
 

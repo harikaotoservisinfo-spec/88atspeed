@@ -5958,3 +5958,60 @@ a { color: inherit; text-decoration: none; }
 .pub-hazir-sim-bet.win .pub-hazir-sim-bet-pnl { color: #2e7d32; }
 .pub-hazir-sim-bet.lose .pub-hazir-sim-bet-pnl { color: #c62828; }
 .pub-hazir-sim-empty { margin: 0; font-size: 12px; color: #999; }
+
+.pub-hazir-sim-hdr-top {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+}
+.pub-hazir-sim-actions { display: flex; gap: 8px; align-items: center; }
+.pub-hazir-sim-save-btn {
+    padding: 7px 14px; border-radius: 8px; border: none; cursor: pointer;
+    background: linear-gradient(135deg, #00897b, #00695c); color: #fff;
+    font-weight: 700; font-size: 12px;
+}
+.pub-hazir-sim-save-btn:disabled { opacity: .5; cursor: not-allowed; }
+.pub-hazir-sim-toggle {
+    padding: 6px 12px; border-radius: 8px; border: 1px solid #ccc;
+    background: #fff; cursor: pointer; font-size: 12px; font-weight: 600;
+}
+.pub-hazir-sim-toggle.active { border-color: #00695c; color: #00695c; background: #e0f2f1; }
+.pub-hazir-sim-saved {
+    display: inline-block; margin: 4px 0; font-size: 11px; font-weight: 700;
+    color: #1565c0; background: #e3f2fd; padding: 3px 10px; border-radius: 8px;
+}
+
+.pub-hazir-hist { margin-bottom: 16px; }
+.pub-hazir-hist-hdr {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px;
+}
+.pub-hazir-hist-hdr h3 { margin: 0; font-size: 1.05rem; }
+.pub-hazir-hist-meta { font-size: 11px; color: #888; }
+.pub-hazir-hist-agg {
+    display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;
+}
+.pub-hazir-hist-stage {
+    text-align: center; padding: 8px 12px; border-radius: 10px; background: #f7faf9; min-width: 72px;
+}
+.pub-hazir-hist-stage-lbl { display: block; font-size: 10px; color: #888; font-weight: 700; }
+.pub-hazir-hist-stage b { display: block; font-size: 1rem; }
+.pub-hazir-hist-stage b.pos { color: #2e7d32; }
+.pub-hazir-hist-stage b.neg { color: #c62828; }
+.pub-hazir-hist-stage small { font-size: 9px; color: #aaa; }
+.pub-hazir-hist-table-wrap { overflow-x: auto; }
+.pub-hazir-hist-table {
+    width: 100%; border-collapse: collapse; font-size: 12px;
+}
+.pub-hazir-hist-table th {
+    text-align: left; padding: 6px 8px; font-size: 10px; color: #666;
+    border-bottom: 1px solid #e8f5f3; text-transform: uppercase;
+}
+.pub-hazir-hist-table td { padding: 8px; border-bottom: 1px solid #f0f0f0; }
+.pub-hazir-hist-row { cursor: pointer; }
+.pub-hazir-hist-row:hover { background: #f7faf9; }
+.pub-hazir-hist-table td.pos { color: #2e7d32; font-weight: 700; }
+.pub-hazir-hist-table td.neg { color: #c62828; font-weight: 700; }
+.pub-hazir-hist-durum {
+    font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px;
+}
+.pub-hazir-hist-durum.complete { background: #e8f5e9; color: #2e7d32; }
+.pub-hazir-hist-durum.partial { background: #fff3e0; color: #e65100; }
+.pub-hazir-hist-date { font-size: 11px; color: #888; white-space: nowrap; }

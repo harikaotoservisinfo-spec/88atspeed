@@ -28,6 +28,7 @@ const { resolveChromePath } = require('./lib/chrome-path');
 const publicTahminBuild = require('./lib/public-tahmin-build');
 const publicKayitDegerlendirme = require('./lib/public-kayit-degerlendirme');
 const publicHazirKupon = require('./lib/public-hazir-kupon');
+const hazirKuponSimStore = require('./lib/hazir-kupon-sim-store');
 const app = express();
 const PORT = Number(process.env.PORT) || 3023;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -158,6 +159,15 @@ db.run(`CREATE TABLE IF NOT EXISTS hazir_kupon_snapshots (
     veri TEXT NOT NULL,
     guncelleme DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (tarih, hipodrom_id, race_no)
+)`);
+
+db.run(`CREATE TABLE IF NOT EXISTS hazir_kupon_sim_kayitlari (
+    tarih TEXT PRIMARY KEY,
+    iso TEXT NOT NULL,
+    veri TEXT NOT NULL,
+    durum TEXT NOT NULL DEFAULT 'partial',
+    kayit_tarihi DATETIME DEFAULT CURRENT_TIMESTAMP,
+    guncelleme DATETIME DEFAULT CURRENT_TIMESTAMP
 )`);
 
 app.use(express.json({ limit: '50mb' }));
@@ -456,6 +466,53 @@ app.get('/api/public/hazir-kupon', async (req, res) => {
         res.json(data);
     } catch (err) {
         console.error('public/hazir-kupon:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+/** Hazır Kupon sermaye simülasyonu — günlük kayıt */
+app.get('/api/public/hazir-kupon-sim', async (req, res) => {
+    try {
+        let iso = req.query.iso;
+        const tarih = req.query.tarih;
+        if (!iso && tarih) iso = publicProgram.trToIso(tarih);
+        const kayit = await hazirKuponSimStore.getSimKayit(db, { iso, tarih });
+        res.set('Cache-Control', 'no-store');
+        res.json({ success: true, kayit });
+    } catch (err) {
+        console.error('public/hazir-kupon-sim GET:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.post('/api/public/hazir-kupon-sim', async (req, res) => {
+    try {
+        const result = await hazirKuponSimStore.saveSimKayit(db, req.body || {});
+        res.json(result);
+    } catch (err) {
+        console.error('public/hazir-kupon-sim POST:', err.message);
+        res.status(400).json({ success: false, error: err.message });
+    }
+});
+
+app.get('/api/public/hazir-kupon-sim/list', async (req, res) => {
+    try {
+        const list = await hazirKuponSimStore.listSimKayitlari(db, { limit: req.query.limit });
+        res.set('Cache-Control', 'no-store');
+        res.json({ success: true, list });
+    } catch (err) {
+        console.error('public/hazir-kupon-sim/list:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.get('/api/public/hazir-kupon-sim/stats', async (req, res) => {
+    try {
+        const data = await hazirKuponSimStore.getSimStats(db);
+        res.set('Cache-Control', 'no-store');
+        res.json({ success: true, ...data });
+    } catch (err) {
+        console.error('public/hazir-kupon-sim/stats:', err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 });
