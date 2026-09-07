@@ -38,10 +38,13 @@
         muhtIso: null,
         savingSim: false,
         useSavedSim: true,
-        kasa: null
+        kasa: null,
+        kasaSaving: false,
+        kasaSavedAt: null
     };
 
     const KASA_STORAGE_PREFIX = 'hazir_kasa_';
+    const KASA_CLIENT_KEY = 'hazir_kasa_client_id';
 
     function $(sel, root) { return (root || document).querySelector(sel); }
     function $$(sel, root) { return Array.from((root || document).querySelectorAll(sel)); }
@@ -268,29 +271,135 @@
         return String(hipId) + '|' + String(raceNo);
     }
 
-    function createEmptyKasa(iso) {
-        return { iso, startBank: START_BANK, stake: STAKE, bets: {} };
-    }
-
-    function loadKasa(iso) {
-        const key = KASA_STORAGE_PREFIX + iso;
+    function getKasaClientId() {
         try {
-            const raw = localStorage.getItem(key);
-            if (!raw) return createEmptyKasa(iso);
-            const parsed = JSON.parse(raw);
-            if (!parsed || parsed.iso !== iso) return createEmptyKasa(iso);
-            parsed.bets = parsed.bets || {};
-            parsed.startBank = parsed.startBank ?? START_BANK;
-            parsed.stake = parsed.stake ?? STAKE;
-            return parsed;
+            let id = localStorage.getItem(KASA_CLIENT_KEY);
+            if (!id) {
+                id = 'kasa_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+                localStorage.setItem(KASA_CLIENT_KEY, id);
+            }
+            return id;
         } catch (_) {
-            return createEmptyKasa(iso);
+            return 'kasa_anon_' + (state.iso || getIso());
         }
     }
 
-    function saveKasa(kasa) {
+    function kasaStorageKeys(iso, tarih) {
+        const keys = [];
+        if (iso) keys.push(KASA_STORAGE_PREFIX + iso);
+        if (tarih) keys.push(KASA_STORAGE_PREFIX + 'tr_' + String(tarih).replace(/\//g, '-'));
+        return keys;
+    }
+
+    function createEmptyKasa(iso, tarih) {
+        return {
+            iso,
+            tarih: tarih || '',
+            startBank: START_BANK,
+            stake: STAKE,
+            bets: {},
+            updatedAt: new Date().toISOString()
+        };
+    }
+
+    function loadKasaLocal(iso, tarih) {
+        const keys = kasaStorageKeys(iso, tarih);
+        for (const key of keys) {
+            try {
+                const raw = localStorage.getItem(key);
+                if (!raw) continue;
+                const parsed = JSON.parse(raw);
+                if (!parsed || typeof parsed !== 'object') continue;
+                parsed.bets = parsed.bets || {};
+                parsed.startBank = parsed.startBank ?? START_BANK;
+                parsed.stake = parsed.stake ?? STAKE;
+                parsed.iso = parsed.iso || iso;
+                parsed.tarih = parsed.tarih || tarih || '';
+                return parsed;
+            } catch (_) { /* sonraki anahtar */ }
+        }
+        return null;
+    }
+
+    function saveKasaLocal(kasa) {
         if (!kasa?.iso) return;
-        localStorage.setItem(KASA_STORAGE_PREFIX + kasa.iso, JSON.stringify(kasa));
+        kasa.updatedAt = new Date().toISOString();
+        const payload = JSON.stringify(kasa);
+        try {
+            localStorage.setItem(KASA_STORAGE_PREFIX + kasa.iso, payload);
+            if (kasa.tarih) {
+                localStorage.setItem(KASA_STORAGE_PREFIX + 'tr_' + String(kasa.tarih).replace(/\//g, '-'), payload);
+            }
+        } catch (err) {
+            console.warn('Kasa localStorage yazılamadı:', err.message);
+        }
+    }
+
+    async function fetchKasaFromServer(iso, tarih) {
+        try {
+            const qs = '/api/public/hazir-kupon-kasa?clientId=' + encodeURIComponent(getKasaClientId())
+                + '&iso=' + encodeURIComponent(iso || '')
+                + (tarih ? '&tarih=' + encodeURIComponent(tarih) : '');
+            const res = await fetch(qs, { cache: 'no-store' });
+            const data = await res.json();
+            if (!data.success || !data.kayit?.kasa) return null;
+            const kasa = data.kayit.kasa;
+            kasa.bets = kasa.bets || {};
+            kasa.iso = kasa.iso || iso;
+            kasa.tarih = kasa.tarih || tarih || '';
+            return kasa;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    async function saveKasaToServer(kasa) {
+        if (!kasa?.iso) return false;
+        state.kasaSaving = true;
+        try {
+            const res = await fetch('/api/public/hazir-kupon-kasa', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    clientId: getKasaClientId(),
+                    iso: kasa.iso,
+                    tarih: kasa.tarih,
+                    kasa
+                })
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Kayıt hatası');
+            state.kasaSavedAt = new Date().toISOString();
+            return true;
+        } catch (err) {
+            console.warn('Kasa sunucu kaydı başarısız:', err.message);
+            return false;
+        } finally {
+            state.kasaSaving = false;
+        }
+    }
+
+    function mergeKasaRecords(localKasa, serverKasa, iso, tarih) {
+        if (!localKasa && !serverKasa) return createEmptyKasa(iso, tarih);
+        if (!localKasa) return serverKasa;
+        if (!serverKasa) return localKasa;
+        const localAt = Date.parse(localKasa.updatedAt || '') || 0;
+        const serverAt = Date.parse(serverKasa.updatedAt || '') || 0;
+        return serverAt >= localAt ? serverKasa : localKasa;
+    }
+
+    async function loadKasa(iso, tarih) {
+        const localKasa = loadKasaLocal(iso, tarih);
+        const serverKasa = await fetchKasaFromServer(iso, tarih);
+        const merged = mergeKasaRecords(localKasa, serverKasa, iso, tarih);
+        saveKasaLocal(merged);
+        return merged;
+    }
+
+    async function saveKasa(kasa) {
+        if (!kasa?.iso) return;
+        saveKasaLocal(kasa);
+        await saveKasaToServer(kasa);
     }
 
     function computeKasaBalance(kasa) {
@@ -328,7 +437,7 @@
         };
     }
 
-    function settleKasaBets(data) {
+    async function settleKasaBets(data) {
         if (!state.kasa || !data) return;
         let changed = false;
         for (const hip of data.hipodromlar || []) {
@@ -348,10 +457,10 @@
                 changed = true;
             }
         }
-        if (changed) saveKasa(state.kasa);
+        if (changed) await saveKasa(state.kasa);
     }
 
-    function placeKasaBet(hip, race, pick, betKey) {
+    async function placeKasaBet(hip, race, pick, betKey) {
         if (!state.kasa || race.status !== 'pending') return;
         const odd = parseSimOdd(getPickOdd(pick, race.raceNo, betKey, hip.id));
         if (odd == null) {
@@ -368,10 +477,10 @@
             return;
         }
         state.kasa.bets[key] = {
-            hipId: hip.id,
+            hipId: String(hip.id),
             hipName: hip.name,
             raceNo: race.raceNo,
-            horseNo: pick.no,
+            horseNo: String(pick.no),
             horseName: pick.name,
             betKey,
             betLabel: BET_LABELS[betKey],
@@ -382,15 +491,16 @@
             finishPos: null,
             pnl: null
         };
-        saveKasa(state.kasa);
+        await saveKasa(state.kasa);
         render();
     }
 
-    function resetKasa() {
+    async function resetKasa() {
         const iso = state.iso || getIso();
+        const tarih = state.data?.tarih || '';
         if (!window.confirm('Kasa sıfırlanacak. Tüm bahisler silinir. Emin misiniz?')) return;
-        state.kasa = createEmptyKasa(iso);
-        saveKasa(state.kasa);
+        state.kasa = createEmptyKasa(iso, tarih);
+        await saveKasa(state.kasa);
         render();
     }
 
@@ -423,10 +533,16 @@
             }).join('')
             : '<p class="pub-hazir-sim-empty">Henüz bahis yok. Koşu tablosunda oran hücresine tıklayın.</p>';
 
+        const saveHint = state.kasaSaving
+            ? '<span class="pub-hazir-kasa-save-hint saving">Kaydediliyor…</span>'
+            : (state.kasaSavedAt
+                ? '<span class="pub-hazir-kasa-save-hint saved">Kayıtlı</span>'
+                : '<span class="pub-hazir-kasa-save-hint">Otomatik kayıt</span>');
+
         return '<div class="pub-hazir-kasa pub-hazir-premium-card">'
             + '<div class="pub-hazir-kasa-hdr">'
             + '<div><h3>💰 Kasa</h3>'
-            + '<p>Her koşuda bir at + bahis türü seçin · ' + (kasa.stake ?? STAKE) + ' ₺ / bahis</p></div>'
+            + '<p>Her koşuda bir at + bahis türü seçin · ' + (kasa.stake ?? STAKE) + ' ₺ / bahis · ' + saveHint + '</p></div>'
             + '<button type="button" class="pub-hazir-kasa-reset" id="pubHazirKasaReset">Sıfırla</button>'
             + '</div>'
             + '<div class="pub-hazir-kasa-metrics">'
@@ -448,7 +564,7 @@
         const isPick = kasaBet
             && String(kasaBet.horseNo) === String(pick.no)
             && kasaBet.betKey === betKey;
-        const canPick = race.status === 'pending' && odd != null && !state.btLoading;
+        const canPick = race.status === 'pending' && odd != null;
         const cls = 'pub-hazir-odd-td'
             + (canPick ? ' pub-hazir-odd-pick' : '')
             + (isPick ? ' pub-hazir-odd-selected' : '');
@@ -580,9 +696,15 @@
             const data = await res.json();
             if (!data.success) throw new Error(data.error || 'Yükleme hatası');
             state.data = data;
-            state.iso = iso;
-            state.kasa = loadKasa(iso);
-            settleKasaBets(data);
+            const resolvedIso = data.iso || iso;
+            const resolvedTarih = data.tarih || '';
+            state.iso = resolvedIso;
+            if (!state.kasa || state.kasa.iso !== resolvedIso) {
+                state.kasa = await loadKasa(resolvedIso, resolvedTarih);
+            } else if (resolvedTarih && !state.kasa.tarih) {
+                state.kasa.tarih = resolvedTarih;
+            }
+            await settleKasaBets(data);
             if (data.savedSimulation?.kayit?.stages?.length) {
                 state.useSavedSim = true;
             }
@@ -863,7 +985,7 @@
     }
 
     function renderRaceCard(race, hip) {
-        const kasaBet = state.kasa?.bets?.[kasaBetKey(hip.id, race.raceNo)] || null;
+        const kasaBet = state.kasa?.bets?.[kasaBetKey(String(hip.id), race.raceNo)] || null;
         const statusCls = race.status === 'finished'
             ? (race.poolHit ? 'hit' : 'miss')
             : (race.status === 'pending' ? 'pending' : 'empty');

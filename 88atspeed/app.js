@@ -29,6 +29,7 @@ const publicTahminBuild = require('./lib/public-tahmin-build');
 const publicKayitDegerlendirme = require('./lib/public-kayit-degerlendirme');
 const publicHazirKupon = require('./lib/public-hazir-kupon');
 const hazirKuponSimStore = require('./lib/hazir-kupon-sim-store');
+const hazirKuponKasaStore = require('./lib/hazir-kupon-kasa-store');
 const app = express();
 const PORT = Number(process.env.PORT) || 3023;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -168,6 +169,15 @@ db.run(`CREATE TABLE IF NOT EXISTS hazir_kupon_sim_kayitlari (
     durum TEXT NOT NULL DEFAULT 'partial',
     kayit_tarihi DATETIME DEFAULT CURRENT_TIMESTAMP,
     guncelleme DATETIME DEFAULT CURRENT_TIMESTAMP
+)`);
+
+db.run(`CREATE TABLE IF NOT EXISTS hazir_kupon_kasa_kayitlari (
+    client_id TEXT NOT NULL,
+    tarih TEXT NOT NULL,
+    iso TEXT NOT NULL,
+    veri TEXT NOT NULL,
+    guncelleme DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (client_id, tarih)
 )`);
 
 app.use(express.json({ limit: '50mb' }));
@@ -514,6 +524,32 @@ app.get('/api/public/hazir-kupon-sim/stats', async (req, res) => {
     } catch (err) {
         console.error('public/hazir-kupon-sim/stats:', err.message);
         res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+/** Hazır Kupon Kasa — kullanıcı bahis kayıtları */
+app.get('/api/public/hazir-kupon-kasa', async (req, res) => {
+    try {
+        const clientId = req.query.clientId;
+        let iso = req.query.iso;
+        const tarih = req.query.tarih;
+        if (!iso && tarih) iso = publicProgram.trToIso(tarih);
+        const kayit = await hazirKuponKasaStore.getKasaKayit(db, { clientId, iso, tarih });
+        res.set('Cache-Control', 'no-store');
+        res.json({ success: true, kayit });
+    } catch (err) {
+        console.error('public/hazir-kupon-kasa GET:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.post('/api/public/hazir-kupon-kasa', async (req, res) => {
+    try {
+        const result = await hazirKuponKasaStore.saveKasaKayit(db, req.body || {});
+        res.json(result);
+    } catch (err) {
+        console.error('public/hazir-kupon-kasa POST:', err.message);
+        res.status(400).json({ success: false, error: err.message });
     }
 });
 
