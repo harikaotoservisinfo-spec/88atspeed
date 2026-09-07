@@ -908,17 +908,17 @@
         const hasStars = horses.some((h) => Array.isArray(h.yildizlar) && h.yildizlar.length);
         if (!hasStars) return [];
         return [{
-            key: 'yildizGrup',
-            label: 'GÖSTERGE',
-            cls: 'pub-prog-yildizgrup',
-            colCls: 'pub-col-yildizgrup',
-            title: 'Son 7 yarış — koşu-başı işaretler ve ivme'
-        }, {
             key: 'yildizTek',
             label: 'TEK',
             cls: 'pub-prog-yildiztek',
             colCls: 'pub-col-yildiztek',
             title: 'Yalnızca bu ata özgü işaretler (koşudaki diğer atlarda olmayan)'
+        }, {
+            key: 'yildizGrup',
+            label: 'GÖSTERGE',
+            cls: 'pub-prog-yildizgrup',
+            colCls: 'pub-col-yildizgrup',
+            title: 'Son 7 yarış — koşu-başı işaretler ve ivme'
         }];
     }
 
@@ -1156,7 +1156,8 @@
         const list = ctx?.uniqueGostergeMap?.get(horseRowKey(h)) || [];
         if (!list.length) return '<span class="pub-prog-yildiz-empty">—</span>';
         return '<div class="pub-prog-yildiz-tek-wrap" title="' + escapeHtml('Koşudaki diğer atlarda olmayan işaretler') + '">'
-            + list.map((y) => formatGostergeMarker(y)).join('')
+            + '<span class="pub-prog-yildiz-tek-lbl">TEK</span>'
+            + '<span class="pub-prog-yildiz-tek-stars">' + list.map((y) => formatGostergeMarker(y)).join('') + '</span>'
             + '</div>';
     }
 
@@ -1180,7 +1181,7 @@
                 if (list.length > maxUnique) maxUnique = list.length;
             }
         }
-        return Math.min(420, Math.max(72, maxUnique * 18 + 24));
+        return Math.min(420, Math.max(110, maxUnique * 20 + 36));
     }
 
     function computeTakiColWidth(kosular) {

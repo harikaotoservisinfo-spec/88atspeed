@@ -972,7 +972,8 @@ async function refreshVitrinYildizlar(db, hipodromlar, tarih) {
             kosular: annotateKosular(hip.kosular || [], {
                 tarih,
                 hipodrom: hip.name,
-                veriCache
+                veriCache,
+                force: true
             })
         }));
     } catch (err) {
