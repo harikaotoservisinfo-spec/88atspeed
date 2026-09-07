@@ -926,6 +926,12 @@
             colCls: 'pub-col-yildizson1tek',
             title: 'Son koşuda yalnız bu ata özgü işaretler (diğer atlarda olmayan)'
         }, {
+            key: 'yildizYuvarlak',
+            label: 'YUV',
+            cls: 'pub-prog-yildizyuvarlak',
+            colCls: 'pub-col-yildizyuvarlak',
+            title: 'TEST1/TEST2/TEST3 en iyi 3 yuvarlak (●) işaretler'
+        }, {
             key: 'yildizGrup',
             label: 'GÖSTERGE',
             cls: 'pub-prog-yildizgrup',
@@ -981,6 +987,15 @@
     function isSon1GostergeMarker(y) {
         const k = parseInt(y?.k, 10);
         return k === 1;
+    }
+
+    /** TEST1/TEST2/TEST3 en iyi 3 yuvarlak (●) kuralı */
+    function isYuvarlakGostergeMarker(y) {
+        return !!(y.t1y || y.t1ym || y.t1yk || y.t2y || y.t2ym || y.t2yk || y.t3y || y.t3ym || y.t3yk);
+    }
+
+    function collectYuvarlakGostergeMarkers(h) {
+        return (Array.isArray(h.yildizlar) ? h.yildizlar : []).filter(isYuvarlakGostergeMarker);
     }
 
     /** Koşu içinde yalnızca bir ata ait işaret listeleri (isteğe bağlı filtre) */
@@ -1202,8 +1217,18 @@
             + '</div>';
     }
 
+    function formatYildizYuvarlakCell(h) {
+        const list = collectYuvarlakGostergeMarkers(h);
+        if (!list.length) return '<span class="pub-prog-yildiz-empty">—</span>';
+        return '<div class="pub-prog-yildiz-yuvarlak-wrap" title="' + escapeHtml('TEST1/TEST2/TEST3 en iyi 3 yuvarlak işaretler') + '">'
+            + '<span class="pub-prog-yildiz-yuvarlak-lbl">●</span>'
+            + '<span class="pub-prog-yildiz-tek-stars">' + list.map((y) => formatGostergeMarker(y)).join('') + '</span>'
+            + '</div>';
+    }
+
     function isYildizHtmlCol(key) {
-        return key === 'yildizGrup' || key === 'yildizTek' || key === 'yildizSon2Tek' || key === 'yildizSon1Tek';
+        return key === 'yildizGrup' || key === 'yildizTek' || key === 'yildizSon2Tek'
+            || key === 'yildizSon1Tek' || key === 'yildizYuvarlak';
     }
 
     function computeYildizGrupWidth(kosular) {
@@ -1239,6 +1264,17 @@
 
     function computeYildizSon1TekWidth(kosular) {
         return computeYildizUniqueColWidth(kosular, isSon1GostergeMarker);
+    }
+
+    function computeYildizYuvarlakWidth(kosular) {
+        let maxCount = 0;
+        for (const race of kosular || []) {
+            for (const h of race.horses || []) {
+                const n = collectYuvarlakGostergeMarkers(h).length;
+                if (n > maxCount) maxCount = n;
+            }
+        }
+        return Math.min(520, Math.max(110, maxCount * 18 + 36));
     }
 
     function computeTakiColWidth(kosular) {
@@ -1313,6 +1349,7 @@
         if (col.key === 'yildizTek') return formatYildizTekCell(h, ctx);
         if (col.key === 'yildizSon2Tek') return formatYildizSon2TekCell(h, ctx);
         if (col.key === 'yildizSon1Tek') return formatYildizSon1TekCell(h, ctx);
+        if (col.key === 'yildizYuvarlak') return formatYildizYuvarlakCell(h);
         if (col.key === 'name') return formatHorseNameCell(h);
         const v = String(h[col.key] || '').trim();
         return v || '—';
@@ -2063,6 +2100,7 @@
             yildizTek: computeYildizTekWidth(kosular),
             yildizSon2Tek: computeYildizSon2TekWidth(kosular),
             yildizSon1Tek: computeYildizSon1TekWidth(kosular),
+            yildizYuvarlak: computeYildizYuvarlakWidth(kosular),
             bitisSira: 36
         };
         const colgroup = renderProgramColgroup(cols, colWidths);
@@ -2173,6 +2211,7 @@
             yildizTek: computeYildizTekWidth(kosular),
             yildizSon2Tek: computeYildizSon2TekWidth(kosular),
             yildizSon1Tek: computeYildizSon1TekWidth(kosular),
+            yildizYuvarlak: computeYildizYuvarlakWidth(kosular),
             fob_ganyan: 44,
             fob_ilk2: 40,
             fob_ilk3: 40
