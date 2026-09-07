@@ -1818,6 +1818,51 @@ a { color: inherit; text-decoration: none; }
     min-width: 0;
 }
 
+.pub-col-yildizson2tek { min-width: 110px; }
+
+.pub-program-table th.pub-col-yildizson2tek {
+    background: #e3f2fd;
+    color: #0d47a1;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    border-right: 2px solid #64b5f6;
+}
+
+.pub-prog-yildizson2tek {
+    text-align: left;
+    white-space: normal;
+    overflow: visible;
+    padding: 2px 6px !important;
+    vertical-align: top;
+    background: #f5fbff;
+    border-right: 2px solid #bbdefb;
+}
+
+.pub-prog-yildiz-son2tek-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 3px;
+    max-width: 100%;
+}
+
+.pub-prog-yildiz-son2tek-lbl {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 14px;
+    margin-top: 1px;
+    padding: 0 4px;
+    font-size: 8px;
+    font-weight: 900;
+    color: #fff;
+    background: #1565c0;
+    border-radius: 2px;
+    letter-spacing: 0.03em;
+}
+
 .pub-program-table th.pub-col-yildizgrup {
     background: #ede7f6;
     color: #4527a0;
