@@ -53,6 +53,29 @@ function roundMoney(n) {
     return Math.round(n * 100) / 100;
 }
 
+function calcBetPayout(stake, odd, won) {
+    if (!won) return 0;
+    return roundMoney(stake * odd);
+}
+
+function calcBetPnl(stake, odd, won) {
+    if (!won) return -stake;
+    return roundMoney(stake * (odd - 1));
+}
+
+function applyBetToBank(bank, stake, odd, won) {
+    const before = bank;
+    bank -= stake;
+    const payout = calcBetPayout(stake, odd, won);
+    if (won) bank += payout;
+    return {
+        bank: roundMoney(bank),
+        payout,
+        pnl: roundMoney(bank - before),
+        stake
+    };
+}
+
 function sortRaces(races) {
     return [...races].sort((a, b) => {
         const hipCmp = String(a.hipName || '').localeCompare(String(b.hipName || ''), 'tr');
@@ -93,8 +116,8 @@ function simulateBankroll(opts = {}) {
                 }
                 const finish = getFinishPos(race, selection.pick.no);
                 const won = isBetWon(betKey, finish);
-                const before = bank;
-                bank += won ? stake * (selection.odd - 1) : -stake;
+                const result = applyBetToBank(bank, stake, selection.odd, won);
+                bank = result.bank;
                 if (won) wins++;
                 else losses++;
 
@@ -110,8 +133,9 @@ function simulateBankroll(opts = {}) {
                     finishPos: finish,
                     won,
                     stake,
-                    pnl: roundMoney(bank - before),
-                    bankAfter: roundMoney(bank)
+                    payout: result.payout,
+                    pnl: result.pnl,
+                    bankAfter: result.bank
                 });
             }
         }
@@ -176,6 +200,9 @@ module.exports = {
     pickHighestOdd,
     getFinishPos,
     isBetWon,
+    calcBetPayout,
+    calcBetPnl,
+    applyBetToBank,
     simulateBankroll,
     flattenRacesFromPayload,
     buildFinishByNo

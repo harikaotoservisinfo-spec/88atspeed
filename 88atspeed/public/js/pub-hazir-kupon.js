@@ -257,6 +257,23 @@
         });
     }
 
+    function calcBetPayout(stake, odd, won) {
+        if (!won) return 0;
+        return Math.round(stake * odd * 100) / 100;
+    }
+
+    function applySimBet(bank, stake, odd, won) {
+        const before = bank;
+        bank -= stake;
+        const payout = calcBetPayout(stake, odd, won);
+        if (won) bank += payout;
+        return {
+            bank: Math.round(bank * 100) / 100,
+            payout,
+            pnl: Math.round((bank - before) * 100) / 100
+        };
+    }
+
     function runBankrollSimulation(data) {
         const races = flattenAllRaces(data);
         const finished = races.filter((r) => r.status === 'finished' && r.picks?.length);
@@ -278,8 +295,8 @@
                     }
                     const finish = getFinishPos(race, sel.pick.no);
                     const won = finish != null && finish > 0 && finish <= (BET_WIN_MAX_POS[betKey] || 4);
-                    const before = bank;
-                    bank += won ? STAKE * (sel.odd - 1) : -STAKE;
+                    const result = applySimBet(bank, STAKE, sel.odd, won);
+                    bank = result.bank;
                     if (won) wins++;
                     else losses++;
                     bets.push({
@@ -292,8 +309,10 @@
                         odd: sel.odd,
                         finishPos: finish,
                         won,
-                        pnl: Math.round((bank - before) * 100) / 100,
-                        bankAfter: Math.round(bank * 100) / 100
+                        stake: STAKE,
+                        payout: result.payout,
+                        pnl: result.pnl,
+                        bankAfter: result.bank
                     });
                 }
             }
@@ -560,6 +579,7 @@
                 const won = finish != null && finish > 0 && finish <= (BET_WIN_MAX_POS[bet.betKey] || 4);
                 bet.finishPos = finish;
                 bet.status = won ? 'won' : 'lost';
+                bet.payout = won ? Math.round((bet.stake * bet.odd) * 100) / 100 : 0;
                 bet.pnl = won
                     ? Math.round((bet.stake * (bet.odd - 1)) * 100) / 100
                     : -bet.stake;
@@ -631,7 +651,7 @@
                 const res = b.status === 'pending'
                     ? 'Bekliyor'
                     : (b.status === 'won'
-                        ? '✓ ' + (b.finishPos != null ? b.finishPos + '.' : '')
+                        ? '✓ ' + (b.finishPos != null ? b.finishPos + '.' : '') + ' +' + formatMoney(b.payout || (b.stake * b.odd))
                         : '✗ ' + (b.finishPos != null ? b.finishPos + '.' : ''));
                 return '<div class="pub-hazir-kasa-bet ' + stCls + '">'
                     + '<span>' + escapeHtml(b.hipName) + ' K' + b.raceNo + '</span>'
@@ -1010,13 +1030,16 @@
                     + s.bets.map((b) => {
                         const cls = b.won ? 'win' : 'lose';
                         const finish = b.finishPos != null ? b.finishPos + '.' : '—';
+                        const payoutLabel = b.won
+                            ? '+' + formatMoney(b.payout || (STAKE * b.odd))
+                            : formatMoney(b.pnl);
                         return '<div class="pub-hazir-sim-bet ' + cls + '">'
                             + '<span class="pub-hazir-sim-bet-race">' + escapeHtml(b.hipName) + ' K' + b.raceNo + '</span>'
                             + '<span class="pub-hazir-sim-bet-type">' + escapeHtml(b.betLabel) + '</span>'
                             + '<span class="pub-hazir-sim-bet-horse">' + escapeHtml(b.horseNo) + ' ' + escapeHtml((b.horseName || '').slice(0, 16)) + '</span>'
-                            + '<span class="pub-hazir-sim-bet-odd">@' + b.odd + '</span>'
+                            + '<span class="pub-hazir-sim-bet-odd">@' + b.odd + ' × ' + (b.stake || STAKE) + '₺</span>'
                             + '<span class="pub-hazir-sim-bet-res">' + (b.won ? '✓' : '✗') + ' ' + finish + '</span>'
-                            + '<span class="pub-hazir-sim-bet-pnl">' + formatMoney(b.pnl) + '</span>'
+                            + '<span class="pub-hazir-sim-bet-pnl">' + payoutLabel + '</span>'
                             + '</div>';
                     }).join('')
                     + '</div></details>'
@@ -1063,7 +1086,8 @@
             + (canSave && !state.savingSim ? '' : ' disabled')
             + '>' + (state.savingSim ? 'Kaydediliyor…' : saveLabel) + '</button>'
             + '</div></div>'
-            + '<p>Her koşuda tahmin havuzundaki <b>en yüksek oranlı</b> ata ' + STAKE + ' ₺ · Başlangıç ' + START_BANK + ' ₺</p>'
+            + '<p>Her koşuda tahmin havuzundaki <b>en yüksek oranlı</b> ata ' + STAKE + ' ₺ · Başlangıç ' + START_BANK + ' ₺'
+            + ' · Kazanç = oran × ' + STAKE + ' ₺</p>'
             + savedBadge
             + '<span class="pub-hazir-sim-status">' + sim.finishedRaceCount + ' koşu sonuçlandı'
             + (sim.pendingRaceCount ? ' · ' + sim.pendingRaceCount + ' bekliyor' : '')
