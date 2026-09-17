@@ -11,6 +11,12 @@ const TARIH = process.env.TARIH || '';
 const KAYIT_IDS = process.env.KAYIT_IDS || '';
 const MIN_RACE_FIELD = parseInt(process.env.MIN_RACE_FIELD || '3', 10);
 const LEARN_MIN_SAMPLE = parseInt(process.env.LEARN_MIN_SAMPLE || '5', 10);
+/** Son 2 koşuda Mor yanıp (TEST9) — geçmiş backtest +15 puan iyileştirdi */
+const MOR_YANIP_BONUS = parseInt(process.env.MOR_YANIP_BONUS || '15', 10);
+
+function morYanipSon2(h) {
+    return !!h.test9Yanip;
+}
 
 function markerSignature(y) {
     if (y.s8) return 's8:' + (y.s8r || 0);
@@ -241,7 +247,13 @@ function scoreHorse(h, horses, weights) {
         details.push('+3 tek TEK bonus');
     }
 
-    return { score, details, soleCount, sonCount: sigs.size };
+    const mor = morYanipSon2(h);
+    if (mor && MOR_YANIP_BONUS > 0) {
+        score += MOR_YANIP_BONUS;
+        details.push('+' + MOR_YANIP_BONUS + ' mor yanıp (son 2 koşu)');
+    }
+
+    return { score, details, soleCount, sonCount: sigs.size, mor };
 }
 
 async function main() {
@@ -268,6 +280,9 @@ async function main() {
     console.log('Tarih:', tarih);
     console.log('Kayıt id:', kayitIds.join(', '));
     console.log('Puan: SON (k=1) işaretleri · TEK = koşuda yalnız o at taşıyor');
+    if (MOR_YANIP_BONUS > 0) {
+        console.log('Mor yanıp (test9Yanip, son 2 koşu): +' + MOR_YANIP_BONUS + ' puan (MOR_YANIP_BONUS=0 ile kapatılır)');
+    }
     console.log('');
 
     let raceCount = 0;
@@ -296,7 +311,8 @@ async function main() {
 
             console.log('');
             console.log('  🏁', race.raceNo + '. Koşu', '(' + horses.length + ' at)' + bitisNote);
-            console.log('  ▶ Önerilen 1.: N' + top.h.no, top.h.name, '— puan', top.score.toFixed(1));
+            const morTag = top.mor ? ' · mor yanıp' : '';
+            console.log('  ▶ Önerilen 1.: N' + top.h.no, top.h.name, '— puan', top.score.toFixed(1) + morTag);
             console.log('     ' + (top.details.slice(0, 5).join(' | ') || 'SON işaret yok'));
 
             console.log('  Sıralama:');
@@ -310,7 +326,8 @@ async function main() {
                     'N' + String(r.h.no).padStart(2),
                     String(r.h.name || '').slice(0, 22).padEnd(22),
                     'TEK:' + r.soleCount,
-                    'SON:' + r.sonCount + bitis
+                    'SON:' + r.sonCount,
+                    (r.mor ? 'MOR' : '   ') + bitis
                 );
             });
         }
