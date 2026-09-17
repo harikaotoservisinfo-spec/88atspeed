@@ -4,7 +4,9 @@
   "description": "TJK At Yarışı Analiz Programı",
   "main": "app.js",
   "scripts": {
-    "start": "node app.js"
+    "start": "node app.js",
+    "postinstall": "npm rebuild sqlite3",
+    "setup-server": "npm install && npm rebuild sqlite3 && npx puppeteer browsers install chrome"
   },
   "dependencies": {
     "cheerio": "^1.2.0",
