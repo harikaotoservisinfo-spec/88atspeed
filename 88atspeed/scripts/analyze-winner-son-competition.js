@@ -346,8 +346,57 @@ async function main() {
     }
 
     console.log('');
-    console.log('Not: SON = son geçmiş koşu (k=1). Sole = o koşuda işareti yalnızca 1 at taşıyor.');
-    console.log('1. bulmak için: (C) ve (F) yüksek + (E) exclusive oranı yüksek işaretlere bakın.');
+    console.log('══ G) 1. avı — bileşik puan (sole + exclusive + genel kazanma) ══');
+    console.log(' Puan  sole%  excl%  Kazan%  n_sole  işaret');
+    const scored = rows
+        .filter((r) => r.soleCarrierRaces >= MIN_SAMPLE)
+        .map((r) => {
+            const soleP = r.soleWinPct * 100;
+            const exclP = r.exclusivePct * 100;
+            const winP = Math.min(r.winPct * 100, 35);
+            let penalty = 0;
+            if (r.sharedCarrierRaces > r.soleCarrierRaces * 4 && r.exclusivePct < 0.1) penalty += 25;
+            if (r.sharedWinPct > 0.45 && r.soleWinPct < 0.12) penalty += 15;
+            const score = 0.5 * soleP + 0.35 * exclP + 0.15 * winP - penalty;
+            return { ...r, score, soleP, exclP, winP, penalty };
+        })
+        .sort((a, b) => b.score - a.score);
+
+    for (const r of scored.slice(0, 18)) {
+        console.log(
+            r.score.toFixed(1).padStart(6),
+            (pct(r.soleCarrierWins, r.soleCarrierRaces) + '%').padStart(7),
+            (pct(r.winnerExclusiveInRace, r.winnerHad) + '%').padStart(7),
+            (pct(r.wins, r.horseRows) + '%').padStart(7),
+            String(r.soleCarrierRaces).padStart(6),
+            ' ',
+            r.label
+        );
+    }
+
+    console.log('');
+    console.log('══ H) Tuzak işaretler (1.\'de sık, exclusive düşük — tek başına seçme) ══');
+    const traps = rows
+        .filter((r) => r.winnerHad >= 20 && r.exclusivePct < 0.08 && r.sharedCarrierRaces >= 30)
+        .sort((a, b) => b.winnerHad - a.winnerHad);
+    for (const r of traps.slice(0, 8)) {
+        console.log(
+            '  1.lerde',
+            String(r.winnerHad).padStart(4),
+            '| exclusive',
+            (pct(r.winnerExclusiveInRace, r.winnerHad) + '%').padStart(6),
+            '|',
+            r.label
+        );
+    }
+
+    console.log('');
+    console.log('── Koşu içi kullanım (bugün / canlı) ──');
+    console.log('1) Atın SON\'unda işaret var mı?  2) Aynı koşuda başka atta YOK mu? (sole) → (C)/(G) güçlü.');
+    console.log('3) Herkesde olan (H): Koyu yeşil, T1DR, mavi kenar → skor artırma, sadece eşitlik kırıcı.');
+    console.log('4) Öncelik örnekleri (bu veri): kırmızı 2, yeşil tam kırmızı ★, TEI yeşil T (sole), t3y/t1y (az n).');
+    console.log('');
+    console.log('Not: SON = k=1. Sole = koşuda yalnız 1 atta. n=259 koşu — küçük sole örneklerine dikkat.');
     console.log('Bitti.');
 }
 
