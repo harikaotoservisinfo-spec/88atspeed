@@ -44,8 +44,8 @@ if ! grep -q 'walk-forward' "$SCRIPTS/backtest-score-today-son.js"; then
   exit 1
 fi
 
-if ! grep -q 'SON sole + mor' "$SCRIPTS/backtest-son-r2.js"; then
-  echo "Hata: backtest-son-r2.js eksik veya eski." >&2
+if ! grep -q 'TAHMİN' "$SCRIPTS/backtest-son-r2.js"; then
+  echo "Hata: backtest-son-r2.js TAHMİN sürümü değil." >&2
   exit 1
 fi
 

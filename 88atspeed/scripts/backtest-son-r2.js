@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * SON sole + mor kuralı ile R2 sütunu birlikte — geçmiş isabet (walk-forward).
+ * SON sole + mor × R2 × TAHMİN — geçmiş isabet (walk-forward).
  *
- * R2 kaynağı:
- *   auto   — vitrin API (günün programı) varsa gerçek R2; yoksa renk-gösterge proxy sıra
- *   vitrin — sadece vitrin'den gelen R2 (eski günlerde koşu düşer)
- *   proxy  — tüm koşularda renk TEK alt skoru ile sıra (tarih bağımsız)
+ * R2 / TAHMİN kaynağı (vitrin scores.r2 / scores.tahmin):
+ *   auto   — vitrin varsa gerçek sütun; yoksa proxy (R2=renk TEK, TAHMİN=sole+mor sıra)
+ *   vitrin — sadece vitrin
+ *   proxy  — proxy sıra
  *
  *   node backtest-son-r2.js
- *   R2_SOURCE=vitrin node backtest-son-r2.js
+ *   TAHMIN_SOURCE=vitrin node backtest-son-r2.js
  */
 const BASE = process.env.API_BASE || 'http://168.231.109.27';
 const MIN_RACE_FIELD = parseInt(process.env.MIN_RACE_FIELD || '4', 10);
@@ -17,6 +17,7 @@ const MOR_YANIP_BONUS = parseInt(process.env.MOR_YANIP_BONUS || '15', 10);
 const DEDUPE = process.env.DEDUPE !== '0';
 const MIN_LEARN_KAYITS = parseInt(process.env.MIN_LEARN_KAYITS || '3', 10);
 const R2_SOURCE = (process.env.R2_SOURCE || 'auto').toLowerCase();
+const TAHMIN_SOURCE = (process.env.TAHMIN_SOURCE || process.env.R2_SOURCE || 'auto').toLowerCase();
 
 const RENK_SIG_PREFIX = /^(t12:|t9m|t5k|f8g|tkl|t46|tei:|shs:|tty|tts|tkr|tmk|s8:)/;
 
@@ -222,20 +223,48 @@ function assignProxyR2(horses, weights) {
     });
 }
 
-function applyVitrinR2(merged) {
+function applyVitrinField(merged, field, hostKey) {
     let n = 0;
     for (const x of merged) {
-        if (x.r2 && x.r2.rank != null && x.r2.pct > 0) {
-            x.h._r2 = {
-                rank: x.r2.rank,
-                pct: x.r2.pct,
-                score: x.r2.score,
+        const t = x[field];
+        if (t && t.rank != null && t.pct > 0) {
+            x.h[hostKey] = {
+                rank: t.rank,
+                pct: t.pct,
+                score: t.score,
                 source: 'vitrin'
             };
             n++;
         }
     }
     return n >= Math.ceil(merged.length * 0.5);
+}
+
+function assignProxyTahmin(horses, weights) {
+    const scored = horses.map((h) => ({
+        h,
+        raw: scoreHorse(h, horses, weights, MOR_YANIP_BONUS).score
+    }));
+    scored.sort((a, b) => b.raw - a.raw || String(a.h.no).localeCompare(String(b.h.no)));
+    const max = scored[0]?.raw || 0;
+    scored.forEach((r, i) => {
+        const pct = max > 0 ? Math.max(1, Math.round((r.raw / max) * 100)) : 0;
+        r.h._tahmin = { rank: i + 1, pct, score: r.raw, source: 'proxy' };
+    });
+}
+
+function attachColumn(horses, merged, sourceMode, field, hostKey, proxyFn, weights) {
+    for (const h of horses) delete h[hostKey];
+    let vitrinOk = false;
+    if (sourceMode === 'vitrin' || sourceMode === 'auto') {
+        vitrinOk = applyVitrinField(merged, field, hostKey);
+    }
+    if (sourceMode === 'proxy' || (sourceMode === 'auto' && !vitrinOk) || (sourceMode === 'vitrin' && !vitrinOk)) {
+        if (sourceMode === 'vitrin' && !vitrinOk) return { ok: false, source: null };
+        proxyFn(horses, weights);
+        return { ok: true, source: 'proxy' };
+    }
+    return { ok: true, source: 'vitrin' };
 }
 
 function buildVitrinIndex(vitrin) {
@@ -246,39 +275,41 @@ function buildVitrinIndex(vitrin) {
         for (const race of hip.kosular || []) {
             const horses = race.horses || [];
             const fp = raceFingerprint(horses);
-            const r2map = new Map();
+            const scoreMap = new Map();
             for (const h of horses) {
-                if (h.scores?.r2) r2map.set(String(h.no), h.scores.r2);
+                const sc = h.scores || {};
+                if (sc.r2 || sc.tahmin) {
+                    scoreMap.set(String(h.no), { r2: sc.r2, tahmin: sc.tahmin });
+                }
             }
-            byFp.set(fp, r2map);
-            byHipRace.set(hn + '|' + race.raceNo, r2map);
+            byFp.set(fp, scoreMap);
+            byHipRace.set(hn + '|' + race.raceNo, scoreMap);
         }
     }
     return { byFp, byHipRace };
 }
 
-function attachR2(horses, meta, vitrinIndex, weights) {
-    const fp = raceFingerprint(horses);
-    let r2map = vitrinIndex.byHipRace.get(normHip(meta.hipodrom) + '|' + meta.raceNo);
-    if (!r2map || !r2map.size) r2map = vitrinIndex.byFp.get(fp);
+function attachRaceScores(horses, meta, vitrinIndex, weights) {
+    let smap = vitrinIndex.byHipRace.get(normHip(meta.hipodrom) + '|' + meta.raceNo);
+    if (!smap || !smap.size) smap = vitrinIndex.byFp.get(raceFingerprint(horses));
 
     const merged = horses.map((h) => {
-        const r2 = r2map?.get(String(h.no));
-        return { h, r2 };
+        const row = smap?.get(String(h.no)) || {};
+        return { h, r2: row.r2, tahmin: row.tahmin };
     });
 
-    let vitrinOk = false;
-    if (R2_SOURCE === 'vitrin' || R2_SOURCE === 'auto') {
-        vitrinOk = applyVitrinR2(merged);
-    }
+    const r2meta = attachColumn(horses, merged, R2_SOURCE, 'r2', '_r2', assignProxyR2, weights);
+    const tahmeta = attachColumn(horses, merged, TAHMIN_SOURCE, 'tahmin', '_tahmin', assignProxyTahmin, weights);
 
-    if (R2_SOURCE === 'proxy' || (R2_SOURCE === 'auto' && !vitrinOk) || (R2_SOURCE === 'vitrin' && !vitrinOk)) {
-        if (R2_SOURCE === 'vitrin' && !vitrinOk) return { ok: false, reason: 'vitrin-yok' };
-        for (const h of horses) delete h._r2;
-        assignProxyR2(horses, weights);
-        return { ok: true, source: 'proxy' };
-    }
-    return { ok: true, source: 'vitrin' };
+    if (R2_SOURCE === 'vitrin' && !r2meta.ok) return { ok: false };
+    if (TAHMIN_SOURCE === 'vitrin' && !tahmeta.ok) return { ok: false };
+    if (!r2meta.ok && !tahmeta.ok) return { ok: false };
+
+    return {
+        ok: true,
+        r2Source: r2meta.source,
+        tahminSource: tahmeta.source
+    };
 }
 
 function pct(a, b) {
@@ -302,32 +333,52 @@ function r2Of(h) {
     return h._r2 || null;
 }
 
+function tahminOf(h) {
+    return h._tahmin || null;
+}
+
+function pickByRank(horses, getter) {
+    const list = horses.filter((h) => getter(h)?.rank != null);
+    if (!list.length) return null;
+    return list.sort((a, b) => getter(a).rank - getter(b).rank || getter(b).pct - getter(a).pct)[0];
+}
+
 function rankedSole(horses, weights) {
     return horses.map((h) => scoreHorse(h, horses, weights, MOR_YANIP_BONUS))
         .sort((a, b) => b.score - a.score || b.soleCount - a.soleCount);
 }
 
-function pickR2Top(horses) {
-    const list = horses.filter((h) => r2Of(h)?.rank != null);
-    if (!list.length) return null;
-    return list.sort((a, b) => r2Of(a).rank - r2Of(b).rank || r2Of(b).pct - r2Of(a).pct)[0];
-}
-
 function strategies(horses, weights) {
     const sole = rankedSole(horses, weights);
     const topSole = sole[0] || null;
-    const r2Top = pickR2Top(horses);
+    const r2Top = pickByRank(horses, r2Of);
+    const tahTop = pickByRank(horses, tahminOf);
 
-    const intersect = sole
-        .filter((r) => r2Of(r.h)?.rank != null && r2Of(r.h).rank <= 2 && r.soleCount >= 1);
-    const intersectPick = intersect[0] || null;
+    const wrap = (h) => (h ? { h, score: 0, soleCount: 0 } : null);
 
-    const agree = topSole && r2Top && topSole.h === r2Top ? topSole : null;
+    const intersectR2 = sole
+        .filter((r) => r2Of(r.h)?.rank != null && r2Of(r.h).rank <= 2 && r.soleCount >= 1)[0] || null;
+
+    const intersectTah = sole
+        .filter((r) => tahminOf(r.h)?.rank != null && tahminOf(r.h).rank <= 2 && r.soleCount >= 1)[0] || null;
+
+    const intersectBoth = sole.filter((r) => {
+        const r2 = r2Of(r.h);
+        const th = tahminOf(r.h);
+        return r.soleCount >= 1 && r2?.rank <= 2 && th?.rank <= 2;
+    })[0] || null;
+
+    const agreeR2 = topSole && r2Top && topSole.h === r2Top ? topSole : null;
+    const agreeTah = topSole && tahTop && topSole.h === tahTop ? topSole : null;
+    const agreeAll = topSole && r2Top && tahTop
+        && topSole.h === r2Top && topSole.h === tahTop ? topSole : null;
 
     const soleIfR2ok = topSole && r2Of(topSole.h)?.rank != null && r2Of(topSole.h).rank <= 2
         ? topSole : null;
+    const soleIfTahok = topSole && tahminOf(topSole.h)?.rank != null && tahminOf(topSole.h).rank <= 2
+        ? topSole : null;
 
-    const combo = [...sole].map((r) => {
+    const comboR2 = [...sole].map((r) => {
         const rk = r2Of(r.h)?.rank;
         let bonus = 0;
         if (rk === 1) bonus = 25;
@@ -336,20 +387,36 @@ function strategies(horses, weights) {
         return { ...r, comboScore: r.score + bonus };
     }).sort((a, b) => b.comboScore - a.comboScore)[0] || null;
 
-    const dualRank1 = sole.find((r) => r2Of(r.h)?.rank === 1) || null;
+    const comboTah = [...sole].map((r) => {
+        const rk = tahminOf(r.h)?.rank;
+        let bonus = 0;
+        if (rk === 1) bonus = 30;
+        else if (rk === 2) bonus = 15;
+        else if (rk === 3) bonus = 8;
+        return { ...r, comboScore: r.score + bonus };
+    }).sort((a, b) => b.comboScore - a.comboScore)[0] || null;
 
     return {
         sole_mor: topSole,
-        r2_only: r2Top ? { h: r2Top, score: 0, soleCount: 0 } : null,
-        agree_both_1: agree,
+        r2_only: wrap(r2Top),
+        tahmin_only: wrap(tahTop),
+        agree_sole_r2_1: agreeR2,
+        agree_sole_tahmin_1: agreeTah,
+        agree_sole_r2_tahmin_1: agreeAll,
         sole_if_r2_top2: soleIfR2ok,
-        intersect_sole_r2top2: intersectPick,
-        combo_sole_r2bonus: combo,
-        sole_among_r2_rank1: dualRank1,
-        fallback: topSole && r2Top
+        sole_if_tahmin_top2: soleIfTahok,
+        intersect_sole_r2top2: intersectR2,
+        intersect_sole_tahmin_top2: intersectTah,
+        intersect_sole_r2_tahmin_top2: intersectBoth,
+        combo_sole_r2bonus: comboR2,
+        combo_sole_tahmin_bonus: comboTah,
+        fallback_r2: topSole && r2Top
             ? (r2Of(topSole.h)?.rank != null && r2Of(topSole.h).rank <= 2
-                ? topSole
-                : { h: r2Top, score: 0, soleCount: 0 })
+                ? topSole : wrap(r2Top))
+            : topSole,
+        fallback_tahmin: topSole && tahTop
+            ? (tahminOf(topSole.h)?.rank != null && tahminOf(topSole.h).rank <= 2
+                ? topSole : wrap(tahTop))
             : topSole
     };
 }
@@ -388,12 +455,40 @@ function dedupeRaces(races) {
     return out;
 }
 
+const STRAT_GROUPS = [
+    {
+        title: 'Taban',
+        names: ['sole_mor']
+    },
+    {
+        title: 'R2 sütunu',
+        names: [
+            'r2_only', 'agree_sole_r2_1', 'sole_if_r2_top2', 'intersect_sole_r2top2',
+            'combo_sole_r2bonus', 'fallback_r2'
+        ]
+    },
+    {
+        title: 'TAHMİN sütunu',
+        names: [
+            'tahmin_only', 'agree_sole_tahmin_1', 'sole_if_tahmin_top2', 'intersect_sole_tahmin_top2',
+            'combo_sole_tahmin_bonus', 'fallback_tahmin'
+        ]
+    },
+    {
+        title: 'R2 + TAHMİN birlikte',
+        names: ['agree_sole_r2_tahmin_1', 'intersect_sole_r2_tahmin_top2']
+    }
+];
+
+const ALL_STRAT_NAMES = STRAT_GROUPS.flatMap((g) => g.names);
+
 async function main() {
     console.log('╔══════════════════════════════════════════════════════════════════╗');
-    console.log('║  SON sole + mor  ×  R2 sütunu — geçmiş backtest (walk-forward)    ║');
+    console.log('║  SON sole + mor  ×  R2  ×  TAHMİN — walk-forward backtest         ║');
     console.log('╚══════════════════════════════════════════════════════════════════╝');
     console.log('API:', BASE);
-    console.log('R2_SOURCE:', R2_SOURCE, '| mor:', MOR_YANIP_BONUS, '| dedupe:', DEDUPE);
+    console.log('R2_SOURCE:', R2_SOURCE, '| TAHMIN_SOURCE:', TAHMIN_SOURCE,
+        '| mor:', MOR_YANIP_BONUS, '| dedupe:', DEDUPE);
     console.log('');
 
     const list = await fetchJson(BASE + '/api/public/kayit-degerlendirme/kayitlar');
@@ -417,21 +512,12 @@ async function main() {
         return idx;
     }
 
-    const stratNames = [
-        'sole_mor',
-        'r2_only',
-        'agree_both_1',
-        'sole_if_r2_top2',
-        'intersect_sole_r2top2',
-        'combo_sole_r2bonus',
-        'sole_among_r2_rank1',
-        'fallback'
-    ];
-    const buckets = new Map(stratNames.map((n) => [n, newBucket(n)]));
-    const bucketsVitrinOnly = new Map(stratNames.map((n) => [n, newBucket(n + ' (vitrin R2)')]));
+    const buckets = new Map(ALL_STRAT_NAMES.map((n) => [n, newBucket(n)]));
+    const bucketsVitrinScores = new Map(ALL_STRAT_NAMES.map((n) => [n, newBucket(n)]));
 
-    let r2Ok = 0;
+    let scoredRaces = 0;
     let r2VitrinRaces = 0;
+    let tahminVitrinRaces = 0;
     let wfRaces = 0;
     let wfSkipped = 0;
 
@@ -459,56 +545,67 @@ async function main() {
             const horses = race.horses.map((h) => ({ ...h }));
             const iso = trToIso(race.tarih);
             const vIdx = await getVitrinIndex(iso);
-            const r2meta = attachR2(horses, race, vIdx, weights);
-            if (!r2meta.ok) continue;
-            r2Ok++;
-            if (r2meta.source === 'vitrin') r2VitrinRaces++;
+            const scoremeta = attachRaceScores(horses, race, vIdx, weights);
+            if (!scoremeta.ok) continue;
+            scoredRaces++;
+            if (scoremeta.r2Source === 'vitrin') r2VitrinRaces++;
+            if (scoremeta.tahminSource === 'vitrin') tahminVitrinRaces++;
 
             const picks = strategies(horses, weights);
             wfRaces++;
-            for (const name of stratNames) {
+            const vitrinRace = scoremeta.r2Source === 'vitrin' && scoremeta.tahminSource === 'vitrin';
+            for (const name of ALL_STRAT_NAMES) {
                 addPick(buckets.get(name), horses, picks[name]);
-                if (r2meta.source === 'vitrin') {
-                    addPick(bucketsVitrinOnly.get(name), horses, picks[name]);
-                }
+                if (vitrinRace) addPick(bucketsVitrinScores.get(name), horses, picks[name]);
             }
         }
     }
 
-    function report(title, bucketMap) {
+    function reportGroup(title, names, bucketMap) {
         console.log('── ' + title + ' ──');
-        for (const name of stratNames) {
+        let any = false;
+        for (const name of names) {
             const b = bucketMap.get(name);
-            if (!b.races) continue;
+            if (!b?.races) continue;
+            any = true;
             const winPct = (b.wins / b.races) * 100;
             const randPct = (b.sumRand / b.races) * 100;
             console.log(
-                b.name.padEnd(36),
+                b.name.padEnd(38),
                 b.wins + '/' + b.races,
                 '→ 1.=' + pct(b.wins, b.races) + '%',
                 'ilk3=' + pct(b.top3, b.races) + '%',
                 'Δ+' + (winPct - randPct).toFixed(1) + 'pp'
             );
         }
+        if (!any) console.log('  (veri yok)');
         console.log('');
     }
 
     console.log('Sonuçlu koşu (ham):', rawN, DEDUPE ? ('| tekil ' + allRaces.length) : '');
     console.log('Walk-forward test koşusu:', wfRaces, '(atlanan:', wfSkipped + ')');
-    console.log('R2 atanabilen:', r2Ok, '| gerçek vitrin R2:', r2VitrinRaces);
-    if (R2_SOURCE === 'auto' && r2VitrinRaces < r2Ok) {
-        console.log('Not: Eski tarihlerde vitrin önbelleği yok → proxy renk TEK sırası kullanıldı.');
-        console.log('     Tam R2 için gün içi vitrin + kayıt bitişi birlikte birikince vitrin satırına bakın.');
+    console.log('Skorlu koşu:', scoredRaces,
+        '| vitrin R2:', r2VitrinRaces, '| vitrin TAHMİN:', tahminVitrinRaces);
+    if (r2VitrinRaces < scoredRaces || tahminVitrinRaces < scoredRaces) {
+        console.log('Not: Eski tarihlerde vitrin yok → R2=renk TEK proxy, TAHMİN=sole+mor sıra proxy.');
+        console.log('     Gerçek sütunlar: koşu bitti + kayıt bitişi + aynı gün vitrin → R2_SOURCE=vitrin');
     }
     console.log('');
 
-    report('Walk-forward stratejiler', buckets);
-    if (r2VitrinRaces > 0) {
-        report('Sadece vitrin R2 olan koşular', bucketsVitrinOnly);
+    for (const g of STRAT_GROUPS) {
+        reportGroup(g.title, g.names, buckets);
+    }
+
+    if (r2VitrinRaces > 0 && tahminVitrinRaces > 0) {
+        console.log('── Sadece vitrin R2+TAHMİN (aynı koşu) ──');
+        for (const g of STRAT_GROUPS) {
+            reportGroup(g.title + ' [vitrin]', g.names, bucketsVitrinScores);
+        }
     }
 
     const base = buckets.get('sole_mor');
-    const best = stratNames
+    const best = ALL_STRAT_NAMES
+        .filter((n) => n !== 'sole_mor')
         .map((n) => ({ n, b: buckets.get(n) }))
         .filter((x) => x.b.races >= 20)
         .sort((a, b) => (b.b.wins / b.b.races) - (a.b.wins / a.b.races))[0];
