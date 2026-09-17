@@ -19,6 +19,7 @@ mkdir -p "$SCRIPTS"
 FILES=(
   score-today-son.js
   backtest-score-today-son.js
+  backtest-son-r2.js
   analyze-mor-yanip-boost.js
   analyze-winner-son-competition.js
 )
@@ -43,6 +44,11 @@ if ! grep -q 'walk-forward' "$SCRIPTS/backtest-score-today-son.js"; then
   exit 1
 fi
 
+if ! grep -q 'SON sole + mor' "$SCRIPTS/backtest-son-r2.js"; then
+  echo "Hata: backtest-son-r2.js eksik veya eski." >&2
+  exit 1
+fi
+
 echo ""
 echo "OK: scriptler → $SCRIPTS"
 ls -la "$SCRIPTS"/*.js 2>/dev/null | awk '{print "  ", $9, $5"b"}'
@@ -50,5 +56,6 @@ echo ""
 echo "Örnek:"
 echo "  TARIH=17/09/2026 node $SCRIPTS/score-today-son.js"
 echo "  node $SCRIPTS/backtest-score-today-son.js"
+echo "  node $SCRIPTS/backtest-son-r2.js"
 echo "  MOR_YANIP_BONUS=0 node $SCRIPTS/backtest-score-today-son.js"
 echo "  node $SCRIPTS/analyze-mor-yanip-boost.js"
