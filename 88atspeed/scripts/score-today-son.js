@@ -13,6 +13,9 @@ const MIN_RACE_FIELD = parseInt(process.env.MIN_RACE_FIELD || '3', 10);
 const LEARN_MIN_SAMPLE = parseInt(process.env.LEARN_MIN_SAMPLE || '5', 10);
 /** Son 2 koşuda Mor yanıp (TEST9) — geçmiş backtest +15 puan iyileştirdi */
 const MOR_YANIP_BONUS = parseInt(process.env.MOR_YANIP_BONUS || '15', 10);
+/** Aynı at listesi (Karma/İzmir/Ankara tekrarı) yalnızca bir kez listelenir */
+const UNIQUE_RACES = process.env.UNIQUE_RACES === '1';
+const GAP_HIGH = parseInt(process.env.GAP_HIGH || '25', 10);
 
 function morYanipSon2(h) {
     return !!h.test9Yanip;
@@ -113,6 +116,98 @@ async function fetchJson(url) {
     const res = await fetch(url);
     if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + url);
     return res.json();
+}
+
+function trToIso(tarih) {
+    const p = String(tarih || '').split('/');
+    if (p.length !== 3) return '';
+    return p[2] + '-' + p[1] + '-' + p[0];
+}
+
+function normHip(s) {
+    return String(s || '')
+        .toLocaleLowerCase('tr-TR')
+        .normalize('NFD').replace(/\p{M}/gu, '')
+        .replace(/[^a-z0-9]/g, '');
+}
+
+function raceFingerprint(horses) {
+    return horses
+        .map((h) => String(h.no) + ':' + String(h.name || '').trim().toUpperCase())
+        .sort()
+        .join('|');
+}
+
+function buildVitrinLookups(vitrin) {
+    const byFp = new Map();
+    const byHipRace = new Map();
+    for (const hip of vitrin.hipodromlar || []) {
+        const hn = normHip(hip.name);
+        for (const race of hip.kosular || []) {
+            const horses = race.horses || [];
+            const fp = raceFingerprint(horses);
+            const row = new Map();
+            for (const h of horses) {
+                const sc = h.scores || {};
+                row.set(String(h.no), { r2: sc.r2, tahmin: sc.tahmin });
+            }
+            byFp.set(fp, row);
+            byHipRace.set(hn + '|' + String(race.raceNo), row);
+        }
+    }
+    return { byFp, byHipRace };
+}
+
+function vitrinScoresForRace(horses, hipodrom, raceNo, lookups) {
+    let row = lookups.byHipRace.get(normHip(hipodrom) + '|' + String(raceNo));
+    if (!row || !row.size) row = lookups.byFp.get(raceFingerprint(horses));
+    return row || new Map();
+}
+
+function formatScoreCol(t) {
+    if (!t || t.rank == null || t.pct == null || t.pct <= 0) return '—';
+    return t.rank + '.%' + t.pct;
+}
+
+function attachVitrinToRanked(ranked, scoreRow) {
+    for (const r of ranked) {
+        const sc = scoreRow.get(String(r.h.no)) || {};
+        r.r2 = sc.r2;
+        r.tahmin = sc.tahmin;
+    }
+}
+
+function chooseRecommendation(ranked) {
+    const topSole = ranked[0];
+    if (!topSole) return null;
+
+    const intersectBoth = ranked.filter((r) =>
+        r.soleCount >= 1
+        && r.r2?.rank != null && r.r2.rank <= 2
+        && r.tahmin?.rank != null && r.tahmin.rank <= 2);
+    const intersectR2 = ranked.filter((r) =>
+        r.soleCount >= 1 && r.r2?.rank != null && r.r2.rank <= 2);
+
+    let pick = intersectBoth[0] || intersectR2[0] || topSole;
+    let mode = pick === topSole
+        ? 'sole+mor'
+        : (intersectBoth[0] ? 'SOLE∩R2≤2∩TAH≤2' : 'SOLE∩R2≤2');
+
+    const second = ranked[1];
+    const gap = second ? topSole.score - second.score : 99;
+    let guven = 'ORTA';
+    if (topSole.score < 20 && pick === topSole) guven = 'DÜŞÜK';
+    else if (gap >= GAP_HIGH && topSole.soleCount >= 2) guven = 'YÜKSEK';
+    else if (mode !== 'sole+mor') guven = 'İYİ';
+
+    const tah1 = ranked.find((r) => r.tahmin?.rank === 1);
+    const r2_1 = ranked.find((r) => r.r2?.rank === 1);
+    const flags = [];
+    if (pick.h === tah1?.h) flags.push('TAHMİN1');
+    if (pick.h === r2_1?.h) flags.push('R2-1');
+    if (pick.mor) flags.push('MOR');
+
+    return { pick, mode, guven, gap, flags, topSole, tah1, r2_1 };
 }
 
 function resolveKayitIds(kayitlar) {
@@ -258,7 +353,7 @@ function scoreHorse(h, horses, weights) {
 
 async function main() {
     console.log('╔══════════════════════════════════════════════════════════════╗');
-    console.log('║  Bugün · SON sole puanı (geçmiş kayıtlardan öğrenilmiş)       ║');
+    console.log('║  Bugün · SON sole + mor + vitrin R2 / TAHMİN                  ║');
     console.log('╚══════════════════════════════════════════════════════════════╝');
     console.log('API:', BASE);
     console.log('');
@@ -283,8 +378,24 @@ async function main() {
     if (MOR_YANIP_BONUS > 0) {
         console.log('Mor yanıp (test9Yanip, son 2 koşu): +' + MOR_YANIP_BONUS + ' puan (MOR_YANIP_BONUS=0 ile kapatılır)');
     }
+    console.log('Öneri: SOLE∩R2≤2∩TAH≤2 (yoksa SOLE∩R2≤2, yoksa sole+mor) · UNIQUE_RACES=1 tekrarları gizler');
     console.log('');
 
+    const iso = trToIso(tarih);
+    let vitrinLookups = { byFp: new Map(), byHipRace: new Map() };
+    let vitrinHips = 0;
+    if (iso) {
+        try {
+            const vitrin = await fetchJson(BASE + '/api/public/vitrin?iso=' + encodeURIComponent(iso));
+            vitrinHips = vitrin.hipodromlar?.length || 0;
+            if (vitrinHips) vitrinLookups = buildVitrinLookups(vitrin);
+        } catch (_) { /* */ }
+    }
+    console.log('Vitrin:', iso || '—', vitrinHips ? ('(' + vitrinHips + ' hipodrom, R2/TAHMİN yüklü)') : '(yok — sütunlar boş kalır)');
+    console.log('');
+
+    const seenFp = new Set();
+    const summaryLines = [];
     let raceCount = 0;
 
     for (const kid of kayitIds) {
@@ -299,44 +410,87 @@ async function main() {
             const horses = race.horses || [];
             if (horses.length < MIN_RACE_FIELD) continue;
 
+            const fp = raceFingerprint(horses);
+            if (UNIQUE_RACES && seenFp.has(fp)) continue;
+            seenFp.add(fp);
+
             const ranked = horses.map((h) => {
                 const s = scoreHorse(h, horses, weights);
                 return { h, ...s };
             }).sort((a, b) => b.score - a.score || b.soleCount - a.soleCount);
 
+            const scoreRow = vitrinScoresForRace(horses, data.hipodrom, race.raceNo, vitrinLookups);
+            attachVitrinToRanked(ranked, scoreRow);
+            const rec = chooseRecommendation(ranked);
+
             raceCount++;
-            const top = ranked[0];
-            const bitisNote = top.h.bitisSira != null && top.h.bitisSira !== ''
+            const pick = rec.pick;
+            const bitisNote = pick.h.bitisSira != null && pick.h.bitisSira !== ''
                 ? '' : ' · henüz koşulmadı';
 
             console.log('');
             console.log('  🏁', race.raceNo + '. Koşu', '(' + horses.length + ' at)' + bitisNote);
-            const morTag = top.mor ? ' · mor yanıp' : '';
-            console.log('  ▶ Önerilen 1.: N' + top.h.no, top.h.name, '— puan', top.score.toFixed(1) + morTag);
-            console.log('     ' + (top.details.slice(0, 5).join(' | ') || 'SON işaret yok'));
+            const morTag = pick.mor ? ' · mor' : '';
+            console.log(
+                '  ▶ Öneri [' + rec.guven + ' · ' + rec.mode + ']: N' + pick.h.no, pick.h.name,
+                '— sole', pick.score.toFixed(1) + morTag,
+                '| TAHMİN', formatScoreCol(pick.tahmin),
+                '| R2', formatScoreCol(pick.r2),
+                rec.flags.length ? ('(' + rec.flags.join(',') + ')') : ''
+            );
+            if (rec.pick !== rec.topSole) {
+                console.log('     (sole 1.: N' + rec.topSole.h.no, rec.topSole.h.name + ',',
+                    formatScoreCol(rec.topSole.tahmin), '/', formatScoreCol(rec.topSole.r2) + ')');
+            }
+            console.log('     ' + (pick.details.slice(0, 5).join(' | ') || 'SON işaret yok'));
 
             console.log('  Sıralama:');
             ranked.forEach((r, i) => {
-                const star = i === 0 ? '★' : ' ';
+                const star = r.h === pick.h ? '★' : ' ';
                 const bitis = r.h.bitisSira != null && r.h.bitisSira !== ''
                     ? ' sıra:' + r.h.bitisSira : '';
                 console.log(
                     '   ' + star + String(i + 1).padStart(2) + '.',
                     r.score.toFixed(1).padStart(6),
                     'N' + String(r.h.no).padStart(2),
-                    String(r.h.name || '').slice(0, 22).padEnd(22),
+                    String(r.h.name || '').slice(0, 18).padEnd(18),
+                    'TAH:' + formatScoreCol(r.tahmin).padEnd(7),
+                    'R2:' + formatScoreCol(r.r2).padEnd(7),
                     'TEK:' + r.soleCount,
-                    'SON:' + r.sonCount,
                     (r.mor ? 'MOR' : '   ') + bitis
                 );
+            });
+
+            summaryLines.push({
+                hip: data.hipodrom,
+                raceNo: race.raceNo,
+                pick,
+                rec,
+                fp
             });
         }
         console.log('');
     }
 
     console.log('Toplam koşu skorlandı:', raceCount);
+    if (summaryLines.length) {
+        const high = summaryLines.filter((s) => s.rec.guven === 'YÜKSEK');
+        const good = summaryLines.filter((s) => s.rec.guven === 'İYİ' || s.rec.mode.includes('∩'));
+        console.log('');
+        console.log('══ Özet · güven ══');
+        if (high.length) {
+            console.log('YÜKSEK (' + high.length + '):');
+            high.forEach((s) => {
+                console.log('  ', s.hip, 'K' + s.raceNo, 'N' + s.pick.h.no, s.pick.h.name,
+                    'puan', s.pick.score.toFixed(0), formatScoreCol(s.pick.tahmin), formatScoreCol(s.pick.r2));
+            });
+        }
+        if (good.length && good.length !== high.length) {
+            console.log('SOLE∩R2/TAH filtresi (' + good.length + ' koşu) — üst sıralar yukarıda ★ ile işaretli.');
+        }
+    }
     console.log('');
-    console.log('Not: Bu tahmin değil; geçmiş sole/exclusive istatistiğinin bugünkü programa uygulanması.');
+    console.log('Not: İstatistik skoru; vitrin R2/TAHMİN program motorundan. UNIQUE_RACES=1 ile tekrarlar gizlenir.');
     console.log('Bitti.');
 }
 
