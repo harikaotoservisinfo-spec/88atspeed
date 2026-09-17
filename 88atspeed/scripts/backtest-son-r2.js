@@ -14,7 +14,7 @@ const BASE = process.env.API_BASE || 'http://168.231.109.27';
 const MIN_RACE_FIELD = parseInt(process.env.MIN_RACE_FIELD || '4', 10);
 const LEARN_MIN_SAMPLE = parseInt(process.env.LEARN_MIN_SAMPLE || '5', 10);
 const MOR_YANIP_BONUS = parseInt(process.env.MOR_YANIP_BONUS || '15', 10);
-const KIRMIZI8_BONUS = parseInt(process.env.KIRMIZI8_BONUS || '12', 10);
+const KIRMIZI8_BONUS = parseInt(process.env.KIRMIZI8_BONUS || '0', 10);
 const DEDUPE = process.env.DEDUPE !== '0';
 const MIN_LEARN_KAYITS = parseInt(process.env.MIN_LEARN_KAYITS || '3', 10);
 const R2_SOURCE = (process.env.R2_SOURCE || 'auto').toLowerCase();
@@ -352,13 +352,15 @@ function pickByRank(horses, getter) {
     return list.sort((a, b) => getter(a).rank - getter(b).rank || getter(b).pct - getter(a).pct)[0];
 }
 
-function rankedSole(horses, weights) {
-    return horses.map((h) => scoreHorse(h, horses, weights, MOR_YANIP_BONUS))
+function rankedSole(horses, weights, morBonus = MOR_YANIP_BONUS) {
+    return horses.map((h) => scoreHorse(h, horses, weights, morBonus))
         .sort((a, b) => b.score - a.score || b.soleCount - a.soleCount);
 }
 
 function strategies(horses, weights) {
-    const sole = rankedSole(horses, weights);
+    const soleNoMor = rankedSole(horses, weights, 0);
+    const topSoleNoMor = soleNoMor[0] || null;
+    const sole = rankedSole(horses, weights, MOR_YANIP_BONUS);
     const topSole = sole[0] || null;
     const r2Top = pickByRank(horses, r2Of);
     const tahTop = pickByRank(horses, tahminOf);
@@ -417,6 +419,7 @@ function strategies(horses, weights) {
     const agreeK8 = topSole && topSole.k8 ? topSole : null;
 
     return {
+        sole_no_mor: topSoleNoMor,
         sole_mor: topSole,
         k8_only_son2: k8Pick ? { h: k8Pick.h, score: k8Pick.score, soleCount: k8Pick.soleCount } : null,
         agree_sole_k8: agreeK8,
@@ -482,8 +485,8 @@ function dedupeRaces(races) {
 
 const STRAT_GROUPS = [
     {
-        title: 'Taban (sole+mor+kırmızı8 bonus)',
-        names: ['sole_mor']
+        title: 'Taban · mor yanıp etkisi (koşu 1. sıra pick)',
+        names: ['sole_no_mor', 'sole_mor']
     },
     {
         title: 'Kırmızı 8 (son 2 koşu s8r=3)',
@@ -635,9 +638,30 @@ async function main() {
         }
     }
 
+    const noMor = buckets.get('sole_no_mor');
+    const withMor = buckets.get('sole_mor');
+    if (noMor?.races && withMor?.races) {
+        const w0 = noMor.wins / noMor.races;
+        const w1 = withMor.wins / withMor.races;
+        const rand0 = (noMor.sumRand / noMor.races) * 100;
+        const rand1 = (withMor.sumRand / withMor.races) * 100;
+        console.log('══ Mor yanıp (+', MOR_YANIP_BONUS, ') · taban sole karşılaştırma ══');
+        console.log('  Sole skor (mor bonus YOK):', noMor.wins + '/' + noMor.races,
+            '→ 1.=' + pct(noMor.wins, noMor.races) + '%',
+            'ilk3=' + pct(noMor.top3, noMor.races) + '%',
+            'Δ+' + (w0 * 100 - rand0).toFixed(1) + 'pp vs rastgele');
+        console.log('  Sole + mor bonus:        ', withMor.wins + '/' + withMor.races,
+            '→ 1.=' + pct(withMor.wins, withMor.races) + '%',
+            'ilk3=' + pct(withMor.top3, withMor.races) + '%',
+            'Δ+' + (w1 * 100 - rand1).toFixed(1) + 'pp vs rastgele');
+        console.log('  Mor farkı: +' + ((w1 - w0) * 100).toFixed(1) + ' puan',
+            '(' + (withMor.wins - noMor.wins) + ' ek isabet / ' + withMor.races + ' koşu)');
+        console.log('');
+    }
+
     const base = buckets.get('sole_mor');
     const best = ALL_STRAT_NAMES
-        .filter((n) => n !== 'sole_mor')
+        .filter((n) => n !== 'sole_mor' && n !== 'sole_no_mor')
         .map((n) => ({ n, b: buckets.get(n) }))
         .filter((x) => x.b.races >= 20)
         .sort((a, b) => (b.b.wins / b.b.races) - (a.b.wins / a.b.races))[0];
