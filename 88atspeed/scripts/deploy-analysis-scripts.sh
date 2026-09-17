@@ -11,6 +11,7 @@ mkdir -p "$SCRIPTS"
 
 FILES=(
   score-today-son.js
+  backtest-score-today-son.js
   analyze-mor-yanip-boost.js
   analyze-winner-son-competition.js
 )
