@@ -14,6 +14,7 @@ const BASE = process.env.API_BASE || 'http://168.231.109.27';
 const MIN_RACE_FIELD = parseInt(process.env.MIN_RACE_FIELD || '4', 10);
 const LEARN_MIN_SAMPLE = parseInt(process.env.LEARN_MIN_SAMPLE || '5', 10);
 const MOR_YANIP_BONUS = parseInt(process.env.MOR_YANIP_BONUS || '15', 10);
+const KIRMIZI8_BONUS = parseInt(process.env.KIRMIZI8_BONUS || '12', 10);
 const DEDUPE = process.env.DEDUPE !== '0';
 const MIN_LEARN_KAYITS = parseInt(process.env.MIN_LEARN_KAYITS || '3', 10);
 const R2_SOURCE = (process.env.R2_SOURCE || 'auto').toLowerCase();
@@ -23,6 +24,13 @@ const RENK_SIG_PREFIX = /^(t12:|t9m|t5k|f8g|tkl|t46|tei:|shs:|tty|tts|tkr|tmk|s8
 
 function morYanipSon2(h) {
     return !!h.test9Yanip;
+}
+
+function kirmizi8Son2(h) {
+    return (h.yildizlar || []).some((y) => {
+        const k = parseInt(y.k, 10);
+        return k >= 1 && k <= 2 && y.s8 && parseInt(y.s8r, 10) === 3;
+    });
 }
 
 function markerSignature(y) {
@@ -194,8 +202,9 @@ function scoreHorse(h, horses, weights, morBonus) {
     if (soleCount >= 2) score += 10;
     else if (soleCount === 1) score += 3;
     if (morBonus > 0 && morYanipSon2(h)) score += morBonus;
+    if (KIRMIZI8_BONUS > 0 && kirmizi8Son2(h)) score += KIRMIZI8_BONUS;
 
-    return { score, soleCount, mor: morYanipSon2(h), h };
+    return { score, soleCount, mor: morYanipSon2(h), k8: kirmizi8Son2(h), h };
 }
 
 function renkSubScore(h, horses, weights) {
@@ -396,8 +405,24 @@ function strategies(horses, weights) {
         return { ...r, comboScore: r.score + bonus };
     }).sort((a, b) => b.comboScore - a.comboScore)[0] || null;
 
+    const k8Horses = horses.filter((h) => kirmizi8Son2(h));
+    const k8Pick = k8Horses.length
+        ? rankedSole(k8Horses, weights)[0] || { h: k8Horses[0], score: 0, soleCount: 0 }
+        : null;
+
+    const intersectK8 = sole.filter((r) => r.soleCount >= 1 && r.k8)[0] || null;
+    const intersectR2K8 = sole.filter((r) =>
+        r.soleCount >= 1 && r.k8 && r2Of(r.h)?.rank != null && r2Of(r.h).rank <= 2)[0] || null;
+
+    const agreeK8 = topSole && topSole.k8 ? topSole : null;
+
     return {
         sole_mor: topSole,
+        k8_only_son2: k8Pick ? { h: k8Pick.h, score: k8Pick.score, soleCount: k8Pick.soleCount } : null,
+        agree_sole_k8: agreeK8,
+        sole_if_k8: topSole && topSole.k8 ? topSole : null,
+        intersect_sole_k8: intersectK8,
+        intersect_sole_r2_k8: intersectR2K8,
         r2_only: wrap(r2Top),
         tahmin_only: wrap(tahTop),
         agree_sole_r2_1: agreeR2,
@@ -457,8 +482,15 @@ function dedupeRaces(races) {
 
 const STRAT_GROUPS = [
     {
-        title: 'Taban',
+        title: 'Taban (sole+mor+kırmızı8 bonus)',
         names: ['sole_mor']
+    },
+    {
+        title: 'Kırmızı 8 (son 2 koşu s8r=3)',
+        names: [
+            'k8_only_son2', 'agree_sole_k8', 'sole_if_k8', 'intersect_sole_k8',
+            'intersect_sole_r2_k8'
+        ]
     },
     {
         title: 'R2 sütunu',
@@ -488,7 +520,7 @@ async function main() {
     console.log('╚══════════════════════════════════════════════════════════════════╝');
     console.log('API:', BASE);
     console.log('R2_SOURCE:', R2_SOURCE, '| TAHMIN_SOURCE:', TAHMIN_SOURCE,
-        '| mor:', MOR_YANIP_BONUS, '| dedupe:', DEDUPE);
+        '| mor:', MOR_YANIP_BONUS, '| k8:', KIRMIZI8_BONUS, '| dedupe:', DEDUPE);
     console.log('');
 
     const list = await fetchJson(BASE + '/api/public/kayit-degerlendirme/kayitlar');

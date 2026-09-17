@@ -13,12 +13,30 @@ const MIN_RACE_FIELD = parseInt(process.env.MIN_RACE_FIELD || '3', 10);
 const LEARN_MIN_SAMPLE = parseInt(process.env.LEARN_MIN_SAMPLE || '5', 10);
 /** Son 2 koşuda Mor yanıp (TEST9) — geçmiş backtest +15 puan iyileştirdi */
 const MOR_YANIP_BONUS = parseInt(process.env.MOR_YANIP_BONUS || '15', 10);
+/** SON8001 kırmızı 8 (s8 + s8r=3, son 2 koşu k≤2) */
+const KIRMIZI8_BONUS = parseInt(process.env.KIRMIZI8_BONUS || '12', 10);
 /** Aynı at listesi (Karma/İzmir/Ankara tekrarı) yalnızca bir kez listelenir */
 const UNIQUE_RACES = process.env.UNIQUE_RACES === '1';
 const GAP_HIGH = parseInt(process.env.GAP_HIGH || '25', 10);
 
 function morYanipSon2(h) {
     return !!h.test9Yanip;
+}
+
+function isKirmizi8Marker(y) {
+    return !!(y && y.s8 && parseInt(y.s8r, 10) === 3);
+}
+
+/** Son 2 koşuda kırmızı 8 (mor yanıp ile aynı derinlik mantığı) */
+function kirmizi8Son2(h) {
+    return (h.yildizlar || []).some((y) => {
+        const k = parseInt(y.k, 10);
+        return k >= 1 && k <= 2 && isKirmizi8Marker(y);
+    });
+}
+
+function kirmizi8Son(h) {
+    return (h.yildizlar || []).some((y) => parseInt(y.k, 10) === 1 && isKirmizi8Marker(y));
 }
 
 function markerSignature(y) {
@@ -181,17 +199,27 @@ function chooseRecommendation(ranked) {
     const topSole = ranked[0];
     if (!topSole) return null;
 
+    const intersectFull = ranked.filter((r) =>
+        r.soleCount >= 1
+        && r.r2?.rank != null && r.r2.rank <= 2
+        && r.tahmin?.rank != null && r.tahmin.rank <= 2
+        && r.k8);
     const intersectBoth = ranked.filter((r) =>
         r.soleCount >= 1
         && r.r2?.rank != null && r.r2.rank <= 2
         && r.tahmin?.rank != null && r.tahmin.rank <= 2);
+    const intersectR2K8 = ranked.filter((r) =>
+        r.soleCount >= 1 && r.r2?.rank != null && r.r2.rank <= 2 && r.k8);
     const intersectR2 = ranked.filter((r) =>
         r.soleCount >= 1 && r.r2?.rank != null && r.r2.rank <= 2);
 
-    let pick = intersectBoth[0] || intersectR2[0] || topSole;
-    let mode = pick === topSole
-        ? 'sole+mor'
-        : (intersectBoth[0] ? 'SOLE∩R2≤2∩TAH≤2' : 'SOLE∩R2≤2');
+    let pick = intersectFull[0] || intersectBoth[0] || intersectR2K8[0] || intersectR2[0] || topSole;
+    let mode = 'sole+mor+k8';
+    if (pick === topSole && !topSole.k8) mode = 'sole+mor';
+    else if (intersectFull[0] && pick === intersectFull[0]) mode = 'SOLE∩R2≤2∩TAH≤2∩K8';
+    else if (intersectBoth[0] && pick === intersectBoth[0]) mode = 'SOLE∩R2≤2∩TAH≤2';
+    else if (intersectR2K8[0] && pick === intersectR2K8[0]) mode = 'SOLE∩R2≤2∩K8';
+    else if (intersectR2[0] && pick === intersectR2[0]) mode = 'SOLE∩R2≤2';
 
     const second = ranked[1];
     const gap = second ? topSole.score - second.score : 99;
@@ -206,6 +234,7 @@ function chooseRecommendation(ranked) {
     if (pick.h === tah1?.h) flags.push('TAHMİN1');
     if (pick.h === r2_1?.h) flags.push('R2-1');
     if (pick.mor) flags.push('MOR');
+    if (pick.k8) flags.push('K8');
 
     return { pick, mode, guven, gap, flags, topSole, tah1, r2_1 };
 }
@@ -348,7 +377,13 @@ function scoreHorse(h, horses, weights) {
         details.push('+' + MOR_YANIP_BONUS + ' mor yanıp (son 2 koşu)');
     }
 
-    return { score, details, soleCount, sonCount: sigs.size, mor };
+    const k8 = kirmizi8Son2(h);
+    if (k8 && KIRMIZI8_BONUS > 0) {
+        score += KIRMIZI8_BONUS;
+        details.push('+' + KIRMIZI8_BONUS + ' kırmızı 8 (SON8001, son 2 koşu)');
+    }
+
+    return { score, details, soleCount, sonCount: sigs.size, mor, k8, k8Son: kirmizi8Son(h) };
 }
 
 async function main() {
@@ -378,7 +413,10 @@ async function main() {
     if (MOR_YANIP_BONUS > 0) {
         console.log('Mor yanıp (test9Yanip, son 2 koşu): +' + MOR_YANIP_BONUS + ' puan (MOR_YANIP_BONUS=0 ile kapatılır)');
     }
-    console.log('Öneri: SOLE∩R2≤2∩TAH≤2 (yoksa SOLE∩R2≤2, yoksa sole+mor) · UNIQUE_RACES=1 tekrarları gizler');
+    if (KIRMIZI8_BONUS > 0) {
+        console.log('Kırmızı 8 (SON8001 s8r=3, son 2 koşu): +' + KIRMIZI8_BONUS + ' puan (KIRMIZI8_BONUS=0 ile kapatılır)');
+    }
+    console.log('Öneri: ∩K8 + R2 + TAH filtresi (yoksa sole+mor+k8) · UNIQUE_RACES=1 tekrarları gizler');
     console.log('');
 
     const iso = trToIso(tarih);
@@ -457,7 +495,8 @@ async function main() {
                     'TAH:' + formatScoreCol(r.tahmin).padEnd(7),
                     'R2:' + formatScoreCol(r.r2).padEnd(7),
                     'TEK:' + r.soleCount,
-                    (r.mor ? 'MOR' : '   ') + bitis
+                    (r.mor ? 'MOR' : '   '),
+                    (r.k8 ? ' K8' : '   ') + bitis
                 );
             });
 
