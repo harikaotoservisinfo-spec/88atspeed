@@ -1221,11 +1221,10 @@
         const stars = list.map((y) => formatGostergeMarker(y)).join('');
         let ivmeHtml = '';
         const iv = h.yildizIvme || {};
-        if (k === 2) ivmeHtml = '<div class="pub-yk-depth-ivme">' + ivmeArrow(iv.t2, iv.t2y) + '</div>';
-        else if (k === 1) ivmeHtml = '<div class="pub-yk-depth-ivme">' + ivmeArrow(iv.t1, iv.t1y) + '</div>';
+        if (k === 2) ivmeHtml = '<span class="pub-yk-depth-ivme">' + ivmeArrow(iv.t2, iv.t2y) + '</span>';
+        else if (k === 1) ivmeHtml = '<span class="pub-yk-depth-ivme">' + ivmeArrow(iv.t1, iv.t1y) + '</span>';
         return '<div class="pub-yk-depth-cell" title="' + escapeHtml(k + '. geçmiş koşu') + '">'
             + '<span class="pub-yk-depth-stars">' + stars + '</span>'
-            + '<span class="pub-yk-depth-n">' + list.length + '</span>'
             + ivmeHtml
             + '</div>';
     }
@@ -1279,7 +1278,8 @@
                 if (n > maxMarkers) maxMarkers = n;
             }
         }
-        return Math.min(220, Math.max(56, maxMarkers * 13 + 28));
+        const ivmePad = (k === 1 || k === 2) ? 52 : 0;
+        return Math.min(1200, Math.max(44, maxMarkers * 15 + ivmePad + 16));
     }
 
     function applyYildizDepthColWidths(colWidths, kosular) {

@@ -1767,8 +1767,8 @@ a { color: inherit; text-decoration: none; }
 .pub-col-yildizgrup { min-width: 480px; }
 
 .pub-col-yildiz-depth {
-    min-width: 56px;
-    max-width: 220px;
+    min-width: 48px;
+    /* İşaretler yan yana; sütun genişliği JS colgroup ile ayarlanır */
 }
 
 .pub-program-table th.pub-col-yildiz-depth {
@@ -1789,11 +1789,11 @@ a { color: inherit; text-decoration: none; }
 }
 
 .pub-prog-yildiz-depth {
-    text-align: center;
-    white-space: normal;
+    text-align: left;
+    white-space: nowrap;
     overflow: visible;
-    padding: 2px 4px !important;
-    vertical-align: top;
+    padding: 2px 5px !important;
+    vertical-align: middle;
     background: #faf8ff;
     border-right: 1px solid #e8e0f5;
 }
@@ -1804,34 +1804,45 @@ a { color: inherit; text-decoration: none; }
 }
 
 .pub-yk-depth-cell {
-    display: flex;
-    flex-direction: column;
+    display: inline-flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
     align-items: center;
-    gap: 2px;
-    min-height: 28px;
+    justify-content: flex-start;
+    gap: 3px;
+    white-space: nowrap;
+    min-width: min-content;
 }
 
 .pub-yk-depth-stars {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
+    display: inline-flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
     align-items: center;
-    gap: 1px;
-    max-width: 100%;
+    justify-content: flex-start;
+    gap: 2px;
+    white-space: nowrap;
+}
+
+.pub-yk-depth-stars .pub-prog-yildiz-star {
+    flex: 0 0 auto;
 }
 
 .pub-yk-depth-n {
+    flex: 0 0 auto;
     font-size: 8px;
     font-weight: 800;
     color: #7e57c2;
-    opacity: 0.85;
+    opacity: 0.75;
     line-height: 1;
+    margin-left: 1px;
 }
 
 .pub-yk-depth-ivme {
-    margin-top: 1px;
-    transform: scale(0.92);
-    transform-origin: center top;
+    flex: 0 0 auto;
+    margin-left: 2px;
+    transform: scale(0.9);
+    transform-origin: left center;
 }
 
 .pub-col-yildiztek { min-width: 110px; max-width: 420px; }
