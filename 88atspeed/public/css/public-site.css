@@ -1566,6 +1566,13 @@ a { color: inherit; text-decoration: none; }
     table-layout: fixed;
 }
 
+/* GÖSTERGE derinlik sütunları: işaretler yan yana, tablo yatay kayar */
+.pub-program-table.pub-program-yildiz-depth {
+    table-layout: auto;
+    width: max-content;
+    min-width: 100%;
+}
+
 .pub-program-table th {
     background: #f7f7f7;
     padding: 4px 4px;
@@ -1803,44 +1810,39 @@ a { color: inherit; text-decoration: none; }
     background: #f5f3fc;
 }
 
-.pub-yk-depth-cell {
+.pub-yk-depth-inline {
     display: inline-flex;
     flex-direction: row;
     flex-wrap: nowrap;
     align-items: center;
     justify-content: flex-start;
-    gap: 3px;
+    gap: 4px;
     white-space: nowrap;
-    min-width: min-content;
+    width: max-content;
+    max-width: none;
+}
+
+.pub-program-table.pub-program-yildiz-depth td.pub-prog-yildiz-depth,
+.pub-program-table.pub-program-yildiz-depth td.pub-col-yildiz-depth {
+    white-space: nowrap !important;
+    overflow: visible !important;
+    width: auto !important;
+    max-width: none !important;
 }
 
 .pub-yk-depth-stars {
-    display: inline-flex;
-    flex-direction: row;
-    flex-wrap: nowrap;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 2px;
-    white-space: nowrap;
+    flex-wrap: nowrap !important;
+    max-width: none !important;
 }
 
 .pub-yk-depth-stars .pub-prog-yildiz-star {
+    display: inline-block;
     flex: 0 0 auto;
-}
-
-.pub-yk-depth-n {
-    flex: 0 0 auto;
-    font-size: 8px;
-    font-weight: 800;
-    color: #7e57c2;
-    opacity: 0.75;
-    line-height: 1;
-    margin-left: 1px;
 }
 
 .pub-yk-depth-ivme {
     flex: 0 0 auto;
-    margin-left: 2px;
+    white-space: nowrap;
     transform: scale(0.9);
     transform-origin: left center;
 }

@@ -27,7 +27,13 @@ if ! grep -q "yildizGosK" "$PUB/js/public-home.js"; then
 fi
 
 echo "OK: yildizGosK sütunları yüklendi."
+if ! grep -q "gostergeH2" "$PUB/index.html"; then
+  echo "Uyarı: index.html cache ?v= gostergeH2 değil — elle güncelleyin veya gunluk-program-index yeniden indirin." >&2
+fi
 grep -E "public-home|public-site" "$PUB/index.html" | tail -2
+if grep -q "pub-yk-depth-inline" "$PUB/js/public-home.js"; then
+  echo "OK: yan yana işaret düzeni (pub-yk-depth-inline)."
+fi
 
 if command -v pm2 >/dev/null 2>&1; then
   pm2 restart 88atspeed || true

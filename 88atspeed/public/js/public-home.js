@@ -1223,10 +1223,15 @@
         const iv = h.yildizIvme || {};
         if (k === 2) ivmeHtml = '<span class="pub-yk-depth-ivme">' + ivmeArrow(iv.t2, iv.t2y) + '</span>';
         else if (k === 1) ivmeHtml = '<span class="pub-yk-depth-ivme">' + ivmeArrow(iv.t1, iv.t1y) + '</span>';
-        return '<div class="pub-yk-depth-cell" title="' + escapeHtml(k + '. geçmiş koşu') + '">'
-            + '<span class="pub-yk-depth-stars">' + stars + '</span>'
+        return '<div class="pub-yk-depth-inline" title="' + escapeHtml(k + '. geçmiş koşu') + '">'
+            + '<span class="pub-prog-yildiz-tek-stars pub-yk-depth-stars">' + stars + '</span>'
             + ivmeHtml
             + '</div>';
+    }
+
+    function programTableHtmlClass(cols) {
+        const hasDepth = (cols || []).some((c) => c.gostergeK);
+        return hasDepth ? 'pub-program-table pub-program-yildiz-depth' : 'pub-program-table';
     }
 
     function formatYildizTekCell(h, ctx) {
@@ -1278,8 +1283,8 @@
                 if (n > maxMarkers) maxMarkers = n;
             }
         }
-        const ivmePad = (k === 1 || k === 2) ? 52 : 0;
-        return Math.min(1200, Math.max(44, maxMarkers * 15 + ivmePad + 16));
+        const ivmePad = (k === 1 || k === 2) ? 56 : 0;
+        return Math.max(36, maxMarkers * 14 + ivmePad + 14);
     }
 
     function applyYildizDepthColWidths(colWidths, kosular) {
@@ -1338,7 +1343,12 @@
         return '<colgroup>'
             + cols.map((c) => {
                 const w = colWidths?.[c.key];
-                const style = w ? ' style="width:' + w + 'px"' : '';
+                let style = '';
+                if (w) {
+                    style = c.gostergeK
+                        ? ' style="min-width:' + w + 'px"'
+                        : ' style="width:' + w + 'px"';
+                }
                 return '<col class="' + c.colCls + '"' + style + '>';
             }).join('')
             + '<col class="pub-col-spacer">'
@@ -2176,7 +2186,7 @@
                 + '<div class="pub-program-race-hdr">' + hdr.title
                 + (hdr.meta ? '<span class="pub-program-race-meta">' + escapeHtml(hdr.meta) + '</span>' : '')
                 + '</div>'
-                + '<div class="pub-program-table-wrap"><table class="pub-program-table">'
+                + '<div class="pub-program-table-wrap"><table class="' + programTableHtmlClass(cols) + '">'
                 + colgroup + '<thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div></div>';
         }).join('') + '</div>';
     }
@@ -2362,7 +2372,7 @@
                 + metaHtml
                 + '</div>'
                 + '<div class="pub-program-table-wrap">'
-                + '<table class="pub-program-table">' + colgroup
+                + '<table class="' + programTableHtmlClass(cols) + '">' + colgroup
                 + '<thead><tr>' + head + '</tr></thead><tbody>'
                 + body + '</tbody></table>'
                 + '</div></section>';
