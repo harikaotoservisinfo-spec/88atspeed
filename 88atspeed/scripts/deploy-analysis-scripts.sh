@@ -22,6 +22,7 @@ FILES=(
   backtest-son-r2.js
   analyze-mor-yanip-boost.js
   analyze-winner-son-competition.js
+  analyze-race-markers.js
 )
 
 for f in "${FILES[@]}"; do
