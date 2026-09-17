@@ -23,7 +23,12 @@ FILES=(
   analyze-mor-yanip-boost.js
   analyze-winner-son-competition.js
   analyze-race-markers.js
+  score-kayit-sole-tahmin.js
 )
+
+mkdir -p "$SCRIPTS/lib"
+echo "  indir: lib/load-engines-node.js"
+curl -fsSL "$BASE/lib/load-engines-node.js" -o "$SCRIPTS/lib/load-engines-node.js"
 
 for f in "${FILES[@]}"; do
   echo "  indir: $f"
