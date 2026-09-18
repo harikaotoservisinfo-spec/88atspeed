@@ -6071,6 +6071,16 @@ a { color: inherit; text-decoration: none; }
 .pub-hazir-tbody-tahmin tr.pub-hazir-row-tahmin:hover {
     background: #f1f8f6;
 }
+.pub-hazir-pick-table tr.pub-hazir-row-sole-leader {
+    background: #ffebee !important;
+    box-shadow: inset 4px 0 0 #e53935;
+}
+.pub-hazir-pick-table tr.pub-hazir-row-sole-leader:hover {
+    background: #ffcdd2 !important;
+}
+.pub-hazir-pick-table tr.pub-hazir-row-sole-leader .pub-hazir-name-td {
+    font-weight: 800;
+}
 .pub-hazir-tahmin-pay { color: #bbb; text-align: center; }
 .pub-hazir-tahmin-table-wrap { margin-top: 4px; }
 .pub-hazir-tahmin-list-table { min-width: 0 !important; }

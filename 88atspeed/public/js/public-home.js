@@ -3490,6 +3490,11 @@
         soleBlock(hipName, raceNo) {
             return formatSoleSonBlock(raceNo, hipName);
         },
+        getSoleLeaderHorseNo(hipName, raceNo) {
+            const row = state.soleSonIndex?.get(soleSonRaceKey(hipName, raceNo));
+            const no = row?.leader?.h?.no;
+            return no != null && no !== '' ? String(no) : null;
+        },
         tahminTableHtml(hipName, raceNo, opts, tahminlerOverride) {
             const tahminler = (tahminlerOverride && tahminlerOverride.length)
                 ? tahminlerOverride

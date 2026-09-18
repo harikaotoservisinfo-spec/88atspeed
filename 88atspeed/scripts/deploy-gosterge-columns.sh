@@ -16,7 +16,7 @@
 #   pm2 restart 88atspeed 2>/dev/null || true
 set -euo pipefail
 
-DEPLOY_VERSION="20260918-soleSon"
+DEPLOY_VERSION="20260918-hazirTahmin5"
 ROOT="${1:-/var/www/88atspeed}"
 PUB="$ROOT/public"
 BR="${BRANCH:-cursor/gosterge-recency-columns-c989}"
@@ -33,6 +33,9 @@ cp -a "$PUB/css/public-site.css" "$PUB/css/public-site.css.bak-$STAMP"
 cp -a "$PUB/index.html" "$PUB/index.html.bak-$STAMP"
 if [[ -f "$PUB/js/sole-son-scoring.js" ]]; then
   cp -a "$PUB/js/sole-son-scoring.js" "$PUB/js/sole-son-scoring.js.bak-$STAMP"
+fi
+if [[ -f "$PUB/js/pub-hazir-kupon.js" ]]; then
+  cp -a "$PUB/js/pub-hazir-kupon.js" "$PUB/js/pub-hazir-kupon.js.bak-$STAMP"
 fi
 
 SCRIPTS_BASE="https://raw.githubusercontent.com/harikaotoservisinfo-spec/88atspeed/${BR}/88atspeed/public/js"
@@ -56,11 +59,13 @@ if ! grep -q "renderRaceTable" "$PUB/js/pub-hazir-kupon.js"; then
 fi
 
 echo "deploy-gosterge-columns.sh sürüm: $DEPLOY_VERSION (branch: $BR)"
-echo "OK: yildizGosK + Tahminler SON sole yüklendi."
-if ! grep -q "soleSon" "$PUB/index.html"; then
-  echo "Uyarı: index.html ?v= soleSon değil — gunluk-program-index yeniden indirildi mi kontrol edin." >&2
+echo "OK: public-home + sole-son + pub-hazir-kupon + index.html yüklendi."
+if ! grep -q "hazirTahmin5" "$PUB/index.html"; then
+  echo "Uyarı: index.html ?v= hazirTahmin5 değil — cache bust eksik." >&2
 fi
-grep -E "public-home|public-site" "$PUB/index.html" | tail -2
+grep -E "pub-hazir-kupon|public-home|public-site" "$PUB/index.html" | tail -4
+echo "pub-hazir renderRaceTable: $(grep -c renderRaceTable "$PUB/js/pub-hazir-kupon.js" || echo 0)"
+grep -m1 "HAZIR_UI_BUILD" "$PUB/js/pub-hazir-kupon.js" || true
 if grep -q "pub-yk-depth-inline" "$PUB/js/public-home.js"; then
   echo "OK: yan yana işaret düzeni (pub-yk-depth-inline)."
 fi

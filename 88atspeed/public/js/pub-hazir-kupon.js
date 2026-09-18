@@ -1,11 +1,11 @@
 /**
  * Hazır Kupon — TEK/S2/S1/YUV ilk-4 premium tahmin paneli
- * UI build: 20260918-hazirTahmin4 (tahmin satırları üst tablo ile aynı <table>)
+ * UI build: 20260918-hazirTahmin5 (SON sole 1. at satır vurgusu)
  */
 (function () {
     'use strict';
 
-    const HAZIR_UI_BUILD = '20260918-hazirTahmin4';
+    const HAZIR_UI_BUILD = '20260918-hazirTahmin5';
 
     const COL_KEYS = ['TEK', 'S2', 'S1', 'YUV'];
     const COL_COLORS = { TEK: '#e65100', S2: '#1565c0', S1: '#2e7d32', YUV: '#6a1b9a' };
@@ -157,7 +157,19 @@
         return sole ? '<div class="pub-hazir-sole-block">' + sole + '</div>' : '';
     }
 
-    function renderHazirPickRow(p, race, hip, kasaBet, finished) {
+    function getSoleLeaderNo(hip, raceNo) {
+        if (window.pubTahminEmbed?.getSoleLeaderHorseNo) {
+            return window.pubTahminEmbed.getSoleLeaderHorseNo(hip.name, raceNo);
+        }
+        return null;
+    }
+
+    function soleLeaderRowClass(horseNo, soleNo) {
+        if (!soleNo || horseNo == null || horseNo === '') return '';
+        return String(horseNo) === String(soleNo) ? ' pub-hazir-row-sole-leader' : '';
+    }
+
+    function renderHazirPickRow(p, race, hip, kasaBet, finished, soleNo) {
         const oddCells = BET_KEYS.map((k) =>
             formatOddPickCell(p, race.raceNo, k, hip.id, race, kasaBet)
         ).join('');
@@ -166,9 +178,10 @@
             + (p.hit ? '✓ ' + (p.finishPos || '?') + '.' : '✗')
             + '</td>'
             : '';
+        const isSole = soleLeaderRowClass(p.no, soleNo);
         const nameCls = 'pub-hazir-name-td' + (p.inTahmin ? ' pub-hazir-name-match' : '');
         const ilk4Cell = '<span class="pub-hazir-pct">' + p.top4Prob + '%</span>';
-        return '<tr class="pub-hazir-row-picks' + (p.hit ? ' pub-hazir-row-hit' : '') + (p.inTahmin ? ' pub-hazir-row-tahmin-match' : '') + '">'
+        return '<tr class="pub-hazir-row-picks' + (p.hit ? ' pub-hazir-row-hit' : '') + (p.inTahmin ? ' pub-hazir-row-tahmin-match' : '') + isSole + '">'
             + oddCells
             + '<td class="pub-hazir-ayak-td"><span class="pub-hazir-ayak">' + escapeHtml(String(p.rank)) + '</span></td>'
             + '<td><b>' + escapeHtml(String(p.no)) + '</b></td>'
@@ -180,7 +193,7 @@
             + '</tr>';
     }
 
-    function renderHazirTahminRow(t, race, hip, kasaBet, finished) {
+    function renderHazirTahminRow(t, race, hip, kasaBet, finished, soleNo) {
         const pick = pickForHorseNo(race, t.horseNo);
         const rowPick = pick || {
             no: String(t.horseNo),
@@ -192,9 +205,10 @@
         ).join('');
         const resultCell = finished ? '<td class="pub-hazir-tahmin-res">—</td>' : '';
         const inPool = !!pick;
+        const isSole = soleLeaderRowClass(t.horseNo, soleNo);
         const nameCls = 'pub-hazir-name-td' + (inPool ? ' pub-hazir-name-match' : '');
         const skorCell = '<span class="pub-hazir-tahmin-skor">' + escapeHtml(formatTahminPct(t)) + '</span>';
-        return '<tr class="pub-hazir-row-tahmin' + (inPool ? ' pub-hazir-row-tahmin-match' : '') + '">'
+        return '<tr class="pub-hazir-row-tahmin' + (inPool ? ' pub-hazir-row-tahmin-match' : '') + isSole + '">'
             + oddCells
             + '<td class="pub-hazir-ayak-td"><span class="pub-hazir-ayak">' + escapeHtml(String(t.rank)) + '</span></td>'
             + '<td><b>' + escapeHtml(String(t.horseNo)) + '</b></td>'
@@ -220,18 +234,19 @@
         const oddHeaders = BET_KEYS.map((k) => '<th class="pub-hazir-odd-th">' + BET_LABELS[k] + '</th>').join('');
         const resultTh = finished ? '<th>Sonuç</th>' : '';
         const tahminler = getTahminlerForRace(hip, race.raceNo);
+        const soleNo = getSoleLeaderNo(hip, race.raceNo);
         const hasPicks = race.picks?.length;
         if (!hasPicks && !tahminler.length) {
             return '<p class="pub-hazir-empty-race">Bu koşuda TEK/S2/S1/YUV işareti taşıyan at yok.</p>';
         }
         const pickRows = (race.picks || []).map((p) =>
-            renderHazirPickRow(p, race, hip, kasaBet, finished)
+            renderHazirPickRow(p, race, hip, kasaBet, finished, soleNo)
         ).join('');
         let tahminBlock = '';
         if (tahminler.length) {
             const colSpan = 10 + (finished ? 1 : 0);
             const tahminRows = tahminler.map((t) =>
-                renderHazirTahminRow(t, race, hip, kasaBet, finished)
+                renderHazirTahminRow(t, race, hip, kasaBet, finished, soleNo)
             ).join('');
             tahminBlock = '<tbody class="pub-hazir-tbody-tahmin">'
                 + '<tr class="pub-hazir-tahmin-sep"><td colspan="' + colSpan + '">Tahminler · motor sırası</td></tr>'
