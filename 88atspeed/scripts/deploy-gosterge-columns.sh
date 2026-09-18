@@ -16,7 +16,11 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 cp -a "$PUB/js/public-home.js" "$PUB/js/public-home.js.bak-$STAMP"
 cp -a "$PUB/css/public-site.css" "$PUB/css/public-site.css.bak-$STAMP"
 cp -a "$PUB/index.html" "$PUB/index.html.bak-$STAMP"
+if [[ -f "$PUB/js/sole-son-scoring.js" ]]; then
+  cp -a "$PUB/js/sole-son-scoring.js" "$PUB/js/sole-son-scoring.js.bak-$STAMP"
+fi
 
+curl -fsSL "$BASE/js/sole-son-scoring.js" -o "$PUB/js/sole-son-scoring.js"
 curl -fsSL "$BASE/js/public-home.js" -o "$PUB/js/public-home.js"
 curl -fsSL "$BASE/css/public-site.css" -o "$PUB/css/public-site.css"
 curl -fsSL "$BASE/gunluk-program-index.html" -o "$PUB/index.html"
@@ -25,8 +29,12 @@ if ! grep -q "yildizGosK" "$PUB/js/public-home.js"; then
   echo "Hata: indirilen public-home.js yeni sütun kodunu içermiyor." >&2
   exit 1
 fi
+if ! grep -q "buildDayIndex" "$PUB/js/sole-son-scoring.js"; then
+  echo "Hata: indirilen sole-son-scoring.js eksik." >&2
+  exit 1
+fi
 
-echo "OK: yildizGosK sütunları yüklendi."
+echo "OK: yildizGosK + Tahminler SON sole yüklendi."
 if ! grep -q "gostergeH2" "$PUB/index.html"; then
   echo "Uyarı: index.html cache ?v= gostergeH2 değil — elle güncelleyin veya gunluk-program-index yeniden indirin." >&2
 fi

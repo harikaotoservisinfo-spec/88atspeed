@@ -47,7 +47,11 @@
         kayitEvalKayitlar: [],
         kayitEvalId: null,
         kayitEvalData: null,
-        kayitEvalLoading: false
+        kayitEvalLoading: false,
+        soleSonIndex: null,
+        soleSonTarih: '',
+        soleSonLoading: false,
+        soleSonError: null
     };
 
     const MUHT_REFRESH_SEC = 15;
@@ -548,6 +552,7 @@
             renderSonucHipTabs();
             selectHipodrom(state.hipodromlar[0].id);
             renderTahminAll();
+            refreshSoleSonScores(state.tarih);
             if ($('#panel-kosular')?.classList.contains('active')) {
                 startProgramGanyanPolling();
             }
@@ -2435,6 +2440,61 @@
         selectTahminHipodrom(keepId);
     }
 
+    function soleSonRaceKey(hipName, raceNo) {
+        const norm = window.SoleSonScoring?.normHip || ((s) => String(s || '').toLowerCase());
+        return norm(hipName) + '|' + String(raceNo);
+    }
+
+    function formatSoleSonBlock(raceNo, hipName) {
+        if (state.soleSonLoading && state.soleSonTarih === state.tarih) {
+            return '<div class="pub-tahmin-sole pub-tahmin-sole--loading">SON sole hesaplanıyor…</div>';
+        }
+        if (state.soleSonError) {
+            return '<div class="pub-tahmin-sole pub-tahmin-sole--err">' + escapeHtml(state.soleSonError) + '</div>';
+        }
+        const row = state.soleSonIndex?.get(soleSonRaceKey(hipName, raceNo));
+        if (!row) {
+            return '<div class="pub-tahmin-sole pub-tahmin-sole--na">SON sole: Kayıt Test verisi yok</div>';
+        }
+        const L = row.leader;
+        const h = L.h;
+        const mor = L.mor ? ' · mor' : '';
+        const guvenCls = row.guven === 'YÜKSEK' ? ' pub-tahmin-sole--high'
+            : (row.guven === 'DÜŞÜK' ? ' pub-tahmin-sole--low' : '');
+        return '<div class="pub-tahmin-sole' + guvenCls + '" title="SON (k=1) TEK işaret + mor +' + (window.SoleSonScoring?.MOR_YANIP_BONUS || 15) + '">'
+            + '<span class="pub-tahmin-sole-label">SON sole 1.</span> '
+            + '<strong>N' + escapeHtml(String(h.no)) + '</strong> '
+            + escapeHtml(String(h.name || '').trim())
+            + ' · <span class="pub-tahmin-sole-pts">' + L.score.toFixed(1) + '</span>'
+            + ' · TEK ' + L.soleCount
+            + (mor ? '<span class="pub-tahmin-sole-mor">MOR</span>' : '')
+            + ' <span class="pub-tahmin-sole-guven">[' + escapeHtml(row.guven) + ']</span>'
+            + '</div>';
+    }
+
+    async function refreshSoleSonScores(tarih) {
+        if (!tarih || !window.SoleSonScoring) return;
+        if (state.soleSonIndex && state.soleSonTarih === tarih) {
+            renderTahminAll();
+            return;
+        }
+        state.soleSonLoading = true;
+        state.soleSonError = null;
+        state.soleSonTarih = tarih;
+        renderTahminAll();
+        try {
+            const index = await window.SoleSonScoring.buildDayIndex(tarih);
+            state.soleSonIndex = index;
+            state.soleSonError = null;
+        } catch (err) {
+            state.soleSonIndex = null;
+            state.soleSonError = 'SON sole yüklenemedi: ' + (err.message || String(err));
+        } finally {
+            state.soleSonLoading = false;
+            renderTahminAll();
+        }
+    }
+
     function renderTahminRaces(hip) {
         const el = $('#pubTahminContent');
         if (!hip || !hip.kosular || !hip.kosular.length) {
@@ -2464,6 +2524,7 @@
                 + '<span class="pub-tahmin-card-kosu">' + escapeHtml(hdr.kosuLine) + '</span>'
                 + metaHtml
                 + '</div>'
+                + formatSoleSonBlock(race.raceNo, hip.name)
                 + '<table class="pub-tahmin-table"><thead><tr>'
                 + '<th>#</th><th>No</th><th>At</th><th>Skor</th></tr></thead><tbody>'
                 + rows + '</tbody></table>'
@@ -2486,6 +2547,7 @@
         if (panelId === 'tahminler') {
             const el = document.getElementById('panel-tahminler');
             if (el) el.scrollIntoView({ behavior: 'smooth' });
+            if (state.tarih) refreshSoleSonScores(state.tarih);
         }
         if (panelId === 'muhtemeller') {
             ensureTjkTvEmbed();

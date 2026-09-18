@@ -3963,6 +3963,57 @@ a { color: inherit; text-decoration: none; }
     border-right: none;
 }
 
+.pub-tahmin-sole {
+    padding: 6px 8px;
+    font-size: 10px;
+    line-height: 1.35;
+    background: #f4f6fa;
+    border-bottom: 1px solid #e8e8e8;
+    color: #1a1a2e;
+}
+.pub-tahmin-sole-label {
+    font-weight: 700;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+.pub-tahmin-sole-pts {
+    font-weight: 800;
+    color: var(--pub-red-dark, #8b0000);
+}
+.pub-tahmin-sole-mor {
+    display: inline-block;
+    margin-left: 2px;
+    padding: 0 4px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 800;
+    color: #fff;
+    background: linear-gradient(135deg, #7c3aed, #a855f7);
+}
+.pub-tahmin-sole-guven {
+    font-weight: 700;
+    font-size: 9px;
+    color: #666;
+}
+.pub-tahmin-sole--high {
+    background: linear-gradient(90deg, rgba(34, 197, 94, 0.12), #f4f6fa);
+    border-left: 3px solid #16a34a;
+}
+.pub-tahmin-sole--low {
+    background: #faf5f5;
+    color: #666;
+}
+.pub-tahmin-sole--loading,
+.pub-tahmin-sole--na {
+    color: #888;
+    font-style: italic;
+}
+.pub-tahmin-sole--err {
+    color: #b91c1c;
+    background: #fef2f2;
+}
+
 .pub-tahmin-card-hdr {
     background: linear-gradient(90deg, var(--pub-red), var(--pub-red-dark));
     color: #fff;
