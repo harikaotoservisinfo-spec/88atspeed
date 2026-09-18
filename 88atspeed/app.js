@@ -94,13 +94,23 @@ const getBrowserHeaders = () => ({
     'Sec-Fetch-Site': 'same-origin'
 });
 
+function getPuppeteerLaunchOptions() {
+    const launchOptions = {
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+    };
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+        launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    } else if (process.platform === 'darwin') {
+        launchOptions.executablePath =
+            '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+    }
+    return launchOptions;
+}
+
 async function getBrowserInstance() {
     if (browser) return browser;
-    browser = await puppeteer.launch({
-        headless: true,
-        executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+    browser = await puppeteer.launch(getPuppeteerLaunchOptions());
     return browser;
 }
 
