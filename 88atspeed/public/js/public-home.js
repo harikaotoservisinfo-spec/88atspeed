@@ -211,21 +211,29 @@
         return (hip.kosular || []).find((r) => String(r.raceNo) === String(raceNo)) || null;
     }
 
-    function renderTahminMiniTable(tahminler) {
+    function renderTahminMiniTable(tahminler, opts) {
+        const highlightNos = opts?.highlightNos || null;
+        const hasHigh = highlightNos && highlightNos.size;
         if (!tahminler.length) {
             return '<div class="pub-hazir-tahmin-mini pub-hazir-tahmin-mini--empty">Tahmin henüz üretilmedi</div>';
         }
-        const rows = tahminler.map((t) => '<tr>'
-            + '<td><span class="pub-tahmin-rank">' + escapeHtml(String(t.rank)) + '</span></td>'
-            + '<td><strong>' + escapeHtml(String(t.horseNo)) + '</strong></td>'
-            + '<td class="pub-tahmin-at">' + escapeHtml(String(t.horseName || '').trim()) + '</td>'
-            + '<td class="pub-tahmin-pct">' + escapeHtml(formatTahminSkor(t)) + '</td>'
-            + '</tr>').join('');
+        const rows = tahminler.map((t) => {
+            const no = String(t.horseNo);
+            const inPool = hasHigh && highlightNos.has(no);
+            const trCls = inPool ? ' pub-hazir-tahmin-row-pool' : '';
+            return '<tr class="' + trCls + '">'
+            + '<td class="pub-hazir-ayak-td"><span class="pub-hazir-ayak pub-hazir-ayak-tahmin">' + escapeHtml(String(t.rank)) + '</span></td>'
+            + '<td><b>' + escapeHtml(no) + '</b></td>'
+            + '<td class="pub-hazir-name-td' + (inPool ? ' pub-hazir-name-match' : '') + '">' + escapeHtml(String(t.horseName || '').trim()) + '</td>'
+            + '<td class="pub-hazir-tahmin-skor-cell">' + escapeHtml(formatTahminSkor(t)) + '</td>'
+            + '</tr>';
+        }).join('');
         return '<div class="pub-hazir-tahmin-mini">'
-            + '<div class="pub-hazir-tahmin-mini-hdr">Tahminler</div>'
-            + '<table class="pub-hazir-tahmin-mini-table"><thead><tr>'
-            + '<th>#</th><th>No</th><th>At</th><th>Skor</th></tr></thead><tbody>'
-            + rows + '</tbody></table></div>';
+            + '<div class="pub-hazir-tahmin-mini-hdr">Tahminler · motor sırası</div>'
+            + '<div class="pub-hazir-table-wrap pub-hazir-tahmin-table-wrap">'
+            + '<table class="pub-hazir-pick-table pub-hazir-tahmin-list-table"><thead><tr>'
+            + '<th class="pub-hazir-ayak-th">#</th><th>No</th><th>At</th><th>Skor</th></tr></thead><tbody>'
+            + rows + '</tbody></table></div></div>';
     }
 
     function formatScoreCell(t) {
@@ -3475,10 +3483,20 @@
                 await refreshSoleSonScores(state.tarih);
             }
         },
-        raceFooterHtml(hipName, raceNo) {
+        getTahminler(hipName, raceNo) {
             const race = findVitrinRace(hipName, raceNo);
-            const tahminler = race ? getRaceTahminler(race) : [];
-            return formatSoleSonBlock(raceNo, hipName) + renderTahminMiniTable(tahminler);
+            return race ? getRaceTahminler(race) : [];
+        },
+        soleBlock(hipName, raceNo) {
+            return formatSoleSonBlock(raceNo, hipName);
+        },
+        tahminTableHtml(hipName, raceNo, opts) {
+            const tahminler = window.pubTahminEmbed.getTahminler(hipName, raceNo);
+            return renderTahminMiniTable(tahminler, opts);
+        },
+        raceFooterHtml(hipName, raceNo, opts) {
+            return window.pubTahminEmbed.soleBlock(hipName, raceNo)
+                + window.pubTahminEmbed.tahminTableHtml(hipName, raceNo, opts);
         }
     };
 })();

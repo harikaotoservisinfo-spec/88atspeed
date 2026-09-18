@@ -42,7 +42,9 @@
         kasaSaving: false,
         kasaSavedAt: null,
         oddsSnapshot: {},
-        oddsSaveTimer: null
+        oddsSaveTimer: null,
+        vitrinTahminMap: null,
+        vitrinTahminIso: null
     };
 
     const KASA_STORAGE_PREFIX = 'hazir_kasa_';
@@ -89,6 +91,58 @@
     function normalizeHipLabel(s) {
         return String(s || '').toLocaleLowerCase('tr-TR')
             .normalize('NFD').replace(/\p{M}/gu, '').trim();
+    }
+
+    function normalizeHipKey(s) {
+        return normalizeHipLabel(s).replace(/[^a-z0-9]/g, '');
+    }
+
+    async function syncVitrinTahminMap(iso) {
+        if (state.vitrinTahminIso === iso && state.vitrinTahminMap) return;
+        try {
+            const res = await fetch('/api/public/vitrin?iso=' + encodeURIComponent(iso), { cache: 'no-store' });
+            const data = await res.json();
+            const map = new Map();
+            for (const hip of data.hipodromlar || []) {
+                const hk = normalizeHipKey(hip.name);
+                for (const kosu of hip.kosular || []) {
+                    map.set(hk + '|' + String(kosu.raceNo), kosu.tahminler || []);
+                }
+            }
+            state.vitrinTahminMap = map;
+            state.vitrinTahminIso = iso;
+        } catch (_) {
+            state.vitrinTahminMap = state.vitrinTahminMap || new Map();
+        }
+    }
+
+    function getTahminlerForRace(hip, raceNo) {
+        const key = normalizeHipKey(hip.name) + '|' + String(raceNo);
+        const fromCache = state.vitrinTahminMap?.get(key);
+        if (fromCache && fromCache.length) return fromCache;
+        if (window.pubTahminEmbed?.getTahminler) {
+            return window.pubTahminEmbed.getTahminler(hip.name, raceNo) || [];
+        }
+        return [];
+    }
+
+    function renderTahminUnderRace(hip, race) {
+        const pickNos = new Set((race.picks || []).map((p) => String(p.no)));
+        const tahminler = getTahminlerForRace(hip, race.raceNo);
+        const opts = { highlightNos: pickNos };
+        let sole = '';
+        let table = '';
+        if (window.pubTahminEmbed?.soleBlock) {
+            sole = window.pubTahminEmbed.soleBlock(hip.name, race.raceNo);
+        }
+        if (window.pubTahminEmbed?.tahminTableHtml) {
+            table = window.pubTahminEmbed.tahminTableHtml(hip.name, race.raceNo, opts);
+        } else if (tahminler.length) {
+            table = '<div class="pub-hazir-tahmin-mini"><div class="pub-hazir-tahmin-mini-hdr">Tahminler</div>'
+                + '<p class="pub-hazir-tahmin-mini--empty">Tablo yüklenemedi — sayfayı yenileyin</p></div>';
+        }
+        if (!sole && !table) return '';
+        return '<div class="pub-hazir-tahmin-under">' + sole + table + '</div>';
     }
 
     function isPlaceholderBtOdd(val) {
@@ -919,6 +973,7 @@
             if (!state.activeHipId && data.hipodromlar?.length) {
                 state.activeHipId = data.hipodromlar[0].id;
             }
+            await syncVitrinTahminMap(resolvedIso);
             if (window.pubTahminEmbed?.prepareForHazir) {
                 await window.pubTahminEmbed.prepareForHazir(resolvedIso);
             }
@@ -1214,7 +1269,7 @@
         if (race.picks?.length) {
             picksHtml = '<div class="pub-hazir-table-wrap"><table class="pub-hazir-pick-table"><thead><tr>'
                 + oddHeaders
-                + '<th class="pub-hazir-ayak-th">#</th><th>No</th><th>At</th><th>İşaretler</th><th>İlk4% · Skor</th><th>Pay</th>'
+                + '<th class="pub-hazir-ayak-th">#</th><th>No</th><th>At</th><th>İşaretler</th><th>İlk4%</th><th>Pay</th>'
                 + (race.status === 'finished' ? '<th>Sonuç</th>' : '')
                 + '</tr></thead><tbody>'
                 + race.picks.map((p) => {
@@ -1227,8 +1282,7 @@
                         + '</td>'
                         : '';
                     const nameCls = 'pub-hazir-name-td' + (p.inTahmin ? ' pub-hazir-name-match' : '');
-                    const ilk4Cell = '<span class="pub-hazir-pct">' + p.top4Prob + '%</span>'
-                        + formatTahminSkorCell(p);
+                    const ilk4Cell = '<span class="pub-hazir-pct">' + p.top4Prob + '%</span>';
                     return '<tr class="' + (p.hit ? 'pub-hazir-row-hit' : '') + (p.inTahmin ? ' pub-hazir-row-tahmin-match' : '') + '">'
                         + oddCells
                         + '<td class="pub-hazir-ayak-td"><span class="pub-hazir-ayak">' + p.rank + '</span></td>'
@@ -1268,9 +1322,7 @@
                 ? '<div class="pub-hazir-kasa-race-hint">Oran hücresine tıklayarak bahis yapın</div>'
                 : '');
 
-        const tahminUnder = window.pubTahminEmbed?.raceFooterHtml
-            ? '<div class="pub-hazir-tahmin-under">' + window.pubTahminEmbed.raceFooterHtml(hip.name, race.raceNo) + '</div>'
-            : '';
+        const tahminUnder = renderTahminUnderRace(hip, race);
 
         return '<div class="pub-hazir-race-card pub-hazir-premium-card ' + statusCls + '" data-race="' + race.raceNo + '">'
             + '<div class="pub-hazir-race-hdr">'
@@ -1380,10 +1432,12 @@
         startPolling();
         startOddsPolling();
         loadOddsForAllHips(true);
+        const iso = state.iso || getIso();
+        await syncVitrinTahminMap(iso);
         if (window.pubTahminEmbed?.prepareForHazir) {
-            await window.pubTahminEmbed.prepareForHazir(state.iso || getIso());
-            render();
+            await window.pubTahminEmbed.prepareForHazir(iso);
         }
+        render();
     }
 
     function onTabDeactivate() {
