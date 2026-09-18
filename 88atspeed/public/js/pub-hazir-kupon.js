@@ -106,7 +106,10 @@
             for (const hip of data.hipodromlar || []) {
                 const hk = normalizeHipKey(hip.name);
                 for (const kosu of hip.kosular || []) {
-                    map.set(hk + '|' + String(kosu.raceNo), kosu.tahminler || []);
+                    map.set(hk + '|' + String(kosu.raceNo), {
+                        tahminler: kosu.tahminler || [],
+                        horses: kosu.horses || []
+                    });
                 }
             }
             state.vitrinTahminMap = map;
@@ -116,33 +119,123 @@
         }
     }
 
-    function getTahminlerForRace(hip, raceNo) {
+    function getVitrinRaceBundle(hip, raceNo) {
         const key = normalizeHipKey(hip.name) + '|' + String(raceNo);
         const fromCache = state.vitrinTahminMap?.get(key);
-        if (fromCache && fromCache.length) return fromCache;
+        if (fromCache && typeof fromCache === 'object' && !Array.isArray(fromCache)) {
+            return fromCache;
+        }
+        if (Array.isArray(fromCache)) return { tahminler: fromCache, horses: [] };
+        return { tahminler: [], horses: [] };
+    }
+
+    function getTahminlerForRace(hip, raceNo) {
+        const bundle = getVitrinRaceBundle(hip, raceNo);
+        if (bundle.tahminler?.length) return bundle.tahminler;
         if (window.pubTahminEmbed?.getTahminler) {
             return window.pubTahminEmbed.getTahminler(hip.name, raceNo) || [];
         }
         return [];
     }
 
-    function renderTahminUnderRace(hip, race) {
-        const pickNos = new Set((race.picks || []).map((p) => String(p.no)));
+    function formatTahminPct(t) {
+        if (t.pct != null && t.pct > 0) return '%' + t.pct;
+        if (t.score != null && t.score > 0) return String(t.score);
+        return '—';
+    }
+
+    function pickForHorseNo(race, horseNo) {
+        return (race.picks || []).find((p) => String(p.no) === String(horseNo)) || null;
+    }
+
+    function renderSoleBlock(hip, race) {
+        if (!window.pubTahminEmbed?.soleBlock) return '';
+        const sole = window.pubTahminEmbed.soleBlock(hip.name, race.raceNo);
+        return sole ? '<div class="pub-hazir-sole-block">' + sole + '</div>' : '';
+    }
+
+    function renderHazirPickRow(p, race, hip, kasaBet, finished) {
+        const oddCells = BET_KEYS.map((k) =>
+            formatOddPickCell(p, race.raceNo, k, hip.id, race, kasaBet)
+        ).join('');
+        const resultCell = finished
+            ? '<td class="' + (p.hit ? 'pub-hazir-hit' : 'pub-hazir-miss') + '">'
+            + (p.hit ? '✓ ' + (p.finishPos || '?') + '.' : '✗')
+            + '</td>'
+            : '';
+        const nameCls = 'pub-hazir-name-td' + (p.inTahmin ? ' pub-hazir-name-match' : '');
+        const ilk4Cell = '<span class="pub-hazir-pct">' + p.top4Prob + '%</span>';
+        return '<tr class="pub-hazir-row-picks' + (p.hit ? ' pub-hazir-row-hit' : '') + (p.inTahmin ? ' pub-hazir-row-tahmin-match' : '') + '">'
+            + oddCells
+            + '<td class="pub-hazir-ayak-td"><span class="pub-hazir-ayak">' + escapeHtml(String(p.rank)) + '</span></td>'
+            + '<td><b>' + escapeHtml(String(p.no)) + '</b></td>'
+            + '<td class="' + nameCls + '">' + escapeHtml((p.name || '').slice(0, 22)) + '</td>'
+            + '<td class="pub-hazir-markers">' + renderMarkerTags(p.markers) + '</td>'
+            + '<td class="pub-hazir-ilk4-td">' + ilk4Cell + '</td>'
+            + '<td>' + (p.raceSharePct || 0) + '%</td>'
+            + resultCell
+            + '</tr>';
+    }
+
+    function renderHazirTahminRow(t, race, hip, kasaBet, finished) {
+        const pick = pickForHorseNo(race, t.horseNo);
+        const rowPick = pick || {
+            no: String(t.horseNo),
+            name: t.horseName || '',
+            markers: []
+        };
+        const oddCells = BET_KEYS.map((k) =>
+            formatOddPickCell(rowPick, race.raceNo, k, hip.id, race, kasaBet)
+        ).join('');
+        const resultCell = finished ? '<td class="pub-hazir-tahmin-res">—</td>' : '';
+        const inPool = !!pick;
+        const nameCls = 'pub-hazir-name-td' + (inPool ? ' pub-hazir-name-match' : '');
+        const skorCell = '<span class="pub-hazir-tahmin-skor">' + escapeHtml(formatTahminPct(t)) + '</span>';
+        return '<tr class="pub-hazir-row-tahmin' + (inPool ? ' pub-hazir-row-tahmin-match' : '') + '">'
+            + oddCells
+            + '<td class="pub-hazir-ayak-td"><span class="pub-hazir-ayak">' + escapeHtml(String(t.rank)) + '</span></td>'
+            + '<td><b>' + escapeHtml(String(t.horseNo)) + '</b></td>'
+            + '<td class="' + nameCls + '">' + escapeHtml(String(t.horseName || '').trim().slice(0, 22)) + '</td>'
+            + '<td class="pub-hazir-markers">' + renderMarkerTags(rowPick.markers) + '</td>'
+            + '<td class="pub-hazir-ilk4-td">' + skorCell + '</td>'
+            + '<td class="pub-hazir-tahmin-pay">—</td>'
+            + resultCell
+            + '</tr>';
+    }
+
+    function renderRaceTable(race, hip, kasaBet) {
+        const finished = race.status === 'finished';
+        const oddHeaders = BET_KEYS.map((k) => '<th class="pub-hazir-odd-th">' + BET_LABELS[k] + '</th>').join('');
+        const resultTh = finished ? '<th>Sonuç</th>' : '';
         const tahminler = getTahminlerForRace(hip, race.raceNo);
-        const opts = { highlightNos: pickNos };
-        let sole = '';
-        let table = '';
-        if (window.pubTahminEmbed?.soleBlock) {
-            sole = window.pubTahminEmbed.soleBlock(hip.name, race.raceNo);
+        const hasPicks = race.picks?.length;
+        if (!hasPicks && !tahminler.length) {
+            return '<p class="pub-hazir-empty-race">Bu koşuda TEK/S2/S1/YUV işareti taşıyan at yok.</p>';
         }
-        if (window.pubTahminEmbed?.tahminTableHtml) {
-            table = window.pubTahminEmbed.tahminTableHtml(hip.name, race.raceNo, opts, tahminler);
-        } else if (tahminler.length) {
-            table = '<div class="pub-hazir-tahmin-mini"><div class="pub-hazir-tahmin-mini-hdr">Tahminler</div>'
-                + '<p class="pub-hazir-tahmin-mini--empty">Tablo yüklenemedi — sayfayı yenileyin</p></div>';
+        const pickRows = (race.picks || []).map((p) =>
+            renderHazirPickRow(p, race, hip, kasaBet, finished)
+        ).join('');
+        let tahminBlock = '';
+        if (tahminler.length) {
+            const colSpan = 10 + (finished ? 1 : 0);
+            const tahminRows = tahminler.map((t) =>
+                renderHazirTahminRow(t, race, hip, kasaBet, finished)
+            ).join('');
+            tahminBlock = '<tbody class="pub-hazir-tbody-tahmin">'
+                + '<tr class="pub-hazir-tahmin-sep"><td colspan="' + colSpan + '">Tahminler · motor sırası</td></tr>'
+                + tahminRows
+                + '</tbody>';
         }
-        if (!sole && !table) return '';
-        return '<div class="pub-hazir-tahmin-under">' + sole + table + '</div>';
+        return '<div class="pub-hazir-table-wrap"><table class="pub-hazir-pick-table pub-hazir-pick-table-aligned">'
+            + '<thead><tr>'
+            + oddHeaders
+            + '<th class="pub-hazir-ayak-th">#</th><th>No</th><th>At</th><th>İşaretler</th>'
+            + '<th class="pub-hazir-col-ilk4">İlk4%</th><th>Pay</th>'
+            + resultTh
+            + '</tr></thead>'
+            + '<tbody class="pub-hazir-tbody-picks">' + pickRows + '</tbody>'
+            + tahminBlock
+            + '</table></div>';
     }
 
     function isPlaceholderBtOdd(val) {
@@ -1263,41 +1356,8 @@
             ? (race.poolHit ? '✓ ' + race.hitCount + '/4 isabet' : '✗ ' + (race.hitCount || 0) + '/4')
             : (race.status === 'pending' ? 'Bekliyor' : 'İşaret yok');
 
-        const oddHeaders = BET_KEYS.map((k) => '<th class="pub-hazir-odd-th">' + BET_LABELS[k] + '</th>').join('');
-
-        let picksHtml = '';
-        if (race.picks?.length) {
-            picksHtml = '<div class="pub-hazir-table-wrap"><table class="pub-hazir-pick-table"><thead><tr>'
-                + oddHeaders
-                + '<th class="pub-hazir-ayak-th">#</th><th>No</th><th>At</th><th>İşaretler</th><th>İlk4%</th><th>Pay</th>'
-                + (race.status === 'finished' ? '<th>Sonuç</th>' : '')
-                + '</tr></thead><tbody>'
-                + race.picks.map((p) => {
-                    const oddCells = BET_KEYS.map((k) =>
-                        formatOddPickCell(p, race.raceNo, k, hip.id, race, kasaBet)
-                    ).join('');
-                    const resultCell = race.status === 'finished'
-                        ? '<td class="' + (p.hit ? 'pub-hazir-hit' : 'pub-hazir-miss') + '">'
-                        + (p.hit ? '✓ ' + (p.finishPos || '?') + '.' : '✗')
-                        + '</td>'
-                        : '';
-                    const nameCls = 'pub-hazir-name-td' + (p.inTahmin ? ' pub-hazir-name-match' : '');
-                    const ilk4Cell = '<span class="pub-hazir-pct">' + p.top4Prob + '%</span>';
-                    return '<tr class="' + (p.hit ? 'pub-hazir-row-hit' : '') + (p.inTahmin ? ' pub-hazir-row-tahmin-match' : '') + '">'
-                        + oddCells
-                        + '<td class="pub-hazir-ayak-td"><span class="pub-hazir-ayak">' + p.rank + '</span></td>'
-                        + '<td><b>' + escapeHtml(p.no) + '</b></td>'
-                        + '<td class="' + nameCls + '">' + escapeHtml((p.name || '').slice(0, 22)) + '</td>'
-                        + '<td class="pub-hazir-markers">' + renderMarkerTags(p.markers) + '</td>'
-                        + '<td class="pub-hazir-ilk4-td">' + ilk4Cell + '</td>'
-                        + '<td>' + (p.raceSharePct || 0) + '%</td>'
-                        + resultCell
-                        + '</tr>';
-                }).join('')
-                + '</tbody></table></div>';
-        } else {
-            picksHtml = '<p class="pub-hazir-empty-race">Bu koşuda TEK/S2/S1/YUV işareti taşıyan at yok.</p>';
-        }
+        const picksHtml = renderRaceTable(race, hip, kasaBet);
+        const soleHtml = renderSoleBlock(hip, race);
 
         const mesafeLabel = race.mesafe ? escapeHtml(String(race.mesafe)) + 'm' : '';
         const saatLabel = race.saat ? escapeHtml(race.saat) : '';
@@ -1322,8 +1382,6 @@
                 ? '<div class="pub-hazir-kasa-race-hint">Oran hücresine tıklayarak bahis yapın</div>'
                 : '');
 
-        const tahminUnder = renderTahminUnderRace(hip, race);
-
         return '<div class="pub-hazir-race-card pub-hazir-premium-card ' + statusCls + '" data-race="' + race.raceNo + '">'
             + '<div class="pub-hazir-race-hdr">'
             + '<span class="pub-hazir-race-no">Koşu ' + race.raceNo + '</span>'
@@ -1332,8 +1390,8 @@
             + '<span class="pub-hazir-race-status pub-hazir-status-' + statusCls + '">' + statusLabel + '</span>'
             + '</div>'
             + kasaLine
+            + soleHtml
             + picksHtml
-            + tahminUnder
             + actualLine
             + '</div>';
     }

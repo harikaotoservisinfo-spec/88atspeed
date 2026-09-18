@@ -6034,23 +6034,32 @@ a { color: inherit; text-decoration: none; }
     display: inline-block; margin-left: 6px; font-size: 11px; font-weight: 800;
     color: #7b1fa2; background: #f3e5f5; padding: 1px 6px; border-radius: 6px;
 }
-.pub-hazir-tahmin-under {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 2px solid #b2dfdb;
-    background: linear-gradient(180deg, #f1f8f6 0%, #fff 48px);
-    margin-left: -4px;
-    margin-right: -4px;
-    padding-left: 8px;
-    padding-right: 8px;
-    padding-bottom: 8px;
-    border-radius: 0 0 10px 10px;
-}
-.pub-hazir-tahmin-under .pub-tahmin-sole {
-    border-radius: 8px;
+.pub-hazir-sole-block {
     margin-bottom: 10px;
-    border: 1px solid #e0e8e4;
 }
+.pub-hazir-sole-block .pub-tahmin-sole {
+    border-radius: 8px;
+    border: 1px solid #e0e8e4;
+    background: #f4f6fa;
+}
+.pub-hazir-pick-table-aligned { table-layout: fixed; }
+.pub-hazir-tahmin-sep td {
+    background: #e8f5f2;
+    color: #00695c;
+    font-weight: 800;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 8px 10px !important;
+    border-top: 2px solid #00897b;
+}
+.pub-hazir-tbody-tahmin tr.pub-hazir-row-tahmin {
+    background: #fafdfc;
+}
+.pub-hazir-tbody-tahmin tr.pub-hazir-row-tahmin:hover {
+    background: #f1f8f6;
+}
+.pub-hazir-tahmin-pay { color: #bbb; text-align: center; }
 .pub-hazir-tahmin-table-wrap { margin-top: 4px; }
 .pub-hazir-tahmin-list-table { min-width: 0 !important; }
 .pub-hazir-tahmin-list-table th,
