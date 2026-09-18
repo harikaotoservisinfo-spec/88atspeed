@@ -197,6 +197,37 @@
         return '—';
     }
 
+    function normHipForMatch(name) {
+        if (window.SoleSonScoring?.normHip) return window.SoleSonScoring.normHip(name);
+        return String(name || '').toLocaleLowerCase('tr-TR')
+            .normalize('NFD').replace(/\p{M}/gu, '')
+            .replace(/[^a-z0-9]/g, '');
+    }
+
+    function findVitrinRace(hipName, raceNo) {
+        const key = normHipForMatch(hipName);
+        const hip = state.hipodromlar.find((h) => normHipForMatch(h.name) === key);
+        if (!hip) return null;
+        return (hip.kosular || []).find((r) => String(r.raceNo) === String(raceNo)) || null;
+    }
+
+    function renderTahminMiniTable(tahminler) {
+        if (!tahminler.length) {
+            return '<div class="pub-hazir-tahmin-mini pub-hazir-tahmin-mini--empty">Tahmin henüz üretilmedi</div>';
+        }
+        const rows = tahminler.map((t) => '<tr>'
+            + '<td><span class="pub-tahmin-rank">' + escapeHtml(String(t.rank)) + '</span></td>'
+            + '<td><strong>' + escapeHtml(String(t.horseNo)) + '</strong></td>'
+            + '<td class="pub-tahmin-at">' + escapeHtml(String(t.horseName || '').trim()) + '</td>'
+            + '<td class="pub-tahmin-pct">' + escapeHtml(formatTahminSkor(t)) + '</td>'
+            + '</tr>').join('');
+        return '<div class="pub-hazir-tahmin-mini">'
+            + '<div class="pub-hazir-tahmin-mini-hdr">Tahminler</div>'
+            + '<table class="pub-hazir-tahmin-mini-table"><thead><tr>'
+            + '<th>#</th><th>No</th><th>At</th><th>Skor</th></tr></thead><tbody>'
+            + rows + '</tbody></table></div>';
+    }
+
     function formatScoreCell(t) {
         if (!t || t.rank == null || t.pct == null || t.pct <= 0) return '—';
         return t.rank + '. %' + t.pct;
@@ -2500,6 +2531,9 @@
             if (loadId === soleSonLoadSeq) {
                 state.soleSonLoading = false;
                 renderTahminAll();
+                if ($('#panel-hazir')?.classList.contains('active')) {
+                    window.pubHazirKupon?.redraw?.();
+                }
             }
         }
     }
@@ -3429,5 +3463,22 @@
     window.pubVitrinState = {
         getIso: () => state.iso || localTodayIso(),
         getTarih: () => state.tarih
+    };
+
+    window.pubTahminEmbed = {
+        async prepareForHazir(iso) {
+            const clamped = clampProgramIso(iso || state.iso || localTodayIso());
+            if (state.iso !== clamped || !state.hipodromlar.length) {
+                await loadVitrin(clamped);
+            }
+            if (state.tarih) {
+                await refreshSoleSonScores(state.tarih);
+            }
+        },
+        raceFooterHtml(hipName, raceNo) {
+            const race = findVitrinRace(hipName, raceNo);
+            const tahminler = race ? getRaceTahminler(race) : [];
+            return formatSoleSonBlock(raceNo, hipName) + renderTahminMiniTable(tahminler);
+        }
     };
 })();

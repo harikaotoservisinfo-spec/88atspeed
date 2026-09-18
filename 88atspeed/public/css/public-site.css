@@ -6034,6 +6034,49 @@ a { color: inherit; text-decoration: none; }
     display: inline-block; margin-left: 6px; font-size: 11px; font-weight: 800;
     color: #7b1fa2; background: #f3e5f5; padding: 1px 6px; border-radius: 6px;
 }
+.pub-hazir-tahmin-under {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed #c5d9d3;
+}
+.pub-hazir-tahmin-under .pub-tahmin-sole {
+    border-radius: 8px;
+    margin-bottom: 8px;
+    border: 1px solid #e0e8e4;
+}
+.pub-hazir-tahmin-mini-hdr {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #00695c;
+    margin-bottom: 6px;
+}
+.pub-hazir-tahmin-mini-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    background: #f8faf9;
+    border-radius: 8px;
+    overflow: hidden;
+}
+.pub-hazir-tahmin-mini-table th {
+    text-align: left;
+    font-size: 10px;
+    color: #666;
+    padding: 6px 8px;
+    background: #e8f5f2;
+}
+.pub-hazir-tahmin-mini-table td {
+    padding: 5px 8px;
+    border-top: 1px solid #e8eeec;
+}
+.pub-hazir-tahmin-mini--empty {
+    font-size: 12px;
+    color: #888;
+    font-style: italic;
+    padding: 4px 0;
+}
 .pub-hazir-tahmin-badge {
     font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 8px;
     background: #ffebee; color: #c62828;

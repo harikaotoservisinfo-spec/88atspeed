@@ -35,8 +35,10 @@ if [[ -f "$PUB/js/sole-son-scoring.js" ]]; then
   cp -a "$PUB/js/sole-son-scoring.js" "$PUB/js/sole-son-scoring.js.bak-$STAMP"
 fi
 
+SCRIPTS_BASE="https://raw.githubusercontent.com/harikaotoservisinfo-spec/88atspeed/${BR}/88atspeed/public/js"
 curl -fsSL "$BASE/js/sole-son-scoring.js" -o "$PUB/js/sole-son-scoring.js"
 curl -fsSL "$BASE/js/public-home.js" -o "$PUB/js/public-home.js"
+curl -fsSL "$SCRIPTS_BASE/pub-hazir-kupon.js" -o "$PUB/js/pub-hazir-kupon.js"
 curl -fsSL "$BASE/css/public-site.css" -o "$PUB/css/public-site.css"
 curl -fsSL "$BASE/gunluk-program-index.html" -o "$PUB/index.html"
 
