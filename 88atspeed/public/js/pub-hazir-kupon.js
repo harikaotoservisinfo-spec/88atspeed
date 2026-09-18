@@ -1,8 +1,11 @@
 /**
  * Hazır Kupon — TEK/S2/S1/YUV ilk-4 premium tahmin paneli
+ * UI build: 20260918-hazirTahmin4 (tahmin satırları üst tablo ile aynı <table>)
  */
 (function () {
     'use strict';
+
+    const HAZIR_UI_BUILD = '20260918-hazirTahmin4';
 
     const COL_KEYS = ['TEK', 'S2', 'S1', 'YUV'];
     const COL_COLORS = { TEK: '#e65100', S2: '#1565c0', S1: '#2e7d32', YUV: '#6a1b9a' };
@@ -203,6 +206,15 @@
             + '</tr>';
     }
 
+    function hazirPickColgroup(finished) {
+        return '<colgroup>'
+            + '<col class="pub-hazir-col-odd"><col class="pub-hazir-col-odd"><col class="pub-hazir-col-odd"><col class="pub-hazir-col-odd">'
+            + '<col class="pub-hazir-col-ayak"><col class="pub-hazir-col-no"><col class="pub-hazir-col-at">'
+            + '<col class="pub-hazir-col-mark"><col class="pub-hazir-col-metric"><col class="pub-hazir-col-pay">'
+            + (finished ? '<col class="pub-hazir-col-res">' : '')
+            + '</colgroup>';
+    }
+
     function renderRaceTable(race, hip, kasaBet) {
         const finished = race.status === 'finished';
         const oddHeaders = BET_KEYS.map((k) => '<th class="pub-hazir-odd-th">' + BET_LABELS[k] + '</th>').join('');
@@ -227,6 +239,7 @@
                 + '</tbody>';
         }
         return '<div class="pub-hazir-table-wrap"><table class="pub-hazir-pick-table pub-hazir-pick-table-aligned">'
+            + hazirPickColgroup(finished)
             + '<thead><tr>'
             + oddHeaders
             + '<th class="pub-hazir-ayak-th">#</th><th>No</th><th>At</th><th>İşaretler</th>'
@@ -1507,6 +1520,7 @@
         onTabActivate,
         onTabDeactivate,
         load: loadHazirKupon,
-        redraw: render
+        redraw: render,
+        uiBuild: HAZIR_UI_BUILD
     };
 })();

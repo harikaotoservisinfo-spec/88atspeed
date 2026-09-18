@@ -50,6 +50,10 @@ if ! grep -q "buildDayIndex" "$PUB/js/sole-son-scoring.js"; then
   echo "Hata: indirilen sole-son-scoring.js eksik." >&2
   exit 1
 fi
+if ! grep -q "renderRaceTable" "$PUB/js/pub-hazir-kupon.js"; then
+  echo "Hata: pub-hazir-kupon.js eski — Tahminler hizalı tablo (renderRaceTable) yok." >&2
+  exit 1
+fi
 
 echo "deploy-gosterge-columns.sh sürüm: $DEPLOY_VERSION (branch: $BR)"
 echo "OK: yildizGosK + Tahminler SON sole yüklendi."

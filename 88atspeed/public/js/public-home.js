@@ -3490,8 +3490,10 @@
         soleBlock(hipName, raceNo) {
             return formatSoleSonBlock(raceNo, hipName);
         },
-        tahminTableHtml(hipName, raceNo, opts) {
-            const tahminler = window.pubTahminEmbed.getTahminler(hipName, raceNo);
+        tahminTableHtml(hipName, raceNo, opts, tahminlerOverride) {
+            const tahminler = (tahminlerOverride && tahminlerOverride.length)
+                ? tahminlerOverride
+                : window.pubTahminEmbed.getTahminler(hipName, raceNo);
             return renderTahminMiniTable(tahminler, opts);
         },
         raceFooterHtml(hipName, raceNo, opts) {
