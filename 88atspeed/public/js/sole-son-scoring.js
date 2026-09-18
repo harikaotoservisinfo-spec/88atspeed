@@ -6,9 +6,61 @@
     const MOR_YANIP_BONUS = 15;
     const MIN_RACE_FIELD = 3;
     const LEARN_MIN_SAMPLE = 5;
+    /** İstemcide tam geçmiş çok yavaş; son N kayıt yeterli örnek */
+    const LEARN_MAX_KAYIT = parseInt(String(global.SOLE_SON_LEARN_MAX || '28'), 10);
+    const LEARN_CONCURRENCY = 6;
+    const WEIGHTS_LS_KEY = 'atspeedSoleSonWeightsV1';
 
     let weightsCache = null;
     let weightsPromise = null;
+
+    function normalizeTarih(t) {
+        return String(t || '').trim().replace(/\./g, '/');
+    }
+
+    function serializeWeights(weights) {
+        const o = {};
+        for (const [sig, w] of weights) o[sig] = w;
+        return o;
+    }
+
+    function deserializeWeights(obj) {
+        const m = new Map();
+        if (!obj || typeof obj !== 'object') return m;
+        for (const [sig, w] of Object.entries(obj)) m.set(sig, w);
+        return m;
+    }
+
+    function loadWeightsFromStorage() {
+        try {
+            const raw = global.localStorage?.getItem(WEIGHTS_LS_KEY);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            const m = deserializeWeights(parsed.weights);
+            return m.size ? m : null;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function saveWeightsToStorage(weights) {
+        try {
+            global.localStorage?.setItem(WEIGHTS_LS_KEY, JSON.stringify({
+                savedAt: Date.now(),
+                weights: serializeWeights(weights)
+            }));
+        } catch (_) { /* quota */ }
+    }
+
+    function getWeightsForScoring() {
+        if (weightsCache && weightsCache.size) return weightsCache;
+        const stored = loadWeightsFromStorage();
+        if (stored) {
+            weightsCache = stored;
+            return weightsCache;
+        }
+        return new Map();
+    }
 
     function normHip(s) {
         return String(s || '')
@@ -162,9 +214,8 @@
 
     async function loadHistoricalRaces() {
         const list = await fetchJson('/api/public/kayit-degerlendirme/kayitlar');
-        const kayitlar = list.kayitlar || [];
+        const kayitlar = (list.kayitlar || []).slice(0, LEARN_MAX_KAYIT);
         const races = [];
-        const concurrency = 4;
         let i = 0;
         async function worker() {
             while (i < kayitlar.length) {
@@ -182,58 +233,76 @@
                 } catch (_) { /* skip */ }
             }
         }
-        await Promise.all(Array.from({ length: concurrency }, () => worker()));
+        await Promise.all(Array.from({ length: LEARN_CONCURRENCY }, () => worker()));
         return races;
     }
 
     async function ensureWeights() {
-        if (weightsCache) return weightsCache;
+        if (weightsCache && weightsCache.size) return weightsCache;
+        const stored = loadWeightsFromStorage();
+        if (stored) {
+            weightsCache = stored;
+        }
         if (weightsPromise) return weightsPromise;
         weightsPromise = (async () => {
             const races = await loadHistoricalRaces();
             weightsCache = learnWeightsFromRaces(races);
+            saveWeightsToStorage(weightsCache);
+            try {
+                global.dispatchEvent?.(new CustomEvent('soleSonWeightsUpdated'));
+            } catch (_) { /* ignore */ }
             return weightsCache;
         })();
         return weightsPromise;
+    }
+
+    function indexFromKayitData(data, weights, index) {
+        if (!data.success) return;
+        const hipKey = normHip(data.hipodrom);
+        for (const race of data.kosular || []) {
+            const horses = race.horses || [];
+            if (horses.length < MIN_RACE_FIELD) continue;
+            const ranked = rankRace(horses, weights);
+            if (!ranked.length) continue;
+            const leader = ranked[0];
+            const second = ranked[1];
+            const gap = second ? leader.score - second.score : 99;
+            let guven = 'ORTA';
+            if (leader.score < 20) guven = 'DÜŞÜK';
+            else if (gap >= 25 && leader.soleCount >= 2) guven = 'YÜKSEK';
+            index.set(hipKey + '|' + String(race.raceNo), {
+                leader,
+                top3: ranked.slice(0, 3),
+                gap,
+                guven
+            });
+        }
     }
 
     /**
      * @returns {Map<string, { leader, top3, gap }>} key = normHip|raceNo
      */
     async function buildDayIndex(tarih) {
-        const weights = await ensureWeights();
+        const tarihKey = normalizeTarih(tarih);
+        const weights = getWeightsForScoring();
+        ensureWeights().catch(() => { /* arka plan */ });
+
         const list = await fetchJson('/api/public/kayit-degerlendirme/kayitlar');
-        const ids = (list.kayitlar || []).filter((k) => k.tarih === tarih).map((k) => k.id);
+        const ids = (list.kayitlar || [])
+            .filter((k) => normalizeTarih(k.tarih) === tarihKey)
+            .map((k) => k.id);
         const index = new Map();
 
-        for (const id of ids) {
+        await Promise.all(ids.map(async (id) => {
             const data = await fetchJson('/api/public/kayit-degerlendirme/' + id);
-            if (!data.success) continue;
-            const hipKey = normHip(data.hipodrom);
-            for (const race of data.kosular || []) {
-                const horses = race.horses || [];
-                if (horses.length < MIN_RACE_FIELD) continue;
-                const ranked = rankRace(horses, weights);
-                if (!ranked.length) continue;
-                const leader = ranked[0];
-                const second = ranked[1];
-                const gap = second ? leader.score - second.score : 99;
-                let guven = 'ORTA';
-                if (leader.score < 20) guven = 'DÜŞÜK';
-                else if (gap >= 25 && leader.soleCount >= 2) guven = 'YÜKSEK';
-                index.set(hipKey + '|' + String(race.raceNo), {
-                    leader,
-                    top3: ranked.slice(0, 3),
-                    gap,
-                    guven
-                });
-            }
-        }
+            indexFromKayitData(data, weights, index);
+        }));
         return index;
     }
 
     global.SoleSonScoring = {
         normHip,
+        normalizeTarih,
         ensureWeights,
         buildDayIndex,
         rankRace,

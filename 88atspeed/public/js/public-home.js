@@ -2472,26 +2472,35 @@
             + '</div>';
     }
 
-    async function refreshSoleSonScores(tarih) {
+    let soleSonLoadSeq = 0;
+
+    async function refreshSoleSonScores(tarih, opts) {
         if (!tarih || !window.SoleSonScoring) return;
-        if (state.soleSonIndex && state.soleSonTarih === tarih) {
+        const tarihKey = window.SoleSonScoring.normalizeTarih(tarih);
+        if (opts && opts.force) state.soleSonIndex = null;
+        if (state.soleSonIndex && state.soleSonTarih === tarihKey && !(opts && opts.force)) {
             renderTahminAll();
             return;
         }
+        const loadId = ++soleSonLoadSeq;
         state.soleSonLoading = true;
         state.soleSonError = null;
-        state.soleSonTarih = tarih;
+        state.soleSonTarih = tarihKey;
         renderTahminAll();
         try {
-            const index = await window.SoleSonScoring.buildDayIndex(tarih);
+            const index = await window.SoleSonScoring.buildDayIndex(tarihKey);
+            if (loadId !== soleSonLoadSeq) return;
             state.soleSonIndex = index;
             state.soleSonError = null;
         } catch (err) {
+            if (loadId !== soleSonLoadSeq) return;
             state.soleSonIndex = null;
             state.soleSonError = 'SON sole yüklenemedi: ' + (err.message || String(err));
         } finally {
-            state.soleSonLoading = false;
-            renderTahminAll();
+            if (loadId === soleSonLoadSeq) {
+                state.soleSonLoading = false;
+                renderTahminAll();
+            }
         }
     }
 
@@ -3412,6 +3421,10 @@
     initMuhtControls();
     initFobToolbar();
     initDate();
+
+    window.addEventListener('soleSonWeightsUpdated', () => {
+        if (state.tarih) refreshSoleSonScores(state.tarih, { force: true });
+    });
 
     window.pubVitrinState = {
         getIso: () => state.iso || localTodayIso(),
