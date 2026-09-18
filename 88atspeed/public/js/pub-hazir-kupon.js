@@ -136,7 +136,7 @@
             sole = window.pubTahminEmbed.soleBlock(hip.name, race.raceNo);
         }
         if (window.pubTahminEmbed?.tahminTableHtml) {
-            table = window.pubTahminEmbed.tahminTableHtml(hip.name, race.raceNo, opts);
+            table = window.pubTahminEmbed.tahminTableHtml(hip.name, race.raceNo, opts, tahminler);
         } else if (tahminler.length) {
             table = '<div class="pub-hazir-tahmin-mini"><div class="pub-hazir-tahmin-mini-hdr">Tahminler</div>'
                 + '<p class="pub-hazir-tahmin-mini--empty">Tablo yüklenemedi — sayfayı yenileyin</p></div>';
